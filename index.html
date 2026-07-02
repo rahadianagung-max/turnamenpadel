@@ -61,7 +61,7 @@ a{color:inherit;text-decoration:none}
 .card .ic{width:44px;height:44px;border-radius:12px;background:rgba(255,106,0,.14);color:var(--or);display:flex;align-items:center;justify-content:center;font-size:22px}
 .card h3{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:23px;letter-spacing:-.01em;margin:16px 0 8px}
 .card p{color:var(--mu);font-size:14px;line-height:1.6;margin:0 0 16px}
-.built{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.built{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:16px}
 .mini{background:var(--s2);border:1px solid var(--bd);border-radius:14px;padding:18px}
 .mini .ic{width:38px;height:38px;border-radius:10px;font-size:19px}
 .mini h4{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:17px;margin:12px 0 6px}
@@ -97,9 +97,7 @@ a{color:inherit;text-decoration:none}
 <header class="hd"><div class="container inner">
   <span class="brand">Turnamen<b>Padel</b></span>
   <nav class="nav">
-    <a href="#events">Events</a>
-    <a href="#service">Service</a>
-    <a href="#formats">How It Works</a>
+    <a class="btn btn-line btn-sm navcta" href="/demo.html">Try the engine</a>
     <a class="btn btn-line btn-sm navcta" href="/admin.html">Admin Login</a>
   </nav>
 </div></header>
@@ -110,43 +108,10 @@ a{color:inherit;text-decoration:none}
   <p>We run your tournament end-to-end — or license the engine so you can. Automated brackets, live scoring, a personalized schedule on every player's phone, and broadcast-ready LED displays.</p>
   <div class="cta">
     <a class="btn btn-pr" href="mailto:sportsactvd@gmail.com"><i class="ti ti-calendar-event"></i> Run my tournament</a>
-    <a class="btn btn-line" href="#events">See upcoming events</a>
-  </div>
-  <div class="trust">
-    <div><div class="n">120+</div><div class="l">Tournaments Run</div></div>
-    <div><div class="n">4,800+</div><div class="l">Players Managed</div></div>
-    <div><div class="n">18</div><div class="l">Partner Venues</div></div>
+    <a class="btn btn-line" href="/demo.html">Try the engine</a>
   </div>
 </div></section>
 
-<!-- UPCOMING EVENTS -->
-<section class="sec" id="events"><div class="container">
-  <div class="sechead"><div class="top">
-    <div><span class="eyebrow">Upcoming</span><h2 class="disp">Tournament Events</h2></div>
-    <a class="btn btn-line btn-sm" href="#">View all events</a>
-  </div>
-  <p>Open competitions run on the Trekkr tournament engine — join, or come watch.</p></div>
-  <div class="egrid">
-    <a class="ev" href="#">
-      <span class="date"><i class="ti ti-calendar"></i> 12 Jul 2026</span><span class="status">Registration open</span>
-      <h3>Jakarta Open Padel</h3>
-      <div class="meta"><span><i class="ti ti-map-pin"></i> Padel Box Kemang · Jakarta Selatan</span><span><i class="ti ti-trophy"></i> Playoff Championship</span></div>
-      <div class="foot"><span class="cat">Men's Open</span><span class="go">Details →</span></div>
-    </a>
-    <a class="ev" href="#">
-      <span class="date"><i class="ti ti-calendar"></i> 26 Jul 2026</span><span class="status">Registration open</span>
-      <h3>Stellar Women's Cup</h3>
-      <div class="meta"><span><i class="ti ti-map-pin"></i> Stellar Padel · Tangerang</span><span><i class="ti ti-trophy"></i> Double Path Championship</span></div>
-      <div class="foot"><span class="cat">Women's · Upper Bronze</span><span class="go">Details →</span></div>
-    </a>
-    <a class="ev" href="#">
-      <span class="date"><i class="ti ti-calendar"></i> 09 Aug 2026</span><span class="status" style="color:var(--amb);background:rgba(255,176,0,.12)">Coming soon</span>
-      <h3>Bali Padel Festival</h3>
-      <div class="meta"><span><i class="ti ti-map-pin"></i> Bali Padel Club · Bali</span><span><i class="ti ti-trophy"></i> Community League</span></div>
-      <div class="foot"><span class="cat">Mixed · Open</span><span class="go">Details →</span></div>
-    </a>
-  </div>
-</div></section>
 
 <!-- SERVICE -->
 <section class="sec" id="service"><div class="container">
@@ -165,9 +130,11 @@ a{color:inherit;text-decoration:none}
       <a class="btn btn-line btn-sm" href="/demo.html">Try the engine</a>
     </div>
   </div>
+  <div class="sechead" style="margin-top:36px"><span class="eyebrow">Our engine features</span><h2 class="disp" style="font-size:clamp(24px,3.4vw,32px)">Built Into Every Engine</h2></div>
   <div class="built">
     <div class="mini"><div class="ic" style="background:rgba(255,106,0,.14);color:var(--or);display:flex;align-items:center;justify-content:center"><i class="ti ti-device-mobile"></i></div><h4>On Every Player's Phone</h4><p>Each player gets their own live schedule, court, and next-match alerts — no app to install.</p></div>
     <div class="mini"><div class="ic" style="background:rgba(255,106,0,.14);color:var(--or);display:flex;align-items:center;justify-content:center"><i class="ti ti-broadcast"></i></div><h4>Live on the Court LED</h4><p>Broadcast-ready scoreboards and brackets on venue screens, with space for sponsor placements.</p></div>
+    <div class="mini"><div class="ic" style="background:rgba(255,106,0,.14);color:var(--or);display:flex;align-items:center;justify-content:center"><i class="ti ti-chart-line"></i></div><h4>Connected to Trekkr ELO</h4><p>Every result syncs to the Trekkr ELO rating system — player ratings and rankings update automatically.</p></div>
   </div>
 </div></section>
 
@@ -199,8 +166,8 @@ a{color:inherit;text-decoration:none}
       <div class="eco">Tournament management for padel, powered by the Trekkr engine. Part of the SportsActvd ecosystem.</div>
     </div>
     <div class="cols">
-      <div class="col"><h5>Product</h5><a href="#events">Events</a><a href="#service">Service</a><a href="/admin.html">Admin login</a></div>
-      <div class="col"><h5>Ecosystem</h5><a href="https://trekkr.online">Trekkr Rankings</a><a href="#">Stellar Academy</a><a href="mailto:sportsactvd@gmail.com">Contact</a></div>
+      <div class="col"><h5>Product</h5><a href="/demo.html">Try the engine</a><a href="/admin.html">Admin login</a><a href="mailto:sportsactvd@gmail.com">Contact</a></div>
+      <div class="col"><h5>Ecosystem</h5><a href="https://www.sportsactvd.com" target="_blank" rel="noopener">SportsActvd</a><a href="https://trekkr.online" target="_blank" rel="noopener">Trekkr</a><a href="https://stellarsquadacademy.com/" target="_blank" rel="noopener">Stellar Academy</a></div>
     </div>
   </div>
   <div class="copy">&copy; 2026 TurnamenPadel · SportsActvd. All rights reserved.</div>
