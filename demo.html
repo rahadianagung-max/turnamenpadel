@@ -80,6 +80,23 @@
 
 @media(max-width:860px){.nav{display:none}.menu-toggle{display:flex}}
 @media(max-width:680px){.groups-grid{grid-template-columns:1fr}}
+.views{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}
+.views-label{font-size:12px;color:var(--muted);font-weight:600;margin-right:2px}
+.bcol-center{justify-content:center}
+.bcol-center .bmatch{border-color:var(--warm-border)}
+.third-h{margin-top:14px}
+.bracket-2s{align-items:center}
+.third-line{font-size:12px;color:var(--muted);margin-top:6px;display:flex;align-items:center;gap:6px}
+.third-line i{color:var(--amber)}
+.screens{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+.screen{display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;transition:border-color .15s,background .15s}
+.screen:hover{border-color:var(--orange);background:#141416}
+.screen .sic{width:42px;height:42px;border-radius:11px;background:rgba(255,106,0,.14);color:var(--orange);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.screen .stx{display:flex;flex-direction:column;gap:3px}
+.screen .stx b{font-family:var(--display);font-style:italic;font-weight:800;text-transform:uppercase;font-size:16px}
+.screen .stx small{font-size:12px;color:var(--muted);line-height:1.4}
+.screen .sar{margin-left:auto;color:var(--subtle)}
+@media(max-width:640px){.screens{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -113,6 +130,23 @@
     <span class="eyebrow">Try it · no sign-up</span>
     <h1 class="display">Tournament engine demo</h1>
     <p>Simulate a group stage and playoff bracket from scratch — round-robin groups, then a knockout bracket, with standings and winners updating live. This is the same engine that runs real events on TurnamenPadel.</p>
+    <div class="screens" aria-label="Live screens">
+      <a class="screen" href="/mobile-demo.html">
+        <span class="sic"><i class="ti ti-device-mobile"></i></span>
+        <span class="stx"><b>Player phone view</b><small>Each player's live schedule, court &amp; next match — no app.</small></span>
+        <i class="ti ti-arrow-right sar"></i>
+      </a>
+      <a class="screen" href="/tv-demo.html">
+        <span class="sic"><i class="ti ti-device-tv"></i></span>
+        <span class="stx"><b>TV display / court LED</b><small>Live scores &amp; bracket on venue screens.</small></span>
+        <i class="ti ti-arrow-right sar"></i>
+      </a>
+    </div>
+    <div class="views">
+      <span class="views-label">See the live views:</span>
+      <a class="btn btn--ghost" href="/mobile-demo.html"><i class="ti ti-device-mobile" aria-hidden="true"></i> Player mobile view</a>
+      <a class="btn btn--ghost" href="/tv-demo.html"><i class="ti ti-device-tv" aria-hidden="true"></i> TV display</a>
+    </div>
   </div>
 
   <section class="setup" id="setup" aria-label="Setup">
@@ -227,24 +261,37 @@
     S.bracket[idx].forEach(function(m,mi){
       if(!m.a||!m.b)return;
       var sa=2,sb=ri(0,1);if(Math.random()<0.5){var t=sa;sa=sb;sb=t;}
-      m.sa=sa;m.sb=sb;m.w=(sa>sb)?m.a:m.b;
+      m.sa=sa;m.sb=sb;m.w=(sa>sb)?m.a:m.b;m.l=(sa>sb)?m.b:m.a;
       if(idx+1<S.bracket.length){var nm=S.bracket[idx+1][Math.floor(mi/2)];if(mi%2===0)nm.a=m.w;else nm.b=m.w;}
     });
   }
+  function buildThird(){
+    var sf=S.bracket[S.bracket.length-2]||[];
+    S.third={a:sf[0]?sf[0].l:null,b:sf[1]?sf[1].l:null,sa:null,sb:null,w:null};
+  }
+  function playThird(){
+    var m=S.third;if(!m||!m.a||!m.b)return;
+    var sa=2,sb=ri(0,1);if(Math.random()<0.5){var t=sa;sa=sb;sb=t;}
+    m.sa=sa;m.sb=sb;m.w=(sa>sb)?m.a:m.b;
+  }
   function roundNames(){return (S.bracket.length===2)?['Semi-finals','Final']:['Quarter-finals','Semi-finals','Final'];}
+  function bMatch(m){
+    function row(team,score,isWin){
+      if(!team)return '<div class="bteam tbd"><span class="bn">—</span><span class="bs"></span></div>';
+      return '<div class="bteam'+(isWin?' win':'')+'"><span class="bn">'+esc(team.name)+'</span><span class="bs">'+(score==null?'':score)+'</span></div>';
+    }
+    return '<div class="bmatch">'+row(m.a,m.sa,m.w&&m.a&&m.w.id===m.a.id)+row(m.b,m.sb,m.w&&m.b&&m.w.id===m.b.id)+'</div>';
+  }
   function renderBracket(){
-    var names=roundNames();
-    var cols=S.bracket.map(function(rnd,ci){
-      var matches=rnd.map(function(m){
-        function row(team,score,isWin){
-          if(!team)return '<div class="bteam tbd"><span class="bn">—</span><span class="bs"></span></div>';
-          return '<div class="bteam'+(isWin?' win':'')+'"><span class="bn">'+esc(team.name)+'</span><span class="bs">'+(score==null?'':score)+'</span></div>';
-        }
-        return '<div class="bmatch">'+row(m.a,m.sa,m.w&&m.a&&m.w.id===m.a.id)+row(m.b,m.sb,m.w&&m.b&&m.w.id===m.b.id)+'</div>';
-      }).join('');
-      return '<div class="bcol"><div class="bcol-h">'+names[ci]+'</div>'+matches+'</div>';
-    }).join('');
-    stage.innerHTML='<div class="sec-label">Playoff bracket · crossing seeding</div><div class="bracket-wrap"><div class="bracket">'+cols+'</div></div>';
+    var last=S.bracket.length-1, names=roundNames(), left='', right='';
+    for(var r=0;r<last;r++){var rnd=S.bracket[r],h=rnd.length/2;
+      left+='<div class="bcol"><div class="bcol-h">'+names[r]+'</div>'+rnd.slice(0,h).map(bMatch).join('')+'</div>';}
+    for(var r2=last-1;r2>=0;r2--){var rn=S.bracket[r2],h2=rn.length/2;
+      right+='<div class="bcol"><div class="bcol-h">'+names[r2]+'</div>'+rn.slice(h2).map(bMatch).join('')+'</div>';}
+    var center='<div class="bcol bcol-center"><div class="bcol-h">Final</div>'+bMatch(S.bracket[last][0]);
+    if(S.third){center+='<div class="bcol-h third-h">3rd Place</div>'+bMatch(S.third);}
+    center+='</div>';
+    stage.innerHTML='<div class="sec-label">Playoff bracket · left &amp; right draw · 3rd-place playoff</div><div class="bracket-wrap"><div class="bracket bracket-2s">'+left+center+right+'</div></div>';
   }
 
   function setAct(label,disabled){actBtn.innerHTML=label;actBtn.disabled=!!disabled;}
@@ -262,8 +309,9 @@
     autoBtn.disabled=false;
   }
 
-  function champion(name,sub){
-    document.getElementById('championWrap').innerHTML='<div class="champion"><i class="ti ti-trophy cup"></i><div class="who"><div class="lbl">CHAMPION</div><div class="nm">'+esc(name)+'</div><div class="sub">'+esc(sub)+'</div></div></div>';
+  function champion(name,sub,third){
+    var t3=third?'<div class="third-line"><i class="ti ti-medal-2" aria-hidden="true"></i> 3rd place · '+esc(third)+'</div>':'';
+    document.getElementById('championWrap').innerHTML='<div class="champion"><i class="ti ti-trophy cup"></i><div class="who"><div class="lbl">CHAMPION</div><div class="nm">'+esc(name)+'</div><div class="sub">'+esc(sub)+'</div>'+t3+'</div></div>';
     S.done=true;setAct('<i class="ti ti-flag-check"></i>Done',true);autoBtn.disabled=true;
   }
 
@@ -274,9 +322,15 @@
       seedBracket();renderBracket();S.mode='playko';S.koIdx=0;
       setPhase(roundNames()[0]);setAct('<i class="ti ti-dice-5"></i>Play '+roundNames()[0].toLowerCase());return false;
     } else { // playko
-      playKo(S.koIdx);renderBracket();
-      var names=roundNames();
-      if(S.koIdx>=S.bracket.length-1){var w=S.bracket[S.bracket.length-1][0].w;champion(w.name,'Champion · '+segVal('segTeams')+'-team bracket');return true;}
+      playKo(S.koIdx);
+      var last=S.bracket.length-1, names=roundNames();
+      if(S.koIdx===last-1){buildThird();}
+      if(S.koIdx>=last){
+        playThird();renderBracket();
+        var w=S.bracket[last][0].w, t3=(S.third&&S.third.w)?S.third.w.name:null;
+        champion(w.name,'Champion · '+segVal('segTeams')+'-team bracket',t3);return true;
+      }
+      renderBracket();
       S.koIdx++;setPhase(names[S.koIdx]);setAct('<i class="ti ti-dice-5"></i>Play '+names[S.koIdx].toLowerCase());return false;
     }
   }
