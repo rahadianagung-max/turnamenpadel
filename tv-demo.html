@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TV Display (Example) — TurnamenPadel</title>
+<meta name="robots" content="noindex"/>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,700;0,800;0,900;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css"/>
+<style>
+:root{--bg:#0A0A0B;--panel:#141416;--panel2:#1B1B1F;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--subtle:#6B6B72;--or:#FF6A00;--amber:#FFB000;--green:#22C55E;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(1200px 600px at 85% -10%,rgba(255,106,0,.10),transparent 60%),#050506;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100dvh}
+.demobar{background:var(--panel2);border-bottom:1px solid var(--line);text-align:center;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);padding:7px}
+.demobar a{color:var(--or);text-decoration:none;font-weight:700}
+.board{padding:clamp(18px,2.5vw,34px)}
+.top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px;flex-wrap:wrap;gap:10px}
+.logo{font-family:'Saira Condensed';font-style:italic;font-weight:900;font-size:clamp(28px,3.4vw,46px);text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.ev{font-family:'Saira Condensed';font-weight:800;text-transform:uppercase;font-size:clamp(18px,2vw,28px);text-align:right}
+.ev small{display:block;font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:.1em;font-weight:400}
+.clock{font-family:'Space Mono',monospace;color:var(--or);font-size:13px;letter-spacing:.14em}
+.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(16px,2vw,28px);margin-top:22px}
+.col-title{font-family:'Space Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-size:13px;margin-bottom:12px}
+.col-title.live{color:var(--or)}
+.court{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;display:flex;align-items:center;gap:16px}
+.court .no{font-family:'Saira Condensed';font-style:italic;font-weight:900;font-size:clamp(26px,3vw,40px);color:var(--or);min-width:64px}
+.court .teams{flex:1}
+.court .t{display:flex;justify-content:space-between;align-items:center;font-size:clamp(15px,1.6vw,20px);font-weight:600;padding:4px 0}
+.court .t.w{color:var(--text)}.court .t.w .sc{color:var(--green)}
+.court .t .sc{font-family:'Space Mono',monospace;font-weight:700;font-size:clamp(20px,2.2vw,30px)}
+.court .srv{color:var(--or);font-size:12px}
+.next-row{display:flex;justify-content:space-between;padding:10px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;font-size:clamp(13px,1.3vw,16px)}
+.next-row .c{font-family:'Space Mono',monospace;color:var(--amber)}
+/* mini bracket */
+.brk{display:flex;align-items:center;gap:12px;justify-content:center}
+.bcol{display:flex;flex-direction:column;gap:16px;justify-content:center;min-width:150px}
+.bh{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);text-align:center;margin-bottom:2px}
+.bm{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:150px}
+.bm .r{display:flex;justify-content:space-between;padding:8px 11px;font-size:14px;font-weight:600}
+.bm .r+.r{border-top:1px solid var(--line)}
+.bm .r.w{color:var(--text)}.bm .r.w .s{color:var(--green)}
+.bm .r .s{font-family:'Space Mono',monospace;font-weight:700}
+.bm.fin{border-color:rgba(255,106,0,.4)}
+.center{display:flex;flex-direction:column;gap:10px;align-items:center}
+.third{font-size:12px;color:var(--muted)}
+.third i{color:var(--amber)}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="demobar">Example · TV display / court LED · <a href="/demo.html">← back to demo</a></div>
+<div class="board">
+  <div class="top">
+    <div><div class="logo">TurnamenPadel</div><div class="clock">● LIVE · 14:22 · SEMI-FINALS</div></div>
+    <div class="ev">Jakarta Open Padel<small>Padel Box Kemang</small></div>
+  </div>
+  <div class="grid">
+    <div>
+      <div class="col-title live">● On Court Now</div>
+      <div class="court"><div class="no">1</div><div class="teams">
+        <div class="t w"><span>Fajar &amp; Maya <span class="srv">●</span></span><span class="sc">5</span></div>
+        <div class="t"><span>Andi &amp; Budi</span><span class="sc">3</span></div>
+      </div></div>
+      <div class="court"><div class="no">2</div><div class="teams">
+        <div class="t"><span>Rian &amp; Deni</span><span class="sc">4</span></div>
+        <div class="t w"><span>Eko &amp; Dimas <span class="srv">●</span></span><span class="sc">4</span></div>
+      </div></div>
+      <div class="col-title" style="margin-top:20px">Up Next</div>
+      <div class="next-row"><span>Winners SF1 vs Winners SF2 — Final</span><span class="c">Court 1</span></div>
+      <div class="next-row"><span>Losers SF1 vs Losers SF2 — 3rd place</span><span class="c">Court 2</span></div>
+    </div>
+    <div>
+      <div class="col-title">Bracket</div>
+      <div class="brk">
+        <div class="bcol"><div class="bh">Semi</div>
+          <div class="bm"><div class="r w"><span>Fajar &amp; Maya</span><span class="s">·</span></div><div class="r"><span>Andi &amp; Budi</span><span class="s">·</span></div></div>
+        </div>
+        <div class="center"><div class="bh">Final</div>
+          <div class="bm fin"><div class="r"><span>Winner SF1</span><span class="s">—</span></div><div class="r"><span>Winner SF2</span><span class="s">—</span></div></div>
+          <div class="third"><i class="ti ti-medal-2"></i> 3rd place playoff</div>
+        </div>
+        <div class="bcol"><div class="bh">Semi</div>
+          <div class="bm"><div class="r"><span>Rian &amp; Deni</span><span class="s">·</span></div><div class="r w"><span>Eko &amp; Dimas</span><span class="s">·</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

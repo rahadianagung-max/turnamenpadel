@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Player Phone View (Example) — TurnamenPadel</title>
+<meta name="robots" content="noindex"/>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,700;0,800;0,900;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css"/>
+<style>
+:root{--bg:#0A0A0B;--panel:#141416;--panel2:#1B1B1F;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--subtle:#6B6B72;--or:#FF6A00;--amber:#FFB000;--green:#22C55E;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
+*{box-sizing:border-box}
+body{margin:0;background:#050506;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100dvh;display:flex;justify-content:center}
+.phone{width:100%;max-width:400px;background:var(--bg);min-height:100dvh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.demobar{background:var(--panel2);border-bottom:1px solid var(--line);text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);padding:6px}
+.demobar a{color:var(--or);text-decoration:none;font-weight:700}
+.top{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+.brandrow{display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'Saira Condensed';font-style:italic;font-weight:900;font-size:22px;text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.live{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:right}
+.live b{color:var(--or)}
+.evname{font-family:'Saira Condensed';font-weight:800;text-transform:uppercase;font-size:20px;margin-top:12px}
+.evmeta{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px}
+.who{margin-top:12px;font-size:12px;color:var(--muted)}
+.who b{color:var(--text)}
+.body{padding:16px 18px 30px}
+.lbl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin:18px 2px 8px}
+.next{background:linear-gradient(135deg,rgba(255,106,0,.16),rgba(255,176,0,.06));border:1px solid rgba(255,106,0,.35);border-radius:16px;padding:16px}
+.next .tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0A0A0B;background:var(--or);border-radius:999px;padding:4px 10px}
+.next .court{font-family:'Saira Condensed';font-weight:900;font-size:30px;text-transform:uppercase;margin-top:12px;line-height:1}
+.next .court span{color:var(--or)}
+.next .time{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px}
+.next .vs{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,106,0,.25);font-size:14px;font-weight:600}
+.next .vs small{color:var(--subtle);font-weight:600}
+.mrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:8px}
+.mrow .c{font-family:'Space Mono',monospace;font-size:10px;color:#0A0A0B;background:var(--amber);border-radius:6px;padding:4px 7px;font-weight:700;flex-shrink:0}
+.mrow .m{flex:1;font-size:13px;font-weight:600}
+.mrow .m small{display:block;color:var(--subtle);font-weight:500;font-size:11px;margin-top:2px}
+.mrow .r{font-family:'Space Mono',monospace;font-size:13px;font-weight:700}
+.mrow .r.w{color:var(--green)}.mrow .r.up{color:var(--muted)}
+.stand{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.strow{display:grid;grid-template-columns:20px 1fr 30px 40px;gap:8px;align-items:center;padding:9px 12px;font-size:12px;border-bottom:1px solid var(--line)}
+.strow:last-child{border-bottom:0}
+.strow.h{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
+.strow .rk{font-family:'Saira Condensed';font-style:italic;font-weight:800;color:var(--subtle)}
+.strow.me{background:rgba(255,106,0,.08)}
+.strow.me .nm{color:var(--or);font-weight:700}
+.strow.q .rk{color:var(--green)}
+.num{text-align:center;font-family:'Space Mono',monospace}
+.pts{text-align:center;font-weight:800}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="demobar">Example · Player phone view · <a href="/demo.html">← back to demo</a></div>
+  <div class="top">
+    <div class="brandrow"><span class="logo">TurnamenPadel</span><span class="live"><b>● LIVE</b><br/>Round 2</span></div>
+    <div class="evname">Jakarta Open Padel</div>
+    <div class="evmeta">Padel Box Kemang · 12 Jul 2026</div>
+    <div class="who">Signed in as <b>Andi Saputra</b></div>
+  </div>
+  <div class="body">
+    <div class="lbl">You're up next</div>
+    <div class="next">
+      <span class="tag"><i class="ti ti-clock"></i> Get ready</span>
+      <div class="court">Court <span>3</span></div>
+      <div class="time">14:20 · in about 8 minutes</div>
+      <div class="vs">You &amp; <b>Budi Pratama</b> <small>vs</small> Rian &amp; Deni</div>
+    </div>
+    <div class="lbl">My matches</div>
+    <div class="mrow"><span class="c">C1</span><span class="m">You &amp; Budi <small>vs Fajar &amp; Maya</small></span><span class="r w">6–3 W</span></div>
+    <div class="mrow"><span class="c">C3</span><span class="m">You &amp; Budi <small>vs Rian &amp; Deni</small></span><span class="r up">14:20</span></div>
+    <div class="mrow"><span class="c">—</span><span class="m">You &amp; Budi <small>vs Eko &amp; Dimas</small></span><span class="r up">TBD</span></div>
+    <div class="lbl">My group · B</div>
+    <div class="stand">
+      <div class="strow h"><span>#</span><span>Team</span><span class="num">P</span><span class="pts">Pts</span></div>
+      <div class="strow q"><span class="rk">1</span><span class="nm">Fajar &amp; Maya</span><span class="num">3</span><span class="pts">7</span></div>
+      <div class="strow q me"><span class="rk">2</span><span class="nm">You &amp; Budi</span><span class="num">2</span><span class="pts">6</span></div>
+      <div class="strow"><span class="rk">3</span><span class="nm">Rian &amp; Deni</span><span class="num">2</span><span class="pts">3</span></div>
+      <div class="strow"><span class="rk">4</span><span class="nm">Eko &amp; Dimas</span><span class="num">3</span><span class="pts">1</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
