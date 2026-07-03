@@ -159,7 +159,8 @@ function avatar(name){
   return `<span class="av">${esc(initials(name).toUpperCase())}</span>`;
 }
 function slug(n){ return String(n||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
-function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(name)}</a>`; }
+function firstName(n){ const t=String(n||"").trim(); return t? t.split(/\s+/)[0] : ""; }
+function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(firstName(name))}</a>`; }
 function teamNames(cat, entrantId, withAv){
   const e = cat.entrants[entrantId];
   if(!e) return entrantId ? esc(entrantId) : '<span class="tbd">TBD</span>';

@@ -149,7 +149,7 @@
   #sponsorOverlay.show{display:flex; animation:spFade .4s ease;}
   @keyframes spFade{from{opacity:0}to{opacity:1}}
   #sponsorOverlay img{width:100%; height:100%; object-fit:contain; display:block;}
-  #spCountdown{position:fixed; right:1.4vw; bottom:1.2vh; z-index:50; font-family:'Space Mono',monospace; font-size:clamp(10px,.9vw,15px); color:var(--muted); background:rgba(0,0,0,.5); border:1px solid var(--line); border-radius:999px; padding:.5vh 1vw; letter-spacing:.06em;}
+  #spCountdown{position:fixed; left:1.2vw; bottom:1vh; z-index:50; font-family:'Space Mono',monospace; font-size:clamp(7px,.55vw,10px); color:var(--faint); background:rgba(0,0,0,.45); border:1px solid var(--line); border-radius:999px; padding:.35vh .8vw; letter-spacing:.05em;}
 </style>
 </head>
 <body>
@@ -191,6 +191,7 @@ async function api(p){ const r=await fetch(BASE+p); if(!r.ok) throw new Error("H
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
 function normName(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
 function firstName(s){ const t=String(s||"").trim(); return t? t.split(/\s+/)[0] : ""; }
+function firstNames(s){ return String(s||"").split(/\s*[+&]\s*/).filter(Boolean).map(firstName).join(" & "); }
 function tick(){ document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }
 
 function photoOf(name){ const p=state.data.players && state.data.players[normName(name)]; return (p&&p.photo)?p.photo:""; }
@@ -270,7 +271,7 @@ function standHtml(){
         const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
         const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
         const [p1,p2]=pairPlayers(c,s.entrantId);
-        const pair = `<span class="p1">${esc(p1)||esc(s.team)}</span>${p2?`<span class="p2">${esc(p2)}</span>`:""}`;
+        const pair = `<span class="p1">${esc(firstName(p1))||esc(firstName(s.team))}</span>${p2?`<span class="p2">${esc(firstName(p2))}</span>`:""}`;
         return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
           <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
           <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
@@ -295,7 +296,7 @@ function bteam(c, eid, score, win){
   const [p1,p2]=pairPlayers(c,eid);
   return `<div class="bteam ${win?'win':''}">
     <span class="bavs">${avatar(p1,"clamp(16px,1.3vw,26px)")}${p2?avatar(p2,"clamp(16px,1.3vw,26px)"):""}</span>
-    <span class="bnm">${esc(p1)}${p2?" & "+esc(p2):""}</span>
+    <span class="bnm">${esc(firstName(p1))}${p2?" & "+esc(firstName(p2)):""}</span>
     <span class="bsc">${(score!==''&&score!=null)?esc(String(score)):''}</span></div>`;
 }
 function bcell(c,m){
@@ -324,7 +325,7 @@ function oneBracket(c, b){
   const tierName = (TIER[b.tier]||b.tier);
   const p = derivePodium(b);
   const pod = (p.champion||p.runnerUp||p.third)
-    ? `<div class="bpodium">🏆 <b>${esc(p.champion)||"—"}</b><span class="posub"> · RU ${esc(p.runnerUp)||"—"} · 3rd ${esc(p.third)||"—"}</span></div>` : "";
+    ? `<div class="bpodium">🏆 <b>${esc(firstNames(p.champion))||"—"}</b><span class="posub"> · RU ${esc(firstNames(p.runnerUp))||"—"} · 3rd ${esc(firstNames(p.third))||"—"}</span></div>` : "";
   const rs = b.rounds||[];
   const last = rs.length-1;
   const roundCol = (r, half)=>{
@@ -370,7 +371,7 @@ function winnerRow(cls, label, teamStr, sz){
   return `<div class="win-row ${cls}">
     <div class="wlabel">${label}</div>
     <div class="wpair">${players.map(n=>avatar(n,sz)).join("")}</div>
-    <div class="wnames">${players.map(esc).join(" & ")}</div></div>`;
+    <div class="wnames">${players.map(n=>esc(firstName(n))).join(" & ")}</div></div>`;
 }
 function winnersHtml(fin){
   const p=fin.pod;
@@ -395,7 +396,7 @@ function cardHtml(c, g){
     const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
     const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
     const [p1,p2]=pairPlayers(c,s.entrantId);
-    const pair = `<span class="p1">${esc(p1)||esc(s.team)}</span>${p2?`<span class="p2">${esc(p2)}</span>`:""}`;
+    const pair = `<span class="p1">${esc(firstName(p1))||esc(firstName(s.team))}</span>${p2?`<span class="p2">${esc(firstName(p2))}</span>`:""}`;
     return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
       <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
       <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
