@@ -6,27 +6,27 @@
 <title>Trekkr · Tournament</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
     --bg:#000000; --panel:#121110; --panel2:#171513; --line:#332a24;
     --text:#fdf4ee; --muted:#bfa091; --faint:#856a5d;
-    --accent:#ff7a1a; --accent2:#ffab40; --hot:#ff3d2e; --danger:#ff5a4d; --warn:#ffd166;
-    --grad:linear-gradient(115deg,#ff3d2e 0%,#ff7a18 55%,#ffb347 100%);
+    --accent:#FF6A00; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d; --warn:#ffd166;
+    --grad:linear-gradient(90deg,#FF3830,#FFB000);
     --r:14px; --r-sm:10px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  body{margin:0; background:var(--bg); color:var(--text); font-family:'Hanken Grotesk',sans-serif;
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;
     padding:0 0 40px; max-width:640px; margin:0 auto; min-height:100vh;}
   a{color:inherit; text-decoration:none;}
   .wrap{padding:0 14px;}
   header{padding:18px 14px 12px; position:sticky; top:0; background:linear-gradient(180deg,#000 72%,transparent); z-index:20;}
   .brand{display:flex; align-items:center; justify-content:space-between;}
-  .logo{font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em;
+  .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
   .live{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); letter-spacing:.08em; text-align:right;}
   .live b{color:var(--accent);}
-  .evname{font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:18px; margin-top:10px;}
+  .evname{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:18px; margin-top:10px;}
   .evmeta{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
   /* tabs */
   .tabs{display:flex; gap:7px; overflow-x:auto; padding:10px 14px 4px; scrollbar-width:none;}
@@ -78,7 +78,7 @@
   .tscroll{overflow-x:auto; scrollbar-width:none; margin:12px 0 18px;}
   .tscroll::-webkit-scrollbar{display:none;}
   .stable{width:100%; border-collapse:collapse; font-size:13px;}
-  .stable caption{text-align:left; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px;
+  .stable caption{text-align:left; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:15px;
     padding-bottom:8px; caption-side:top;}
   .stable caption span{display:block; font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); margin-top:3px; font-weight:400;}
   .stable th{font-size:9.5px; color:var(--faint); font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.04em; text-align:center; padding-bottom:6px; white-space:nowrap;}
@@ -92,7 +92,7 @@
   .stable tr.prosp td{background:rgba(255,171,64,.07);} .stable tr.prosp .rk{color:var(--accent2);}
   /* bracket */
   .tier{margin-top:14px;}
-  .tier > h3{font-family:'Bricolage Grotesque',sans-serif; font-size:16px; margin:0 0 9px; display:flex; gap:8px; align-items:center;}
+  .tier > h3{font-family:'Saira Condensed',sans-serif; font-size:16px; margin:0 0 9px; display:flex; gap:8px; align-items:center;}
   .tier > h3 .tg{font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
     color:#1a0d06; background:var(--accent2); padding:3px 7px; border-radius:5px;}
   .podium{display:flex; gap:8px; margin-bottom:14px;}
@@ -115,7 +115,7 @@
     padding:14px 16px; margin-bottom:9px;}
   .picker .pn{font-weight:700; font-size:15px;} .picker .pm{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
   footer{text-align:center; font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); margin-top:24px; letter-spacing:.06em;}
-  footer b{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; font-family:'Bricolage Grotesque',sans-serif; font-weight:800;}
+  footer b{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; font-family:'Saira Condensed',sans-serif; font-weight:800;}
   /* sponsor banner — single static image, full width edge-to-edge, all black, no caption */
   #sponsorBanner{display:none; margin:22px 0 0; background:#000; line-height:0;}
   #sponsorBanner.show{display:block;}

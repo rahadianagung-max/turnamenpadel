@@ -3,25 +3,25 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TurnamenPadel · TV Board</title>
+<title>Trekkr · TV Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
     --bg:#000000; --panel:#121110; --panel2:#171513; --line:#332a24;
     --text:#fdf4ee; --muted:#bfa091; --faint:#856a5d;
-    --accent:#ff7a1a; --accent2:#ffab40; --hot:#ff3d2e; --danger:#ff5a4d;
-    --grad:linear-gradient(115deg,#ff3d2e 0%,#ff7a18 55%,#ffb347 100%);
+    --accent:#FF6A00; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d;
+    --grad:linear-gradient(90deg,#FF3830,#FFB000);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
-  body{background:#000; color:var(--text); font-family:'Hanken Grotesk',sans-serif; overflow:hidden;}
+  body{background:#000; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; overflow:hidden;}
   .screen{height:100vh; display:flex; flex-direction:column; padding:2vh 2.2vw;}
   /* top bar */
   .bar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; flex:0 0 auto; margin-bottom:1.6vh;}
   .ev{grid-column:2; text-align:center;}
-  .ev .nm{font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(26px,3.4vw,60px); line-height:1; letter-spacing:-.02em;
+  .ev .nm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(26px,3.4vw,60px); line-height:1; letter-spacing:-.02em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
   .ev .mt{font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); color:var(--muted); margin-top:.8vh; letter-spacing:.08em;}
   .clock{grid-column:3; justify-self:end; text-align:right; font-family:'Space Mono',monospace;}
@@ -47,7 +47,7 @@
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
     background:linear-gradient(135deg,#3a241b,#1c120c); border:1px solid var(--line);}
   .av img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .av i{ font-style:normal; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
+  .av i{ font-style:normal; font-family:'Saira Condensed',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
   /* now playing cards — dominant, fill column height */
   #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:1vh;}
   .np-card{flex:1 1 0; min-height:clamp(40px,4.5vh,90px); overflow:hidden; display:flex; flex-direction:column; justify-content:center;
@@ -81,7 +81,7 @@
   .fit{--sfz:15px; display:flex; flex-direction:column; gap:calc(var(--sfz)*.9); align-content:start;}
   .cat-block{display:flex; flex-direction:column;}
   .cat-block + .cat-block{margin-top:calc(var(--sfz)*.5);}
-  .cat-head{flex:0 0 auto; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
+  .cat-head{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
   .cat-cap{font-family:'Space Mono',monospace; font-weight:400; font-size:calc(var(--sfz)*.7); color:var(--muted); letter-spacing:.02em;}
   .grp-grid{display:grid; gap:calc(var(--sfz)*.55) calc(var(--sfz)*.6); align-content:start;}
   .grp{overflow:hidden; border:1px solid var(--line); border-radius:calc(var(--sfz)*.7); background:var(--panel); padding:calc(var(--sfz)*.5) calc(var(--sfz)*.6); display:flex; flex-direction:column;}
@@ -104,17 +104,19 @@
   /* footer */
   .footer{flex:0 0 auto; display:flex; justify-content:flex-end; align-items:baseline; gap:.6vw; margin-top:1.2vh;}
   .footer .pwr{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); color:var(--faint); letter-spacing:.1em; text-transform:uppercase;}
-  .footer .logo-sm{font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
+  .footer .logo-sm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
   /* playoff bracket */
   .bracket-block{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
   .bracket-block + .bracket-block{margin-top:1.4vh;}
-  .bt{flex:0 0 auto; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.6vh;}
+  .bt{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.6vh;}
   .bpodium{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,17px); color:var(--accent); margin-bottom:1vh;}
   .bpodium .posub{color:var(--muted);}
   .bracket{flex:1 1 auto; min-height:0; display:flex; gap:1vw; overflow:hidden;}
   .bround{flex:1 1 0; min-width:0; display:flex; flex-direction:column;}
   .bround.bronze{flex:0 0 auto; min-width:clamp(140px,12vw,240px);}
+  .bround.center{flex:0 0 auto; min-width:clamp(150px,13vw,260px); justify-content:center; gap:1.2vh;}
+  .bround.center .third-h{margin-top:1.2vh;}
   .brh{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(9px,.78vw,13px); color:var(--faint);
     text-transform:uppercase; letter-spacing:.06em; margin-bottom:.6vh; text-align:center;}
   .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:.6vh;}
@@ -134,7 +136,7 @@
   .win-row .wlabel{font-family:'Space Mono',monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-size:clamp(10px,.9vw,15px);}
   .win-row .wpair{display:flex; justify-content:center;}
   .win-row .wpair .av{margin-left:-8px; box-shadow:0 0 0 3px #000;} .win-row .wpair .av:first-child{margin-left:0;}
-  .win-row .wnames{font-family:'Bricolage Grotesque',sans-serif; font-weight:800; line-height:1.1;}
+  .win-row .wnames{font-family:'Saira Condensed',sans-serif; font-weight:800; line-height:1.1;}
   .win-row.champ .wlabel{color:var(--accent); font-size:clamp(14px,1.3vw,24px);}
   .win-row.champ .wpair .av{box-shadow:0 0 0 3px #000, 0 0 26px rgba(255,122,26,.55);}
   .win-row.champ .wnames{font-size:clamp(20px,2.1vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
@@ -147,10 +149,12 @@
   #sponsorOverlay.show{display:flex; animation:spFade .4s ease;}
   @keyframes spFade{from{opacity:0}to{opacity:1}}
   #sponsorOverlay img{width:100%; height:100%; object-fit:contain; display:block;}
+  #spCountdown{position:fixed; right:1.4vw; bottom:1.2vh; z-index:50; font-family:'Space Mono',monospace; font-size:clamp(10px,.9vw,15px); color:var(--muted); background:rgba(0,0,0,.5); border:1px solid var(--line); border-radius:999px; padding:.5vh 1vw; letter-spacing:.06em;}
 </style>
 </head>
 <body>
 <div id="sponsorOverlay"><img id="spImg" alt="sponsor"></div>
+<div id="spCountdown"></div>
 <div class="screen">
   <div class="bar">
     <div class="qr" id="qrBox" style="display:none">
@@ -172,7 +176,7 @@
       <div id="standWrap"><div class="center">Loading tournament data…</div></div>
     </div>
   </div>
-  <div class="footer"><span class="pwr">powered by</span><span class="logo-sm">TURNAMEN PADEL</span></div>
+  <div class="footer"><span class="pwr">powered by</span><span class="logo-sm">TREKKR</span></div>
 </div>
 
 <script>
@@ -321,13 +325,23 @@ function oneBracket(c, b){
   const p = derivePodium(b);
   const pod = (p.champion||p.runnerUp||p.third)
     ? `<div class="bpodium">🏆 <b>${esc(p.champion)||"—"}</b><span class="posub"> · RU ${esc(p.runnerUp)||"—"} · 3rd ${esc(p.third)||"—"}</span></div>` : "";
-  const cols = (b.rounds||[]).map(r=>`<div class="bround">
-    <div class="brh">${roundLabel(r.round,b.numRounds)}</div>
-    <div class="brcol">${(r.matches||[]).map(m=>bcell(c,m)).join("")}</div></div>`).join("");
-  const bronze = b.bronze ? `<div class="bround bronze"><div class="brh">3rd Place</div><div class="brcol">${bcell(c,b.bronze)}</div></div>` : "";
+  const rs = b.rounds||[];
+  const last = rs.length-1;
+  const roundCol = (r, half)=>{
+    const ms = rs[r].matches||[];
+    const h = Math.ceil(ms.length/2);
+    const part = half==="L" ? ms.slice(0,h) : ms.slice(h);
+    return `<div class="bround"><div class="brh">${roundLabel(rs[r].round,b.numRounds)}</div><div class="brcol">${part.map(m=>bcell(c,m)).join("")}</div></div>`;
+  };
+  let leftCols="", rightCols="";
+  for(let r=0;r<last;r++) leftCols += roundCol(r,"L");
+  for(let r=last-1;r>=0;r--) rightCols += roundCol(r,"R");
+  const finalCell = (last>=0 && rs[last] && rs[last].matches[0]) ? bcell(c, rs[last].matches[0]) : "";
+  const bronze = b.bronze ? `<div class="brh third-h">3rd Place</div><div class="brcol">${bcell(c,b.bronze)}</div>` : "";
+  const center = `<div class="bround center"><div class="brh">${last>=0?roundLabel(rs[last].round,b.numRounds):"Final"}</div><div class="brcol">${finalCell}</div>${bronze}</div>`;
   return `<div class="bracket-block">
     <div class="bt">${esc(c.category)} · ${esc(tierName)}</div>${pod}
-    <div class="bracket">${cols}${bronze}</div></div>`;
+    <div class="bracket">${leftCols}${center}${rightCols}</div></div>`;
 }
 function bracketHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoff||[]).length);
@@ -507,7 +521,9 @@ async function load(){
 }
 
 function mobileURL(){
-  const path = location.pathname.replace(/[^/]*$/, "mobile.html");
+  let path = location.pathname;
+  if(/tournament-tv/i.test(path)) path = path.replace(/tournament-tv/i, "tournament-mobile");
+  else path = path.replace(/[^/]*$/, "tournament-mobile.html");
   return location.origin + path + "?event=" + encodeURIComponent(EVENT_ID);
 }
 function setupQR(){
@@ -523,7 +539,8 @@ function setupQR(){
 const SPONSOR_EVERY_MS = 5 * 60 * 1000;   // play the reel every 5 minutes
 const SPONSOR_SHOW_MS  = 15000;           // each logo on screen for 15 seconds
 let _spPlaying = false;
-function sponsorList(){ return (state.data && Array.isArray(state.data.sponsors)) ? state.data.sponsors : []; }
+const URL_SPONSOR = (new URLSearchParams(location.search).get("sponsor")||"").trim();
+function sponsorList(){ const base=(state.data && Array.isArray(state.data.sponsors)) ? state.data.sponsors : []; return URL_SPONSOR ? [URL_SPONSOR].concat(base.filter(u=>u!==URL_SPONSOR)) : base; }
 function preloadSponsors(list){ (list||[]).forEach(u=>{ const im=new Image(); im.src=u; }); }
 async function playSponsors(){
   if(_spPlaying) return;
@@ -539,7 +556,20 @@ async function playSponsors(){
   ov.classList.remove("show");
   _spPlaying = false;
 }
-function startSponsorCycle(){ setInterval(playSponsors, SPONSOR_EVERY_MS); }
+let nextSponsorAt = Date.now() + SPONSOR_EVERY_MS;
+function updateSpCountdown(){
+  const el=document.getElementById("spCountdown"); if(!el) return;
+  const ov=document.getElementById("sponsorOverlay");
+  if(!sponsorList().length || (ov && ov.classList.contains("show"))){ el.style.display="none"; return; }
+  el.style.display="";
+  const rem=Math.max(0, Math.round((nextSponsorAt-Date.now())/1000));
+  el.textContent = "Sponsor in "+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
+}
+function startSponsorCycle(){
+  nextSponsorAt = Date.now() + SPONSOR_EVERY_MS;
+  setInterval(async ()=>{ if(Date.now()>=nextSponsorAt){ await playSponsors(); nextSponsorAt = Date.now() + SPONSOR_EVERY_MS; } }, 1000);
+  setInterval(updateSpCountdown, 1000); updateSpCountdown();
+}
 
 tick(); setInterval(tick,1000);
 if(EVENT_ID){
