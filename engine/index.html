@@ -52,6 +52,18 @@
         border-radius:999px; background:var(--panel); color:var(--muted);}
   .chip b{color:var(--text); font-weight:700;}
   .chip.on{border-color:rgba(255,106,0,.4); background:rgba(255,106,0,.07); color:var(--text);}
+  .share-grp{margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;}
+  .btn-share{font-size:12px; padding:8px 13px;}
+  .sponsor-hint{font-size:12px; color:var(--muted); margin:8px 0 0; line-height:1.55;}
+  .sponsor-hint b{color:var(--text);}
+  .sponsor-preview{margin-top:12px;}
+  .sponsor-preview img{max-width:100%; max-height:130px; border:1px solid var(--line); border-radius:8px; background:#0e0e10; display:block;}
+  .pbracket-wrap{overflow-x:auto; padding-bottom:6px; margin-top:12px;}
+  .pbracket{display:flex; gap:14px; align-items:center; min-width:max-content;}
+  .pcol{display:flex; flex-direction:column; justify-content:space-around; gap:12px; min-width:190px;}
+  .pcol>h4{font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); text-align:center; margin:0 0 2px; font-weight:700;}
+  .pcol-center{justify-content:center;}
+  .pcol .pthird{margin-top:14px;}
 
   /* Sections */
   section{
@@ -235,11 +247,10 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <div class="logo">Trekkr<span class="dot">.</span></div>
-      <span class="tag">Tournament Admin</span>
+      <div class="logo">TurnamenPadel<span class="dot">.</span></div>
     </div>
     <div class="admin-field">
-      <label for="adminUser">Admin</label>
+      <label for="adminUser">Operator</label>
       <input id="adminUser" placeholder="username" autocomplete="off" />
     </div>
   </header>
@@ -247,6 +258,10 @@
   <div class="context">
     <span class="chip" id="ctxEvent">Event: <b>—</b></span>
     <span class="chip" id="ctxTour">Kategori: <b>—</b></span>
+    <span class="share-grp">
+      <button type="button" class="btn btn-ghost btn-share" id="shareMobile" onclick="shareUrl('mobile')">Share Player URL</button>
+      <button type="button" class="btn btn-ghost btn-share" id="shareTv" onclick="shareUrl('tv')">Share TV URL</button>
+    </span>
   </div>
 
   <!-- 1. EVENT -->
@@ -266,6 +281,13 @@
     <div class="divider"></div>
     <div class="pick"><label>Pilih event yang sudah ada</label>
       <select id="eventSelect" onchange="selectEvent(this.value)"><option value="">Memuat…</option></select>
+    </div>
+    <div class="divider"></div>
+    <div class="pick">
+      <label>Sponsor display (TV / court LED)</label>
+      <input id="sponsorUrl" placeholder="https://…/sponsor.png" oninput="onSponsor()" />
+      <p class="sponsor-hint">URL gambar sponsor yang tampil di layar TV / LED court. Rekomendasi: <b>banner landscape 1920×360 px</b> (strip LED) atau <b>1080×1080 px</b> (kotak) · format <b>PNG / JPG / WebP</b> · maks ±2 MB · gunakan PNG transparan untuk logo.</p>
+      <div id="sponsorPreview" class="sponsor-preview"></div>
     </div>
   </section>
 
@@ -428,6 +450,24 @@ function toast(msg, isErr){
 const val = id => document.getElementById(id).value.trim();
 const LEVEL_LABEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
 
+function shareUrl(kind){
+  if(!state.event){ toast("Pilih atau buat event dulu.", true); return; }
+  var url = location.origin + "/" + (kind==="tv" ? "tv.html" : "mobile.html") + "?event=" + encodeURIComponent(state.event.eventId);
+  if(kind==="tv"){ var sp=(state.sponsorUrl||"").trim(); if(sp) url += "&sponsor=" + encodeURIComponent(sp); }
+  copyText(url, kind==="tv" ? "TV display URL disalin ke clipboard" : "Player URL disalin ke clipboard");
+}
+function copyText(txt, okMsg){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){ toast(okMsg); }).catch(function(){ window.prompt("Copy URL:", txt); });
+  } else { window.prompt("Copy URL:", txt); }
+}
+function onSponsor(){
+  var el=document.getElementById("sponsorUrl"); if(!el) return;
+  var v=(el.value||"").trim(); state.sponsorUrl=v;
+  try{ localStorage.setItem("tp_sponsor", v); }catch(e){}
+  var pv=document.getElementById("sponsorPreview");
+  if(pv){ pv.innerHTML = v ? ('<img src="'+v.replace(/"/g,"&quot;")+'" alt="Sponsor preview" onerror="this.remove()" />') : ""; }
+}
 function setLocks(){
   document.getElementById("sec2").classList.toggle("locked", !state.event);
   document.getElementById("sec3").classList.toggle("locked", !state.tournament);
@@ -874,14 +914,21 @@ function renderPlayoff(brackets){
   const dEl = document.getElementById("poDate");
   const dateLabel = (dEl && dEl.value) ? `<div class="po-date">Jadwal playoff: ${esc(dEl.value)}</div>` : "";
   wrap.innerHTML = dateLabel + brackets.map(b=>{
-    const rounds = (b.rounds||[]).map(r=>`
-      <div class="pround"><h4>${roundLabel(r.round, b.numRounds)}</h4>
-        ${r.matches.map(m=>prow(m, b.numRounds)).join("")}</div>`).join("");
-    const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE", b.numRounds)}</h4>${prow(b.bronze, b.numRounds)}</div>` : "";
+    const rs = b.rounds || [];
+    const last = rs.length - 1;
+    let leftC = "", rightC = "";
+    for(let r=0; r<last; r++){ const ms=rs[r].matches||[]; const h=Math.ceil(ms.length/2);
+      leftC += `<div class="pcol"><h4>${roundLabel(rs[r].round, b.numRounds)}</h4>${ms.slice(0,h).map(m=>prow(m,b.numRounds)).join("")}</div>`; }
+    for(let r=last-1; r>=0; r--){ const ms=rs[r].matches||[]; const h=Math.ceil(ms.length/2);
+      rightC += `<div class="pcol"><h4>${roundLabel(rs[r].round, b.numRounds)}</h4>${ms.slice(h).map(m=>prow(m,b.numRounds)).join("")}</div>`; }
+    const finalM = (last>=0 && rs[last] && rs[last].matches[0]) ? prow(rs[last].matches[0], b.numRounds) : "";
+    const bronze = b.bronze ? `<h4 class="pthird">${roundLabel("BRONZE", b.numRounds)}</h4>${prow(b.bronze, b.numRounds)}` : "";
+    const center = `<div class="pcol pcol-center"><h4>${last>=0 ? roundLabel(rs[last].round, b.numRounds) : "Final"}</h4>${finalM}${bronze}</div>`;
+    const bracket = `<div class="pbracket-wrap"><div class="pbracket">${leftC}${center}${rightC}</div></div>`;
     return `<div class="tier">
       <h3><span class="tag-tier">${TIER_LABEL[b.tier]||b.tier}</span> ${b.nQual} tim</h3>
       ${podiumHtml(b.podium)}
-      ${rounds}${bronze}
+      ${bracket}
     </div>`;
   }).join("");
 }
@@ -930,6 +977,7 @@ function renderEloResults(r){
 /* init */
 loadEvents();
 renderContext();
+(function(){ try{ var sp=localStorage.getItem("tp_sponsor")||""; var el=document.getElementById("sponsorUrl"); if(el){ el.value=sp; state.sponsorUrl=sp; onSponsor(); } }catch(e){} })();
 </script>
 </body>
 </html>
