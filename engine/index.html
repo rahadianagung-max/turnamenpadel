@@ -510,10 +510,14 @@ function toast(msg, isErr){
 const val = id => document.getElementById(id).value.trim();
 const LEVEL_LABEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
 
+function shareSlug(){
+  return String(state.event && state.event.name || "").toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
+}
 function shareUrl(kind){
   if(!state.event){ toast("Pilih atau buat event dulu.", true); return; }
-  var url = location.origin + "/" + (kind==="tv" ? "tv.html" : "mobile.html") + "?event=" + encodeURIComponent(state.event.eventId);
-  if(kind==="tv"){ var sp=(state.sponsorUrl||"").trim(); if(sp) url += "&sponsor=" + encodeURIComponent(sp); }
+  var url = location.origin + "/" + (kind==="tv" ? "tv/" : "mobile/") + encodeURIComponent(shareSlug());
+  if(kind==="tv"){ var sp=(state.sponsorUrl||"").trim(); if(sp) url += "?sponsor=" + encodeURIComponent(sp); }
   copyText(url, kind==="tv" ? "TV display URL disalin ke clipboard" : "Player URL disalin ke clipboard");
 }
 function copyText(txt, okMsg){
