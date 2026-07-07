@@ -1,6 +1,8 @@
 {
   "version": 2,
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/sheet.js" }
+    { "source": "/api/(.*)", "destination": "/api/sheet.js" },
+    { "source": "/mobile/:slug", "destination": "/mobile.html" },
+    { "source": "/tv/:slug", "destination": "/tv.html" }
   ]
 }

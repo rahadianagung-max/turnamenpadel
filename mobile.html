@@ -144,11 +144,14 @@
 const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
 const PASSPORT = "https://trekkr.online/player/";
 const qs = new URLSearchParams(location.search);
-const EVENT_ID = qs.get("event");
+// Event can be given as ?event=<id> (old links) or as a friendly slug path
+// /mobile/<slug> (resolved from the event name at load time — see boot()).
+let EVENT_ID = qs.get("event");
+const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
+function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const state = { data:null, cat:0, view:"schedule", player:"" };
-try{ state.player = localStorage.getItem("trekkr_player_"+EVENT_ID) || ""; }catch(e){}
 
 async function api(path){ const r = await fetch(BASE+path); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 
@@ -368,13 +371,32 @@ async function pickEvent(){
     const { events } = await api("/tournament/events");
     const list = (events||[]).slice().reverse();
     document.getElementById("body").innerHTML = list.length ? `<div class="picker">${list.map(e=>
-      `<a href="?event=${encodeURIComponent(e.eventId)}"><div class="pn">${esc(e.name)}</div><div class="pm">${esc([e.venue,e.date].filter(Boolean).join(" · "))}</div></a>`).join("")}</div>`
+      `<a href="/mobile/${encodeURIComponent(slugify(e.name))}"><div class="pn">${esc(e.name)}</div><div class="pm">${esc([e.venue,e.date].filter(Boolean).join(" · "))}</div></a>`).join("")}</div>`
       : '<p class="empty">No events yet.</p>';
   }catch(e){ document.getElementById("body").innerHTML='<p class="empty">Failed to load events.</p>'; }
 }
 
-if(EVENT_ID){ load(); setInterval(load, 30000); }
-else { document.getElementById("evhead").innerHTML='<div class="evname">Select Event</div>'; pickEvent(); }
+// Resolve a friendly /mobile/<slug> path to an event id via the event list.
+async function resolveEventId(){
+  if(EVENT_ID) return EVENT_ID;
+  const slug = slugFromPath();
+  if(!slug) return null;
+  try{
+    const { events } = await api("/tournament/events");
+    const matches = (events||[]).filter(e=>slugify(e.name)===slug);
+    if(matches.length) return matches[matches.length-1].eventId; // newest on name collision
+  }catch(e){}
+  return null;
+}
+(async function boot(){
+  EVENT_ID = await resolveEventId();
+  if(EVENT_ID){
+    try{ state.player = localStorage.getItem("trekkr_player_"+EVENT_ID) || ""; }catch(e){}
+    load(); setInterval(load, 30000);
+  } else {
+    document.getElementById("evhead").innerHTML='<div class="evname">Select Event</div>'; pickEvent();
+  }
+})();
 </script>
 </body>
 </html>
