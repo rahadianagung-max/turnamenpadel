@@ -32,7 +32,8 @@
   <div class="card">
     <a href="/" class="brandbig">TurnamenPadel</a>
     <div class="eyebrow">Tournament Engine</div>
-    <h1 class="title">Admin Login</h1>
+    <h1 class="title" id="loginTitle">Admin Login</h1>
+    <p class="lead" id="loginLead" style="text-align:center;font-size:12.5px;color:var(--muted);margin:-14px 0 20px;">Setiap turnamen dicatat atas nama admin yang login.</p>
     <form id="loginForm" autocomplete="on">
       <div class="field">
         <label for="u">Username</label>
@@ -42,7 +43,11 @@
         <label for="p">Password</label>
         <input id="p" name="password" type="password" autocomplete="current-password" required/>
       </div>
-      <button class="btn btn--primary submit" id="submitBtn" type="submit"><i class="ti ti-login-2" aria-hidden="true"></i> Sign In</button>
+      <div class="field" id="venueField" style="display:none;">
+        <label for="v">Venue (opsional)</label>
+        <input id="v" name="venue" type="text" autocomplete="off"/>
+      </div>
+      <button class="btn btn--primary submit" id="submitBtn" type="submit"><i class="ti ti-login-2" aria-hidden="true"></i> <span id="submitLabel">Sign In</span></button>
       <div class="msg" id="msg" aria-live="polite"></div>
     </form>
     <a href="/" class="back">← Back to home</a>
@@ -50,24 +55,72 @@
 </div>
 <script>
 (function(){
-  // Lightweight generic gate for the tournament engine.
-  // NOTE: these credentials live in the page source, so this is a convenience gate,
-  // not real security. For real protection use Vercel Deployment Protection or a
-  // server-side check. Change USER/PASS below to update the login.
-  var USER = 'admin';
-  var PASS = 'Tournament2026';
-  var ENGINE = '/engine'; // where a signed-in admin lands (tournament engine)
-  var form=document.getElementById('loginForm'), msg=document.getElementById('msg'), btn=document.getElementById('submitBtn');
-  form.addEventListener('submit', function(e){
+  // Real multi-admin login: authenticates against the Admins sheet via the API.
+  // Each admin gets their own login; tournaments they create are recorded under
+  // their username. Superadmins can add more admins from inside the engine.
+  var BASE = location.protocol.startsWith('http') ? '/api' : 'https://www.turnamenpadel.com/api';
+  var ENGINE = '/engine'; // where a signed-in admin lands
+  var form=document.getElementById('loginForm'),
+      msg=document.getElementById('msg'),
+      btn=document.getElementById('submitBtn'),
+      setupMode=false;
+
+  async function api(path, opts){
+    opts=opts||{};
+    var res=await fetch(BASE+'/'+path, {
+      method: opts.method||'GET',
+      headers: {'Content-Type':'application/json'},
+      body: opts.body?JSON.stringify(opts.body):undefined,
+    });
+    var data={}; try{ data=await res.json(); }catch(e){}
+    if(!res.ok){ var err=new Error(data.error||('HTTP '+res.status)); err.status=res.status; throw err; }
+    return data;
+  }
+  function saveSession(s){
+    try{
+      sessionStorage.setItem('tp_auth','1');
+      sessionStorage.setItem('tp_session', JSON.stringify(s));
+      localStorage.setItem('tp_session', JSON.stringify(s));
+    }catch(e){}
+  }
+  function enterSetup(){
+    setupMode=true;
+    document.getElementById('loginTitle').textContent='Buat Superadmin';
+    document.getElementById('loginLead').textContent='Belum ada admin. Buat akun superadmin pertama — akun ini bisa menambah admin lain.';
+    document.getElementById('venueField').style.display='';
+    document.getElementById('submitLabel').textContent='Buat & Masuk';
+  }
+
+  // If already signed in, skip straight to the engine.
+  try{
+    var existing=JSON.parse(sessionStorage.getItem('tp_session')||localStorage.getItem('tp_session')||'null');
+    if(existing && existing.username){ location.replace(ENGINE); }
+  }catch(e){}
+
+  // Detect first-run (no admins yet) to offer superadmin setup.
+  api('admins').then(function(d){
+    if(!d.admins || d.admins.length===0) enterSetup();
+  }).catch(function(){});
+
+  form.addEventListener('submit', async function(e){
     e.preventDefault();
     var username=document.getElementById('u').value.trim();
     var password=document.getElementById('p').value;
-    if(username===USER && password===PASS){
-      try{sessionStorage.setItem('tp_auth','1');}catch(e){}
-      msg.className='msg ok'; msg.textContent='Welcome. Loading the engine…';
-      btn.disabled=true; location.href=ENGINE;
-    } else {
-      msg.className='msg err'; msg.textContent='Invalid username or password.';
+    var venue=document.getElementById('v').value.trim();
+    if(!username || !password){ msg.className='msg err'; msg.textContent='Isi username dan password.'; return; }
+    btn.disabled=true; msg.className='msg'; msg.textContent='…';
+    try{
+      if(setupMode){
+        await api('admins', { method:'POST', body:{ username:username, password:password, role:'superadmin', venue:venue } });
+      }
+      var s=await api('auth/login', { method:'POST', body:{ username:username, password:password } });
+      saveSession(s);
+      msg.className='msg ok'; msg.textContent='Selamat datang, '+s.username+'. Memuat engine…';
+      location.href=ENGINE;
+    }catch(err){
+      btn.disabled=false;
+      msg.className='msg err';
+      msg.textContent = err.status===401 ? 'Username atau password salah.' : (err.message||'Gagal masuk.');
     }
   });
 })();
