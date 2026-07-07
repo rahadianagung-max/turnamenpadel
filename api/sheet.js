@@ -136,7 +136,9 @@ function catCode(s) {
   return CAT_CODE[normName(s)] || String(s || "").toUpperCase().trim();
 }
 const T_HEADERS = {
-  [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At"],
+  // Cols A:H are the core event fields. Cols I:M (index 8-12) are reserved for the
+  // public feed showcase (status/format/category/url/highlight). Owner lives at col N.
+  [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username"],
   [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At"],
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
@@ -231,7 +233,7 @@ const netlifyHandler = async (event) => {
 
     // --- TOURNAMENT ROUTES (Phase 1) ---
     if (path === "tournament/event" && method === "POST") return await tCreateEvent(body);
-    if (path === "tournament/events" && method === "GET") return await tListEvents();
+    if (path === "tournament/events" && method === "GET") return await tListEvents(params);
     if (path.startsWith("tournament/event/") && path.endsWith("/schedule") && method === "POST") {
       return await tScheduleEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")), body);
     }
@@ -377,15 +379,33 @@ module.exports = async (req, res) => {
 // ==============================================================
 
 // ── AUTH ──
+// Create the Admins tab (with header row) if it does not exist yet, so the
+// login/admin management is self-bootstrapping on a fresh spreadsheet.
+async function ensureAdminsTab(sheets) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const existing = (meta.data.sheets || []).map((s) => s.properties.title);
+  if (existing.includes(TABS.admins)) return;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ addSheet: { properties: { title: TABS.admins } } }] },
+  });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.admins}!A1`, valueInputOption: "RAW",
+    requestBody: { values: [["Username", "Password", "Role", "Venue", "Created_At"]] },
+  });
+}
+
 async function login({ username, password }) {
   if (!username || !password) return respond(400, { error: "Username and password required" });
   const sheets = getSheets();
+  await ensureAdminsTab(sheets);
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
   const rows = res.data.values || [];
-  const match = rows.find((r) => r[0] === username && r[1] === password);
+  const match = rows.find((r) => (r[0] || "").trim() === username.trim() && (r[1] || "") === password);
   if (!match) return respond(401, { error: "Invalid credentials" });
 
-  const role = match[2] || "venue_admin";
+  // Normalize role so sheet-entered values like "Superadmin" / " superadmin " still match.
+  const role = String(match[2] || "venue_admin").toLowerCase().trim();
   const venue = match[3] || "";
   const token = Buffer.from(`${username}:${role}:${venue}:${Date.now()}`).toString("base64");
   return respond(200, { token, role, venue, username });
@@ -1107,10 +1127,11 @@ async function parseAmericanoUrl({ url, venue, gender }) {
 // ── ADMINS ──
 async function getAdmins() {
   const sheets = getSheets();
+  await ensureAdminsTab(sheets);
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
   const rows = res.data.values || [];
   const admins = rows.map((r) => ({
-    username: r[0], role: r[2] || "venue_admin", venue: r[3] || "", createdAt: r[4] || "",
+    username: r[0], role: String(r[2] || "venue_admin").toLowerCase().trim(), venue: r[3] || "", createdAt: r[4] || "",
   }));
   return respond(200, { admins });
 }
@@ -1119,10 +1140,22 @@ async function addAdmin(body) {
   const { username, password, role, venue } = body;
   if (!username || !password) return respond(400, { error: "username and password required" });
   const sheets = getSheets();
+  await ensureAdminsTab(sheets);
+  const existing = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
+  const rows = existing.data.values || [];
+  // Allow bootstrapping the very first admin as superadmin, but once admins exist
+  // only a superadmin caller may add more (guards against open self-service signup).
+  const wantRole = String(role || "venue_admin").toLowerCase().trim();
+  if (rows.length > 0 && String(body.actorRole || "").toLowerCase().trim() !== "superadmin") {
+    return respond(403, { error: "Only a superadmin can add admins" });
+  }
+  if (rows.some((r) => (r[0] || "").trim() === username.trim())) {
+    return respond(409, { error: "Username already exists" });
+  }
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.admins}!A:E`, valueInputOption: "USER_ENTERED",
-    requestBody: { values: [[username, password, role || "venue_admin", venue || "", now]] },
+    requestBody: { values: [[username.trim(), password, wantRole, venue || "", now]] },
   });
   return respond(200, { success: true });
 }
@@ -1151,10 +1184,12 @@ async function tCreateEvent(body) {
   const id = genId("EV");
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A:H`, valueInputOption: "USER_ENTERED",
+    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A:N`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[
       id, body.name || "Untitled Event", body.venue || "", body.date || "",
       body.startTime || "", parseInt(body.numCourts) || 1, parseInt(body.matchMinutes) || 15, now,
+      "", "", "", "", "",            // I:M — reserved for public feed showcase
+      body.adminUsername || "",      // N — owning admin
     ]] },
   });
   return respond(200, { success: true, eventId: id });
@@ -1218,14 +1253,22 @@ async function getPublicFeed() {
   return respond(200, { activePlayrank, events, highlight });
 }
 
-async function tListEvents() {
+async function tListEvents(params = {}) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` });
-  const events = (r.data.values || []).map((x) => ({
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:N` });
+  let events = (r.data.values || []).map((x) => ({
     eventId: x[0], name: x[1], venue: x[2], date: x[3], startTime: x[4],
     numCourts: parseInt(x[5]) || 0, matchMinutes: parseInt(x[6]) || 15, createdAt: x[7],
+    adminUsername: x[13] || "",   // col N — owning admin
   }));
+  // Per-admin scoping: superadmin sees everything; a regular admin sees the events
+  // they own plus legacy events that have no owner yet (so nothing is orphaned).
+  const admin = (params.admin || "").trim();
+  const role = (params.role || "").trim().toLowerCase();
+  if (admin && role !== "superadmin") {
+    events = events.filter((e) => !e.adminUsername || e.adminUsername === admin);
+  }
   return respond(200, { events });
 }
 

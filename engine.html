@@ -229,6 +229,33 @@
   .prow .pcourt{display:flex; align-items:center; gap:6px;}
   .prow .ctinp{width:46px; text-align:center; padding:4px; font-family:'Space Mono',monospace;}
   .prow .prow-main{display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;}
+
+  /* Logged-in identity in header */
+  .who{display:flex; align-items:center; gap:10px;}
+  .who .u{display:flex; flex-direction:column; align-items:flex-end; line-height:1.15;}
+  .who .u b{font-size:14px;}
+  .who .u span{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--faint);}
+  .who .av{width:38px; height:38px; border-radius:10px; display:grid; place-items:center; flex:none;
+    background:var(--accent); color:#000; font-weight:800; font-size:16px;}
+
+  /* Overlay + modal (manage admins) */
+  .overlay{position:fixed; inset:0; z-index:50; display:none; align-items:center; justify-content:center; padding:20px;
+    background:rgba(0,0,0,.72); backdrop-filter:blur(6px);}
+  .overlay.show{display:flex;}
+  .modal{width:100%; max-width:560px; background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line); border-radius:var(--r); padding:26px 24px; position:relative;
+    box-shadow:0 24px 70px rgba(0,0,0,.55);}
+  .modal h2{font-weight:800; font-size:22px; margin:0 0 4px; letter-spacing:-.01em;}
+  .modal .lead{color:var(--muted); font-size:13.5px; margin:0 0 20px;}
+  .modal .row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .modal .x{position:absolute; top:16px; right:16px; background:none; border:1px solid var(--line); color:var(--muted);
+    width:30px; height:30px; border-radius:8px; cursor:pointer; font-size:16px; line-height:1;}
+  .modal .x:hover{border-color:var(--accent); color:var(--text);}
+  .modal .err-line{color:var(--danger); font-size:13px; min-height:18px; margin:2px 0 0;}
+  .adm-table{margin-top:18px;}
+  .adm-table td .rolebadge{font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; padding:2px 7px; border-radius:5px; background:rgba(255,176,0,.14); color:var(--accent2);}
+  .adm-table td .rolebadge.super{background:rgba(255,111,96,.16); color:var(--danger);}
 </style>
 </head>
 <body>
@@ -238,9 +265,11 @@
       <div class="logo">Trekkr<span class="dot">.</span></div>
       <span class="tag">Tournament Admin</span>
     </div>
-    <div class="admin-field">
-      <label for="adminUser">Admin</label>
-      <input id="adminUser" placeholder="username" autocomplete="off" />
+    <div class="who" id="whoBox">
+      <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Kelola admin</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Keluar</button>
+      <div class="u"><b id="whoName">—</b><span id="whoRole">—</span></div>
+      <div class="av" id="whoAvatar">?</div>
     </div>
   </header>
 
@@ -404,10 +433,41 @@
 
 <div id="toast"></div>
 
+<!-- MANAGE ADMINS (superadmin only) -->
+<div class="overlay" id="adminsOverlay">
+  <div class="modal">
+    <button type="button" class="x" onclick="closeAdmins()">×</button>
+    <h2>Kelola admin</h2>
+    <p class="lead">Tambah admin baru agar tiap orang punya login sendiri. Turnamen yang mereka buat tercatat atas nama mereka.</p>
+    <div class="row">
+      <div class="f"><label>Username</label><input id="naUser" autocomplete="off" placeholder="username" /></div>
+      <div class="f"><label>Password</label><input id="naPass" type="text" autocomplete="off" placeholder="password" /></div>
+    </div>
+    <div class="row">
+      <div class="f"><label>Role</label>
+        <select id="naRole">
+          <option value="tournament_admin">Tournament admin</option>
+          <option value="venue_admin">Venue admin</option>
+          <option value="superadmin">Superadmin</option>
+        </select>
+      </div>
+      <div class="f"><label>Venue (opsional)</label><input id="naVenue" autocomplete="off" placeholder="—" /></div>
+    </div>
+    <p class="err-line" id="naErr"></p>
+    <div class="actions" style="margin-top:4px;">
+      <button type="button" class="btn btn-primary" onclick="addNewAdmin()">Tambah admin</button>
+    </div>
+    <div class="adm-table" id="admList"></div>
+  </div>
+</div>
+
 <script>
-if (sessionStorage.getItem("tp_auth") !== "1") { location.replace("/admin.html"); }
+// Require a signed-in admin session; otherwise bounce to the login page.
+let SESSION = null;
+try{ SESSION = JSON.parse(sessionStorage.getItem("tp_session") || localStorage.getItem("tp_session") || "null"); }catch(e){}
+if (!SESSION || !SESSION.username) { location.replace("/admin.html"); }
 const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
-const state = { event:null, tournament:null, format:"SINGLE", events:[], tournaments:[], entrantNames:{} };
+const state = { event:null, tournament:null, format:"SINGLE", events:[], tournaments:[], entrantNames:{}, session:SESSION };
 
 async function api(path, opts={}){
   const res = await fetch(`${BASE}/${path}`, {
@@ -452,7 +512,9 @@ function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; cons
 /* ---- EVENTS ---- */
 async function loadEvents(){
   try{
-    const { events } = await api("tournament/events");
+    const s = state.session || {};
+    const q = "?admin=" + encodeURIComponent(s.username || "") + "&role=" + encodeURIComponent(s.role || "");
+    const { events } = await api("tournament/events" + q);
     state.events = events || [];
     const sel = document.getElementById("eventSelect");
     sel.innerHTML = '<option value="">— pilih event —</option>' +
@@ -466,6 +528,7 @@ async function submitEvent(){
     const { eventId } = await api("tournament/event", { method:"POST", body:{
       name:val("evName"), venue:val("evVenue"), date:val("evDate"),
       startTime:val("evStart"), numCourts:val("evCourts"), matchMinutes:val("evMin"),
+      adminUsername: (state.session && state.session.username) || "",
     }});
     toast("Event dibuat");
     await loadEvents();
@@ -508,7 +571,7 @@ async function createTournament(){
     const { tournamentId } = await api("tournament", { method:"POST", body:{
       eventId: state.event.eventId, category: document.getElementById("tCat").value,
       level: document.getElementById("tLevel").value, format: state.format,
-      groupSizeTarget: size, advancersPerGroup: val("tAdv"), adminUsername: val("adminUser"),
+      groupSizeTarget: size, advancersPerGroup: val("tAdv"), adminUsername: (state.session && state.session.username) || "",
     }});
     toast("Kategori dibuat");
     await loadTournaments();
@@ -927,7 +990,51 @@ function renderEloResults(r){
     <tbody>${rows}</tbody></table>`;
 }
 
+/* ---- AUTH / SESSION ---- */
+function roleLabel(r){
+  return ({superadmin:"Superadmin", venue_admin:"Venue admin", tournament_admin:"Tournament admin"})[r] || (r||"admin");
+}
+function applySession(s){
+  if(!s) return;
+  document.getElementById("whoName").textContent = s.username;
+  document.getElementById("whoRole").textContent = roleLabel(s.role) + (s.venue ? " · " + s.venue : "");
+  document.getElementById("whoAvatar").textContent = (s.username[0] || "?").toUpperCase();
+  document.getElementById("manageAdminsBtn").style.display = (s.role === "superadmin") ? "" : "none";
+}
+function logout(){
+  try{ sessionStorage.removeItem("tp_auth"); sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session"); }catch(e){}
+  location.replace("/admin.html");
+}
+
+/* ---- MANAGE ADMINS (superadmin) ---- */
+function openAdmins(){ document.getElementById("adminsOverlay").classList.add("show"); loadAdmins(); }
+function closeAdmins(){ document.getElementById("adminsOverlay").classList.remove("show"); }
+async function loadAdmins(){
+  const wrap = document.getElementById("admList");
+  try{
+    const { admins } = await api("admins");
+    if(!admins || !admins.length){ wrap.innerHTML = '<p class="empty">Belum ada admin.</p>'; return; }
+    wrap.innerHTML = `<table><thead><tr><th>Username</th><th>Role</th><th>Venue</th></tr></thead><tbody>` +
+      admins.map(a=>`<tr><td><b>${esc(a.username)}</b></td>
+        <td><span class="rolebadge ${a.role==='superadmin'?'super':''}">${esc(roleLabel(a.role))}</span></td>
+        <td>${esc(a.venue||"—")}</td></tr>`).join("") + `</tbody></table>`;
+  }catch(e){ wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+}
+async function addNewAdmin(){
+  const err = document.getElementById("naErr"); err.textContent = "";
+  const username = val("naUser"), password = val("naPass"),
+        role = document.getElementById("naRole").value, venue = val("naVenue");
+  if(!username || !password){ err.textContent = "Isi username dan password."; return; }
+  try{
+    await api("admins", { method:"POST", body:{ username, password, role, venue, actorRole: (state.session && state.session.role) || "" } });
+    toast("Admin ditambahkan");
+    document.getElementById("naUser").value = ""; document.getElementById("naPass").value = ""; document.getElementById("naVenue").value = "";
+    loadAdmins();
+  }catch(e){ err.textContent = e.status === 409 ? "Username sudah dipakai." : (e.status === 403 ? "Hanya superadmin yang bisa menambah admin." : e.message); }
+}
+
 /* init */
+applySession(state.session);
 loadEvents();
 renderContext();
 </script>
