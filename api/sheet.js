@@ -197,6 +197,7 @@ const netlifyHandler = async (event) => {
     if (path === "players" && method === "POST") return await addPlayer(body);
     if (path === "players/update" && method === "PUT") return await updatePlayer(body);
     if (path === "players/claim" && method === "POST") return await claimProfile(body);
+    if (path === "players/checkin" && method === "POST") return await playerCheckin(body);
     if (path === "players/sync-clubs" && method === "POST") return await syncPlayerClubs();
     if (path.startsWith("players/") && method === "GET") {
       const name = decodeURIComponent(path.replace("players/", ""));
@@ -502,6 +503,48 @@ async function updatePlayer(body) {
     requestBody: { values: [updated] },
   });
   return respond(200, { success: true });
+}
+
+// Player self check-in: set a display nickname and/or photo for a player, live
+// (no moderation). Upserts the Players row by name — only the display (col D)
+// and photo (col G) are touched, everything else is preserved.
+async function playerCheckin(body) {
+  const name = String(body.name || "").trim();
+  if (!name) return respond(400, { error: "name required" });
+  const nickname = String(body.nickname || "").trim();
+  const sheets = getSheets();
+  const now = new Date().toISOString();
+  let photoUrl = "";
+  if (body.photo) {
+    const safe = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) || "player";
+    const folder = process.env.CHECKIN_DRIVE_FOLDER_ID || process.env.REG_DRIVE_FOLDER_ID || "";
+    try { photoUrl = await driveUploadImage(body.photo, `checkin_${safe}_${Date.now()}.jpg`, folder); }
+    catch (e) { console.error("checkin photo upload:", e.message); return respond(502, { error: "Photo upload failed" }); }
+  }
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:K` });
+  const rows = res.data.values || [];
+  const ri = rows.findIndex((r) => (r[0] || "").trim().toLowerCase() === name.toLowerCase());
+  if (ri === -1) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID, range: `${TABS.players}!A:I`, valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[ name, "", "FALSE", nickname || name, "M", "", photoUrl || "", "", now ]] },
+    });
+  } else {
+    const c = rows[ri], sr = ri + 2;
+    if (nickname) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: `${TABS.players}!D${sr}`, valueInputOption: "USER_ENTERED",
+        requestBody: { values: [[nickname]] },
+      });
+    }
+    if (photoUrl) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: `${TABS.players}!G${sr}`, valueInputOption: "USER_ENTERED",
+        requestBody: { values: [[photoUrl]] },
+      });
+    }
+  }
+  return respond(200, { success: true, photoUrl, displayName: nickname || name });
 }
 
 async function claimProfile({ name, ig_handle, session_id }) {
