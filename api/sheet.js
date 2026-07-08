@@ -63,6 +63,43 @@ async function imgbbUpload(dataUrl, name) {
   return j.data.display_url || j.data.url || (j.data.image && j.data.image.url) || "";
 }
 
+// "Run your tournament" contact form -> a dedicated Tournament_Leads tab
+// (self-bootstrapping on first submit).
+async function ensureLeadsTab(sheets) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const existing = (meta.data.sheets || []).map((s) => s.properties.title);
+  if (existing.includes(TABS.leads)) return;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ addSheet: { properties: { title: TABS.leads } } }] },
+  });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.leads}!A1`, valueInputOption: "RAW",
+    requestBody: { values: [[
+      "Timestamp", "Name", "WhatsApp", "Email", "Tournament_Date", "Participants",
+      "Category", "Venue", "City", "Package", "Notes", "Status",
+    ]] },
+  });
+}
+async function submitLead(body) {
+  const name = String(body.name || "").trim();
+  const whatsapp = String(body.whatsapp || "").trim();
+  if (!name || !whatsapp) return respond(400, { error: "Name and WhatsApp are required" });
+  const sheets = getSheets();
+  await ensureLeadsTab(sheets);
+  const now = new Date().toISOString();
+  const category = Array.isArray(body.category) ? body.category.join(", ") : String(body.category || "");
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.leads}!A:L`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[
+      now, name, whatsapp, String(body.email || ""), String(body.date || ""),
+      String(body.participants || ""), category, String(body.venue || ""), String(body.city || ""),
+      String(body.package || ""), String(body.notes || ""), "new",
+    ]] },
+  });
+  return respond(200, { success: true });
+}
+
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
 const TABS = {
@@ -81,6 +118,7 @@ const TABS = {
   t_form: "Form_Responses",
   reg_forms: "RegForms",
   registrations: "Registrations",
+  leads: "Tournament_Leads",
 };
 
 const headers = {
@@ -208,6 +246,7 @@ const netlifyHandler = async (event) => {
     // --- ROUTES ---
     if (path === "settings" && method === "GET") return await getSettings();
     if (path === "public/feed" && method === "GET") return await getPublicFeed();
+    if (path === "leads" && method === "POST") return await submitLead(body);
     if (path === "auth/login") return await login(body);
 
     if (path === "players" && method === "GET") return await getPlayers(params);
