@@ -1,85 +1,413 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Player Phone View (Example) — TurnamenPadel</title>
+<meta charset="UTF-8" />
 <meta name="robots" content="noindex"/>
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,700;0,800;0,900;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Player Phone View (Example) — TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
-:root{--bg:#0A0A0B;--panel:#141416;--panel2:#1B1B1F;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--subtle:#6B6B72;--or:#FF6A00;--amber:#FFB000;--green:#22C55E;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
-*{box-sizing:border-box}
-body{margin:0;background:#050506;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100dvh;display:flex;justify-content:center}
-.phone{width:100%;max-width:400px;background:var(--bg);min-height:100dvh;border-left:1px solid var(--line);border-right:1px solid var(--line)}
-.demobar{background:var(--panel2);border-bottom:1px solid var(--line);text-align:center;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);padding:6px}
-.demobar a{color:var(--or);text-decoration:none;font-weight:700}
-.top{padding:18px 18px 14px;border-bottom:1px solid var(--line)}
-.brandrow{display:flex;align-items:center;justify-content:space-between}
-.logo{font-family:'Saira Condensed';font-style:italic;font-weight:900;font-size:22px;text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
-.live{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;text-align:right}
-.live b{color:var(--or)}
-.evname{font-family:'Saira Condensed';font-weight:800;text-transform:uppercase;font-size:20px;margin-top:12px}
-.evmeta{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-top:3px}
-.who{margin-top:12px;font-size:12px;color:var(--muted)}
-.who b{color:var(--text)}
-.body{padding:16px 18px 30px}
-.lbl{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--subtle);margin:18px 2px 8px}
-.next{background:linear-gradient(135deg,rgba(255,106,0,.16),rgba(255,176,0,.06));border:1px solid rgba(255,106,0,.35);border-radius:16px;padding:16px}
-.next .tag{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#0A0A0B;background:var(--or);border-radius:999px;padding:4px 10px}
-.next .court{font-family:'Saira Condensed';font-weight:900;font-size:30px;text-transform:uppercase;margin-top:12px;line-height:1}
-.next .court span{color:var(--or)}
-.next .time{font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);margin-top:4px}
-.next .vs{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,106,0,.25);font-size:14px;font-weight:600}
-.next .vs small{color:var(--subtle);font-weight:600}
-.mrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin-bottom:8px}
-.mrow .c{font-family:'Space Mono',monospace;font-size:10px;color:#0A0A0B;background:var(--amber);border-radius:6px;padding:4px 7px;font-weight:700;flex-shrink:0}
-.mrow .m{flex:1;font-size:13px;font-weight:600}
-.mrow .m small{display:block;color:var(--subtle);font-weight:500;font-size:11px;margin-top:2px}
-.mrow .r{font-family:'Space Mono',monospace;font-size:13px;font-weight:700}
-.mrow .r.w{color:var(--green)}.mrow .r.up{color:var(--muted)}
-.stand{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
-.strow{display:grid;grid-template-columns:20px 1fr 30px 40px;gap:8px;align-items:center;padding:9px 12px;font-size:12px;border-bottom:1px solid var(--line)}
-.strow:last-child{border-bottom:0}
-.strow.h{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--subtle)}
-.strow .rk{font-family:'Saira Condensed';font-style:italic;font-weight:800;color:var(--subtle)}
-.strow.me{background:rgba(255,106,0,.08)}
-.strow.me .nm{color:var(--or);font-weight:700}
-.strow.q .rk{color:var(--green)}
-.num{text-align:center;font-family:'Space Mono',monospace}
-.pts{text-align:center;font-weight:800}
+  :root{
+    --bg:#000000; --panel:#121110; --panel2:#171513; --line:#332a24;
+    --text:#fdf4ee; --muted:#bfa091; --faint:#856a5d;
+    --accent:#FF6A00; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d; --warn:#ffd166;
+    --grad:linear-gradient(90deg,#FF3830,#FFB000);
+    --r:14px; --r-sm:10px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;
+    padding:0 0 40px; max-width:640px; margin:0 auto; min-height:100vh;}
+  a{color:inherit; text-decoration:none;}
+  .wrap{padding:0 14px;}
+  header{padding:18px 14px 12px; position:sticky; top:0; background:linear-gradient(180deg,#000 72%,transparent); z-index:20;}
+  .brand{display:flex; align-items:center; justify-content:space-between;}
+  .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:20px; letter-spacing:-.02em;
+    background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .live{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); letter-spacing:.08em; text-align:right;}
+  .live b{color:var(--accent);}
+  .evname{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:18px; margin-top:10px;}
+  .evmeta{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
+  /* tabs */
+  .tabs{display:flex; gap:7px; overflow-x:auto; padding:10px 14px 4px; scrollbar-width:none;}
+  .tabs::-webkit-scrollbar{display:none;}
+  .tab{flex:0 0 auto; padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:var(--panel);
+    font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; white-space:nowrap;}
+  .tab.on{background:var(--accent); color:#1a0d06; border-color:var(--accent);}
+  .subtabs{display:flex; gap:0; margin:14px 0 4px; border:1px solid var(--line); border-radius:999px; padding:3px; background:var(--panel);}
+  .subtab{flex:1; text-align:center; padding:8px 4px; border-radius:999px; font-size:11.5px; font-weight:600;
+    color:var(--muted); cursor:pointer; white-space:nowrap;}
+  .subtab.on{background:var(--panel2); color:var(--text); box-shadow:inset 0 0 0 1px var(--line);}
+  /* avatars + names */
+  .av{width:22px; height:22px; border-radius:50%; object-fit:cover; background:var(--panel2); flex:0 0 auto;
+    display:inline-flex; align-items:center; justify-content:center; font-family:'Space Mono',monospace; font-size:9px;
+    color:var(--accent2); border:1px solid var(--line); overflow:hidden;}
+  .pl{color:var(--text); border-bottom:1px dotted var(--faint);}
+  /* schedule */
+  .mrow{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); padding:10px 12px; margin-bottom:7px;}
+  .mrow:first-child{margin-top:16px;}
+  .mrow.live-now{border-color:rgba(255,122,26,.55); background:rgba(255,122,26,.06);}
+  .mrow.done{opacity:.82;}
+  .mrow .top{display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;}
+  .mrow .when{display:flex; align-items:baseline; gap:8px; min-width:0;}
+  .mrow .time{font-family:'Space Mono',monospace; font-size:13px; color:var(--accent2);}
+  .mrow .gl{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .mrow .badge-now{font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.06em; color:#1a0d06;
+    background:var(--accent); padding:2px 6px; border-radius:5px; flex:0 0 auto;}
+  .team{display:flex; align-items:center; gap:7px; padding:3px 0; font-size:13.5px;}
+  .team .nm{display:flex; align-items:center; gap:5px; flex-wrap:wrap;}
+  .team.w .nm{color:var(--accent); font-weight:700;}
+  .team .sc{margin-left:auto; font-family:'Space Mono',monospace; font-size:15px;}
+  /* schedule: player picker + my next match */
+  .schedctl{display:flex; align-items:center; gap:8px; margin:14px 0 2px;}
+  .schedctl label{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; flex:0 0 auto;}
+  .schedctl select{flex:1 1 auto; min-width:0; background:var(--panel); color:var(--text); border:1px solid var(--line);
+    border-radius:999px; padding:9px 13px; font-size:13px; font-family:inherit; -webkit-appearance:none; appearance:none;
+    background-image:linear-gradient(45deg,transparent 50%,var(--faint) 50%),linear-gradient(135deg,var(--faint) 50%,transparent 50%);
+    background-position:calc(100% - 16px) 17px,calc(100% - 11px) 17px; background-size:5px 5px,5px 5px; background-repeat:no-repeat;}
+  .nextcard{border:1px solid rgba(255,122,26,.55); background:rgba(255,122,26,.08); border-radius:var(--r-sm); padding:11px 13px; margin:10px 0 4px;}
+  .nextcard .lab{font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.06em; color:var(--accent2); text-transform:uppercase;}
+  .nextcard .big{display:flex; align-items:baseline; gap:9px; margin-top:4px; flex-wrap:wrap;}
+  .nextcard .big .t{font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--text);}
+  .nextcard .big .c{font-family:'Space Mono',monospace; font-size:12px; color:var(--accent);}
+  .nextcard .opp{font-size:13px; color:var(--muted); margin-top:5px;}
+  .nextcard .opp b{color:var(--text);}
+  .mrow.mine{border-color:rgba(255,171,64,.5); background:rgba(255,171,64,.05);}
+  .schedempty{color:var(--faint); font-size:13px; padding:14px 2px;}
+  /* standings */
+  .tscroll{overflow-x:auto; scrollbar-width:none; margin:12px 0 18px;}
+  .tscroll::-webkit-scrollbar{display:none;}
+  .stable{width:100%; border-collapse:collapse; font-size:13px;}
+  .stable caption{text-align:left; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:15px;
+    padding-bottom:8px; caption-side:top;}
+  .stable caption span{display:block; font-family:'Space Mono',monospace; font-size:10px; color:var(--muted); margin-top:3px; font-weight:400;}
+  .stable th{font-size:9.5px; color:var(--faint); font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.04em; text-align:center; padding-bottom:6px; white-space:nowrap;}
+  .stable th.l{text-align:left;}
+  .stable td{padding:8px 5px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  .stable .rk{font-family:'Space Mono',monospace; color:var(--accent2); width:22px; text-align:center;}
+  .stable .nmcell{display:flex; align-items:center; gap:6px;}
+  .stable .num-c{font-family:'Space Mono',monospace; text-align:center; width:30px; color:var(--muted); white-space:nowrap;}
+  .stable tr.top td{background:rgba(255,122,26,.10);} .stable tr.top .rk{color:var(--accent);}
+  .stable tr.champ td{background:rgba(255,122,26,.10);} .stable tr.champ .rk{color:var(--accent);}
+  .stable tr.prosp td{background:rgba(255,171,64,.07);} .stable tr.prosp .rk{color:var(--accent2);}
+  /* bracket */
+  .tier{margin-top:14px;}
+  .tier > h3{font-family:'Saira Condensed',sans-serif; font-size:16px; margin:0 0 9px; display:flex; gap:8px; align-items:center;}
+  .tier > h3 .tg{font-family:'Space Mono',monospace; font-size:9px; letter-spacing:.1em; text-transform:uppercase;
+    color:#1a0d06; background:var(--accent2); padding:3px 7px; border-radius:5px;}
+  .podium{display:flex; gap:8px; margin-bottom:14px;}
+  .pod{flex:1; border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 10px; background:var(--panel);}
+  .pod .rk{font-family:'Space Mono',monospace; font-size:9.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted);}
+  .pod .who{font-weight:700; font-size:12.5px; margin-top:4px; line-height:1.25;}
+  .pod.g{border-color:rgba(255,122,26,.5); background:rgba(255,122,26,.08);} .pod.g .rk{color:var(--accent);}
+  .pod.s .rk{color:#e7d8cf;} .pod.b .rk{color:var(--warn);}
+  .pround{margin-bottom:12px;}
+  .pround h4{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--faint); margin:0 0 7px; border-bottom:1px solid var(--line); padding-bottom:5px;}
+  .pmatch{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); padding:9px 11px; margin-bottom:6px;}
+  .pmatch.bye{opacity:.5;}
+  .pline{display:flex; align-items:center; gap:6px; padding:2px 0; font-size:13px;}
+  .pline.w{color:var(--accent); font-weight:700;}
+  .pline .sc{margin-left:auto; font-family:'Space Mono',monospace;}
+  .pline .tbd{color:var(--faint); font-style:italic;}
+  .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:34px 10px;}
+  .picker a{display:block; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel);
+    padding:14px 16px; margin-bottom:9px;}
+  .picker .pn{font-weight:700; font-size:15px;} .picker .pm{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
+  footer{text-align:center; font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); margin-top:24px; letter-spacing:.06em;}
+  footer b{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; font-family:'Saira Condensed',sans-serif; font-weight:800;}
+  footer a{color:inherit; text-decoration:none;}
+  /* tap hint + bracket name wrap */
+  .tap-hint{font-size:12px; color:var(--muted); margin:12px 2px 2px; text-align:center; line-height:1.4;}
+  .tap-hint b{color:var(--accent2); font-weight:700;}
+  .pline .pnm{display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0;}
+  /* sponsor banner — single static image, full width edge-to-edge, all black, no caption */
+  #sponsorBanner{display:none; margin:22px 0 0; background:#000; line-height:0;}
+  #sponsorBanner.show{display:block;}
+  #sponsorBanner img{display:block; width:100%; height:auto;}
+  /* schedule helper text */
+  .sched-hint{font-size:12.5px; color:var(--muted); line-height:1.45; margin:16px 2px 2px;}
 </style>
 </head>
 <body>
-<div class="phone">
-  <div class="demobar">Example · Player phone view · <a href="/demo.html">← back to demo</a></div>
-  <div class="top">
-    <div class="brandrow"><span class="logo">TurnamenPadel</span><span class="live"><b>● LIVE</b><br/>Round 2</span></div>
-    <div class="evname">Jakarta Open Padel</div>
-    <div class="evmeta">Padel Box Kemang · 12 Jul 2026</div>
-    <div class="who">Signed in as <b>Andi Saputra</b></div>
+<header>
+  <div class="brand">
+    <div class="logo">turnamenpadel.com</div>
+    <div class="live" id="live"></div>
   </div>
-  <div class="body">
-    <div class="lbl">You're up next</div>
-    <div class="next">
-      <span class="tag"><i class="ti ti-clock"></i> Get ready</span>
-      <div class="court">Court <span>3</span></div>
-      <div class="time">14:20 · in about 8 minutes</div>
-      <div class="vs">You &amp; <b>Budi Pratama</b> <small>vs</small> Rian &amp; Deni</div>
-    </div>
-    <div class="lbl">My matches</div>
-    <div class="mrow"><span class="c">C1</span><span class="m">You &amp; Budi <small>vs Fajar &amp; Maya</small></span><span class="r w">6–3 W</span></div>
-    <div class="mrow"><span class="c">C3</span><span class="m">You &amp; Budi <small>vs Rian &amp; Deni</small></span><span class="r up">14:20</span></div>
-    <div class="mrow"><span class="c">—</span><span class="m">You &amp; Budi <small>vs Eko &amp; Dimas</small></span><span class="r up">TBD</span></div>
-    <div class="lbl">My group · B</div>
-    <div class="stand">
-      <div class="strow h"><span>#</span><span>Team</span><span class="num">P</span><span class="pts">Pts</span></div>
-      <div class="strow q"><span class="rk">1</span><span class="nm">Fajar &amp; Maya</span><span class="num">3</span><span class="pts">7</span></div>
-      <div class="strow q me"><span class="rk">2</span><span class="nm">You &amp; Budi</span><span class="num">2</span><span class="pts">6</span></div>
-      <div class="strow"><span class="rk">3</span><span class="nm">Rian &amp; Deni</span><span class="num">2</span><span class="pts">3</span></div>
-      <div class="strow"><span class="rk">4</span><span class="nm">Eko &amp; Dimas</span><span class="num">3</span><span class="pts">1</span></div>
-    </div>
-  </div>
+  <div id="evhead"></div>
+</header>
+<div id="cattabs" class="tabs"></div>
+<div class="wrap">
+  <div id="subtabs"></div>
+  <div id="body"><p class="empty">Loading…</p></div>
 </div>
+<div id="sponsorBanner"><img id="spbImg" alt="sponsor"></div>
+<footer><a href="https://trekkr.online" target="_blank" rel="noopener noreferrer">POWERED BY <b>TREKKR</b></a></footer>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const PASSPORT = "https://trekkr.online/player/";
+const qs = new URLSearchParams(location.search);
+// Event can be given as ?event=<id> (old links) or as a friendly slug path
+// /mobile/<slug> (resolved from the event name at load time — see boot()).
+let EVENT_ID = qs.get("event");
+const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
+function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
+const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const state = { data:null, cat:0, view:"schedule", player:"" };
+
+async function api(path){ const r = await fetch(BASE+path); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
+
+function initials(name){ const p=String(name||"").trim().split(/\s+/); return ((p[0]||"")[0]||"")+((p[1]||"")[0]||""); }
+function avatar(name){
+  const pl = state.data && state.data.players[norm(name)];
+  if(pl && pl.photo) return `<span class="av"><img src="${esc(pl.photo)}" style="width:100%;height:100%;object-fit:cover" alt=""/></span>`;
+  return `<span class="av">${esc(initials(name).toUpperCase())}</span>`;
+}
+function slug(n){ return String(n||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
+function firstName(n){ const t=String(n||"").trim(); return t? t.split(/\s+/)[0] : ""; }
+// Show a player's check-in nickname when they set one; otherwise their first name.
+function dispName(n){ const p=state.data&&state.data.players&&state.data.players[norm(n)]; const d=p&&p.display?String(p.display).trim():""; return (d&&norm(d)!==norm(n))?d:firstName(n); }
+// Convert a combined "A + B" team string to display nicknames.
+function dispPair(team){ return String(team||"").split(/\s*\+\s*/).filter(Boolean).map(dispName).join(" + "); }
+function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(dispName(name))}</a>`; }
+function teamNames(cat, entrantId, withAv){
+  const e = cat.entrants[entrantId];
+  if(!e) return entrantId ? esc(entrantId) : '<span class="tbd">TBD</span>';
+  const a = (withAv?avatar(e.player1):"")+plink(e.player1);
+  const b = (withAv?avatar(e.player2):"")+plink(e.player2);
+  return `${a} <span style="color:var(--faint)">+</span> ${b}`;
+}
+
+function roundLabel(round, numRounds){
+  if(String(round)==="BRONZE") return "3rd Place";
+  const r=parseInt(round), f=numRounds-r;
+  return f===0?"Final":f===1?"Semifinal":f===2?"Quarterfinal":f===3?"Round of 16":"Round "+r;
+}
+
+function renderTabs(){
+  const cats = state.data.categories;
+  // Only show the category switcher when there is more than one category.
+  document.getElementById("cattabs").innerHTML = cats.length>1 ? cats.map((c,i)=>
+    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(c.category)}</div>`).join("") : "";
+  const labels = { schedule:"Schedule", standings:"Group / Standing", bracket:"Bracket" };
+  document.getElementById("subtabs").innerHTML = `<div class="subtabs">
+    ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
+  </div>
+  <p class="tap-hint">Klik nama pemain untuk melihat <b>track record</b> di Trekkr.</p>`;
+}
+function setCat(i){ state.cat=i; renderTabs(); renderBody(); }
+function setView(v){ state.view=v; renderTabs(); renderBody(); }
+
+function renderBody(){
+  const cat = state.data.categories[state.cat];
+  const el = document.getElementById("body");
+  if(!cat){ el.innerHTML='<p class="empty">No category yet.</p>'; return; }
+  if(state.view==="schedule") el.innerHTML = renderSchedule(cat);
+  else if(state.view==="standings") el.innerHTML = renderStandings(cat);
+  else el.innerHTML = renderBracket(cat);
+}
+
+function renderSchedule(cat){
+  if(!cat.schedule.length) return '<p class="empty">Group stage schedule not available yet.</p>';
+  const pred = predictTimes();
+  const ptime = (m)=> esc(pred[m.matchId] || fmtTime(m.time));
+
+  // Player picker — lets a player see only their own matches.
+  const players = playersInCat(cat);
+  const sel = (state.player && players.some(p=>norm(p)===norm(state.player))) ? state.player : "";
+  const ctl = `<p class="sched-hint">To see only your schedule, select your name in the dropdown below.</p>
+    <div class="schedctl"><label>Player</label>
+    <select onchange="setPlayer(this.value)">
+      <option value="">All matches</option>
+      ${players.map(p=>`<option value="${esc(p)}" ${norm(p)===norm(sel)?'selected':''}>${esc(p)}</option>`).join("")}
+    </select></div>`;
+
+  // currently playing = first non-DONE match per court
+  const firstByCourt = {};
+  cat.schedule.slice().sort((a,b)=>a.slot-b.slot).forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
+  const playing = new Set(Object.values(firstByCourt));
+
+  let list = cat.schedule.slice().sort((a,b)=> (a.slot-b.slot) || (a.court-b.court));
+  let nextCard = "";
+  if(sel){
+    list = list.filter(m=>matchHasPlayer(cat,m,sel));
+    if(!list.length) return ctl + `<div class="schedempty">No matches for ${esc(sel)} in this category.</div>`;
+    const next = list.find(m=>m.status!=="DONE");
+    if(next){
+      const oppId = entrantHasPlayer(cat,next.entrantA,sel) ? next.entrantB : next.entrantA;
+      const isLive = playing.has(next.matchId);
+      nextCard = `<div class="nextcard"><div class="lab">${isLive?"You're up now":"Your next match"}</div>
+        <div class="big"><span class="t">${isLive?"LIVE":ptime(next)}</span><span class="c">Court ${esc(next.court)} · Group ${esc(next.groupLabel)}</span></div>
+        <div class="opp">vs <b>${teamNames(cat,oppId,false)}</b></div></div>`;
+    }
+  }
+
+  const rows = list.map(m=>{
+    const done = m.status==="DONE";
+    const aw = done && String(m.winner)===String(m.entrantA);
+    const bw = done && String(m.winner)===String(m.entrantB);
+    const liveNow = playing.has(m.matchId) && !done;
+    const mine = sel && matchHasPlayer(cat,m,sel);
+    return `<div class="mrow ${done?'done':''} ${liveNow?'live-now':''} ${mine?'mine':''}">
+      <div class="top">
+        <span class="when"><span class="time">${ptime(m)}</span><span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}</span></span>
+        ${liveNow?'<span class="badge-now">LIVE</span>':''}</div>
+      <div class="team ${aw?'w':''}"><span class="nm">${teamNames(cat,m.entrantA,true)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>
+      <div class="team ${bw?'w':''}"><span class="nm">${teamNames(cat,m.entrantB,true)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>
+    </div>`;
+  }).join("");
+
+  return ctl + nextCard + rows;
+}
+
+function renderStandings(cat){
+  if(!cat.groups.length) return '<p class="empty">Groups not drawn yet.</p>';
+  const N = cat.advancersPerGroup||0;
+  const split = String(cat.format||"").toUpperCase()==="SPLIT";
+  const rankNote = "Ranked by: most wins → head-to-head → point difference → points for → points against";
+  return cat.groups.map(g=>{
+    const denom = Math.max(1,(g.standings.length||1)-1);
+    const rows = g.standings.map(s=>{
+      const cls = split ? (s.rank<=N?'champ':'prosp') : (N&&s.rank<=N?'top':'');
+      const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
+      return `<tr class="${cls}">
+        <td class="rk">${s.rank}</td>
+        <td><span class="nmcell">${teamNames(cat,s.entrantId,false)}</span></td>
+        <td class="num-c">${s.played}/${denom}</td><td class="num-c">${s.wins}</td><td class="num-c">${s.losses}</td>
+        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${pa}</td></tr>`;
+    }).join("");
+    const advText = split
+      ? `Rank 1${N>1?`–${N}`:''} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket`
+      : (N?`Top ${N} advance`:'');
+    const cap = `<span>${advText?advText+' · ':''}${rankNote}</span>`;
+    return `<div class="tscroll"><table class="stable"><caption>Group ${esc(g.label)}${cap}</caption>
+      <thead><tr><th>#</th><th class="l">Pair</th><th>Played</th><th>Win</th><th>Lose</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+      <tbody>${rows}</tbody></table></div>`;
+  }).join("");
+}
+
+const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
+function derivePodium(b){
+  const lr=(b.rounds||[])[(b.rounds||[]).length-1];
+  const fm=lr&&lr.matches&&lr.matches[0];
+  let champion="",runnerUp="",third="";
+  if(fm&&fm.status==="DONE"&&fm.winner){
+    if(String(fm.winner)===String(fm.entrantA)){ champion=fm.teamA; runnerUp=fm.teamB; }
+    else { champion=fm.teamB; runnerUp=fm.teamA; }
+  }
+  const bm=b.bronze;
+  if(bm&&bm.status==="DONE"&&bm.winner){ third = String(bm.winner)===String(bm.entrantA)?bm.teamA:bm.teamB; }
+  return {champion,runnerUp,third};
+}
+function renderBracket(cat){
+  if(!cat.playoff.length) return '<p class="empty">Playoff bracket not available yet.</p>';
+  return cat.playoff.map(b=>{
+    const pd = derivePodium(b);
+    const pod = (pd.champion||pd.runnerUp||pd.third) ? `<div class="podium">
+      <div class="pod g"><div class="rk">🏆 Champion</div><div class="who">${esc(dispPair(pd.champion))||"—"}</div></div>
+      <div class="pod s"><div class="rk">Runner-up</div><div class="who">${esc(dispPair(pd.runnerUp))||"—"}</div></div>
+      <div class="pod b"><div class="rk">3rd Place</div><div class="who">${esc(dispPair(pd.third))||"—"}</div></div></div>` : "";
+    const rounds = b.rounds.map(r=>`<div class="pround"><h4>${roundLabel(r.round,b.numRounds)}</h4>${r.matches.map(m=>pmatch(cat,m)).join("")}</div>`).join("");
+    const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE",b.numRounds)}</h4>${pmatch(cat,b.bronze)}</div>`:"";
+    return `<div class="tier"><h3><span class="tg">${TIER[b.tier]||b.tier}</span> ${b.nQual} teams</h3>${pod}${rounds}${bronze}</div>`;
+  }).join("");
+}
+function pmatch(cat,m){
+  const bye = m.status==="BYE", done = m.status==="DONE";
+  const aw = done && String(m.winner)===String(m.entrantA);
+  const bw = done && String(m.winner)===String(m.entrantB);
+  const nameA = m.entrantA ? teamNames(cat,m.entrantA,true) : '<span class="tbd">TBD</span>';
+  const nameB = m.entrantB ? teamNames(cat,m.entrantB,true) : '<span class="tbd">TBD</span>';
+  const scA = done?esc(String(m.scoreA)):""; const scB = done?esc(String(m.scoreB)):"";
+  return `<div class="pmatch ${bye?'bye':''}">
+    <div class="pline ${aw?'w':''}"><span class="pnm">${nameA}</span><span class="sc">${bye?'BYE':scA}</span></div>
+    <div class="pline ${bw?'w':''}"><span class="pnm">${nameB}</span><span class="sc">${scB}</span></div></div>`;
+}
+
+function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
+
+// Static schedule times (same as the TV board): each group match = event start time +
+// slot * admin match duration. Match 0 = start (e.g. 11:00), match 1 = +15min, and so on.
+// No server-time or actual-pace adjustment.
+function timeToMin(t){ const s=fmtTime(t); if(!s) return null; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
+function minToTime(x){ x=((Math.round(x)%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
+function predictTimes(){
+  const ev=state.data.event||{};
+  const mm=parseInt(ev.matchMinutes)||15;
+  const startMin=timeToMin(ev.startTime);
+  if(startMin==null) return {};   // no start time -> fall back to stored m.time
+  const pred={};
+  (state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{ pred[m.matchId]=minToTime(startMin+(m.slot||0)*mm); }));
+  return pred;
+}
+
+// Player filter helpers
+function entrantHasPlayer(cat,eid,p){ const e=cat.entrants[eid]; return !!(e && (norm(e.player1)===norm(p)||norm(e.player2)===norm(p))); }
+function matchHasPlayer(cat,m,p){ return entrantHasPlayer(cat,m.entrantA,p)||entrantHasPlayer(cat,m.entrantB,p); }
+function playersInCat(cat){ const seen=new Map(); Object.values(cat.entrants||{}).forEach(e=>{ [e&&e.player1,e&&e.player2].forEach(p=>{ if(p&&!seen.has(norm(p))) seen.set(norm(p),p); }); }); return [...seen.values()].sort((a,b)=>a.localeCompare(b)); }
+function setPlayer(name){ state.player=name||""; try{ if(state.player) localStorage.setItem("trekkr_player_"+EVENT_ID,state.player); else localStorage.removeItem("trekkr_player_"+EVENT_ID); }catch(e){} renderBody(); }
+
+// Sponsor banner: one static image at the bottom of every tab, full width edge-to-edge,
+// from the "Sponsors" tab column B (separate from the TV reel). Set up once, no rotation.
+let _spReady=false;
+function setupSponsorBanner(){
+  if(_spReady) return;
+  const url = (state.data && state.data.mobileBanner) ? String(state.data.mobileBanner) : "";
+  if(!url) return;
+  _spReady=true;
+  const box=document.getElementById("sponsorBanner"), img=document.getElementById("spbImg");
+  img.onerror=()=>{ box.classList.remove("show"); };
+  img.src=url;
+  box.classList.add("show");
+}
+
+async function load(){
+  try{
+    const d = await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public");
+    state.data = d;
+    document.getElementById("evhead").innerHTML =
+      `<div class="evname">${esc(d.event.name||"Tournament")}</div>
+       <div class="evmeta">${esc([d.event.venue,d.event.date].filter(Boolean).join(" · "))}</div>`;
+    document.getElementById("live").innerHTML = `<b>● LIVE</b><br>updated ${new Date().toLocaleTimeString("en-GB")}`;
+    if(state.cat >= d.categories.length) state.cat = 0;
+    renderTabs(); renderBody(); setupSponsorBanner();
+  }catch(e){ document.getElementById("body").innerHTML = '<p class="empty">Failed to load data.</p>'; }
+}
+
+async function pickEvent(){
+  try{
+    const { events } = await api("/tournament/events");
+    const list = (events||[]).slice().reverse();
+    document.getElementById("body").innerHTML = list.length ? `<div class="picker">${list.map(e=>
+      `<a href="/mobile/${encodeURIComponent(slugify(e.name))}"><div class="pn">${esc(e.name)}</div><div class="pm">${esc([e.venue,e.date].filter(Boolean).join(" · "))}</div></a>`).join("")}</div>`
+      : '<p class="empty">No events yet.</p>';
+  }catch(e){ document.getElementById("body").innerHTML='<p class="empty">Failed to load events.</p>'; }
+}
+
+// Resolve a friendly /mobile/<slug> path to an event id via the event list.
+async function resolveEventId(){
+  if(EVENT_ID) return EVENT_ID;
+  const slug = slugFromPath();
+  if(!slug) return null;
+  try{
+    const { events } = await api("/tournament/events");
+    const matches = (events||[]).filter(e=>slugify(e.name)===slug);
+    if(matches.length) return matches[matches.length-1].eventId; // newest on name collision
+  }catch(e){}
+  return null;
+}
+const DEMO = {"event":{"name":"Padel Demo Cup","venue":"La Familia, Jakarta","date":"2026-07-12","numCourts":3,"matchMinutes":15},"players":{"andi pratama":{"name":"Andi Pratama","display":"Andi","photo":""},"budi santoso":{"name":"Budi Santoso","display":"Budi Santoso","photo":""},"chandra wijaya":{"name":"Chandra Wijaya","display":"Can","photo":""},"dedi kurnia":{"name":"Dedi Kurnia","display":"Dedi Kurnia","photo":""},"eka nugroho":{"name":"Eka Nugroho","display":"Eka Nugroho","photo":""},"fajar hakim":{"name":"Fajar Hakim","display":"Jar","photo":""},"galih saputra":{"name":"Galih Saputra","display":"Galih Saputra","photo":""},"hendra halim":{"name":"Hendra Halim","display":"Hen","photo":""},"irfan pratama":{"name":"Irfan Pratama","display":"Irfan Pratama","photo":""},"joko santoso":{"name":"Joko Santoso","display":"Joko Santoso","photo":""},"kevin wijaya":{"name":"Kevin Wijaya","display":"Kev","photo":""},"lukman kurnia":{"name":"Lukman Kurnia","display":"Lukman Kurnia","photo":""},"made nugroho":{"name":"Made Nugroho","display":"Made Nugroho","photo":""},"nanda hakim":{"name":"Nanda Hakim","display":"Nanda Hakim","photo":""},"oscar saputra":{"name":"Oscar Saputra","display":"Oca","photo":""},"putra halim":{"name":"Putra Halim","display":"Putra Halim","photo":""},"rizki pratama":{"name":"Rizki Pratama","display":"Iki","photo":""},"surya santoso":{"name":"Surya Santoso","display":"Surya Santoso","photo":""},"toni wijaya":{"name":"Toni Wijaya","display":"Toni Wijaya","photo":""},"umar kurnia":{"name":"Umar Kurnia","display":"Umar Kurnia","photo":""},"vino nugroho":{"name":"Vino Nugroho","display":"Vino Nugroho","photo":""},"wawan hakim":{"name":"Wawan Hakim","display":"Wawan","photo":""},"yoga saputra":{"name":"Yoga Saputra","display":"Yoga Saputra","photo":""},"zaki halim":{"name":"Zaki Halim","display":"Zaki Halim","photo":""}},"categories":[{"tournamentId":"TDEMO","category":"Men's Doubles","level":"bronze","format":"SINGLE","status":"RUNNING","advancersPerGroup":2,"entrants":{"E_A1":{"player1":"Andi Pratama","player2":"Budi Santoso","seedElo":1500},"E_A2":{"player1":"Chandra Wijaya","player2":"Dedi Kurnia","seedElo":1500},"E_A3":{"player1":"Eka Nugroho","player2":"Fajar Hakim","seedElo":1500},"E_B1":{"player1":"Galih Saputra","player2":"Hendra Halim","seedElo":1500},"E_B2":{"player1":"Irfan Pratama","player2":"Joko Santoso","seedElo":1500},"E_B3":{"player1":"Kevin Wijaya","player2":"Lukman Kurnia","seedElo":1500},"E_C1":{"player1":"Made Nugroho","player2":"Nanda Hakim","seedElo":1500},"E_C2":{"player1":"Oscar Saputra","player2":"Putra Halim","seedElo":1500},"E_C3":{"player1":"Rizki Pratama","player2":"Surya Santoso","seedElo":1500},"E_D1":{"player1":"Toni Wijaya","player2":"Umar Kurnia","seedElo":1500},"E_D2":{"player1":"Vino Nugroho","player2":"Wawan Hakim","seedElo":1500},"E_D3":{"player1":"Yoga Saputra","player2":"Zaki Halim","seedElo":1500}},"groups":[{"label":"A","standings":[{"rank":1,"entrantId":"E_A1","team":"Andi Pratama + Budi Santoso","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_A3","team":"Eka Nugroho + Fajar Hakim","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_A2","team":"Chandra Wijaya + Dedi Kurnia","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]},{"label":"B","standings":[{"rank":1,"entrantId":"E_B1","team":"Galih Saputra + Hendra Halim","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_B3","team":"Kevin Wijaya + Lukman Kurnia","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_B2","team":"Irfan Pratama + Joko Santoso","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]},{"label":"C","standings":[{"rank":1,"entrantId":"E_C1","team":"Made Nugroho + Nanda Hakim","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_C3","team":"Rizki Pratama + Surya Santoso","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_C2","team":"Oscar Saputra + Putra Halim","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]},{"label":"D","standings":[{"rank":1,"entrantId":"E_D1","team":"Toni Wijaya + Umar Kurnia","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_D3","team":"Yoga Saputra + Zaki Halim","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_D2","team":"Vino Nugroho + Wawan Hakim","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]}],"schedule":[{"matchId":"M_A0","court":1,"slot":0,"time":"","groupLabel":"A","entrantA":"E_A1","entrantB":"E_A2","teamA":"Andi Pratama + Budi Santoso","teamB":"Chandra Wijaya + Dedi Kurnia","scoreA":6,"scoreB":3,"winner":"E_A1","status":"DONE","updatedAt":""},{"matchId":"M_A1","court":1,"slot":1,"time":"","groupLabel":"A","entrantA":"E_A1","entrantB":"E_A3","teamA":"Andi Pratama + Budi Santoso","teamB":"Eka Nugroho + Fajar Hakim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_A2","court":1,"slot":2,"time":"","groupLabel":"A","entrantA":"E_A2","entrantB":"E_A3","teamA":"Chandra Wijaya + Dedi Kurnia","teamB":"Eka Nugroho + Fajar Hakim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_B0","court":2,"slot":0,"time":"","groupLabel":"B","entrantA":"E_B1","entrantB":"E_B2","teamA":"Galih Saputra + Hendra Halim","teamB":"Irfan Pratama + Joko Santoso","scoreA":6,"scoreB":3,"winner":"E_B1","status":"DONE","updatedAt":""},{"matchId":"M_B1","court":2,"slot":1,"time":"","groupLabel":"B","entrantA":"E_B1","entrantB":"E_B3","teamA":"Galih Saputra + Hendra Halim","teamB":"Kevin Wijaya + Lukman Kurnia","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_B2","court":2,"slot":2,"time":"","groupLabel":"B","entrantA":"E_B2","entrantB":"E_B3","teamA":"Irfan Pratama + Joko Santoso","teamB":"Kevin Wijaya + Lukman Kurnia","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_C0","court":3,"slot":0,"time":"","groupLabel":"C","entrantA":"E_C1","entrantB":"E_C2","teamA":"Made Nugroho + Nanda Hakim","teamB":"Oscar Saputra + Putra Halim","scoreA":6,"scoreB":3,"winner":"E_C1","status":"DONE","updatedAt":""},{"matchId":"M_C1","court":3,"slot":1,"time":"","groupLabel":"C","entrantA":"E_C1","entrantB":"E_C3","teamA":"Made Nugroho + Nanda Hakim","teamB":"Rizki Pratama + Surya Santoso","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_C2","court":3,"slot":2,"time":"","groupLabel":"C","entrantA":"E_C2","entrantB":"E_C3","teamA":"Oscar Saputra + Putra Halim","teamB":"Rizki Pratama + Surya Santoso","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_D0","court":1,"slot":0,"time":"","groupLabel":"D","entrantA":"E_D1","entrantB":"E_D2","teamA":"Toni Wijaya + Umar Kurnia","teamB":"Vino Nugroho + Wawan Hakim","scoreA":6,"scoreB":3,"winner":"E_D1","status":"DONE","updatedAt":""},{"matchId":"M_D1","court":1,"slot":1,"time":"","groupLabel":"D","entrantA":"E_D1","entrantB":"E_D3","teamA":"Toni Wijaya + Umar Kurnia","teamB":"Yoga Saputra + Zaki Halim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_D2","court":1,"slot":2,"time":"","groupLabel":"D","entrantA":"E_D2","entrantB":"E_D3","teamA":"Vino Nugroho + Wawan Hakim","teamB":"Yoga Saputra + Zaki Halim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""}],"playoff":[]}],"sponsors":[],"mobileBanner":""};
+(function boot(){
+  state.data = DEMO;
+  document.getElementById("evhead").innerHTML =
+    '<div class="evname">'+esc(DEMO.event.name)+'</div><div class="evmeta">'+esc([DEMO.event.venue,DEMO.event.date].filter(Boolean).join(" · "))+'</div>';
+  document.getElementById("live").innerHTML = '<b>● LIVE</b>';
+  renderTabs(); renderBody(); setupSponsorBanner();
+})();
+</script>
 </body>
 </html>
