@@ -1,90 +1,602 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>TV Display (Example) — TurnamenPadel</title>
+<meta charset="UTF-8" />
 <meta name="robots" content="noindex"/>
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,700;0,800;0,900;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css"/>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TV Display (Example) — TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
-:root{--bg:#0A0A0B;--panel:#141416;--panel2:#1B1B1F;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--subtle:#6B6B72;--or:#FF6A00;--amber:#FFB000;--green:#22C55E;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
-*{box-sizing:border-box}
-body{margin:0;background:radial-gradient(1200px 600px at 85% -10%,rgba(255,106,0,.10),transparent 60%),#050506;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;min-height:100dvh}
-.demobar{background:var(--panel2);border-bottom:1px solid var(--line);text-align:center;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);padding:7px}
-.demobar a{color:var(--or);text-decoration:none;font-weight:700}
-.board{padding:clamp(18px,2.5vw,34px)}
-.top{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:18px;flex-wrap:wrap;gap:10px}
-.logo{font-family:'Saira Condensed';font-style:italic;font-weight:900;font-size:clamp(28px,3.4vw,46px);text-transform:uppercase;background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
-.ev{font-family:'Saira Condensed';font-weight:800;text-transform:uppercase;font-size:clamp(18px,2vw,28px);text-align:right}
-.ev small{display:block;font-family:'Space Mono',monospace;font-size:12px;color:var(--muted);letter-spacing:.1em;font-weight:400}
-.clock{font-family:'Space Mono',monospace;color:var(--or);font-size:13px;letter-spacing:.14em}
-.grid{display:grid;grid-template-columns:1.1fr 1fr;gap:clamp(16px,2vw,28px);margin-top:22px}
-.col-title{font-family:'Space Mono',monospace;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);font-size:13px;margin-bottom:12px}
-.col-title.live{color:var(--or)}
-.court{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;margin-bottom:14px;display:flex;align-items:center;gap:16px}
-.court .no{font-family:'Saira Condensed';font-style:italic;font-weight:900;font-size:clamp(26px,3vw,40px);color:var(--or);min-width:64px}
-.court .teams{flex:1}
-.court .t{display:flex;justify-content:space-between;align-items:center;font-size:clamp(15px,1.6vw,20px);font-weight:600;padding:4px 0}
-.court .t.w{color:var(--text)}.court .t.w .sc{color:var(--green)}
-.court .t .sc{font-family:'Space Mono',monospace;font-weight:700;font-size:clamp(20px,2.2vw,30px)}
-.court .srv{color:var(--or);font-size:12px}
-.next-row{display:flex;justify-content:space-between;padding:10px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;margin-bottom:8px;font-size:clamp(13px,1.3vw,16px)}
-.next-row .c{font-family:'Space Mono',monospace;color:var(--amber)}
-/* mini bracket */
-.brk{display:flex;align-items:center;gap:12px;justify-content:center}
-.bcol{display:flex;flex-direction:column;gap:16px;justify-content:center;min-width:150px}
-.bh{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--subtle);text-align:center;margin-bottom:2px}
-.bm{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:150px}
-.bm .r{display:flex;justify-content:space-between;padding:8px 11px;font-size:14px;font-weight:600}
-.bm .r+.r{border-top:1px solid var(--line)}
-.bm .r.w{color:var(--text)}.bm .r.w .s{color:var(--green)}
-.bm .r .s{font-family:'Space Mono',monospace;font-weight:700}
-.bm.fin{border-color:rgba(255,106,0,.4)}
-.center{display:flex;flex-direction:column;gap:10px;align-items:center}
-.third{font-size:12px;color:var(--muted)}
-.third i{color:var(--amber)}
-@media(max-width:820px){.grid{grid-template-columns:1fr}}
+  :root{
+    --bg:#000000; --panel:#121110; --panel2:#171513; --line:#332a24;
+    --text:#fdf4ee; --muted:#bfa091; --faint:#856a5d;
+    --accent:#FF6A00; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d;
+    --grad:linear-gradient(90deg,#FF3830,#FFB000);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{background:#000; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; overflow:hidden;}
+  .screen{height:100vh; display:flex; flex-direction:column; padding:2vh 2.2vw;}
+  /* top bar */
+  .bar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; flex:0 0 auto; margin-bottom:1.6vh;}
+  .ev{grid-column:2; text-align:center;}
+  .ev .nm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(26px,3.4vw,60px); line-height:1; letter-spacing:-.02em;
+    background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .ev .mt{font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); color:var(--muted); margin-top:.8vh; letter-spacing:.08em;}
+  .clock{grid-column:3; justify-self:end; text-align:right; font-family:'Space Mono',monospace;}
+  .clock .t{font-size:clamp(20px,2.4vw,42px); font-weight:700;}
+  .clock .l{font-size:clamp(9px,.8vw,13px); color:var(--accent); letter-spacing:.12em; animation:liveblink 1.4s steps(1,end) infinite;}
+  .qr{grid-column:1; justify-self:start; display:flex; align-items:center; gap:.7vw;}
+  .qr .qrimg{background:#fff; padding:.5vw; border-radius:10px; line-height:0; box-shadow:0 0 0 1px var(--line);}
+  .qr .qrimg img{display:block; width:clamp(72px,6vw,120px); height:clamp(72px,6vw,120px);}
+  .qr .qrlabel{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em;
+    font-size:clamp(9px,.78vw,13px); color:var(--accent2); line-height:1.35;}
+  /* main split */
+  .main{flex:1 1 auto; min-height:0; display:flex; gap:1.6vw;}
+  .left{flex:0 0 36%; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
+  .right{flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
+  .col-title{font-family:'Space Mono',monospace; letter-spacing:.16em; text-transform:uppercase; color:var(--accent2);
+    font-size:clamp(10px,.85vw,15px); margin:0 0 1vh; flex:0 0 auto;}
+  .col-title.up{margin-top:1.4vh;}
+  .col-title.live{color:var(--accent); animation:liveblink 1.4s steps(1,end) infinite;}
+  .col-title.live::before{content:"\25CF  ";}
+  @keyframes liveblink{0%,62%{opacity:1} 63%,100%{opacity:.22}}
+  /* avatars */
+  .av{ --s:42px; position:relative; width:var(--s); height:var(--s); border-radius:50%; overflow:hidden;
+    display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
+    background:linear-gradient(135deg,#3a241b,#1c120c); border:1px solid var(--line);}
+  .av img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  .av i{ font-style:normal; font-family:'Saira Condensed',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
+  /* now playing cards — dominant, fill column height */
+  #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:1vh;}
+  .np-card{flex:1 1 0; min-height:clamp(40px,4.5vh,90px); overflow:hidden; display:flex; flex-direction:column; justify-content:center;
+    border:1.5px solid rgba(255,122,26,.7); border-radius:16px;
+    background:linear-gradient(180deg,rgba(255,122,26,.12),rgba(255,122,26,.04)); padding:1.2vh 1.4vw;}
+  .np-head{display:flex; align-items:center; gap:.7vw; margin-bottom:.7vh; flex:0 0 auto;}
+  .np-court{font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--accent);
+    border-radius:5px; padding:.2vh .55vw; font-size:clamp(9px,.78vw,14px); letter-spacing:.03em;}
+  .np-meta{font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(9px,.8vw,13px);}
+  .np-dot{margin-left:auto; flex:0 0 auto; width:clamp(10px,.9vw,16px); height:clamp(10px,.9vw,16px);
+    border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent);
+    animation:liveblink 1.4s steps(1,end) infinite;}
+  .np-teams{display:flex; align-items:center; gap:.8vw; flex:1 1 auto; min-height:0;}
+  .tmblk{flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; gap:.8vw;}
+  .tmblk .pl{display:flex; align-items:center; gap:.55vw; min-width:0; flex:0 1 50%;}
+  .tmblk .plnm{font-weight:700; font-size:var(--nmf,clamp(14px,1.3vw,26px)); line-height:1.1; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis;}
+  .np-vs{flex:0 0 auto; align-self:center; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
+    font-size:clamp(12px,1.1vw,20px); letter-spacing:.12em;}
+  .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
+  /* upcoming — compact single-line queue, ordered by time; capped so Now Playing stays bigger */
+  #nextWrap{flex:0 0 auto; min-height:clamp(80px,11vh,170px); display:flex; flex-direction:column; gap:.6vh;}
+  .up-row{display:flex; align-items:center; gap:.8vw; border:1px solid var(--line); border-radius:8px; background:var(--panel); padding:.5vh .9vw;}
+  .up-time{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--text); font-size:clamp(11px,.95vw,17px); letter-spacing:.02em;}
+  .up-court{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2); font-size:clamp(9px,.78vw,13px); letter-spacing:.02em; min-width:2.4em;}
+  .up-teams{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:.55vw; overflow:hidden; white-space:nowrap; font-size:clamp(11px,.92vw,16px);}
+  .up-teams b{font-weight:600; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;}
+  .up-x{flex:0 0 auto; font-family:'Space Mono',monospace; color:var(--faint); font-size:clamp(9px,.78vw,13px); text-transform:uppercase;}
+  /* standings — fill right column */
+  #standWrap{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:1.4vh;}
+  .fit{--sfz:15px; display:flex; flex-direction:column; gap:calc(var(--sfz)*.9); align-content:start;}
+  .cat-block{display:flex; flex-direction:column;}
+  .cat-block + .cat-block{margin-top:calc(var(--sfz)*.5);}
+  .cat-head{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
+  .cat-cap{font-family:'Space Mono',monospace; font-weight:400; font-size:calc(var(--sfz)*.7); color:var(--muted); letter-spacing:.02em;}
+  .grp-grid{display:grid; gap:calc(var(--sfz)*.55) calc(var(--sfz)*.6); align-content:start;}
+  .grp{overflow:hidden; border:1px solid var(--line); border-radius:calc(var(--sfz)*.7); background:var(--panel); padding:calc(var(--sfz)*.5) calc(var(--sfz)*.6); display:flex; flex-direction:column;}
+  .grp-h{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent); font-size:calc(var(--sfz)*.95); letter-spacing:.04em; margin-bottom:calc(var(--sfz)*.3);}
+  table.st{width:100%; border-collapse:collapse; table-layout:auto;}
+  table.st th{font-family:'Space Mono',monospace; font-weight:400; color:var(--faint); text-transform:uppercase; letter-spacing:.03em;
+    font-size:calc(var(--sfz)*.66); text-align:center; padding:calc(var(--sfz)*.18) calc(var(--sfz)*.3); border-bottom:1px solid var(--line); white-space:nowrap;}
+  table.st th.nm{text-align:left;}
+  table.st td{font-size:var(--sfz); padding:calc(var(--sfz)*.16) calc(var(--sfz)*.32); text-align:center; border-bottom:1px solid rgba(60,41,32,.55); white-space:nowrap; vertical-align:middle;}
+  table.st td.rk{font-family:'Space Mono',monospace; width:1.8em;}
+  table.st td.nm{text-align:left; white-space:normal; line-height:1.07; padding-right:calc(var(--sfz)*.5);}
+  table.st td.nm .p1{display:block; font-weight:600; color:inherit;}
+  table.st td.nm .p2{display:block; font-weight:600; color:inherit;}
+  table.st tr:last-child td{border-bottom:none;}
+  /* zebra by rank for readability: 1 white, 2 yellow, 3 white, 4 yellow … */
+  table.st tbody tr:nth-child(odd) td{color:var(--text);}
+  table.st tbody tr:nth-child(even) td{color:var(--accent2); background:rgba(255,171,64,.07);}
+  .center{display:flex; align-items:center; justify-content:center; height:100%; color:var(--faint);
+    font-family:'Space Mono',monospace; font-size:clamp(14px,1.4vw,22px); text-align:center; padding:2vh;}
+  /* footer */
+  .footer{flex:0 0 auto; display:flex; justify-content:flex-end; align-items:baseline; gap:.6vw; margin-top:1.2vh;}
+  .footer .pwr{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); color:var(--faint); letter-spacing:.1em; text-transform:uppercase;}
+  .footer .logo-sm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
+    background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  /* playoff bracket */
+  .bracket-block{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
+  .bracket-block + .bracket-block{margin-top:1.4vh;}
+  .bt{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.6vh;}
+  .bpodium{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,17px); color:var(--accent); margin-bottom:1vh;}
+  .bpodium .posub{color:var(--muted);}
+  .bracket{flex:1 1 auto; min-height:0; display:flex; gap:1vw; overflow:hidden;}
+  .bround{flex:1 1 0; min-width:0; display:flex; flex-direction:column;}
+  .bround.bronze{flex:0 0 auto; min-width:clamp(140px,12vw,240px);}
+  .bround.center{flex:0 0 auto; min-width:clamp(150px,13vw,260px); justify-content:center; gap:1.2vh;}
+  .bround.center .third-h{margin-top:1.2vh;}
+  .brh{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(9px,.78vw,13px); color:var(--faint);
+    text-transform:uppercase; letter-spacing:.06em; margin-bottom:.6vh; text-align:center;}
+  .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:.6vh;}
+  .bmatch{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.6vh .6vw; display:flex; flex-direction:column; gap:.3vh;}
+  .bmatch.bye{opacity:.45;}
+  .bteam{display:flex; align-items:center; gap:.4vw; min-width:0;}
+  .bteam.win{color:var(--accent); font-weight:700;}
+  .bteam.tbd{color:var(--faint); font-style:italic;}
+  .bteam .bavs{display:flex; flex:0 0 auto;}
+  .bteam .bavs .av{margin-left:-4px; box-shadow:0 0 0 2px var(--panel);} .bteam .bavs .av:first-child{margin-left:0;}
+  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.95vw,17px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); margin-left:auto; padding-left:.4vw;}
+  /* winners podium (left column when finished) */
+  .winners{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2.2vh;}
+  .winners .win-head{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-size:clamp(11px,1vw,17px);}
+  .win-row{display:flex; flex-direction:column; align-items:center; gap:.8vh; text-align:center;}
+  .win-row .wlabel{font-family:'Space Mono',monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-size:clamp(10px,.9vw,15px);}
+  .win-row .wpair{display:flex; justify-content:center;}
+  .win-row .wpair .av{margin-left:-8px; box-shadow:0 0 0 3px #000;} .win-row .wpair .av:first-child{margin-left:0;}
+  .win-row .wnames{font-family:'Saira Condensed',sans-serif; font-weight:800; line-height:1.1;}
+  .win-row.champ .wlabel{color:var(--accent); font-size:clamp(14px,1.3vw,24px);}
+  .win-row.champ .wpair .av{box-shadow:0 0 0 3px #000, 0 0 26px rgba(255,122,26,.55);}
+  .win-row.champ .wnames{font-size:clamp(20px,2.1vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .win-row.ru .wlabel{color:var(--accent2);}
+  .win-row.ru .wnames{font-size:clamp(15px,1.5vw,30px);}
+  .win-row.third .wnames{font-size:clamp(13px,1.2vw,23px); color:var(--muted);}
+  /* sponsor reel overlay — pure black, full-bleed adaptive logo, no white anywhere */
+  #sponsorOverlay{position:fixed; inset:0; z-index:9999; background:#000;
+    display:none; align-items:center; justify-content:center;}
+  #sponsorOverlay.show{display:flex; animation:spFade .4s ease;}
+  @keyframes spFade{from{opacity:0}to{opacity:1}}
+  #sponsorOverlay img{width:100%; height:100%; object-fit:contain; display:block;}
+  #spCountdown{position:fixed; left:1.2vw; bottom:1vh; z-index:50; font-family:'Space Mono',monospace; font-size:clamp(7px,.55vw,10px); color:var(--faint); background:rgba(0,0,0,.45); border:1px solid var(--line); border-radius:999px; padding:.35vh .8vw; letter-spacing:.05em;}
 </style>
 </head>
 <body>
-<div class="demobar">Example · TV display / court LED · <a href="/demo.html">← back to demo</a></div>
-<div class="board">
-  <div class="top">
-    <div><div class="logo">TurnamenPadel</div><div class="clock">● LIVE · 14:22 · SEMI-FINALS</div></div>
-    <div class="ev">Jakarta Open Padel<small>Padel Box Kemang</small></div>
-  </div>
-  <div class="grid">
-    <div>
-      <div class="col-title live">● On Court Now</div>
-      <div class="court"><div class="no">1</div><div class="teams">
-        <div class="t w"><span>Fajar &amp; Maya <span class="srv">●</span></span><span class="sc">5</span></div>
-        <div class="t"><span>Andi &amp; Budi</span><span class="sc">3</span></div>
-      </div></div>
-      <div class="court"><div class="no">2</div><div class="teams">
-        <div class="t"><span>Rian &amp; Deni</span><span class="sc">4</span></div>
-        <div class="t w"><span>Eko &amp; Dimas <span class="srv">●</span></span><span class="sc">4</span></div>
-      </div></div>
-      <div class="col-title" style="margin-top:20px">Up Next</div>
-      <div class="next-row"><span>Winners SF1 vs Winners SF2 — Final</span><span class="c">Court 1</span></div>
-      <div class="next-row"><span>Losers SF1 vs Losers SF2 — 3rd place</span><span class="c">Court 2</span></div>
+<div id="sponsorOverlay"><img id="spImg" alt="sponsor"></div>
+<div id="spCountdown"></div>
+<div class="screen">
+  <div class="bar">
+    <div class="qr" id="qrBox" style="display:none">
+      <div class="qrimg"><img id="qrImg" alt="QR" /></div>
+      <div class="qrlabel">Scan to stay updated<br>live on your phone</div>
     </div>
-    <div>
-      <div class="col-title">Bracket</div>
-      <div class="brk">
-        <div class="bcol"><div class="bh">Semi</div>
-          <div class="bm"><div class="r w"><span>Fajar &amp; Maya</span><span class="s">·</span></div><div class="r"><span>Andi &amp; Budi</span><span class="s">·</span></div></div>
-        </div>
-        <div class="center"><div class="bh">Final</div>
-          <div class="bm fin"><div class="r"><span>Winner SF1</span><span class="s">—</span></div><div class="r"><span>Winner SF2</span><span class="s">—</span></div></div>
-          <div class="third"><i class="ti ti-medal-2"></i> 3rd place playoff</div>
-        </div>
-        <div class="bcol"><div class="bh">Semi</div>
-          <div class="bm"><div class="r"><span>Rian &amp; Deni</span><span class="s">·</span></div><div class="r w"><span>Eko &amp; Dimas</span><span class="s">·</span></div></div>
-        </div>
-      </div>
+    <div class="ev"><div class="nm" id="evnm">—</div><div class="mt" id="evmt"></div></div>
+    <div class="clock"><div class="t" id="clock">--:--</div><div class="l" id="livedot">● LIVE</div></div>
+  </div>
+  <div class="main">
+    <div class="left" id="leftCol">
+      <div class="col-title live" id="leftTitle">Now Playing</div>
+      <div id="nowWrap"><div class="np-empty">Loading…</div></div>
+      <div class="col-title up" id="upTitle">Upcoming</div>
+      <div id="nextWrap"></div>
+    </div>
+    <div class="right">
+      <div class="col-title" id="rightTitle">Group Standings</div>
+      <div id="standWrap"><div class="center">Loading tournament data…</div></div>
     </div>
   </div>
+  <div class="footer"><span class="logo-sm">turnamenpadel.com</span></div>
 </div>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const qs = new URLSearchParams(location.search);
+// Event via ?event=<id> (old links) or friendly slug path /tv/<slug> (resolved
+// from the event name in boot()).
+let EVENT_ID = qs.get("event");
+const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
+function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
+const PATH_SLUG = slugFromPath();
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const state = { data:null };
+const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
+
+async function api(p){ const r=await fetch(BASE+p); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
+function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
+function normName(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
+function firstName(s){ const t=String(s||"").trim(); return t? t.split(/\s+/)[0] : ""; }
+// TV shows a SHORT name only: a player's check-in nickname (nama panggilan) when
+// they set a genuine short one; otherwise just their first name.
+function dispName(n){
+  const p=state.data&&state.data.players&&state.data.players[normName(n)];
+  const d=p&&p.display?String(p.display).trim():"";
+  if(d && normName(d)!==normName(n) && !/\s/.test(d)) return d;  // genuine one-word nickname
+  return firstName(n);
+}
+function firstNames(s){ return String(s||"").split(/\s*[+&]\s*/).filter(Boolean).map(dispName).join(" & "); }
+function tick(){ document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }
+
+function photoOf(name){ const p=state.data.players && state.data.players[normName(name)]; return (p&&p.photo)?p.photo:""; }
+function avatar(name,size){ const ph=photoOf(name); const init=(String(name||"?").trim()[0]||"?").toUpperCase();
+  return `<span class="av" style="--s:${size}"><i>${esc(init)}</i>${ph?`<img src="${esc(ph)}" alt="" onerror="this.remove()"/>`:""}</span>`; }
+function pairPlayers(c, eid){ const e=c.entrants && c.entrants[eid]; if(!e) return [eid||"TBD",""]; return [e.player1||"", e.player2||""]; }
+
+function teamBlock(c, eid, sz){
+  const [p1,p2]=pairPlayers(c,eid);
+  const chip=(n)=>`<div class="pl">${avatar(n,sz)}<span class="plnm">${esc(dispName(n))||"TBD"}</span></div>`;
+  return `<div class="tmblk">${chip(p1)}${p2?chip(p2):""}</div>`;
+}
+function nowCard(f, sz, nmf){
+  return `<div class="np-card" style="--nmf:${nmf}">
+    <div class="np-head"><span class="np-court">COURT ${esc(f.court)}</span>
+      <span class="np-meta">${esc(f.label)}${f.time?` · ${fmtTime(f.time)}`:""}</span>
+      <span class="np-dot" aria-label="live"></span></div>
+    <div class="np-teams">
+      ${teamBlock(f.c,f.eA,sz)}
+      <div class="np-vs">VS</div>
+      ${teamBlock(f.c,f.eB,sz)}
+    </div></div>`;
+}
+function upRow(f){
+  const [a1,a2]=pairPlayers(f.c,f.eA), [b1,b2]=pairPlayers(f.c,f.eB);
+  const nm=(x,y)=> esc(dispName(x))+(y?" & "+esc(dispName(y)):"");
+  return `<div class="up-row">
+    <span class="up-time">${f.time?fmtTime(f.time):"—"}</span>
+    <span class="up-court">Court ${esc(f.court||"?")}</span>
+    <span class="up-teams"><b>${nm(a1,a2)}</b><span class="up-x">vs</span><b>${nm(b1,b2)}</b></span>
+  </div>`;
+}
+
+function buildFeed(){
+  const d=state.data, feed=[];
+  d.categories.forEach(c=>{
+    (c.schedule||[]).forEach(m=> feed.push({ key:m.matchId, c, court:m.court, sortKey:(m.slot||0), stage:"GROUP", slot:(m.slot||0),
+      time:m.time, updatedAt:m.updatedAt||"", label:`${c.category} · Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
+    (c.playoff||[]).forEach(b=> (b.rounds||[]).forEach(r=> (r.matches||[]).forEach(m=>{
+      if(m.status==="BYE" || !m.entrantA || !m.entrantB) return;
+      feed.push({ key:m.matchId, c, court:m.court, sortKey:100000+(parseInt(m.round)||0)*100+(m.idx||0), stage:"PLAYOFF",
+        time:m.time, label:`${c.category} · ${TIER[b.tier]||b.tier}`, eA:m.entrantA, eB:m.entrantB, status:m.status });
+    })));
+  });
+  feed.sort((a,b)=> (a.sortKey-b.sortKey) || ((a.court||0)-(b.court||0)));
+  return feed;
+}
+
+// Static schedule times: each group match = event start time + slot * admin match duration.
+// Match 0 = start (e.g. 11:00), match 1 = +15min (11:15), and so on. No server-time or
+// actual-pace adjustment — the times are fixed and predictable for participants.
+function timeToMin(t){ const s=fmtTime(t); if(!s) return null; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
+function minToTime(x){ x=((Math.round(x)%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
+function predictGroupTimes(feed){
+  const ev=state.data.event||{};
+  const mm=parseInt(ev.matchMinutes)||15;
+  const startMin=timeToMin(ev.startTime);
+  if(startMin==null) return {};   // no start time -> fall back to stored m.time
+  const pred={};
+  feed.forEach(f=>{ if(f.stage==="GROUP") pred[f.key]=minToTime(startMin + (f.slot||0)*mm); });
+  return pred;
+}
+
+function colsFor(g){ if(g<=1) return 1; if(g<=3) return g; let c=Math.round(Math.sqrt(g*1.3)); return Math.max(2, Math.min(c, g>8?4:3)); }
+
+function standHtml(){
+  const out = state.data.categories.map(c=>{
+    if(!c.groups || !c.groups.some(g=>g.standings.length)) return "";
+    const N=c.advancersPerGroup||0, split=String(c.format||"").toUpperCase()==="SPLIT";
+    const rankNote = "Ranked by: most wins → head-to-head → point difference → points for → points against";
+    const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
+    const cap = `${advText ? advText + " · " : ""}${rankNote}`;
+    const cols = colsFor(c.groups.length);
+    const grps=c.groups.map(g=>{
+      const denom=Math.max(1,(g.standings.length||1)-1);
+      const rows=g.standings.map(s=>{
+        const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
+        const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
+        const [p1,p2]=pairPlayers(c,s.entrantId);
+        const pair = `<span class="p1">${esc(dispName(p1))||esc(dispName(s.team))}</span>${p2?`<span class="p2">${esc(dispName(p2))}</span>`:""}`;
+        return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
+          <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
+          <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
+      }).join("");
+      return `<div class="grp"><div class="grp-h">Group ${esc(g.label)}</div>
+        <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Played</th><th>Win</th><th>Lose</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+    }).join("");
+    return `<div class="cat-block"><div class="cat-head">${esc(c.category)}${cap?`<span class="cat-cap">${cap}</span>`:""}</div>
+      <div class="grp-grid" style="grid-template-columns:repeat(${cols},1fr)">${grps}</div></div>`;
+  }).join("");
+  return out || '<div class="center">No standings yet — enter group scores first.</div>';
+}
+
+function roundLabel(round, numRounds){
+  if(String(round)==="BRONZE") return "3rd Place";
+  const r=parseInt(round), f=numRounds-r;
+  return f===0?"Final":f===1?"Semifinal":f===2?"Quarterfinal":f===3?"Round of 16":"Round "+r;
+}
+function bteam(c, eid, score, win){
+  if(!eid) return `<div class="bteam tbd"><span class="bnm">TBD</span></div>`;
+  const [p1,p2]=pairPlayers(c,eid);
+  return `<div class="bteam ${win?'win':''}">
+    <span class="bavs">${avatar(p1,"clamp(16px,1.3vw,26px)")}${p2?avatar(p2,"clamp(16px,1.3vw,26px)"):""}</span>
+    <span class="bnm">${esc(dispName(p1))}${p2?" & "+esc(dispName(p2)):""}</span>
+    <span class="bsc">${(score!==''&&score!=null)?esc(String(score)):''}</span></div>`;
+}
+function bcell(c,m){
+  const done=m.status==="DONE", bye=m.status==="BYE";
+  const aw=done&&String(m.winner)===String(m.entrantA);
+  const bw=done&&String(m.winner)===String(m.entrantB);
+  return `<div class="bmatch ${bye?'bye':''} ${done?'done':''}">
+    ${bteam(c,m.entrantA, done?m.scoreA:'', aw)}
+    ${bteam(c,m.entrantB, bye?'':(done?m.scoreB:''), bw)}</div>`;
+}
+// Compute podium from bracket results (final + bronze). Backend podium field had a bug,
+// so we derive locally to stay correct regardless of backend version.
+function derivePodium(b){
+  const lr=(b.rounds||[])[(b.rounds||[]).length-1];
+  const fm=lr&&lr.matches&&lr.matches[0];
+  let champion="",runnerUp="",third="";
+  if(fm&&fm.status==="DONE"&&fm.winner){
+    if(String(fm.winner)===String(fm.entrantA)){ champion=fm.teamA; runnerUp=fm.teamB; }
+    else { champion=fm.teamB; runnerUp=fm.teamA; }
+  }
+  const bm=b.bronze;
+  if(bm&&bm.status==="DONE"&&bm.winner){ third = String(bm.winner)===String(bm.entrantA)?bm.teamA:bm.teamB; }
+  return {champion,runnerUp,third};
+}
+function oneBracket(c, b){
+  const tierName = (TIER[b.tier]||b.tier);
+  const p = derivePodium(b);
+  const pod = (p.champion||p.runnerUp||p.third)
+    ? `<div class="bpodium">🏆 <b>${esc(firstNames(p.champion))||"—"}</b><span class="posub"> · RU ${esc(firstNames(p.runnerUp))||"—"} · 3rd ${esc(firstNames(p.third))||"—"}</span></div>` : "";
+  const rs = b.rounds||[];
+  const last = rs.length-1;
+  const roundCol = (r, half)=>{
+    const ms = rs[r].matches||[];
+    const h = Math.ceil(ms.length/2);
+    const part = half==="L" ? ms.slice(0,h) : ms.slice(h);
+    return `<div class="bround"><div class="brh">${roundLabel(rs[r].round,b.numRounds)}</div><div class="brcol">${part.map(m=>bcell(c,m)).join("")}</div></div>`;
+  };
+  let leftCols="", rightCols="";
+  for(let r=0;r<last;r++) leftCols += roundCol(r,"L");
+  for(let r=last-1;r>=0;r--) rightCols += roundCol(r,"R");
+  const finalCell = (last>=0 && rs[last] && rs[last].matches[0]) ? bcell(c, rs[last].matches[0]) : "";
+  const bronze = b.bronze ? `<div class="brh third-h">3rd Place</div><div class="brcol">${bcell(c,b.bronze)}</div>` : "";
+  const center = `<div class="bround center"><div class="brh">${last>=0?roundLabel(rs[last].round,b.numRounds):"Final"}</div><div class="brcol">${finalCell}</div>${bronze}</div>`;
+  return `<div class="bracket-block">
+    <div class="bt">${esc(c.category)} · ${esc(tierName)}</div>${pod}
+    <div class="bracket">${leftCols}${center}${rightCols}</div></div>`;
+}
+function bracketHtml(){
+  const cats = (state.data.categories||[]).filter(c => (c.playoff||[]).length);
+  if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
+  return cats.map(c => (c.playoff||[]).map(b => oneBracket(c,b)).join("")).join("");
+}
+// Find a finished bracket (champion decided) to showcase; prefer non-Prospect tiers.
+function finishedPodium(){
+  let fb=null;
+  for(const c of (state.data.categories||[])){
+    for(const b of (c.playoff||[])){
+      const pod=derivePodium(b);
+      if(pod.champion){
+        const entry={c,b,pod};
+        if(b.tier!=="PROSPECT") return entry;
+        if(!fb) fb=entry;
+      }
+    }
+  }
+  return fb;
+}
+function splitPair(s){ const p=String(s||"").split(" + ").map(x=>x.trim()).filter(Boolean); return p.length?p:[String(s||"")]; }
+function winnerRow(cls, label, teamStr, sz){
+  if(!teamStr) return "";
+  const players=splitPair(teamStr);
+  return `<div class="win-row ${cls}">
+    <div class="wlabel">${label}</div>
+    <div class="wpair">${players.map(n=>avatar(n,sz)).join("")}</div>
+    <div class="wnames">${players.map(n=>esc(dispName(n))).join(" & ")}</div></div>`;
+}
+function winnersHtml(fin){
+  const p=fin.pod;
+  const tierExtra = (fin.b.tier && fin.b.tier!=="MAIN") ? " · "+(TIER[fin.b.tier]||fin.b.tier) : "";
+  return `<div class="winners">
+    <div class="win-head">${esc(fin.c.category)}${esc(tierExtra)}</div>
+    ${winnerRow("champ","🏆 Champion", p.champion, "clamp(56px,5.2vw,128px)")}
+    ${winnerRow("ru","🥈 Runner-up", p.runnerUp, "clamp(42px,3.6vw,86px)")}
+    ${winnerRow("third","🥉 3rd Place", p.third, "clamp(34px,2.8vw,64px)")}
+  </div>`;
+}
+function capFor(c){
+  const N=c.advancersPerGroup||0, split=String(c.format||"").toUpperCase()==="SPLIT";
+  const rankNote="Ranked by: most wins → head-to-head → point difference → points for → points against";
+  const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
+  return `${advText?advText+" · ":""}${rankNote}`;
+}
+function cardHtml(c, g){
+  const N=c.advancersPerGroup||0, split=String(c.format||"").toUpperCase()==="SPLIT";
+  const denom=Math.max(1,(g.standings.length||1)-1);
+  const rows=g.standings.map(s=>{
+    const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
+    const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
+    const [p1,p2]=pairPlayers(c,s.entrantId);
+    const pair = `<span class="p1">${esc(dispName(p1))||esc(dispName(s.team))}</span>${p2?`<span class="p2">${esc(dispName(p2))}</span>`:""}`;
+    return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
+      <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
+      <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
+  }).join("");
+  return `<div class="grp"><div class="grp-h">Group ${esc(g.label)} · ${g.standings.length} teams</div>
+    <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Pld</th><th>W</th><th>L</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+// Shrink standings font (--sfz) until ALL groups fit the column on one screen — both
+// height (no scroll) AND width (no stat-column cutoff).
+function fitStandings(){
+  const wrap=document.getElementById("standWrap");
+  const fit=wrap && wrap.querySelector(".fit");
+  if(!fit) return;
+  const avail=wrap.clientHeight;
+  if(!avail) return;
+  const fits=()=>{
+    if(fit.scrollHeight>avail+1) return false;
+    const grps=fit.querySelectorAll(".grp");
+    for(const g of grps){ if(g.scrollWidth>g.clientWidth+1) return false; }
+    return true;
+  };
+  let lo=8, hi=26, best=8;
+  for(let i=0;i<16;i++){
+    const mid=(lo+hi)/2;
+    fit.style.setProperty("--sfz", mid+"px");
+    if(fits()){ best=mid; lo=mid; } else { hi=mid; }
+  }
+  fit.style.setProperty("--sfz", best+"px");
+  let g=best;
+  while(!fits() && g>8){ g-=0.5; fit.style.setProperty("--sfz", g+"px"); }
+}
+function renderRight(){
+  const hasPlayoff=(state.data.categories||[]).some(c=>(c.playoff||[]).length);
+  const titleEl=document.getElementById("rightTitle");
+  const wrap=document.getElementById("standWrap");
+  if(hasPlayoff){ titleEl.textContent="Playoff Bracket"; wrap.innerHTML=bracketHtml(); return; }
+  titleEl.textContent="Group Standings";
+  const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
+  if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; return; }
+  const blocks=cats.map(c=>{
+    const cap=capFor(c);
+    const groups=c.groups.filter(g=>g.standings.length);
+    // Two-row layout: 2 groups -> side by side; else fill top row left→right, then
+    // the rest below. 4 -> 2x2, 6 -> 3x3(top)+3(bottom), 8 -> 4x2, and so on.
+    const ng=groups.length;
+    const cols = ng<=2 ? ng : Math.ceil(ng/2);
+    const cards=groups.map(g=>cardHtml(c,g)).join("");
+    return `<div class="cat-block">${cap?`<div class="cat-cap" style="margin-bottom:calc(var(--sfz)*.55)">${cap}</div>`:""}
+      <div class="grp-grid" style="grid-template-columns:repeat(${cols},1fr)">${cards}</div></div>`;
+  }).join("");
+  wrap.innerHTML=`<div class="fit">${blocks}</div>`;
+  fitStandings();
+}
+function render(){
+  if(!state.data) return;
+  const feed=buildFeed();
+  // Override stored times with the live predicted schedule for group matches.
+  const pred=predictGroupTimes(feed);
+  feed.forEach(f=>{ if(f.stage==="GROUP" && pred[f.key]) f.time=pred[f.key]; });
+  const perCourt={};
+  feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
+  const courts=Object.keys(perCourt).sort((a,b)=>a-b);
+  const playing=courts.map(ct=>perCourt[ct][0]).filter(Boolean);
+  // Upcoming: flat queue ordered by time. Cap must exceed one slot's worth of matches
+  // (≈ number of courts) so the NEXT time slot shows too, not just the immediate one.
+  const UP_MAX=8;
+  const playingKeys=new Set(playing.map(f=>f.key));
+  const upcoming=feed.filter(f=> f.status!=="DONE" && f.court && !playingKeys.has(f.key))
+    .sort((a,b)=>(a.sortKey-b.sortKey)||((a.court||0)-(b.court||0)))
+    .slice(0,UP_MAX);
+
+  const ac=playing.length||1;
+  let sz,nmf;
+  if(ac>=4){ sz="clamp(20px,1.7vw,38px)"; nmf="clamp(13px,1.1vw,22px)"; }
+  else if(ac===3){ sz="clamp(26px,2.1vw,46px)"; nmf="clamp(14px,1.3vw,26px)"; }
+  else if(ac===2){ sz="clamp(32px,2.7vw,60px)"; nmf="clamp(16px,1.6vw,32px)"; }
+  else { sz="clamp(42px,3.5vw,80px)"; nmf="clamp(20px,2vw,40px)"; }
+
+  const hasPlayoff = (state.data.categories||[]).some(c => (c.playoff||[]).length);
+  const fin = finishedPodium();
+  const allDone = playing.length===0 && upcoming.length===0;
+  const showWinners = !!fin && allDone;
+
+  const leftCol  = document.getElementById("leftCol");
+  const leftTitle= document.getElementById("leftTitle");
+  const upTitle  = document.getElementById("upTitle");
+  const nextWrap = document.getElementById("nextWrap");
+  const nowWrap  = document.getElementById("nowWrap");
+
+  if(hasPlayoff && !showWinners){
+    // PLAYOFF IN PROGRESS — bracket only, hide the whole left column.
+    leftCol.style.display = "none";
+  } else if(showWinners){
+    // FINAL DONE — show champions (1st–3rd) with photos on the left.
+    leftCol.style.display = "";
+    leftTitle.textContent = "Winners"; leftTitle.classList.remove("live");
+    nowWrap.innerHTML = winnersHtml(fin);
+    upTitle.style.display = "none";
+    nextWrap.style.display = "none";
+  } else {
+    // GROUP STAGE — now playing + upcoming.
+    leftCol.style.display = "";
+    leftTitle.textContent = "Now Playing"; leftTitle.classList.add("live");
+    upTitle.style.display = "";
+    nextWrap.style.display = "";
+    nowWrap.innerHTML = playing.length ? playing.map(f=>nowCard(f,sz,nmf)).join("") : '<div class="np-empty">No match in progress.</div>';
+    nextWrap.innerHTML = upcoming.length ? upcoming.map(upRow).join("") : '<div class="up-empty">No upcoming match.</div>';
+  }
+
+  renderRight();
+}
+
+async function load(){
+  try{
+    const d=await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public?live=1&_="+Date.now());
+    state.data=d;
+    preloadSponsors(d.sponsors);
+    document.getElementById("evnm").textContent=d.event.name||"Tournament";
+    document.getElementById("evmt").textContent=[d.event.venue,d.event.date].filter(Boolean).join("  ·  ");
+    render();
+    setupQR(); // refresh QR now that the event name (and slug) is known
+  }catch(e){ document.getElementById("standWrap").innerHTML='<div class="center">Failed to load data.</div>'; }
+}
+
+function mobileURL(){
+  // Friendly player URL: /mobile/<slug>. Use the slug from the current /tv/<slug>
+  // path if present, else derive it from the loaded event name.
+  const slug = PATH_SLUG || (state.data && state.data.event && slugify(state.data.event.name)) || "";
+  if(slug) return location.origin + "/mobile/" + encodeURIComponent(slug);
+  return location.origin + "/mobile.html?event=" + encodeURIComponent(EVENT_ID);
+}
+function setupQR(){
+  if(!EVENT_ID) return;
+  const url = mobileURL();
+  const img = document.getElementById("qrImg");
+  img.onerror = ()=>{ document.getElementById("qrBox").style.display="none"; };
+  img.src = "https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=0&qzone=1&data=" + encodeURIComponent(url);
+  document.getElementById("qrBox").style.display = "flex";
+}
+
+// ---- Sponsor reel: every 10 min, play each logo for 3s, then back to the board ----
+const SPONSOR_EVERY_MS = 5 * 60 * 1000;   // play the reel every 5 minutes
+const SPONSOR_SHOW_MS  = 15000;           // each logo on screen for 15 seconds
+let _spPlaying = false;
+const URL_SPONSOR = (new URLSearchParams(location.search).get("sponsor")||"").trim();
+function sponsorList(){ const base=(state.data && Array.isArray(state.data.sponsors)) ? state.data.sponsors : []; return URL_SPONSOR ? [URL_SPONSOR].concat(base.filter(u=>u!==URL_SPONSOR)) : base; }
+function preloadSponsors(list){ (list||[]).forEach(u=>{ const im=new Image(); im.src=u; }); }
+async function playSponsors(){
+  if(_spPlaying) return;
+  const list = sponsorList();
+  if(!list.length) return;
+  _spPlaying = true;
+  const ov=document.getElementById("sponsorOverlay"), img=document.getElementById("spImg");
+  ov.classList.add("show");
+  for(let i=0;i<list.length;i++){
+    img.src = list[i];
+    await new Promise(r=>setTimeout(r, SPONSOR_SHOW_MS));
+  }
+  ov.classList.remove("show");
+  _spPlaying = false;
+}
+let nextSponsorAt = Date.now() + SPONSOR_EVERY_MS;
+function updateSpCountdown(){
+  const el=document.getElementById("spCountdown"); if(!el) return;
+  const ov=document.getElementById("sponsorOverlay");
+  if(!sponsorList().length || (ov && ov.classList.contains("show"))){ el.style.display="none"; return; }
+  el.style.display="";
+  const rem=Math.max(0, Math.round((nextSponsorAt-Date.now())/1000));
+  el.textContent = "Sponsor in "+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
+}
+function startSponsorCycle(){
+  nextSponsorAt = Date.now() + SPONSOR_EVERY_MS;
+  setInterval(async ()=>{ if(Date.now()>=nextSponsorAt){ await playSponsors(); nextSponsorAt = Date.now() + SPONSOR_EVERY_MS; } }, 1000);
+  setInterval(updateSpCountdown, 1000); updateSpCountdown();
+}
+
+tick(); setInterval(tick,1000);
+const DEMO = {"event":{"name":"Padel Demo Cup","venue":"La Familia, Jakarta","date":"2026-07-12","numCourts":3,"matchMinutes":15},"players":{"andi pratama":{"name":"Andi Pratama","display":"Andi","photo":""},"budi santoso":{"name":"Budi Santoso","display":"Budi Santoso","photo":""},"chandra wijaya":{"name":"Chandra Wijaya","display":"Can","photo":""},"dedi kurnia":{"name":"Dedi Kurnia","display":"Dedi Kurnia","photo":""},"eka nugroho":{"name":"Eka Nugroho","display":"Eka Nugroho","photo":""},"fajar hakim":{"name":"Fajar Hakim","display":"Jar","photo":""},"galih saputra":{"name":"Galih Saputra","display":"Galih Saputra","photo":""},"hendra halim":{"name":"Hendra Halim","display":"Hen","photo":""},"irfan pratama":{"name":"Irfan Pratama","display":"Irfan Pratama","photo":""},"joko santoso":{"name":"Joko Santoso","display":"Joko Santoso","photo":""},"kevin wijaya":{"name":"Kevin Wijaya","display":"Kev","photo":""},"lukman kurnia":{"name":"Lukman Kurnia","display":"Lukman Kurnia","photo":""},"made nugroho":{"name":"Made Nugroho","display":"Made Nugroho","photo":""},"nanda hakim":{"name":"Nanda Hakim","display":"Nanda Hakim","photo":""},"oscar saputra":{"name":"Oscar Saputra","display":"Oca","photo":""},"putra halim":{"name":"Putra Halim","display":"Putra Halim","photo":""},"rizki pratama":{"name":"Rizki Pratama","display":"Iki","photo":""},"surya santoso":{"name":"Surya Santoso","display":"Surya Santoso","photo":""},"toni wijaya":{"name":"Toni Wijaya","display":"Toni Wijaya","photo":""},"umar kurnia":{"name":"Umar Kurnia","display":"Umar Kurnia","photo":""},"vino nugroho":{"name":"Vino Nugroho","display":"Vino Nugroho","photo":""},"wawan hakim":{"name":"Wawan Hakim","display":"Wawan","photo":""},"yoga saputra":{"name":"Yoga Saputra","display":"Yoga Saputra","photo":""},"zaki halim":{"name":"Zaki Halim","display":"Zaki Halim","photo":""}},"categories":[{"tournamentId":"TDEMO","category":"Men's Doubles","level":"bronze","format":"SINGLE","status":"RUNNING","advancersPerGroup":2,"entrants":{"E_A1":{"player1":"Andi Pratama","player2":"Budi Santoso","seedElo":1500},"E_A2":{"player1":"Chandra Wijaya","player2":"Dedi Kurnia","seedElo":1500},"E_A3":{"player1":"Eka Nugroho","player2":"Fajar Hakim","seedElo":1500},"E_B1":{"player1":"Galih Saputra","player2":"Hendra Halim","seedElo":1500},"E_B2":{"player1":"Irfan Pratama","player2":"Joko Santoso","seedElo":1500},"E_B3":{"player1":"Kevin Wijaya","player2":"Lukman Kurnia","seedElo":1500},"E_C1":{"player1":"Made Nugroho","player2":"Nanda Hakim","seedElo":1500},"E_C2":{"player1":"Oscar Saputra","player2":"Putra Halim","seedElo":1500},"E_C3":{"player1":"Rizki Pratama","player2":"Surya Santoso","seedElo":1500},"E_D1":{"player1":"Toni Wijaya","player2":"Umar Kurnia","seedElo":1500},"E_D2":{"player1":"Vino Nugroho","player2":"Wawan Hakim","seedElo":1500},"E_D3":{"player1":"Yoga Saputra","player2":"Zaki Halim","seedElo":1500}},"groups":[{"label":"A","standings":[{"rank":1,"entrantId":"E_A1","team":"Andi Pratama + Budi Santoso","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_A3","team":"Eka Nugroho + Fajar Hakim","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_A2","team":"Chandra Wijaya + Dedi Kurnia","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]},{"label":"B","standings":[{"rank":1,"entrantId":"E_B1","team":"Galih Saputra + Hendra Halim","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_B3","team":"Kevin Wijaya + Lukman Kurnia","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_B2","team":"Irfan Pratama + Joko Santoso","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]},{"label":"C","standings":[{"rank":1,"entrantId":"E_C1","team":"Made Nugroho + Nanda Hakim","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_C3","team":"Rizki Pratama + Surya Santoso","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_C2","team":"Oscar Saputra + Putra Halim","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]},{"label":"D","standings":[{"rank":1,"entrantId":"E_D1","team":"Toni Wijaya + Umar Kurnia","played":1,"wins":1,"losses":0,"gf":6,"ga":3,"gd":3},{"rank":2,"entrantId":"E_D3","team":"Yoga Saputra + Zaki Halim","played":0,"wins":0,"losses":0,"gf":0,"ga":0,"gd":0},{"rank":3,"entrantId":"E_D2","team":"Vino Nugroho + Wawan Hakim","played":1,"wins":0,"losses":1,"gf":3,"ga":6,"gd":-3}]}],"schedule":[{"matchId":"M_A0","court":1,"slot":0,"time":"","groupLabel":"A","entrantA":"E_A1","entrantB":"E_A2","teamA":"Andi Pratama + Budi Santoso","teamB":"Chandra Wijaya + Dedi Kurnia","scoreA":6,"scoreB":3,"winner":"E_A1","status":"DONE","updatedAt":""},{"matchId":"M_A1","court":1,"slot":1,"time":"","groupLabel":"A","entrantA":"E_A1","entrantB":"E_A3","teamA":"Andi Pratama + Budi Santoso","teamB":"Eka Nugroho + Fajar Hakim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_A2","court":1,"slot":2,"time":"","groupLabel":"A","entrantA":"E_A2","entrantB":"E_A3","teamA":"Chandra Wijaya + Dedi Kurnia","teamB":"Eka Nugroho + Fajar Hakim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_B0","court":2,"slot":0,"time":"","groupLabel":"B","entrantA":"E_B1","entrantB":"E_B2","teamA":"Galih Saputra + Hendra Halim","teamB":"Irfan Pratama + Joko Santoso","scoreA":6,"scoreB":3,"winner":"E_B1","status":"DONE","updatedAt":""},{"matchId":"M_B1","court":2,"slot":1,"time":"","groupLabel":"B","entrantA":"E_B1","entrantB":"E_B3","teamA":"Galih Saputra + Hendra Halim","teamB":"Kevin Wijaya + Lukman Kurnia","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_B2","court":2,"slot":2,"time":"","groupLabel":"B","entrantA":"E_B2","entrantB":"E_B3","teamA":"Irfan Pratama + Joko Santoso","teamB":"Kevin Wijaya + Lukman Kurnia","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_C0","court":3,"slot":0,"time":"","groupLabel":"C","entrantA":"E_C1","entrantB":"E_C2","teamA":"Made Nugroho + Nanda Hakim","teamB":"Oscar Saputra + Putra Halim","scoreA":6,"scoreB":3,"winner":"E_C1","status":"DONE","updatedAt":""},{"matchId":"M_C1","court":3,"slot":1,"time":"","groupLabel":"C","entrantA":"E_C1","entrantB":"E_C3","teamA":"Made Nugroho + Nanda Hakim","teamB":"Rizki Pratama + Surya Santoso","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_C2","court":3,"slot":2,"time":"","groupLabel":"C","entrantA":"E_C2","entrantB":"E_C3","teamA":"Oscar Saputra + Putra Halim","teamB":"Rizki Pratama + Surya Santoso","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_D0","court":1,"slot":0,"time":"","groupLabel":"D","entrantA":"E_D1","entrantB":"E_D2","teamA":"Toni Wijaya + Umar Kurnia","teamB":"Vino Nugroho + Wawan Hakim","scoreA":6,"scoreB":3,"winner":"E_D1","status":"DONE","updatedAt":""},{"matchId":"M_D1","court":1,"slot":1,"time":"","groupLabel":"D","entrantA":"E_D1","entrantB":"E_D3","teamA":"Toni Wijaya + Umar Kurnia","teamB":"Yoga Saputra + Zaki Halim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""},{"matchId":"M_D2","court":1,"slot":2,"time":"","groupLabel":"D","entrantA":"E_D2","entrantB":"E_D3","teamA":"Vino Nugroho + Wawan Hakim","teamB":"Yoga Saputra + Zaki Halim","scoreA":"","scoreB":"","winner":"","status":"SCHEDULED","updatedAt":""}],"playoff":[]}],"sponsors":[],"mobileBanner":""};
+(function boot(){
+  state.data = DEMO;
+  document.getElementById("evnm").textContent = DEMO.event.name;
+  document.getElementById("evmt").textContent = [DEMO.event.venue, DEMO.event.date].filter(Boolean).join("  ·  ");
+  render();
+  let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
+})();
+</script>
 </body>
 </html>
