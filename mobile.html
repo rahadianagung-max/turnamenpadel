@@ -163,7 +163,11 @@ function avatar(name){
 }
 function slug(n){ return String(n||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
 function firstName(n){ const t=String(n||"").trim(); return t? t.split(/\s+/)[0] : ""; }
-function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(firstName(name))}</a>`; }
+// Show a player's check-in nickname when they set one; otherwise their first name.
+function dispName(n){ const p=state.data&&state.data.players&&state.data.players[norm(n)]; const d=p&&p.display?String(p.display).trim():""; return (d&&norm(d)!==norm(n))?d:firstName(n); }
+// Convert a combined "A + B" team string to display nicknames.
+function dispPair(team){ return String(team||"").split(/\s*\+\s*/).filter(Boolean).map(dispName).join(" + "); }
+function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(dispName(name))}</a>`; }
 function teamNames(cat, entrantId, withAv){
   const e = cat.entrants[entrantId];
   if(!e) return entrantId ? esc(entrantId) : '<span class="tbd">TBD</span>';
@@ -296,9 +300,9 @@ function renderBracket(cat){
   return cat.playoff.map(b=>{
     const pd = derivePodium(b);
     const pod = (pd.champion||pd.runnerUp||pd.third) ? `<div class="podium">
-      <div class="pod g"><div class="rk">🏆 Champion</div><div class="who">${esc(pd.champion)||"—"}</div></div>
-      <div class="pod s"><div class="rk">Runner-up</div><div class="who">${esc(pd.runnerUp)||"—"}</div></div>
-      <div class="pod b"><div class="rk">3rd Place</div><div class="who">${esc(pd.third)||"—"}</div></div></div>` : "";
+      <div class="pod g"><div class="rk">🏆 Champion</div><div class="who">${esc(dispPair(pd.champion))||"—"}</div></div>
+      <div class="pod s"><div class="rk">Runner-up</div><div class="who">${esc(dispPair(pd.runnerUp))||"—"}</div></div>
+      <div class="pod b"><div class="rk">3rd Place</div><div class="who">${esc(dispPair(pd.third))||"—"}</div></div></div>` : "";
     const rounds = b.rounds.map(r=>`<div class="pround"><h4>${roundLabel(r.round,b.numRounds)}</h4>${r.matches.map(m=>pmatch(cat,m)).join("")}</div>`).join("");
     const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE",b.numRounds)}</h4>${pmatch(cat,b.bronze)}</div>`:"";
     return `<div class="tier"><h3><span class="tg">${TIER[b.tier]||b.tier}</span> ${b.nQual} teams</h3>${pod}${rounds}${bronze}</div>`;

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Check-in — TurnamenPadel</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,700;0,800;0,900;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0A0A0B;--s1:#141416;--s2:#1B1B1F;--bd:#2A2A2E;--bd2:#37373d;--tx:#F5F5F7;--mu:#A1A1AA;--sb:#6B6B72;--or:#FF6A00;--amb:#FFB000;--grn:#22C55E;--red:#FF4A3D;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100dvh;-webkit-tap-highlight-color:transparent;
+  background-image:radial-gradient(620px 300px at 80% -10%,rgba(255,106,0,.16),transparent 60%)}
+.wrap{max-width:520px;margin:0 auto;padding:20px 16px 40px}
+.disp{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;letter-spacing:-.01em;line-height:1}
+/* header */
+.top{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.brand{font-family:'Saira Condensed',sans-serif;font-style:italic;font-weight:900;font-size:20px;text-transform:uppercase}
+.brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.evhead{margin:14px 0 20px}
+.evhead .k{font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--or)}
+.evhead h1{font-size:clamp(26px,7vw,34px);margin:6px 0 4px}
+.evhead .meta{color:var(--mu);font-size:13px}
+/* list */
+.hint{color:var(--mu);font-size:14px;margin:0 0 16px;line-height:1.5}
+.cat{margin-bottom:22px}
+.cat>h2{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:18px;letter-spacing:.01em;margin:0 0 4px;color:var(--amb)}
+.grp{margin-top:12px}
+.grp .gl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sb);margin:0 0 8px}
+.pair{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:8px;margin-bottom:8px;display:flex;gap:8px}
+.pcell{flex:1;display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;cursor:pointer;text-align:left;color:var(--tx);font:inherit;transition:border-color .12s,transform .05s;min-width:0}
+.pcell:hover{border-color:var(--or)}
+.pcell:active{transform:scale(.98)}
+.pcell .nm{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pcell .nk{font-size:11px;color:var(--sb)}
+.av{width:34px;height:34px;border-radius:9px;flex:none;background:linear-gradient(135deg,#2a2a2e,#1b1b1f);display:grid;place-items:center;font-weight:800;font-size:13px;color:var(--amb);overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.plus{color:var(--sb);align-self:center;font-family:'Space Mono',monospace;font-size:13px}
+/* profile view */
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:18px;padding:24px 20px;margin-top:8px}
+.you{text-align:center;margin-bottom:6px}
+.you .k{font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--or)}
+.you h2{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;font-size:30px;margin:6px 0 0}
+.field{margin-top:18px}
+.field label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
+.field input[type=text]{width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;font:inherit;font-size:15px;color:var(--tx);outline:none}
+.field input[type=text]:focus{border-color:var(--or)}
+.field .sub{font-size:11.5px;color:var(--sb);margin-top:6px;line-height:1.45}
+/* photo */
+.photo{display:flex;align-items:center;gap:16px;margin-top:6px}
+.pv{width:88px;height:88px;border-radius:16px;flex:none;background:var(--s2);border:1.5px dashed var(--bd2);display:grid;place-items:center;overflow:hidden;color:var(--sb);font-size:24px}
+.pv img{width:100%;height:100%;object-fit:cover}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:inherit;font-weight:700;font-size:14px;border-radius:999px;padding:12px 18px;cursor:pointer;border:0}
+.btn-pr{background:var(--or);color:#0A0A0B}
+.btn-line{background:transparent;color:var(--tx);border:1.5px solid var(--bd2)}
+.btn-block{width:100%}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.actions{margin-top:24px;display:flex;flex-direction:column;gap:10px}
+.msg{min-height:18px;font-size:13px;text-align:center;margin-top:12px}
+.msg.err{color:var(--red)}
+/* done */
+.done{text-align:center;padding:20px 4px}
+.done .tick{width:74px;height:74px;border-radius:50%;background:rgba(34,197,94,.14);color:var(--grn);display:grid;place-items:center;font-size:38px;margin:0 auto 16px}
+.done h2{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;font-size:30px;margin:0 0 8px}
+.done p{color:var(--mu);font-size:14px;line-height:1.55;margin:0 auto 22px;max-width:340px}
+.empty{color:var(--mu);font-size:14px;padding:26px 6px;text-align:center}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="brand">Turnamen<b>Padel</b></span></div>
+
+  <!-- LIST VIEW -->
+  <section id="listView">
+    <div class="evhead">
+      <div class="k">Player Check-in</div>
+      <h1 class="disp" id="evName">Memuat…</h1>
+      <div class="meta" id="evMeta"></div>
+    </div>
+    <p class="hint">Cari &amp; ketuk <b>namamu</b> di bawah untuk check-in. Kamu bisa menambah nama panggilan &amp; foto yang akan tampil di layar TV dan HP pemain.</p>
+    <div id="list"><p class="empty">Memuat daftar pemain…</p></div>
+  </section>
+
+  <!-- PROFILE VIEW -->
+  <section id="profileView" class="hidden">
+    <div class="card">
+      <div class="you"><div class="k">Check-in sebagai</div><h2 id="pName">—</h2></div>
+      <div class="field">
+        <label for="nick">Nama panggilan <span style="color:var(--sb);font-weight:500;text-transform:none;letter-spacing:0">(tampil di TV &amp; HP)</span></label>
+        <input id="nick" type="text" maxlength="24" autocomplete="off" placeholder="mis. Adit" />
+        <div class="sub">Kosongkan untuk memakai namamu apa adanya.</div>
+      </div>
+      <div class="field">
+        <label>Foto</label>
+        <div class="photo">
+          <div class="pv" id="pv"><span id="pvIcon">📷</span></div>
+          <div>
+            <input id="file" type="file" accept="image/*" class="hidden" />
+            <button type="button" class="btn btn-line" onclick="document.getElementById('file').click()">Ambil / pilih foto</button>
+            <div class="sub" style="margin-top:8px">Foto langsung tampil tanpa moderasi.</div>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-pr btn-block" id="saveBtn" onclick="doCheckin()">Simpan &amp; Check-in</button>
+        <button type="button" class="btn btn-line btn-block" onclick="backToList()">Ini bukan saya — kembali</button>
+      </div>
+      <div class="msg" id="pMsg"></div>
+    </div>
+  </section>
+
+  <!-- DONE VIEW -->
+  <section id="doneView" class="hidden">
+    <div class="card done">
+      <div class="tick">✓</div>
+      <h2>Check-in berhasil</h2>
+      <p id="doneName">Sampai jumpa di lapangan!</p>
+      <a class="btn btn-pr btn-block" id="mobileLink" href="#">Buka jadwal turnamen saya →</a>
+      <div style="margin-top:12px"><button type="button" class="btn btn-line btn-block" onclick="backToList()">Check-in pemain lain</button></div>
+    </div>
+  </section>
+</div>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
+function slugFromPath(){ const m=/^\/(?:checkin|mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m?decodeURIComponent(m[1]):""; }
+const qs = new URLSearchParams(location.search);
+
+const state = { eventId:null, slug:"", data:null, sel:null, photo:"" };
+
+async function api(path, opts){
+  opts=opts||{};
+  const r = await fetch(BASE+path, { method:opts.method||"GET", headers:{"Content-Type":"application/json"},
+    body:opts.body?JSON.stringify(opts.body):undefined });
+  let d={}; try{ d=await r.json(); }catch(e){}
+  if(!r.ok){ const e=new Error(d.error||("HTTP "+r.status)); e.status=r.status; throw e; }
+  return d;
+}
+function show(id){ ["listView","profileView","doneView"].forEach(v=>document.getElementById(v).classList.toggle("hidden", v!==id)); window.scrollTo(0,0); }
+function initials(n){ const p=String(n||"").trim().split(/\s+/); return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")).toUpperCase()||"?"; }
+function pinfo(name){ return (state.data && state.data.players && state.data.players[norm(name)]) || null; }
+function avatarHtml(name){ const p=pinfo(name); return p&&p.photo ? `<span class="av"><img src="${esc(p.photo)}" alt="" onerror="this.remove()"/></span>` : `<span class="av">${esc(initials(name))}</span>`; }
+// A stored display counts as a real nickname only if it differs from the full name.
+function nicknameOf(name){ const p=pinfo(name); const d=p&&p.display?String(p.display).trim():""; return (d && norm(d)!==norm(name)) ? d : ""; }
+
+async function resolveEvent(){
+  if(qs.get("event")){ state.eventId=qs.get("event"); return; }
+  const slug = slugFromPath(); state.slug=slug;
+  if(!slug) return;
+  try{
+    const { events } = await api("/tournament/events");
+    const m=(events||[]).filter(e=>slugify(e.name)===slug);
+    if(m.length) state.eventId=m[m.length-1].eventId;
+  }catch(e){}
+}
+
+function playerCell(name){
+  if(!name) return "";
+  const nk = nicknameOf(name);
+  return `<button type="button" class="pcell" onclick="selectPlayer(${JSON.stringify(name).replace(/"/g,'&quot;')})">
+    ${avatarHtml(name)}
+    <span style="min-width:0"><span class="nm">${esc(name)}</span>${nk?`<span class="nk"> · "${esc(nk)}"</span>`:""}</span>
+  </button>`;
+}
+
+function renderList(){
+  const d = state.data;
+  document.getElementById("evName").textContent = d.event.name || "Tournament";
+  document.getElementById("evMeta").textContent = [d.event.venue, d.event.date].filter(Boolean).join(" · ");
+  const cats = d.categories || [];
+  let html = "";
+  let anyPlayers = false;
+  cats.forEach(cat=>{
+    const groups = cat.groups && cat.groups.length ? cat.groups : null;
+    let inner = "";
+    if(groups){
+      groups.forEach(g=>{
+        const rows = (g.standings||[]).map(s=>{
+          const e = cat.entrants[s.entrantId] || {};
+          if(!e.player1 && !e.player2) return "";
+          anyPlayers = true;
+          return `<div class="pair">${playerCell(e.player1)}<span class="plus">+</span>${playerCell(e.player2)}</div>`;
+        }).join("");
+        if(rows) inner += `<div class="grp"><div class="gl">Group ${esc(g.label)}</div>${rows}</div>`;
+      });
+    } else {
+      // No groups drawn yet — list entrants flat.
+      const ents = Object.values(cat.entrants||{});
+      const rows = ents.map(e=>{
+        if(!e.player1 && !e.player2) return "";
+        anyPlayers = true;
+        return `<div class="pair">${playerCell(e.player1)}<span class="plus">+</span>${playerCell(e.player2)}</div>`;
+      }).join("");
+      if(rows) inner += `<div class="grp">${rows}</div>`;
+    }
+    if(inner) html += `<div class="cat"><h2>${esc(cat.category)}</h2>${inner}</div>`;
+  });
+  document.getElementById("list").innerHTML = anyPlayers ? html
+    : '<p class="empty">Belum ada pemain / grup untuk turnamen ini. Minta admin untuk generate dulu.</p>';
+}
+
+function selectPlayer(name){
+  state.sel = name; state.photo = "";
+  document.getElementById("pName").textContent = name;
+  document.getElementById("nick").value = nicknameOf(name) || "";
+  const p = pinfo(name);
+  const pv = document.getElementById("pv");
+  pv.innerHTML = (p && p.photo) ? `<img src="${esc(p.photo)}" alt=""/>` : '<span id="pvIcon">📷</span>';
+  document.getElementById("pMsg").textContent = "";
+  document.getElementById("pMsg").className = "msg";
+  show("profileView");
+}
+function backToList(){ state.sel=null; state.photo=""; document.getElementById("file").value=""; renderList(); show("listView"); }
+
+// Resize the picked image to keep the upload small, then hand a JPEG data URL to the API.
+document.getElementById("file").addEventListener("change", function(){
+  const f = this.files && this.files[0]; if(!f) return;
+  const img = new Image();
+  img.onload = ()=>{
+    const max=720; let {width:w,height:h}=img;
+    if(w>h && w>max){ h=Math.round(h*max/w); w=max; } else if(h>max){ w=Math.round(w*max/h); h=max; }
+    const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+    cv.getContext("2d").drawImage(img,0,0,w,h);
+    state.photo = cv.toDataURL("image/jpeg", 0.82);
+    document.getElementById("pv").innerHTML = `<img src="${state.photo}" alt=""/>`;
+    URL.revokeObjectURL(img.src);
+  };
+  img.onerror = ()=>{ document.getElementById("pMsg").className="msg err"; document.getElementById("pMsg").textContent="Foto tidak bisa dibaca. Coba foto lain."; };
+  img.src = URL.createObjectURL(f);
+});
+
+async function doCheckin(){
+  const name = state.sel; if(!name) return;
+  const nickname = document.getElementById("nick").value.trim();
+  const btn = document.getElementById("saveBtn"), msg = document.getElementById("pMsg");
+  btn.disabled = true; msg.className="msg"; msg.textContent="Menyimpan…";
+  try{
+    await api("/players/checkin", { method:"POST", body:{ name, nickname, photo: state.photo || undefined } });
+    const slug = state.slug || (state.data && slugify(state.data.event.name)) || "";
+    const url = slug ? (location.origin + "/mobile/" + encodeURIComponent(slug))
+                     : (location.origin + "/mobile.html?event=" + encodeURIComponent(state.eventId));
+    document.getElementById("mobileLink").setAttribute("href", url);
+    document.getElementById("doneName").textContent = (nickname||name) + ", jadwalmu siap. Simpan link ini di HP-mu.";
+    show("doneView");
+  }catch(e){
+    btn.disabled=false; msg.className="msg err";
+    msg.textContent = e.status===502 ? "Upload foto gagal — coba lagi atau tanpa foto." : (e.message||"Gagal check-in.");
+  }
+}
+
+(async function boot(){
+  await resolveEvent();
+  if(!state.eventId){ document.getElementById("evName").textContent="Turnamen tidak ditemukan"; document.getElementById("list").innerHTML='<p class="empty">Buka /checkin/&lt;nama-turnamen&gt; atau tambahkan ?event=ID.</p>'; return; }
+  try{
+    state.data = await api("/tournament/event/"+encodeURIComponent(state.eventId)+"/public");
+    if(!state.slug) state.slug = slugify(state.data.event.name);
+    renderList();
+  }catch(e){ document.getElementById("list").innerHTML='<p class="empty">Gagal memuat data turnamen.</p>'; }
+})();
+</script>
+</body>
+</html>

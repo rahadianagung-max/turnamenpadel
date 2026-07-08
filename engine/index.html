@@ -288,6 +288,7 @@
     <span class="chip" id="ctxEvent">Event: <b>—</b></span>
     <span class="chip" id="ctxTour">Kategori: <b>—</b></span>
     <span class="share-grp">
+      <button type="button" class="btn btn-ghost btn-share" id="shareCheckin" onclick="shareUrl('checkin')">Share Check-in URL</button>
       <button type="button" class="btn btn-ghost btn-share" id="shareMobile" onclick="shareUrl('mobile')">Share Player URL</button>
       <button type="button" class="btn btn-ghost btn-share" id="shareTv" onclick="shareUrl('tv')">Share TV URL</button>
     </span>
@@ -516,9 +517,13 @@ function shareSlug(){
 }
 function shareUrl(kind){
   if(!state.event){ toast("Pilih atau buat event dulu.", true); return; }
-  var url = location.origin + "/" + (kind==="tv" ? "tv/" : "mobile/") + encodeURIComponent(shareSlug());
+  var seg = kind==="tv" ? "tv/" : kind==="checkin" ? "checkin/" : "mobile/";
+  var url = location.origin + "/" + seg + encodeURIComponent(shareSlug());
   if(kind==="tv"){ var sp=(state.sponsorUrl||"").trim(); if(sp) url += "?sponsor=" + encodeURIComponent(sp); }
-  copyText(url, kind==="tv" ? "TV display URL disalin ke clipboard" : "Player URL disalin ke clipboard");
+  var label = kind==="tv" ? "TV display URL disalin ke clipboard"
+            : kind==="checkin" ? "Check-in URL disalin ke clipboard"
+            : "Player URL disalin ke clipboard";
+  copyText(url, label);
 }
 function copyText(txt, okMsg){
   if(navigator.clipboard && navigator.clipboard.writeText){
