@@ -4,6 +4,7 @@
     { "source": "/api/(.*)", "destination": "/api/sheet.js" },
     { "source": "/mobile/:slug", "destination": "/mobile.html" },
     { "source": "/tv/:slug", "destination": "/tv.html" },
-    { "source": "/checkin/:slug", "destination": "/checkin.html" }
+    { "source": "/checkin/:slug", "destination": "/checkin.html" },
+    { "source": "/contact", "destination": "/contact.html" }
   ]
 }

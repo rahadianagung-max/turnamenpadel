@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Run Your Tournament — TurnamenPadel</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,700;0,800;0,900;1,800;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css"/>
+<style>
+:root{--bg:#0A0A0B;--s1:#141416;--s2:#1B1B1F;--bd:#2A2A2E;--bd2:#37373d;--tx:#F5F5F7;--mu:#A1A1AA;--sb:#6B6B72;--or:#FF6A00;--amb:#FFB000;--red:#FF3830;--grn:#22C55E;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Plus Jakarta Sans',sans-serif;color:var(--tx);background:var(--bg)}
+a{color:inherit;text-decoration:none}
+.container{max-width:760px;margin:0 auto;padding:0 24px}
+.disp{font-family:'Saira Condensed',sans-serif;font-weight:900;letter-spacing:-.02em;text-transform:uppercase;line-height:.95}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--or)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-weight:700;font-size:14px;border-radius:999px;padding:13px 24px;cursor:pointer;border:0;font-family:inherit}
+.btn-pr{background:var(--or);color:#0A0A0B}.btn-pr:hover{filter:brightness(1.08)}
+.btn-line{background:transparent;color:var(--tx);border:1px solid var(--bd2)}
+.btn-block{width:100%}
+/* header */
+.hd{position:sticky;top:0;z-index:20;background:rgba(10,10,11,.72);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd)}
+.hd .inner{display:flex;align-items:center;justify-content:space-between;min-height:66px}
+.brand{font-family:'Saira Condensed',sans-serif;font-style:italic;font-weight:900;font-size:23px;text-transform:uppercase;letter-spacing:-.01em}
+.brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.nav a{font-size:13px;font-weight:600;color:var(--mu);padding:8px 12px;border-radius:999px}
+.nav a:hover{color:var(--tx)}
+/* hero */
+.hero{position:relative;overflow:hidden;border-bottom:1px solid var(--bd)}
+.hero::before{content:"";position:absolute;inset:0;background:radial-gradient(620px 300px at 80% -20%,rgba(255,106,0,.20),transparent 60%);pointer-events:none}
+.hero .inner{position:relative;padding:48px 0 34px}
+.hero h1{font-size:clamp(32px,6vw,54px);margin:12px 0 0}
+.hero h1 .g{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.hero p{color:var(--mu);font-size:15.5px;line-height:1.6;max-width:520px;margin:16px 0 0}
+/* form */
+.form{padding:34px 0 70px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:20px;padding:28px 26px;margin-bottom:20px}
+.card h2{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:22px;letter-spacing:-.01em;margin:0 0 4px}
+.card .lead{color:var(--sb);font-size:13px;margin:0 0 20px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.f{margin-bottom:14px}
+.f.full{grid-column:1/-1}
+.f label{display:block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin-bottom:7px}
+.f label .req{color:var(--or)}
+.f input,.f select,.f textarea{width:100%;background:var(--s2);border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;font:inherit;font-size:14.5px;color:var(--tx);outline:none;transition:border-color .15s}
+.f input:focus,.f select:focus,.f textarea:focus{border-color:var(--or)}
+.f textarea{min-height:90px;resize:vertical}
+.f .hint{font-size:11.5px;color:var(--sb);margin-top:6px}
+/* category chips */
+.chips{display:flex;flex-wrap:wrap;gap:9px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--bd);background:var(--s2);border-radius:999px;padding:9px 14px;font-size:13.5px;font-weight:600;cursor:pointer;user-select:none;transition:.15s}
+.chip input{display:none}
+.chip.on{border-color:var(--or);background:rgba(255,106,0,.12);color:var(--tx)}
+.chip .tk{width:15px;height:15px;border-radius:5px;border:1.5px solid var(--bd2);display:grid;place-items:center;font-size:10px;color:#0A0A0B}
+.chip.on .tk{background:var(--or);border-color:var(--or)}
+/* package cards */
+.pkgs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.pkg{position:relative;border:1.5px solid var(--bd);background:var(--s2);border-radius:16px;padding:20px 18px;cursor:pointer;transition:.15s}
+.pkg:hover{border-color:var(--bd2)}
+.pkg.on{border-color:var(--or);background:rgba(255,106,0,.08)}
+.pkg input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.pkg .tag{font-family:'Space Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amb);background:rgba(255,176,0,.14);border-radius:6px;padding:4px 8px;display:inline-block}
+.pkg h3{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:20px;margin:12px 0 6px;letter-spacing:-.01em}
+.pkg .price{font-family:'Saira Condensed',sans-serif;font-style:italic;font-weight:900;font-size:26px;color:var(--or);line-height:1}
+.pkg .price small{font-family:'Plus Jakarta Sans',sans-serif;font-style:normal;font-weight:600;font-size:12px;color:var(--mu);letter-spacing:0}
+.pkg p{font-size:12.5px;color:var(--mu);line-height:1.5;margin:10px 0 0}
+.pkg .radio{position:absolute;top:16px;right:16px;width:20px;height:20px;border-radius:50%;border:2px solid var(--bd2);display:grid;place-items:center;transition:.15s}
+.pkg.on .radio{border-color:var(--or)}
+.pkg.on .radio::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--or)}
+.submit-row{margin-top:8px}
+.note{font-size:12px;color:var(--sb);text-align:center;margin-top:14px}
+/* footer */
+.ft{padding:30px 0;border-top:1px solid var(--bd)}
+.ft .inner{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;color:var(--sb);font-size:12px}
+.ft .brand{font-size:18px}
+@media(max-width:640px){.row,.pkgs{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="hd"><div class="container inner">
+  <a class="brand" href="/">Turnamen<b>Padel</b></a>
+  <nav class="nav"><a href="/">← Back to home</a></nav>
+</div></header>
+
+<section class="hero"><div class="container inner">
+  <span class="eyebrow">Run your tournament</span>
+  <h1 class="disp">Tell us about <span class="g">your event</span></h1>
+  <p>Share a few details and pick how you want to work with us. We'll get back to you with next steps — usually within a day.</p>
+</div></section>
+
+<section class="form"><div class="container">
+  <form id="contactForm" autocomplete="on">
+
+    <!-- 1. CONTACT -->
+    <div class="card">
+      <h2>Your details</h2>
+      <p class="lead">So we can reach you back.</p>
+      <div class="row">
+        <div class="f"><label>Name <span class="req">*</span></label><input name="name" required placeholder="Nama kamu"/></div>
+        <div class="f"><label>WhatsApp <span class="req">*</span></label><input name="whatsapp" required placeholder="08xxxxxxxxxx"/></div>
+        <div class="f full"><label>Email</label><input name="email" type="email" placeholder="opsional"/></div>
+      </div>
+    </div>
+
+    <!-- 2. TOURNAMENT BRIEF -->
+    <div class="card">
+      <h2>Tournament brief</h2>
+      <p class="lead">Rough numbers are fine — you can refine later.</p>
+      <div class="row">
+        <div class="f"><label>Tournament date <span class="req">*</span></label><input name="date" type="date" required/></div>
+        <div class="f"><label>Total participants <span class="req">*</span></label><input name="participants" type="number" min="2" required placeholder="mis. 48"/></div>
+        <div class="f"><label>Venue / location <span class="req">*</span></label><input name="venue" required placeholder="mis. La Familia Padel"/></div>
+        <div class="f"><label>City <span class="req">*</span></label><input name="city" required placeholder="mis. Jakarta"/></div>
+      </div>
+      <div class="f full">
+        <label>Category <span class="req">*</span></label>
+        <div class="chips" id="cats">
+          <label class="chip"><input type="checkbox" value="Men's Doubles"/><span class="tk">✓</span>Men's Doubles</label>
+          <label class="chip"><input type="checkbox" value="Women's Doubles"/><span class="tk">✓</span>Women's Doubles</label>
+          <label class="chip"><input type="checkbox" value="Mixed Doubles"/><span class="tk">✓</span>Mixed Doubles</label>
+          <label class="chip"><input type="checkbox" value="Other"/><span class="tk">✓</span>Other</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. PACKAGE -->
+    <div class="card">
+      <h2>Choose a package</h2>
+      <p class="lead">Pick one — you can still discuss details with us.</p>
+      <div class="pkgs">
+        <label class="pkg on">
+          <input type="radio" name="package" value="License Engine" checked/>
+          <span class="radio"></span>
+          <span class="tag">Self-service</span>
+          <h3>License the Engine</h3>
+          <div class="price">IDR 500K <small>/ tournament</small></div>
+          <p>Run it yourself with the full pro toolkit — automated brackets, live scoring, player phone view, and the TV board.</p>
+        </label>
+        <label class="pkg">
+          <input type="radio" name="package" value="Full Management"/>
+          <span class="radio"></span>
+          <span class="tag">Done for you</span>
+          <h3>Full Tournament Management</h3>
+          <div class="price">Custom <small>· by brief</small></div>
+          <p>We run it end-to-end — seeding, scheduling, on-site scoring and results. Final quote adjusts to your tournament brief.</p>
+        </label>
+      </div>
+    </div>
+
+    <!-- 4. NOTES + SUBMIT -->
+    <div class="card">
+      <div class="f full"><label>Anything else?</label><textarea name="notes" placeholder="Sponsor, format khusus, tanggal alternatif, dll. (opsional)"></textarea></div>
+      <div class="submit-row">
+        <button type="submit" class="btn btn-pr btn-block" id="submitBtn"><i class="ti ti-send"></i> Send request</button>
+        <div class="note" id="formMsg">By sending, your brief is saved and our team will contact you. No payment yet.</div>
+      </div>
+    </div>
+
+  </form>
+
+  <!-- SUCCESS -->
+  <div class="card" id="doneCard" style="display:none;text-align:center;padding:40px 26px">
+    <div style="width:66px;height:66px;border-radius:50%;background:rgba(34,197,94,.14);color:var(--grn);display:grid;place-items:center;font-size:34px;margin:0 auto 16px">✓</div>
+    <h2 style="margin:0 0 8px">Request sent</h2>
+    <p style="color:var(--mu);font-size:14px;max-width:360px;margin:0 auto 22px">Terima kasih! Brief turnamenmu sudah kami terima. Tim kami akan menghubungimu lewat WhatsApp/email, biasanya dalam 1 hari.</p>
+    <a class="btn btn-line" href="/">← Back to home</a>
+  </div>
+</div></section>
+
+<footer class="ft"><div class="container inner">
+  <a class="brand disp" href="/" style="font-style:italic">Turnamen<span style="background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent">Padel</span></a>
+  <span>© 2026 TurnamenPadel · SportsActvd</span>
+</div></footer>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+document.querySelectorAll(".chip").forEach(c=>{
+  const cb=c.querySelector("input");
+  cb.addEventListener("change",()=>c.classList.toggle("on",cb.checked));
+});
+document.querySelectorAll(".pkg input").forEach(r=>{
+  r.addEventListener("change",()=>{
+    document.querySelectorAll(".pkg").forEach(p=>p.classList.toggle("on", p.querySelector("input").checked));
+  });
+});
+const form=document.getElementById("contactForm"), btn=document.getElementById("submitBtn"), msg=document.getElementById("formMsg");
+form.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const cats=[...document.querySelectorAll("#cats input:checked")].map(i=>i.value);
+  if(!cats.length){ msg.style.color="var(--red)"; msg.textContent="Pilih minimal satu kategori."; return; }
+  const fd=new FormData(form);
+  const body={
+    name:(fd.get("name")||"").trim(), whatsapp:(fd.get("whatsapp")||"").trim(), email:(fd.get("email")||"").trim(),
+    date:fd.get("date")||"", participants:fd.get("participants")||"", category:cats,
+    venue:(fd.get("venue")||"").trim(), city:(fd.get("city")||"").trim(),
+    package:fd.get("package")||"", notes:(fd.get("notes")||"").trim(),
+  };
+  btn.disabled=true; msg.style.color=""; msg.textContent="Sending…";
+  try{
+    const r=await fetch(BASE+"/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+    form.style.display="none";
+    document.getElementById("doneCard").style.display="block";
+    window.scrollTo({top:0,behavior:"smooth"});
+  }catch(err){
+    btn.disabled=false; msg.style.color="var(--red)";
+    msg.textContent="Gagal mengirim: "+(err.message||"coba lagi.");
+  }
+});
+</script>
+</body>
+</html>
