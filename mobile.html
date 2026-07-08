@@ -22,7 +22,7 @@
   .wrap{padding:0 14px;}
   header{padding:18px 14px 12px; position:sticky; top:0; background:linear-gradient(180deg,#000 72%,transparent); z-index:20;}
   .brand{display:flex; align-items:center; justify-content:space-between;}
-  .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em;
+  .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:20px; letter-spacing:-.02em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
   .live{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); letter-spacing:.08em; text-align:right;}
   .live b{color:var(--accent);}
@@ -116,6 +116,11 @@
   .picker .pn{font-weight:700; font-size:15px;} .picker .pm{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
   footer{text-align:center; font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); margin-top:24px; letter-spacing:.06em;}
   footer b{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; font-family:'Saira Condensed',sans-serif; font-weight:800;}
+  footer a{color:inherit; text-decoration:none;}
+  /* tap hint + bracket name wrap */
+  .tap-hint{font-size:12px; color:var(--muted); margin:12px 2px 2px; text-align:center; line-height:1.4;}
+  .tap-hint b{color:var(--accent2); font-weight:700;}
+  .pline .pnm{display:flex; align-items:center; gap:5px; flex-wrap:wrap; min-width:0;}
   /* sponsor banner — single static image, full width edge-to-edge, all black, no caption */
   #sponsorBanner{display:none; margin:22px 0 0; background:#000; line-height:0;}
   #sponsorBanner.show{display:block;}
@@ -127,7 +132,7 @@
 <body>
 <header>
   <div class="brand">
-    <div class="logo">Trekkr</div>
+    <div class="logo">turnamenpadel.com</div>
     <div class="live" id="live"></div>
   </div>
   <div id="evhead"></div>
@@ -138,7 +143,7 @@
   <div id="body"><p class="empty">Loading…</p></div>
 </div>
 <div id="sponsorBanner"><img id="spbImg" alt="sponsor"></div>
-<footer>POWERED BY <b>TREKKR</b></footer>
+<footer><a href="https://trekkr.online" target="_blank" rel="noopener noreferrer">POWERED BY <b>TREKKR</b></a></footer>
 
 <script>
 const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
@@ -184,12 +189,14 @@ function roundLabel(round, numRounds){
 
 function renderTabs(){
   const cats = state.data.categories;
-  document.getElementById("cattabs").innerHTML = cats.map((c,i)=>
-    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(c.category)}</div>`).join("");
+  // Only show the category switcher when there is more than one category.
+  document.getElementById("cattabs").innerHTML = cats.length>1 ? cats.map((c,i)=>
+    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(c.category)}</div>`).join("") : "";
   const labels = { schedule:"Schedule", standings:"Group / Standing", bracket:"Bracket" };
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
-  </div>`;
+  </div>
+  <p class="tap-hint">Klik nama pemain untuk melihat <b>track record</b> di Trekkr.</p>`;
 }
 function setCat(i){ state.cat=i; renderTabs(); renderBody(); }
 function setView(v){ state.view=v; renderTabs(); renderBody(); }
@@ -248,8 +255,8 @@ function renderSchedule(cat){
       <div class="top">
         <span class="when"><span class="time">${ptime(m)}</span><span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}</span></span>
         ${liveNow?'<span class="badge-now">LIVE</span>':''}</div>
-      <div class="team ${aw?'w':''}"><span class="nm">${teamNames(cat,m.entrantA,false)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>
-      <div class="team ${bw?'w':''}"><span class="nm">${teamNames(cat,m.entrantB,false)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>
+      <div class="team ${aw?'w':''}"><span class="nm">${teamNames(cat,m.entrantA,true)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>
+      <div class="team ${bw?'w':''}"><span class="nm">${teamNames(cat,m.entrantB,true)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>
     </div>`;
   }).join("");
 
@@ -268,7 +275,7 @@ function renderStandings(cat){
       const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
       return `<tr class="${cls}">
         <td class="rk">${s.rank}</td>
-        <td><span class="nmcell">${avatar((cat.entrants[s.entrantId]||{}).player1)}${teamNames(cat,s.entrantId,false)}</span></td>
+        <td><span class="nmcell">${teamNames(cat,s.entrantId,false)}</span></td>
         <td class="num-c">${s.played}/${denom}</td><td class="num-c">${s.wins}</td><td class="num-c">${s.losses}</td>
         <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${pa}</td></tr>`;
     }).join("");
@@ -312,12 +319,12 @@ function pmatch(cat,m){
   const bye = m.status==="BYE", done = m.status==="DONE";
   const aw = done && String(m.winner)===String(m.entrantA);
   const bw = done && String(m.winner)===String(m.entrantB);
-  const nameA = m.entrantA ? teamNames(cat,m.entrantA,false) : '<span class="tbd">TBD</span>';
-  const nameB = m.entrantB ? teamNames(cat,m.entrantB,false) : '<span class="tbd">TBD</span>';
+  const nameA = m.entrantA ? teamNames(cat,m.entrantA,true) : '<span class="tbd">TBD</span>';
+  const nameB = m.entrantB ? teamNames(cat,m.entrantB,true) : '<span class="tbd">TBD</span>';
   const scA = done?esc(String(m.scoreA)):""; const scB = done?esc(String(m.scoreB)):"";
   return `<div class="pmatch ${bye?'bye':''}">
-    <div class="pline ${aw?'w':''}">${nameA}<span class="sc">${bye?'BYE':scA}</span></div>
-    <div class="pline ${bw?'w':''}">${nameB}<span class="sc">${scB}</span></div></div>`;
+    <div class="pline ${aw?'w':''}"><span class="pnm">${nameA}</span><span class="sc">${bye?'BYE':scA}</span></div>
+    <div class="pline ${bw?'w':''}"><span class="pnm">${nameB}</span><span class="sc">${scB}</span></div></div>`;
 }
 
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
