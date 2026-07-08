@@ -46,6 +46,23 @@ async function driveUploadImage(dataUrl, filename, folderId) {
   return `https://drive.google.com/uc?export=view&id=${id}`;
 }
 
+// Upload a base64 data URL to imgbb (same host the player passport uses for
+// profile photos). Needs process.env.IMGBB_API_KEY. Returns a hotlinkable URL.
+async function imgbbUpload(dataUrl, name) {
+  const key = process.env.IMGBB_API_KEY;
+  if (!key) throw new Error("IMGBB_API_KEY not set");
+  const m = /^data:image\/[\w.+-]+;base64,([\s\S]+)$/.exec(String(dataUrl || ""));
+  if (!m) throw new Error("invalid image data");
+  const params = new URLSearchParams();
+  params.set("key", key);
+  params.set("image", m[1]);            // base64 without the data: prefix
+  if (name) params.set("name", name);
+  const res = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body: params });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || !j || !j.success || !j.data) throw new Error((j && j.error && j.error.message) || `imgbb HTTP ${res.status}`);
+  return j.data.display_url || j.data.url || (j.data.image && j.data.image.url) || "";
+}
+
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
 const TABS = {
@@ -517,9 +534,16 @@ async function playerCheckin(body) {
   let photoUrl = "";
   if (body.photo) {
     const safe = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40) || "player";
-    const folder = process.env.CHECKIN_DRIVE_FOLDER_ID || process.env.REG_DRIVE_FOLDER_ID || "";
-    try { photoUrl = await driveUploadImage(body.photo, `checkin_${safe}_${Date.now()}.jpg`, folder); }
-    catch (e) { console.error("checkin photo upload:", e.message); return respond(502, { error: "Photo upload failed" }); }
+    // Primary: imgbb (same as the passport). Fallback: Google Drive, so check-in
+    // still works if IMGBB_API_KEY isn't configured yet.
+    try {
+      photoUrl = await imgbbUpload(body.photo, `checkin_${safe}_${Date.now()}`);
+    } catch (e) {
+      console.error("checkin imgbb upload:", e.message);
+      const folder = process.env.CHECKIN_DRIVE_FOLDER_ID || process.env.REG_DRIVE_FOLDER_ID || "";
+      try { photoUrl = await driveUploadImage(body.photo, `checkin_${safe}_${Date.now()}.jpg`, folder); }
+      catch (e2) { console.error("checkin drive fallback:", e2.message); return respond(502, { error: "Photo upload failed" }); }
+    }
   }
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:K` });
   const rows = res.data.values || [];
