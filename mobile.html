@@ -170,7 +170,9 @@ function avatar(name){
 function slug(n){ return String(n||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
 function firstName(n){ const t=String(n||"").trim(); return t? t.split(/\s+/)[0] : ""; }
 // Show a player's check-in nickname when they set one; otherwise their first name.
-function dispName(n){ const p=state.data&&state.data.players&&state.data.players[norm(n)]; const d=p&&p.display?String(p.display).trim():""; return (d&&norm(d)!==norm(n))?d:firstName(n); }
+// Mobile/TV show the Display_Name column (set via check-in). The full Name is only
+// used on the Trekkr passport + its URL. No more first-name derivation.
+function dispName(n){ const p=state.data&&state.data.players&&state.data.players[norm(n)]; const d=p&&p.display?String(p.display).trim():""; return d || String(n||""); }
 // Convert a combined "A + B" team string to display nicknames.
 function dispPair(team){ return String(team||"").split(/\s*\+\s*/).filter(Boolean).map(dispName).join(" + "); }
 function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(dispName(name))}</a>`; }
