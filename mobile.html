@@ -105,6 +105,7 @@
   .pround h4{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase;
     color:var(--faint); margin:0 0 7px; border-bottom:1px solid var(--line); padding-bottom:5px;}
   .pmatch{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); padding:9px 11px; margin-bottom:6px;}
+  .pmatch .pmmeta{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); margin-bottom:5px; letter-spacing:.02em;}
   .pmatch.bye{opacity:.5;}
   .pline{display:flex; align-items:center; gap:6px; padding:2px 0; font-size:13px;}
   .pline.w{color:var(--accent); font-weight:700;}
@@ -213,7 +214,9 @@ function renderBody(){
 function renderSchedule(cat){
   if(!cat.schedule.length) return '<p class="empty">Group stage schedule not available yet.</p>';
   const pred = predictTimes();
-  const ptime = (m)=> esc(pred[m.matchId] || fmtTime(m.time));
+  // A match with an explicit date is pinned (manually edited) — use its stored time
+  // instead of the auto-predicted slot time.
+  const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (pred[m.matchId] || fmtTime(m.time)));
 
   // Player picker — lets a player see only their own matches.
   const players = playersInCat(cat);
@@ -253,7 +256,7 @@ function renderSchedule(cat){
     const mine = sel && matchHasPlayer(cat,m,sel);
     return `<div class="mrow ${done?'done':''} ${liveNow?'live-now':''} ${mine?'mine':''}">
       <div class="top">
-        <span class="when"><span class="time">${ptime(m)}</span><span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}</span></span>
+        <span class="when"><span class="time">${matchDateLabel(m)} · ${ptime(m)}</span><span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}</span></span>
         ${liveNow?'<span class="badge-now">LIVE</span>':''}</div>
       <div class="team ${aw?'w':''}"><span class="nm">${teamNames(cat,m.entrantA,true)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>
       <div class="team ${bw?'w':''}"><span class="nm">${teamNames(cat,m.entrantB,true)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>
@@ -322,7 +325,14 @@ function pmatch(cat,m){
   const nameA = m.entrantA ? teamNames(cat,m.entrantA,true) : '<span class="tbd">TBD</span>';
   const nameB = m.entrantB ? teamNames(cat,m.entrantB,true) : '<span class="tbd">TBD</span>';
   const scA = done?esc(String(m.scoreA)):""; const scB = done?esc(String(m.scoreB)):"";
-  return `<div class="pmatch ${bye?'bye':''}">
+  const parts=[];
+  if(!bye){
+    if(m.date) parts.push(matchDateLabel(m));
+    if(m.time) parts.push(esc(fmtTime(m.time)));
+    if(m.court) parts.push("Court "+esc(String(m.court)));
+  }
+  const meta = parts.length ? `<div class="pmmeta">${parts.join(" · ")}</div>` : "";
+  return `<div class="pmatch ${bye?'bye':''}">${meta}
     <div class="pline ${aw?'w':''}"><span class="pnm">${nameA}</span><span class="sc">${bye?'BYE':scA}</span></div>
     <div class="pline ${bw?'w':''}"><span class="pnm">${nameB}</span><span class="sc">${scB}</span></div></div>`;
 }
@@ -332,6 +342,15 @@ function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; cons
 // Static schedule times (same as the TV board): each group match = event start time +
 // slot * admin match duration. Match 0 = start (e.g. 11:00), match 1 = +15min, and so on.
 // No server-time or actual-pace adjustment.
+// Day + date label for a match, e.g. "Sab, 12 Jul". Falls back to the event date.
+const HARI=["Min","Sen","Sel","Rab","Kam","Jum","Sab"], BULAN=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+function matchDateLabel(m){
+  const ds = (m&&m.date) || (state.data&&state.data.event&&state.data.event.date) || "";
+  if(!ds) return "";
+  const d=new Date(String(ds)+"T00:00:00");
+  if(isNaN(d.getTime())) return esc(ds);
+  return `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]}`;
+}
 function timeToMin(t){ const s=fmtTime(t); if(!s) return null; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
 function minToTime(x){ x=((Math.round(x)%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
 function predictTimes(){

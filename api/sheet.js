@@ -197,7 +197,7 @@ const T_HEADERS = {
   [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At"],
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
-  [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At"],
+  [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA"],
 };
 // Create any missing tournament tabs (with header row) so the engine is self-bootstrapping.
@@ -1913,7 +1913,7 @@ function mapMatchRow(x) {
   return {
     tournamentId: x[0], matchId: x[1], stage: x[2], groupLabel: x[3], bracket: x[4], round: x[5],
     court: parseInt(x[6]) || 0, slot: parseInt(x[7]) || 0, time: x[8], entrantA: x[9], entrantB: x[10],
-    scoreA: x[11], scoreB: x[12], winner: x[13], status: x[14], updatedAt: x[15],
+    scoreA: x[11], scoreB: x[12], winner: x[13], status: x[14], updatedAt: x[15], date: x[16] || "",
   };
 }
 // Duplicate Match_ID safety: served matchIds are tagged with their sheet row
@@ -2039,7 +2039,7 @@ async function tScheduleEvent(eventId, body) {
 async function tListMatches(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const matches = (r.data.values || [])
     .map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }))
     .filter((m) => m.tournamentId === id)
@@ -2452,24 +2452,27 @@ async function tRemapCourts(eventId, body) {
   }
   return respond(200, { success: true, changed, map: m });
 }
-async function tUpdateMatchMeta(body) {  const { matchId, court, time } = body || {};
+async function tUpdateMatchMeta(body) {  const { matchId, court, time, date } = body || {};
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const rows = r.data.values || [];
   const idx = resolveMatchIdx(rows, matchId, body.tournamentId);
   if (idx === -1) return respond(404, { error: "Match not found" });
   const row = rows[idx];
-  while (row.length < 16) row.push("");
+  while (row.length < 17) row.push("");
   if (court !== undefined && court !== null) row[6] = String(court);
   if (time !== undefined && time !== null) row[8] = String(time);
+  // A non-empty Scheduled_Date pins the match: mobile/TV use this exact time
+  // instead of the auto-generated slot time.
+  if (date !== undefined && date !== null) row[16] = String(date);
   row[15] = new Date().toISOString();
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:P${idx + 2}`,
+    spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:Q${idx + 2}`,
     valueInputOption: "USER_ENTERED", requestBody: { values: [row] },
   });
-  return respond(200, { success: true, court: row[6], time: row[8] });
+  return respond(200, { success: true, court: row[6], time: row[8], date: row[16] });
 }
 async function tUpdatePlayoffScore(body) {
   const { matchId, scoreA, scoreB } = body;
@@ -2516,7 +2519,7 @@ function playoffBracketsView(all, nm) {
     const tm = all.filter((m) => m.bracket === tier);
     const numRounds = Math.max(0, ...tm.filter((m) => /^\d+$/.test(String(m.round))).map((m) => parseInt(m.round)));
     const nQual = tm.filter((m) => parseInt(m.round) === 1).reduce((n, m) => n + (m.entrantA ? 1 : 0) + (m.entrantB ? 1 : 0), 0);
-    const view = (m) => ({ matchId: encMatchId(m.matchId, m._row), round: m.round, idx: m.slot, court: m.court, time: m.time, teamA: nm(m.entrantA), teamB: nm(m.entrantB), entrantA: m.entrantA, entrantB: m.entrantB, scoreA: m.scoreA, scoreB: m.scoreB, winner: m.winner, status: m.status, updatedAt: m.updatedAt || "" });
+    const view = (m) => ({ matchId: encMatchId(m.matchId, m._row), round: m.round, idx: m.slot, court: m.court, time: m.time, date: m.date || "", teamA: nm(m.entrantA), teamB: nm(m.entrantB), entrantA: m.entrantA, entrantB: m.entrantB, scoreA: m.scoreA, scoreB: m.scoreB, winner: m.winner, status: m.status, updatedAt: m.updatedAt || "" });
     const rounds = [];
     for (let rr = 1; rr <= numRounds; rr++) rounds.push({ round: rr, matches: tm.filter((m) => parseInt(m.round) === rr).sort((a, b) => a.slot - b.slot).map(view) });
     const bronzeM = tm.find((m) => String(m.round) === "BRONZE");
@@ -2559,7 +2562,7 @@ async function tPublicEvent(eventId, opts) {
       `${TABS.t_events}!A2:H`,
       `${TABS.t_tournaments}!A2:J`,
       `${TABS.t_groups}!A2:G`,
-      `${TABS.t_matches}!A2:P`,
+      `${TABS.t_matches}!A2:Q`,
       `${TABS.players}!A2:J`,
     ],
   });
@@ -2601,7 +2604,7 @@ async function tPublicEvent(eventId, opts) {
         .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, losses: s.losses, gd: s.gd, gf: s.gf, ga: s.ga })),
     }));
     const schedule = groupMatches.slice().sort((a, b) => a.slot - b.slot || a.court - b.court).map((m) => ({
-      matchId: m.matchId, court: m.court, slot: m.slot, time: m.time, groupLabel: m.groupLabel,
+      matchId: m.matchId, court: m.court, slot: m.slot, time: m.time, date: m.date || "", groupLabel: m.groupLabel,
       entrantA: m.entrantA, entrantB: m.entrantB, teamA: nm(m.entrantA), teamB: nm(m.entrantB),
       scoreA: m.scoreA, scoreB: m.scoreB, winner: m.winner, status: m.status, updatedAt: m.updatedAt || "",
     }));
