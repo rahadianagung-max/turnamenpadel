@@ -196,14 +196,9 @@ async function api(p){ const r=await fetch(BASE+p); if(!r.ok) throw new Error("H
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
 function normName(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
 function firstName(s){ const t=String(s||"").trim(); return t? t.split(/\s+/)[0] : ""; }
-// TV shows a SHORT name only: a player's check-in nickname (nama panggilan) when
-// they set a genuine short one; otherwise just their first name.
-function dispName(n){
-  const p=state.data&&state.data.players&&state.data.players[normName(n)];
-  const d=p&&p.display?String(p.display).trim():"";
-  if(d && normName(d)!==normName(n) && !/\s/.test(d)) return d;  // genuine one-word nickname
-  return firstName(n);
-}
+// TV/mobile show the Display_Name column (set via check-in). The full Name is only
+// used on the Trekkr passport + its URL. No more first-name derivation.
+function dispName(n){ const p=state.data&&state.data.players&&state.data.players[normName(n)]; const d=p&&p.display?String(p.display).trim():""; return d || String(n||""); }
 function firstNames(s){ return String(s||"").split(/\s*[+&]\s*/).filter(Boolean).map(dispName).join(" & "); }
 function tick(){ document.getElementById("clock").textContent = new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"}); }
 
