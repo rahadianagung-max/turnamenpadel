@@ -472,16 +472,22 @@ function render(){
   // Pinned matches (with an explicit date) keep their manually-set time; the LED
   // never shows the date, only the (edited) time and court.
   feed.forEach(f=>{ if(f.stage==="GROUP" && !f.date && pred[f.key]) f.time=pred[f.key]; });
+  // Chronological order: earliest date first, then the (resolved) time, then court.
+  const evDate=(state.data.event&&state.data.event.date)||"";
+  const fDateKey=f=>String(f.date||evDate);
+  const fTimeMin=f=>{ const s=fmtTime(f.time); if(!s) return (f.sortKey||0); const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
+  const fCmp=(a,b)=> fDateKey(a).localeCompare(fDateKey(b)) || (fTimeMin(a)-fTimeMin(b)) || (a.sortKey-b.sortKey) || ((a.court||0)-(b.court||0));
+  feed.sort(fCmp);
   const perCourt={};
   feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
   const courts=Object.keys(perCourt).sort((a,b)=>a-b);
   const playing=courts.map(ct=>perCourt[ct][0]).filter(Boolean);
-  // Upcoming: flat queue ordered by time. Cap must exceed one slot's worth of matches
-  // (≈ number of courts) so the NEXT time slot shows too, not just the immediate one.
+  // Upcoming: flat queue ordered chronologically. Cap must exceed one slot's worth of
+  // matches (≈ number of courts) so the NEXT time slot shows too, not just the immediate one.
   const UP_MAX=8;
   const playingKeys=new Set(playing.map(f=>f.key));
   const upcoming=feed.filter(f=> f.status!=="DONE" && f.court && !playingKeys.has(f.key))
-    .sort((a,b)=>(a.sortKey-b.sortKey)||((a.court||0)-(b.court||0)))
+    .sort(fCmp)
     .slice(0,UP_MAX);
 
   const ac=playing.length||1;
