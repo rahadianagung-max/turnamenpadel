@@ -615,7 +615,9 @@ function pickFormat(btn){
 }
 async function loadTournaments(){
   try{
-    const { tournaments } = await api("tournament/list?eventId="+encodeURIComponent(state.event.eventId));
+    const s = state.session || {};
+    const auth = "&admin=" + encodeURIComponent(s.username||"") + "&role=" + encodeURIComponent(s.role||"");
+    const { tournaments } = await api("tournament/list?eventId="+encodeURIComponent(state.event.eventId)+auth);
     state.tournaments = tournaments || [];
     const sel = document.getElementById("tourSelect");
     sel.innerHTML = '<option value="">— pilih kategori —</option>' +
