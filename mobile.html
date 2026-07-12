@@ -233,7 +233,10 @@ function renderSchedule(cat){
   cat.schedule.slice().sort((a,b)=>a.slot-b.slot).forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
   const playing = new Set(Object.values(firstByCourt));
 
-  let list = cat.schedule.slice().sort((a,b)=> (a.slot-b.slot) || (a.court-b.court));
+  // Chronological: earliest date first, then the displayed time (pinned or predicted), then court.
+  const dkey = m => String(m.date || (state.data.event && state.data.event.date) || "");
+  const tmin = m => { const s = m.date ? fmtTime(m.time) : (pred[m.matchId] || fmtTime(m.time)); if(!s) return (m.slot||0)*1; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
+  let list = cat.schedule.slice().sort((a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0)));
   let nextCard = "";
   if(sel){
     list = list.filter(m=>matchHasPlayer(cat,m,sel));

@@ -845,10 +845,13 @@ async function loadMatches(){
     Object.keys(snap).forEach(id=>{ const el=document.getElementById(id); if(el && el.value==="" && snap[id]!=="") el.value=snap[id]; });
   }catch(e){ toast(e.message, true); }
 }
+// Chronological order: earliest date first, then earliest time, then court.
+function schedDateKey(m){ return String((m && m.date) || (state.event && state.event.date) || ""); }
+function schedTimeMin(m){ const s=fmtTime(m && m.time); if(!s) return (m && m.slot) || 0; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
 function renderMatches(matches){
   const wrap = document.getElementById("matchesWrap");
   const group = matches.filter(m=>m.stage==="GROUP")
-    .sort((a,b)=> (a.slot-b.slot) || (a.court-b.court));
+    .sort((a,b)=> schedDateKey(a).localeCompare(schedDateKey(b)) || (schedTimeMin(a)-schedTimeMin(b)) || (a.court-b.court));
   if(!group.length){ wrap.innerHTML = '<p class="empty">Belum ada jadwal untuk kategori ini. Klik “Generate jadwal”.</p>'; return; }
   const firstByCourt = {};
   group.forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
