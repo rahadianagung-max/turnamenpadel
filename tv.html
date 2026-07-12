@@ -242,7 +242,7 @@ function buildFeed(){
   const d=state.data, feed=[];
   d.categories.forEach(c=>{
     (c.schedule||[]).forEach(m=> feed.push({ key:m.matchId, c, court:m.court, sortKey:(m.slot||0), stage:"GROUP", slot:(m.slot||0),
-      time:m.time, updatedAt:m.updatedAt||"", label:`${c.category} · Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
+      time:m.time, date:m.date||"", updatedAt:m.updatedAt||"", label:`${c.category} · Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
     (c.playoff||[]).forEach(b=> (b.rounds||[]).forEach(r=> (r.matches||[]).forEach(m=>{
       if(m.status==="BYE" || !m.entrantA || !m.entrantB) return;
       feed.push({ key:m.matchId, c, court:m.court, sortKey:100000+(parseInt(m.round)||0)*100+(m.idx||0), stage:"PLAYOFF",
@@ -469,7 +469,9 @@ function render(){
   const feed=buildFeed();
   // Override stored times with the live predicted schedule for group matches.
   const pred=predictGroupTimes(feed);
-  feed.forEach(f=>{ if(f.stage==="GROUP" && pred[f.key]) f.time=pred[f.key]; });
+  // Pinned matches (with an explicit date) keep their manually-set time; the LED
+  // never shows the date, only the (edited) time and court.
+  feed.forEach(f=>{ if(f.stage==="GROUP" && !f.date && pred[f.key]) f.time=pred[f.key]; });
   const perCourt={};
   feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
   const courts=Object.keys(perCourt).sort((a,b)=>a-b);

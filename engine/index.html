@@ -166,6 +166,17 @@
   .mrow .score{display:flex; align-items:center; gap:6px;}
   .mrow .score input{width:44px; text-align:center; padding:7px 4px; font-family:'Space Mono',monospace;}
   .mrow .score .dash{color:var(--faint);}
+  /* per-match schedule editor (court / date / time) */
+  .mcard{margin-bottom:9px;}
+  .mcard .mrow{margin-bottom:0; border-radius:var(--r-sm) var(--r-sm) 0 0; border-bottom:none;}
+  .medit{display:flex; flex-wrap:wrap; align-items:center; gap:7px 12px; padding:8px 12px;
+    border:1px solid var(--line); border-top:1px dashed var(--line); border-radius:0 0 var(--r-sm) var(--r-sm); background:#141416;}
+  .medit label{display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:.04em; color:var(--faint);}
+  .medit input{padding:6px 8px; font-size:12px; background:#1B1B1F; width:auto;}
+  .medit input[type=number]{width:54px; text-align:center;}
+  .medit input[type=date]{width:150px;} .medit input[type=time]{width:110px;}
+  .medit .btn{margin-left:auto;}
+  .prow .pcourt .medit-inline{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
 
   /* Clash / ok flags */
   .clash, .ok-flag{border-radius:var(--r-sm); padding:12px 14px; font-size:13px; margin-top:14px; line-height:1.6;}
@@ -851,17 +862,36 @@ function matchRow(m, isPlaying){
   const bw = done && String(m.winner)===String(m.entrantB);
   const sa = (m.scoreA!==""&&m.scoreA!=null) ? esc(String(m.scoreA)) : "";
   const sb = (m.scoreB!==""&&m.scoreB!=null) ? esc(String(m.scoreB)) : "";
-  return `<div class="mrow ${done?'done':''} ${playing?'playing':''}">
-    <span class="court">LAP ${m.court||"?"}</span>
-    <span class="time">${esc(fmtTime(m.time))}<span class="gl">${playing?'● MAIN · ':''}Grup ${esc(m.groupLabel)}</span></span>
-    <span class="teams"><span class="${aw?'win':''}">${esc(nameOf(m.entrantA))}</span><span class="vs">vs</span><span class="${bw?'win':''}">${esc(nameOf(m.entrantB))}</span></span>
-    <span class="score">
-      <input id="sa-${m.matchId}" type="number" inputmode="numeric" value="${sa}" />
-      <span class="dash">–</span>
-      <input id="sb-${m.matchId}" type="number" inputmode="numeric" value="${sb}" />
-      <button type="button" class="btn btn-primary btn-sm" onclick="saveScore('${m.matchId}')">✓</button>
-    </span>
+  const dval = m.date || (state.event && state.event.date) || "";
+  const tval = fmtTime(m.time) || "";
+  return `<div class="mcard">
+    <div class="mrow ${done?'done':''} ${playing?'playing':''}">
+      <span class="court">LAP ${m.court||"?"}</span>
+      <span class="time">${esc(fmtTime(m.time))}<span class="gl">${playing?'● MAIN · ':''}Grup ${esc(m.groupLabel)}</span></span>
+      <span class="teams"><span class="${aw?'win':''}">${esc(nameOf(m.entrantA))}</span><span class="vs">vs</span><span class="${bw?'win':''}">${esc(nameOf(m.entrantB))}</span></span>
+      <span class="score">
+        <input id="sa-${m.matchId}" type="number" inputmode="numeric" value="${sa}" />
+        <span class="dash">–</span>
+        <input id="sb-${m.matchId}" type="number" inputmode="numeric" value="${sb}" />
+        <button type="button" class="btn btn-primary btn-sm" onclick="saveScore('${m.matchId}')">✓</button>
+      </span>
+    </div>
+    <div class="medit">
+      <label>Court <input id="ct-${m.matchId}" type="number" min="1" value="${m.court||""}" /></label>
+      <label>Tanggal <input id="dt-${m.matchId}" type="date" value="${esc(dval)}" /></label>
+      <label>Jam <input id="tm-${m.matchId}" type="time" value="${esc(tval)}" /></label>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="saveMeta('${m.matchId}','g')">Simpan jadwal</button>
+    </div>
   </div>`;
+}
+async function saveMeta(matchId, reload){
+  try{
+    await api("tournament/match/meta", { method:"PUT", body:{
+      matchId, court: val("ct-"+matchId), date: val("dt-"+matchId), time: val("tm-"+matchId),
+    }});
+    toast("Jadwal match diperbarui");
+    if(reload==="p") loadPlayoff(); else loadMatches();
+  }catch(e){ toast(e.message, true); }
 }
 async function saveScore(matchId){
   try{
@@ -960,10 +990,13 @@ function prow(m, numRounds){
     <span class="ln ${bw?'win':''}">${m.teamB?esc(m.teamB):tB}</span></div>`;
   if(bye) return `<div class="prow bye">${teams}<span class="byebadge">BYE</span></div>`;
   const ready = m.entrantA && m.entrantB;
+  const dval = m.date || (state.event && state.event.date) || "";
+  const tval = fmtTime(m.time) || "";
   const meta = `<div class="pmeta">
-    <span class="ptime">${esc(fmtTime(m.time)||"—")}</span>
-    <span class="pcourt">Lap <input id="ct-${m.matchId}" class="ctinp" type="number" min="1" value="${m.court||""}" />
-      <button type="button" class="btn btn-ghost btn-sm" onclick="saveCourt('${m.matchId}')">set</button></span>
+    <span class="pcourt medit-inline">Lap <input id="ct-${m.matchId}" class="ctinp" type="number" min="1" value="${m.court||""}" />
+      <input id="dt-${m.matchId}" type="date" value="${esc(dval)}" style="width:140px" />
+      <input id="tm-${m.matchId}" type="time" value="${esc(tval)}" style="width:96px" />
+      <button type="button" class="btn btn-ghost btn-sm" onclick="saveMeta('${m.matchId}','p')">set</button></span>
   </div>`;
   const main = ready ? `<div class="prow-main">${teams}
     <div class="pscore">
