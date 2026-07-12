@@ -230,15 +230,19 @@ function renderSchedule(cat){
       ${players.map(p=>`<option value="${esc(p)}" ${norm(p)===norm(sel)?'selected':''}>${esc(p)}</option>`).join("")}
     </select></div>`;
 
-  // currently playing = first non-DONE match per court
-  const firstByCourt = {};
-  cat.schedule.slice().sort((a,b)=>a.slot-b.slot).forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
-  const playing = new Set(Object.values(firstByCourt));
-
-  // Chronological: earliest date first, then the displayed time (pinned or predicted), then court.
+  // Chronological order: earliest date first, then the displayed time (pinned or
+  // predicted), then court. The SAME order drives both the list and the LIVE badge.
   const dkey = m => String(m.date || (state.data.event && state.data.event.date) || "");
   const tmin = m => { const s = m.date ? fmtTime(m.time) : (pred[m.matchId] || fmtTime(m.time)); if(!s) return (m.slot||0)*1; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
-  let list = cat.schedule.slice().sort((a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0)));
+  const cmp = (a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0));
+
+  // "currently playing" = earliest non-DONE match per court, by that same time order
+  // (previously computed by slot index, which mismatched the displayed order).
+  const firstByCourt = {};
+  cat.schedule.slice().sort(cmp).forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
+  const playing = new Set(Object.values(firstByCourt));
+
+  let list = cat.schedule.slice().sort(cmp);
   let nextCard = "";
   if(sel){
     list = list.filter(m=>matchHasPlayer(cat,m,sel));
