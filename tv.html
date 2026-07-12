@@ -489,10 +489,11 @@ function render(){
 
   const ac=playing.length||1;
   let sz,nmf;
-  if(ac>=4){ sz="clamp(20px,1.7vw,38px)"; nmf="clamp(13px,1.1vw,22px)"; }
-  else if(ac===3){ sz="clamp(26px,2.1vw,46px)"; nmf="clamp(14px,1.3vw,26px)"; }
-  else if(ac===2){ sz="clamp(32px,2.7vw,60px)"; nmf="clamp(16px,1.6vw,32px)"; }
-  else { sz="clamp(42px,3.5vw,80px)"; nmf="clamp(20px,2vw,40px)"; }
+  // nmf = Now Playing player-name font, sized down 50% per request.
+  if(ac>=4){ sz="clamp(20px,1.7vw,38px)"; nmf="clamp(6.5px,0.55vw,11px)"; }
+  else if(ac===3){ sz="clamp(26px,2.1vw,46px)"; nmf="clamp(7px,0.65vw,13px)"; }
+  else if(ac===2){ sz="clamp(32px,2.7vw,60px)"; nmf="clamp(8px,0.8vw,16px)"; }
+  else { sz="clamp(42px,3.5vw,80px)"; nmf="clamp(10px,1vw,20px)"; }
 
   const hasPlayoff = (state.data.categories||[]).some(c => (c.playoff||[]).length);
   const fin = finishedPodium();
