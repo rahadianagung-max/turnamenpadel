@@ -61,10 +61,12 @@
     border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent);
     animation:liveblink 1.4s steps(1,end) infinite;}
   .np-teams{display:flex; align-items:center; gap:.8vw; flex:1 1 auto; min-height:0;}
-  .tmblk{flex:1 1 0; min-width:0; display:flex; align-items:center; justify-content:center; gap:.8vw;}
-  .tmblk .pl{display:flex; align-items:center; gap:.55vw; min-width:0; flex:0 1 50%;}
-  .tmblk .plnm{font-weight:700; font-size:var(--nmf,clamp(14px,1.3vw,26px)); line-height:1.1; white-space:nowrap;
-    overflow:hidden; text-overflow:ellipsis;}
+  /* Stack the two players of a team vertically so each name gets ~half the card
+     width and can wrap instead of being truncated. */
+  .tmblk{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7vh;}
+  .tmblk .pl{display:flex; align-items:center; gap:.55vw; min-width:0; max-width:100%;}
+  .tmblk .plnm{font-weight:700; font-size:var(--nmf,clamp(14px,1.3vw,26px)); line-height:1.12;
+    white-space:normal; overflow-wrap:anywhere; word-break:break-word;}
   .np-vs{flex:0 0 auto; align-self:center; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
     font-size:clamp(12px,1.1vw,20px); letter-spacing:.12em;}
   .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
