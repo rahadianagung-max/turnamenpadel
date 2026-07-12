@@ -1368,12 +1368,15 @@ async function tListEvents(params = {}) {
     numCourts: parseInt(x[5]) || 0, matchMinutes: parseInt(x[6]) || 15, createdAt: x[7],
     adminUsername: x[13] || "",   // col N — owning admin
   }));
-  // Per-admin scoping: superadmin sees everything; a regular admin sees the events
-  // they own plus legacy events that have no owner yet (so nothing is orphaned).
+  // Per-admin scoping for the engine: a regular admin sees ONLY the events they
+  // created; a superadmin sees every event. Ownerless/legacy events are visible
+  // only to superadmins (a regular admin can no longer see them).
+  // Note: `admin` is only sent by the authenticated engine; public callers (mobile/
+  // TV/check-in slug resolution) send no admin and still get the full list.
   const admin = (params.admin || "").trim();
   const role = (params.role || "").trim().toLowerCase();
   if (admin && role !== "superadmin") {
-    events = events.filter((e) => !e.adminUsername || e.adminUsername === admin);
+    events = events.filter((e) => e.adminUsername === admin);
   }
   return respond(200, { events });
 }
@@ -1398,6 +1401,14 @@ async function tCreateTournament(body) {
 async function tListTournaments(params) {
   const sheets = getSheets();
   await ensureTabs(sheets);
+  // Ownership guard: a non-superadmin may only list categories of an event they own.
+  const gAdmin = (params.admin || "").trim();
+  const gRole = (params.role || "").trim().toLowerCase();
+  if (gAdmin && gRole !== "superadmin" && params.eventId) {
+    const er = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:N` });
+    const ev = (er.data.values || []).find((x) => x[0] === params.eventId);
+    if (!ev || (ev[13] || "") !== gAdmin) return respond(403, { error: "Not your tournament" });
+  }
   const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
   let rows = r.data.values || [];
   if (params.eventId) rows = rows.filter((x) => x[1] === params.eventId);
