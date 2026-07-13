@@ -514,7 +514,7 @@ async function getPlayers(params) {
   let players = rows.map((r) => ({
     name: r[0] || "", ig: r[1] || "", verified: r[2] === "TRUE",
     displayName: r[3] || r[0] || "", gender: (r[4] || "M").toUpperCase(),
-    region: r[5] || "", photoUrl: r[6] || "", clubs: r[7] || "", createdAt: r[8] || "",
+    region: r[5] || "", photoUrl: ibbHostFix(r[6] || ""), clubs: r[7] || "", createdAt: r[8] || "",
     winnerAt: r[9] || "", tournaments: r[10] || "",
   }));
   if (params.gender) players = players.filter((p) => p.gender === params.gender.toUpperCase());
@@ -536,7 +536,7 @@ async function getPlayerDetail(name) {
   const player = {
     name: pRow[0], ig: pRow[1] || "", verified: pRow[2] === "TRUE",
     displayName: pRow[3] || pRow[0], gender: (pRow[4] || "M").toUpperCase(),
-    region: pRow[5] || "", photoUrl: pRow[6] || "", clubs: pRow[7] || "", createdAt: pRow[8] || "",
+    region: pRow[5] || "", photoUrl: ibbHostFix(pRow[6] || ""), clubs: pRow[7] || "", createdAt: pRow[8] || "",
     winnerAt: pRow[9] || "", tournaments: pRow[10] || "",
   };
 
@@ -569,7 +569,7 @@ async function addPlayer(body) {
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.players}!A:I`, valueInputOption: "USER_ENTERED",
-    requestBody: { values: [[ name, ig || "", ig ? "TRUE" : "FALSE", displayName || name, (gender || "M").toUpperCase(), region || "", photoUrl || "", clubs || "", now ]] },
+    requestBody: { values: [[ name, ig || "", ig ? "TRUE" : "FALSE", displayName || name, (gender || "M").toUpperCase(), region || "", ibbHostFix(photoUrl || ""), clubs || "", now ]] },
   });
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
@@ -590,7 +590,7 @@ async function updatePlayer(body) {
   const updated = [
     updates.name || c[0] || "", updates.ig || c[1] || "", updates.ig ? "TRUE" : c[2] || "FALSE",
     updates.displayName || c[3] || c[0] || "", (updates.gender || c[4] || "M").toUpperCase(),
-    updates.region || c[5] || "", updates.photoUrl || c[6] || "", updates.clubs || c[7] || "", c[8] || "", c[9] || "",
+    updates.region || c[5] || "", ibbHostFix(updates.photoUrl || c[6] || ""), updates.clubs || c[7] || "", c[8] || "", c[9] || "",
   ];
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID, range: `${TABS.players}!A${sr}:J${sr}`, valueInputOption: "USER_ENTERED",
@@ -982,7 +982,7 @@ async function getVenueWeeklyRanking(venueName, params) {
   const info = {};
   (pRes.data.values || []).forEach((r) => {
     if (!r[0]) return;
-    info[normName(r[0])] = { displayName: r[3] || r[0], verified: r[2] === "TRUE", photoUrl: r[6] || "", region: r[5] || "" };
+    info[normName(r[0])] = { displayName: r[3] || r[0], verified: r[2] === "TRUE", photoUrl: ibbHostFix(r[6] || ""), region: r[5] || "" };
   });
 
   let ranking = Object.keys(stats).map((p) => {
@@ -1082,7 +1082,7 @@ async function getNationalLeaderboard(params) {
       playersInfo[r[0].toLowerCase()] = {
         name: r[0], ig: r[1] || "", verified: r[2] === "TRUE",
         displayName: r[3] || r[0], gender: (r[4] || "M").toUpperCase(),
-        region: r[5] || "", photoUrl: r[6] || "", clubs: r[7] || "", winnerAt: r[9] || "", tournaments: r[10] || "",
+        region: r[5] || "", photoUrl: ibbHostFix(r[6] || ""), clubs: r[7] || "", winnerAt: r[9] || "", tournaments: r[10] || "",
       };
     }
   });
@@ -3216,7 +3216,7 @@ async function ddPlayersScan() {
   const players = (pRes.data.values || []).map((r) => {
     const em = eMap[(r[0] || "").toLowerCase()] || {};
     return { name: r[0] || "", ig: r[1] || "", verified: r[2] === "TRUE", gender: (r[4] || "M").toUpperCase(),
-      region: r[5] || "", photoUrl: r[6] || "", elo: em.elo == null ? 1350 : em.elo, matches: em.matches || 0, lastSeen: em.lastSeen || "" };
+      region: r[5] || "", photoUrl: ibbHostFix(r[6] || ""), elo: em.elo == null ? 1350 : em.elo, matches: em.matches || 0, lastSeen: em.lastSeen || "" };
   }).filter((p) => p.name);
   const parent = players.map((_, i) => i);
   const find = (x) => { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; };
