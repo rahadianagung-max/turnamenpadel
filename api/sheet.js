@@ -70,6 +70,14 @@ async function driveUploadImage(dataUrl, filename, folderId) {
   return `https://drive.google.com/uc?export=view&id=${id}`;
 }
 
+// imgbb serves images from the host `i.ibb.co`, but that host is DNS-blocked on
+// some Indonesian ISPs, so the stored image URL fails to load for those admins.
+// The mirror host `i.ibb.co.com` resolves fine, so rewrite the bare `i.ibb.co`
+// host to `i.ibb.co.com`. Idempotent: an already-`.co.com` URL is left as-is.
+function ibbHostFix(url) {
+  return String(url || "").replace(/^(https?:\/\/)i\.ibb\.co\//i, "$1i.ibb.co.com/");
+}
+
 // Upload a base64 data URL to imgbb (same host the player passport uses for
 // profile photos). Needs process.env.IMGBB_API_KEY. Returns a hotlinkable URL.
 async function imgbbUpload(dataUrl, name) {
@@ -84,7 +92,7 @@ async function imgbbUpload(dataUrl, name) {
   const res = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body: params });
   const j = await res.json().catch(() => ({}));
   if (!res.ok || !j || !j.success || !j.data) throw new Error((j && j.error && j.error.message) || `imgbb HTTP ${res.status}`);
-  return j.data.display_url || j.data.url || (j.data.image && j.data.image.url) || "";
+  return ibbHostFix(j.data.display_url || j.data.url || (j.data.image && j.data.image.url) || "");
 }
 
 // "Run your tournament" contact form -> a dedicated Tournament_Leads tab
@@ -2787,7 +2795,7 @@ async function tPublicEvent(eventId, opts) {
   const players = {};
   for (const r of plRows) {
     const name = r[0] || ""; if (!name) continue;
-    players[normName(name)] = { name, display: r[3] || name, photo: r[6] || "" };
+    players[normName(name)] = { name, display: r[3] || name, photo: ibbHostFix(r[6] || "") };
   }
   const allMatches = mRows.map(mapMatchRow);
   const tournaments = trRows.filter((x) => x[1] === eventId);
