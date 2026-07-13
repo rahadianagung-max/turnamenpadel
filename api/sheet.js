@@ -18,6 +18,30 @@ function getSheets() {
   return google.sheets({ version: "v4", auth: getAuth() });
 }
 
+// Retry a Google Sheets call on transient failures (rate limits / 5xx / dropped
+// sockets). Score writes are the hottest path during a live tournament and are
+// the ones admins reported "failing randomly" — a few backed-off retries turn
+// most of those transient blips into a silent success. Non-transient errors
+// (e.g. 400/403/404) are re-thrown immediately so real bugs aren't masked.
+async function withSheetsRetry(fn, tries = 3) {
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      const code = e && (e.code || (e.response && e.response.status));
+      const transient =
+        code === 429 || code === 500 || code === 502 || code === 503 || code === 504 ||
+        e.code === "ECONNRESET" || e.code === "ETIMEDOUT" || e.code === "EAI_AGAIN" ||
+        /rate limit|quota|timeout|socket hang up/i.test(String(e && e.message));
+      if (!transient || i === tries - 1) throw e;
+      await new Promise((r) => setTimeout(r, 400 * Math.pow(2, i))); // 400ms, 800ms
+    }
+  }
+  throw lastErr;
+}
+
 // Drive auth (adds drive scope) + image upload for registration photos / payment proofs.
 function getDriveAuth() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
@@ -2183,7 +2207,7 @@ async function tUpdateMatchScore(body) {
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const r = await withSheetsRetry(() => sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` }));
   const rows = r.data.values || [];
   const _tid = body.tournamentId;
   const idx = resolveMatchIdx(rows, matchId, _tid);
@@ -2199,10 +2223,10 @@ async function tUpdateMatchScore(body) {
   row[13] = winner;
   row[14] = numeric ? "DONE" : "SCHEDULED";
   row[15] = new Date().toISOString();
-  await sheets.spreadsheets.values.update({
+  await withSheetsRetry(() => sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:P${idx + 2}`,
     valueInputOption: "RAW", requestBody: { values: [row] },
-  });
+  }));
   return respond(200, { success: true, status: row[14], winner });
 }
 
@@ -2660,7 +2684,7 @@ async function tUpdatePlayoffScore(body) {
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const r = await withSheetsRetry(() => sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` }));
   const rows = r.data.values || [];
   const _pidx = resolveMatchIdx(rows, matchId, body.tournamentId);
   const row = _pidx === -1 ? null : rows[_pidx];
@@ -2688,8 +2712,8 @@ async function tUpdatePlayoffScore(body) {
       if (bronze && loser) { while (bronze.length < 16) bronze.push(""); resetSlot(bronze, mIdx === 0 ? 9 : 10, loser); }
     }
   }
-  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
-  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW", requestBody: { values: rows.map(padMatchRow) } });
+  await withSheetsRetry(() => sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` }));
+  await withSheetsRetry(() => sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW", requestBody: { values: rows.map(padMatchRow) } }));
   return respond(200, { success: true, status: row[14], winner });
 }
 // Pure view-builder: given mapped PLAYOFF matches + a name(entrantId) fn -> brackets array.
