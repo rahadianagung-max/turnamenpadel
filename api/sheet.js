@@ -313,6 +313,12 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/remap-courts") && method === "POST") {
       return await tRemapCourts(decodeURIComponent(path.replace("tournament/event/", "").replace("/remap-courts", "")), body);
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/schedule-export") && method === "POST") {
+      return await tExportSchedule(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule-export", "")));
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/schedule-import") && method === "POST") {
+      return await tImportSchedule(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule-import", "")));
+    }
     if (path === "tournament/repair-match-ids" && method === "POST") return await tRepairMatchIds(body);
     if (path === "tournament/recap" && method === "POST") return await tRecap(body);
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "POST") {
@@ -1871,6 +1877,27 @@ function normClock(v) {
   h = ((h % 24) + 24) % 24; m = ((m % 60) + 60) % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+// Normalise a date cell to canonical "YYYY-MM-DD". Accepts ISO, YYYY/M/D,
+// day-first D/M/YYYY (Indonesian locale), and Google Sheets serial numbers.
+// Returns "" for blank and null for an unparseable value.
+function normDate(v) {
+  let s = String(v == null ? "" : v).trim();
+  if (!s) return "";
+  // Google Sheets serial (days since 1899-12-30) if a cell was auto-formatted as a date.
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 59 && n < 100000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+      return d.toISOString().slice(0, 10);
+    }
+    return null;
+  }
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/); // YYYY-MM-DD / YYYY/M/D
+  if (m) { const mo = +m[2], d = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; return null; }
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/); // D/M/YYYY (day-first)
+  if (m) { const d = +m[1], mo = +m[2]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return `${m[3]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; return null; }
+  return null;
+}
 function addMinutesToTime(hhmm, minutes) {
   const parts = String(hhmm || "09:00").split(":");
   let total = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0) + minutes;
@@ -2475,6 +2502,133 @@ async function tRemapCourts(eventId, body) {
   }
   return respond(200, { success: true, changed, map: m });
 }
+
+// ==============================================================
+// SCHEDULE ROUND-TRIP: export all matches of an event to a friendly
+// "Jadwal_Import" tab, let the admin edit Court/Tanggal/Jam in Google
+// Sheets, then import the edits back (matched by Match_ID).
+// ==============================================================
+const SCHED_IMPORT_TAB = "Jadwal_Import";
+const SCHED_IMPORT_HEADER = ["Match_ID", "Kategori", "Stage", "Grup/Babak", "Tim A", "Tim B", "Court", "Tanggal (YYYY-MM-DD)", "Jam (HH:MM)"];
+
+// Create the import tab if missing; return its sheetId (gid).
+async function ensureScheduleImportTab(sheets) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID, fields: "sheets(properties(sheetId,title))" });
+  const sh = (meta.data.sheets || []).find((s) => s.properties.title === SCHED_IMPORT_TAB);
+  if (sh) return sh.properties.sheetId;
+  const res = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ addSheet: { properties: { title: SCHED_IMPORT_TAB } } }] },
+  });
+  return res.data.replies[0].addSheet.properties.sheetId;
+}
+
+// Resolve the event's categories + entrant-name map (entrantId -> "p1 + p2").
+async function eventCatsAndNames(sheets, eventId) {
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const trs = (trRes.data.values || []).filter((x) => x[1] === eventId);
+  const tids = trs.map((x) => x[0]);
+  const catByTid = {};
+  trs.forEach((x) => { catByTid[x[0]] = x[2] || ""; });
+  const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const names = {};
+  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = `${x[4] || ""} + ${x[5] || ""}`;
+  return { tids, catByTid, names };
+}
+
+async function tExportSchedule(eventId) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` });
+  const evRow = (evRes.data.values || []).find((x) => x[0] === eventId);
+  if (!evRow) return respond(404, { error: "Event not found" });
+  const { tids, catByTid, names } = await eventCatsAndNames(sheets, eventId);
+  if (!tids.length) return respond(400, { error: "Belum ada kategori di event ini." });
+  const nm = (eid) => (eid ? (names[eid] || eid) : "");
+
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const matches = (mRes.data.values || [])
+    .map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }))
+    .filter((m) => tids.includes(m.tournamentId));
+  if (!matches.length) return respond(400, { error: "Belum ada jadwal. Generate jadwal dulu." });
+  // Group each category's matches together in play order (grup dulu, lalu playoff).
+  matches.sort((a, b) =>
+    (catByTid[a.tournamentId] || "").localeCompare(catByTid[b.tournamentId] || "") ||
+    (a.stage === b.stage ? 0 : a.stage === "GROUP" ? -1 : 1) ||
+    (a.slot - b.slot) || (a.court - b.court));
+
+  const rows = matches.map((m) => {
+    const grupBabak = m.stage === "PLAYOFF" ? `${m.bracket || ""} R${m.round || ""}`.trim() : (m.groupLabel || "");
+    return [encMatchId(m.matchId, m._row), catByTid[m.tournamentId] || "", m.stage || "", grupBabak,
+      nm(m.entrantA), nm(m.entrantB), m.court || "", m.date || "", normClock(m.time) || ""];
+  });
+
+  const gid = await ensureScheduleImportTab(sheets);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${SCHED_IMPORT_TAB}!A:Z` });
+  // Force columns A..I to plain-text so whatever the admin types stays literal
+  // (no locale auto-formatting of the date/time cells).
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ repeatCell: {
+      range: { sheetId: gid, startColumnIndex: 0, endColumnIndex: 9 },
+      cell: { userEnteredFormat: { numberFormat: { type: "TEXT" } } },
+      fields: "userEnteredFormat.numberFormat",
+    } }] },
+  });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${SCHED_IMPORT_TAB}!A1`, valueInputOption: "RAW",
+    requestBody: { values: [SCHED_IMPORT_HEADER, ...rows] },
+  });
+  return respond(200, { success: true, tab: SCHED_IMPORT_TAB, event: evRow[1] || eventId, count: rows.length });
+}
+
+async function tImportSchedule(eventId) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  let imp;
+  try {
+    imp = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${SCHED_IMPORT_TAB}!A2:I` });
+  } catch (e) {
+    return respond(400, { error: `Tab '${SCHED_IMPORT_TAB}' belum ada — klik Export dulu.` });
+  }
+  const irows = imp.data.values || [];
+  if (!irows.length) return respond(400, { error: `Tab '${SCHED_IMPORT_TAB}' kosong — klik Export dulu.` });
+
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const tids = (trRes.data.values || []).filter((x) => x[1] === eventId).map((x) => x[0]);
+
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const rows = mRes.data.values || [];
+  const now = new Date().toISOString();
+  let updated = 0, skipped = 0;
+  const errors = [];
+  for (const r of irows) {
+    const mid = String((r && r[0]) || "").trim();
+    if (!mid) continue; // blank line
+    const idx = resolveMatchIdx(rows, mid);
+    if (idx === -1) { skipped++; errors.push({ matchId: mid, reason: "match tidak ditemukan" }); continue; }
+    if (tids.length && !tids.includes(rows[idx][0])) { skipped++; errors.push({ matchId: mid, reason: "bukan milik event ini" }); continue; }
+    const row = rows[idx];
+    while (row.length < 17) row.push("");
+    const courtRaw = String(r[6] == null ? "" : r[6]).trim();
+    const timeRaw = String(r[8] == null ? "" : r[8]).trim();
+    const dateRaw = String(r[7] == null ? "" : r[7]).trim();
+    let changed = false;
+    if (courtRaw !== "") { const c = parseInt(courtRaw); const cv = isNaN(c) ? courtRaw : String(c); if (cv !== String(row[6])) { row[6] = cv; changed = true; } }
+    if (timeRaw !== "") { const tv = normClock(timeRaw); if (!tv) errors.push({ matchId: mid, reason: `jam '${timeRaw}' tidak valid` }); else if (tv !== String(row[8])) { row[8] = tv; changed = true; } }
+    if (dateRaw !== "") { const dv = normDate(dateRaw); if (dv === null) errors.push({ matchId: mid, reason: `tanggal '${dateRaw}' tidak valid (pakai YYYY-MM-DD)` }); else if (dv !== String(row[16])) { row[16] = dv; changed = true; } }
+    if (changed) { row[15] = now; updated++; }
+  }
+  if (updated) {
+    // Same order/count as read -> overwrite A:Q in place, dates stay bound to their match.
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW",
+      requestBody: { values: rows.map(padMatchRow) },
+    });
+  }
+  return respond(200, { success: true, updated, skipped, errorCount: errors.length, errors: errors.slice(0, 50) });
+}
+
 async function tUpdateMatchMeta(body) {  const { matchId, court, time, date } = body || {};
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
