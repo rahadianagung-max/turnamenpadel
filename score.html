@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Input Skor — TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0B; --panel:#141416; --panel2:#1B1B1F; --line:#2A2A2E;
+    --text:#F5F5F7; --muted:#A1A1AA; --faint:#6B6B72;
+    --accent:#FF6A00; --accent2:#FFB000; --press:#FF7D1F;
+    --danger:#ff6f60; --warn:#ffd166; --ok:#38d39f;
+    --r:14px; --r-sm:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Plus Jakarta Sans',sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh; line-height:1.5;
+    background-image:
+      radial-gradient(900px 500px at 85% -10%, rgba(255,106,0,.10), transparent 60%),
+      radial-gradient(700px 500px at -5% 10%, rgba(255,176,0,.07), transparent 55%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:24px 18px 90px; position:relative; z-index:1;}
+
+  header{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:baseline; gap:11px;}
+  .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em;}
+  .logo .dot{color:var(--accent);}
+  .tag{font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint);
+       border:1px solid var(--line); padding:4px 8px; border-radius:6px;}
+  .hactions{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--muted);}
+  .hactions a{color:var(--muted); text-decoration:none; border:1px solid var(--line); padding:6px 10px; border-radius:8px;}
+  .hactions a:hover{border-color:var(--accent); color:var(--text);}
+  .hactions .who b{color:var(--text);}
+
+  select{
+    width:100%; background:#1B1B1F; border:1px solid var(--line); color:var(--text);
+    padding:12px 12px; border-radius:var(--r-sm); font-family:inherit; font-size:15px; outline:none;
+    transition:border-color .15s, box-shadow .15s; cursor:pointer; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238a968f' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; padding-right:30px;
+  }
+  select:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(255,106,0,.12);}
+  .pickrow{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;}
+  .pick label{display:block; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;}
+  @media (max-width:560px){ .pickrow{grid-template-columns:1fr;} }
+
+  .toolbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px;}
+  .toolbar .sp{flex:1;}
+  .switch{display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); cursor:pointer; user-select:none;}
+  .switch input{width:16px; height:16px; accent-color:var(--accent);}
+  .btn{font-family:inherit; font-weight:700; font-size:14px; border:none; border-radius:var(--r-sm);
+       padding:11px 18px; cursor:pointer; transition:transform .08s, filter .15s; display:inline-flex; align-items:center; gap:8px;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent); color:var(--bg);} .btn-primary:hover{filter:brightness(1.06);}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);} .btn-ghost:hover{border-color:var(--accent);}
+  .btn-block{width:100%; justify-content:center; padding:13px; font-size:15px; margin-top:12px;}
+
+  /* Queue banner */
+  #queueBar{
+    position:sticky; top:0; z-index:20; margin:-6px 0 16px;
+    display:none; align-items:center; gap:12px; padding:11px 14px; border-radius:12px;
+    background:rgba(255,176,0,.10); border:1px solid rgba(255,176,0,.35); color:var(--warn);
+    font-size:13px; font-family:'Space Mono',monospace;
+  }
+  #queueBar.offline{background:rgba(255,111,96,.10); border-color:rgba(255,111,96,.4); color:var(--danger);}
+  #queueBar.allclear{background:rgba(56,211,159,.10); border-color:rgba(56,211,159,.4); color:var(--ok);}
+  #queueBar .qtext{flex:1;}
+  #queueBar button{font-family:inherit; font-size:12px; font-weight:700; border:1px solid currentColor; color:inherit;
+    background:transparent; border-radius:7px; padding:6px 10px; cursor:pointer;}
+
+  h3.sect{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:18px; letter-spacing:-.01em;
+    margin:26px 0 12px; display:flex; align-items:center; gap:10px;}
+  h3.sect .cnt{font-family:'Space Mono',monospace; font-size:11px; color:var(--faint); font-weight:400;}
+  h4.tier{font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent2); margin:18px 0 8px;}
+  .empty{color:var(--muted); font-size:13.5px; padding:16px 4px;}
+
+  /* Score card */
+  .scard{
+    background:linear-gradient(180deg, var(--panel), var(--panel2));
+    border:1px solid var(--line); border-radius:var(--r); padding:14px 15px; margin-bottom:12px;
+  }
+  .scard.st-done{border-color:rgba(56,211,159,.35);}
+  .scard.st-error{border-color:rgba(255,111,96,.5);}
+  .scard-top{display:flex; align-items:center; gap:8px; margin-bottom:11px; font-family:'Space Mono',monospace; font-size:11px; color:var(--muted);}
+  .scard-top .ct{color:var(--bg); background:var(--accent2); font-weight:700; padding:2px 7px; border-radius:6px; font-size:10px;}
+  .scard-top .gl{color:var(--faint);}
+  .scard-top .badge{margin-left:auto; font-weight:700; font-size:10.5px; letter-spacing:.03em; padding:3px 8px; border-radius:999px;}
+  .badge.st-empty{color:var(--faint); border:1px solid var(--line);}
+  .badge.st-pending,.badge.st-saving{color:var(--warn); background:rgba(255,209,102,.13);}
+  .badge.st-done{color:var(--ok); background:rgba(56,211,159,.13);}
+  .badge.st-error{color:var(--danger); background:rgba(255,111,96,.13);}
+
+  .teamrow{display:flex; align-items:center; gap:12px; padding:7px 0;}
+  .teamrow .nm{flex:1; font-size:15px; font-weight:600; word-break:break-word;}
+  .teamrow.win .nm{color:var(--accent); }
+  .teamrow .sin{
+    width:76px; text-align:center; font-family:'Space Mono',monospace; font-size:22px; font-weight:700;
+    background:#111114; border:1.5px solid var(--line); color:var(--text); border-radius:12px; padding:10px 6px; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .teamrow .sin:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(255,106,0,.14);}
+  .teamsep{height:1px; background:var(--line); margin:2px 0;}
+
+  #toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); z-index:50;
+    background:#1c1c20; border:1px solid var(--line); border-left:3px solid var(--accent); color:var(--text);
+    padding:12px 18px; border-radius:10px; font-size:13.5px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+    opacity:0; transition:opacity .2s, transform .2s; max-width:90vw;}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  #toast.err{border-left-color:var(--danger);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <span class="logo">Turnamen<span class="dot">Padel</span></span>
+      <span class="tag">Input Skor</span>
+    </div>
+    <div class="hactions">
+      <span class="who">Admin: <b id="who">—</b></span>
+      <a href="/engine">Engine</a>
+      <a href="#" onclick="logout();return false;">Keluar</a>
+    </div>
+  </header>
+
+  <div id="queueBar">
+    <span class="qtext" id="queueText"></span>
+    <button type="button" onclick="flushQueue(true)">Kirim ulang</button>
+  </div>
+
+  <div class="pickrow">
+    <div class="pick">
+      <label>Event</label>
+      <select id="eventSelect" onchange="onPickEvent(this.value)"><option value="">— pilih event —</option></select>
+    </div>
+    <div class="pick">
+      <label>Kategori</label>
+      <select id="tourSelect" onchange="onPickTour(this.value)"><option value="">—</option></select>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <label class="switch"><input type="checkbox" id="onlyUnscored" onchange="applyFilter()"> Hanya yang belum diskor</label>
+    <span class="sp"></span>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="reload()">↻ Muat ulang</button>
+  </div>
+
+  <div id="matchesWrap">
+    <p class="empty">Pilih event dan kategori untuk mulai input skor.</p>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ---- Session guard (same pattern as engine.html) ----
+let SESSION = null;
+try{ SESSION = JSON.parse(sessionStorage.getItem("tp_session") || localStorage.getItem("tp_session") || "null"); }catch(e){}
+if (!SESSION || !SESSION.username) { location.replace("/admin.html"); }
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+
+const state = {
+  session: SESSION, events: [], tournaments: [], eventId: "", tid: "",
+  names: {},              // entrantId -> "P1 + P2"
+  matchIndex: {},         // matchId -> { kind, entrantA, entrantB, nameA, nameB }
+};
+const uiStatus = {};      // matchId -> 'empty'|'saving'|'pending'|'done'|'error'
+const MAX_REASONABLE = 30;
+
+// ---- tiny utils ----
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const isInt = v => /^\d+$/.test(String(v).trim());
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const p=x.split(/[:.]/); let h=parseInt(p[0],10), m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
+function toast(msg, isErr){
+  const t = $("toast"); t.textContent = msg; t.className = isErr ? "err show" : "show";
+  clearTimeout(t._t); t._t = setTimeout(()=>{ t.className = t.className.replace("show","").trim(); }, 3400);
+}
+function logout(){
+  try{ sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session"); }catch(e){}
+  location.replace("/admin.html");
+}
+
+// ---- network layer ----
+async function rawFetch(path, opts={}){
+  const res = await fetch(`${BASE}/${path}`, {
+    method: opts.method || "GET",
+    headers: { "Content-Type":"application/json" },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  let data = {}; try{ data = await res.json(); }catch(e){}
+  return { res, data };
+}
+// Plain call for reads (single attempt is fine; a failed read just re-renders empty).
+async function api(path, opts={}){
+  const { res, data } = await rawFetch(path, opts);
+  if(!res.ok){ const e = new Error(data.error || `HTTP ${res.status}`); e.status = res.status; throw e; }
+  return data;
+}
+// Resilient call for score writes: retry on network errors + transient server
+// statuses with exponential backoff. 4xx (except 408/429) are permanent -> throw
+// immediately with .fatal so the queue can drop them instead of looping forever.
+async function apiWithRetry(path, opts={}, tries=5){
+  let delay = 600, lastErr;
+  for(let i=0;i<tries;i++){
+    try{
+      const { res, data } = await rawFetch(path, opts);
+      if(res.ok) return data;
+      if(res.status >= 500 || res.status === 408 || res.status === 429){
+        lastErr = new Error(data.error || `HTTP ${res.status}`);
+      } else {
+        const e = new Error(data.error || `HTTP ${res.status}`); e.status = res.status; e.fatal = true; throw e;
+      }
+    }catch(e){
+      if(e.fatal) throw e;
+      lastErr = e; // network/offline error -> keep retrying
+    }
+    if(i < tries-1){ await sleep(delay); delay = Math.min(delay*2, 8000); }
+  }
+  throw lastErr;
+}
+
+// ==================================================================
+//  Anti-fail submit engine: optimistic UI + localStorage queue
+// ==================================================================
+const QKEY = "tp_score_queue";
+function getQueue(){ try{ return JSON.parse(localStorage.getItem(QKEY) || "[]"); }catch(e){ return []; } }
+function setQueue(q){ try{ localStorage.setItem(QKEY, JSON.stringify(q)); }catch(e){} updateQueueBadge(); }
+function enqueue(item){
+  // supersede any earlier un-sent score for the same match (latest wins)
+  const q = getQueue().filter(x => !(x.matchId === item.matchId && x.kind === item.kind));
+  q.push(item); setQueue(q);
+}
+
+let flushing = false;
+async function flushQueue(manual){
+  if(flushing) return;
+  if(!navigator.onLine){ updateQueueBadge(); if(manual) toast("Masih offline — skor tetap tersimpan & akan dikirim otomatis", true); return; }
+  const batch = getQueue();
+  if(!batch.length){ updateQueueBadge(); return; }
+  flushing = true;
+  const remaining = [];
+  try{
+    for(const item of batch){
+      setUiStatus(item.matchId, "saving");
+      try{
+        // Playoff replay guard: a retried playoff write can overwrite an already
+        // advanced next-round score. If the server already has this exact score,
+        // treat it as done instead of re-sending.
+        if(item.kind === "playoff" && (item.attempts||0) > 0 && await isAlreadySaved(item)){
+          setUiStatus(item.matchId, "done"); continue;
+        }
+        const path = item.kind === "playoff" ? "tournament/playoff/match" : "tournament/match";
+        await apiWithRetry(path, { method:"PUT", body:{
+          matchId:item.matchId, tournamentId:item.tournamentId, scoreA:item.scoreA, scoreB:item.scoreB,
+        }});
+        setUiStatus(item.matchId, "done");
+      }catch(e){
+        if(e.fatal){ setUiStatus(item.matchId, "error"); toast(`Skor ditolak server: ${e.message}`, true); /* drop */ }
+        else { item.attempts = (item.attempts||0)+1; setUiStatus(item.matchId, "pending"); remaining.push(item); }
+      }
+    }
+  } finally {
+    // Preserve any scores enqueued while we were flushing (not part of this batch).
+    const added = getQueue().filter(x => !batch.some(o => o.id === x.id));
+    setQueue(remaining.concat(added));
+    flushing = false;
+    if(manual && !getQueue().length) toast("Semua skor terkirim ✓");
+  }
+}
+
+async function isAlreadySaved(item){
+  try{
+    const data = item.kind === "playoff"
+      ? await api(`tournament/${encodeURIComponent(item.tournamentId)}/playoff`)
+      : await api(`tournament/${encodeURIComponent(item.tournamentId)}/matches`);
+    const m = findMatchInPayload(item.kind, data, item.matchId);
+    return !!m && String(m.scoreA) === String(item.scoreA) && String(m.scoreB) === String(item.scoreB);
+  }catch(e){ return false; }
+}
+function findMatchInPayload(kind, data, matchId){
+  if(kind === "group") return (data.matches||[]).find(m => m.matchId === matchId);
+  for(const b of (data.brackets||[])){
+    for(const r of (b.rounds||[])){ const m = (r.matches||[]).find(x => x.matchId === matchId); if(m) return m; }
+    if(b.bronze && b.bronze.matchId === matchId) return b.bronze;
+  }
+  return null;
+}
+
+function updateQueueBadge(){
+  const bar = $("queueBar"), txt = $("queueText");
+  const n = getQueue().length;
+  bar.classList.remove("offline","allclear");
+  if(!navigator.onLine && n){
+    bar.classList.add("offline"); txt.textContent = `Offline — ${n} skor menunggu, akan terkirim otomatis saat online.`;
+    bar.style.display = "flex";
+  } else if(n){
+    txt.textContent = `${n} skor sedang dikirim…`; bar.style.display = "flex";
+  } else {
+    bar.style.display = "none";
+  }
+}
+
+function setUiStatus(matchId, st){
+  uiStatus[matchId] = st;
+  const badge = $("badge-"+matchId), card = $("card-"+matchId);
+  if(badge){
+    const label = { empty:"Belum diinput", saving:"⟳ Menyimpan…", pending:"⟳ Antre kirim ulang", done:"✓ Tersimpan", error:"⚠ Ditolak" }[st] || st;
+    badge.textContent = label; badge.className = "badge st-"+st;
+  }
+  if(card){
+    card.classList.remove("st-done","st-error");
+    if(st === "done") card.classList.add("st-done");
+    if(st === "error") card.classList.add("st-error");
+    card.classList.toggle("is-scored", st === "done");
+  }
+}
+
+// ==================================================================
+//  Data loading + rendering
+// ==================================================================
+async function loadEvents(){
+  try{
+    const s = state.session || {};
+    const q = "?admin=" + encodeURIComponent(s.username||"") + "&role=" + encodeURIComponent(s.role||"");
+    const { events } = await api("tournament/events" + q);
+    state.events = events || [];
+    const sel = $("eventSelect");
+    sel.innerHTML = '<option value="">— pilih event —</option>' +
+      state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
+    const last = localStorage.getItem("tp_score_last_event");
+    if(last && state.events.some(e=>e.eventId===last)){ sel.value = last; await onPickEvent(last); }
+  }catch(e){ toast(e.message, true); }
+}
+async function onPickEvent(eventId){
+  state.eventId = eventId; state.tid = ""; state.tournaments = [];
+  $("tourSelect").innerHTML = '<option value="">—</option>';
+  $("matchesWrap").innerHTML = '<p class="empty">Pilih kategori.</p>';
+  if(!eventId){ localStorage.removeItem("tp_score_last_event"); return; }
+  localStorage.setItem("tp_score_last_event", eventId);
+  try{
+    const s = state.session || {};
+    const q = "&admin=" + encodeURIComponent(s.username||"") + "&role=" + encodeURIComponent(s.role||"");
+    const { tournaments } = await api("tournament/list?eventId=" + encodeURIComponent(eventId) + q);
+    state.tournaments = tournaments || [];
+    const sel = $("tourSelect");
+    const LEVEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+    sel.innerHTML = '<option value="">— pilih kategori —</option>' +
+      state.tournaments.map(t=>`<option value="${esc(t.tournamentId)}">${esc(t.category)} · ${esc(LEVEL[t.level]||t.level)} · ${esc(t.format)}</option>`).join("");
+    const last = localStorage.getItem("tp_score_last_tour_"+eventId);
+    if(last && state.tournaments.some(t=>t.tournamentId===last)){ sel.value = last; await onPickTour(last); }
+  }catch(e){ toast(e.message, true); }
+}
+async function onPickTour(tid){
+  state.tid = tid;
+  if(!tid){ $("matchesWrap").innerHTML = '<p class="empty">Pilih kategori.</p>'; return; }
+  localStorage.setItem("tp_score_last_tour_"+state.eventId, tid);
+  await reload();
+}
+function reload(){ return loadMatches(); }
+
+async function loadMatches(){
+  const tid = state.tid;
+  if(!tid) return;
+  $("matchesWrap").innerHTML = '<p class="empty">Memuat…</p>';
+  try{
+    const [groupsRes, matchesRes, playoffRes] = await Promise.all([
+      api(`tournament/${encodeURIComponent(tid)}/groups`).catch(()=>({groups:[]})),
+      api(`tournament/${encodeURIComponent(tid)}/matches`).catch(()=>({matches:[]})),
+      api(`tournament/${encodeURIComponent(tid)}/playoff`).catch(()=>({brackets:[]})),
+    ]);
+    // entrant names
+    state.names = {};
+    (groupsRes.groups||[]).forEach(g => (g.members||[]).forEach(m => {
+      if(m && m.entrantId) state.names[m.entrantId] = `${m.player1Name} + ${m.player2Name}`;
+    }));
+    render(matchesRes.matches||[], playoffRes.brackets||[]);
+  }catch(e){ $("matchesWrap").innerHTML = `<p class="empty">Gagal memuat: ${esc(e.message)}. Klik “Muat ulang”.</p>`; }
+}
+
+const TIER_LABEL = { MAIN:"Bracket Utama", CHAMPION:"Champion", PROSPECT:"Prospect" };
+function roundLabel(round, numRounds){
+  if(String(round)==="BRONZE") return "Perebutan Juara 3";
+  const r = parseInt(round), fromEnd = numRounds - r;
+  if(fromEnd===0) return "Final"; if(fromEnd===1) return "Semifinal";
+  if(fromEnd===2) return "Perempat Final"; if(fromEnd===3) return "Babak 16 Besar";
+  return "Babak "+r;
+}
+const nameOf = id => state.names[id] || id;
+
+function render(matches, brackets){
+  state.matchIndex = {};
+  const wrap = $("matchesWrap");
+  let html = "";
+
+  // ----- GROUP -----
+  const group = (matches||[]).filter(m=>m.stage==="GROUP")
+    .sort((a,b)=> (a.slot-b.slot) || (a.court-b.court));
+  html += `<h3 class="sect">Babak Grup <span class="cnt">${group.length} match</span></h3>`;
+  if(!group.length){
+    html += '<p class="empty">Belum ada jadwal grup untuk kategori ini.</p>';
+  } else {
+    html += group.map(m=>{
+      const nameA = nameOf(m.entrantA), nameB = nameOf(m.entrantB);
+      state.matchIndex[m.matchId] = { kind:"group", entrantA:m.entrantA, entrantB:m.entrantB, nameA, nameB };
+      const meta = `<span class="ct">LAP ${esc(String(m.court||"?"))}</span><span class="gl">Grup ${esc(m.groupLabel||"")}${m.time?" · "+esc(fmtTime(m.time)):""}</span>`;
+      return scoreCard("group", m, nameA, nameB, meta);
+    }).join("");
+  }
+
+  // ----- PLAYOFF -----
+  let poCards = 0, poHtml = "";
+  (brackets||[]).forEach(b=>{
+    const rounds = (b.rounds||[]);
+    let tierHtml = "";
+    rounds.forEach(r=>{
+      (r.matches||[]).forEach(m=>{
+        const c = playoffCard(m, b.numRounds);
+        if(c){ tierHtml += c; poCards++; }
+      });
+    });
+    if(b.bronze){ const c = playoffCard(b.bronze, b.numRounds); if(c){ tierHtml += c; poCards++; } }
+    if(tierHtml){ poHtml += `<h4 class="tier">${esc(TIER_LABEL[b.tier]||b.tier)}</h4>` + tierHtml; }
+  });
+  html += `<h3 class="sect">Playoff <span class="cnt">${poCards} match siap</span></h3>`;
+  html += poCards ? poHtml : '<p class="empty">Belum ada match playoff yang siap diinput.</p>';
+
+  wrap.innerHTML = html;
+  // Initialise per-card status badges from server truth.
+  [...group].forEach(m=> initStatus(m));
+  (brackets||[]).forEach(b=>{ (b.rounds||[]).forEach(r=>(r.matches||[]).forEach(initStatus)); if(b.bronze) initStatus(b.bronze); });
+  reflectQueue();
+  applyFilter();
+}
+
+function playoffCard(m, numRounds){
+  if(!m || m.status==="BYE") return null;
+  if(!m.entrantA || !m.entrantB) return null; // not ready (TBD)
+  const nameA = m.teamA || nameOf(m.entrantA), nameB = m.teamB || nameOf(m.entrantB);
+  state.matchIndex[m.matchId] = { kind:"playoff", entrantA:m.entrantA, entrantB:m.entrantB, nameA, nameB };
+  const meta = `<span class="ct">LAP ${esc(String(m.court||"?"))}</span><span class="gl">${esc(roundLabel(m.round, numRounds))}${m.time?" · "+esc(fmtTime(m.time)):""}</span>`;
+  return scoreCard("playoff", m, nameA, nameB, meta);
+}
+
+function scoreCard(kind, m, nameA, nameB, meta){
+  const mid = m.matchId;
+  const has = v => v!=="" && v!=null;
+  const sa = has(m.scoreA) ? esc(String(m.scoreA)) : "";
+  const sb = has(m.scoreB) ? esc(String(m.scoreB)) : "";
+  const done = m.status==="DONE";
+  const aw = done && String(m.winner)===String(m.entrantA);
+  const bw = done && String(m.winner)===String(m.entrantB);
+  return `<div class="scard ${done?'st-done is-scored':''}" id="card-${esc(mid)}" data-mid="${esc(mid)}">
+    <div class="scard-top">${meta}<span class="badge" id="badge-${esc(mid)}"></span></div>
+    <div class="teamrow ${aw?'win':''}" id="row-a-${esc(mid)}">
+      <span class="nm">${esc(nameA)}</span>
+      <input class="sin" id="a-${esc(mid)}" type="number" inputmode="numeric" min="0" value="${sa}"
+        onkeydown="if(event.key==='Enter'){document.getElementById('b-'+this.dataset.mid).focus();}" data-mid="${esc(mid)}" />
+    </div>
+    <div class="teamsep"></div>
+    <div class="teamrow ${bw?'win':''}" id="row-b-${esc(mid)}">
+      <span class="nm">${esc(nameB)}</span>
+      <input class="sin" id="b-${esc(mid)}" type="number" inputmode="numeric" min="0" value="${sb}"
+        onkeydown="if(event.key==='Enter'){saveScore('${kind}','${esc(mid)}');}" data-mid="${esc(mid)}" />
+    </div>
+    <button type="button" class="btn btn-primary btn-block" onclick="saveScore('${kind}','${esc(mid)}')">Simpan skor</button>
+  </div>`;
+}
+
+// Set initial badge: queued item wins, else server DONE, else empty.
+function initStatus(m){
+  const mid = m.matchId;
+  const queued = getQueue().some(x=>x.matchId===mid);
+  if(queued) setUiStatus(mid, "pending");
+  else if(m.status==="DONE") setUiStatus(mid, "done");
+  else setUiStatus(mid, "empty");
+}
+// Re-apply queued status after a render (queue may hold scores mid-flight).
+function reflectQueue(){ getQueue().forEach(x=>{ if($("badge-"+x.matchId)) setUiStatus(x.matchId, uiStatus[x.matchId]==="saving"?"saving":"pending"); }); }
+
+// ---- Save (validate -> optimistic -> queue -> flush) ----
+function saveScore(kind, mid){
+  const ela = $("a-"+mid), elb = $("b-"+mid);
+  if(!ela || !elb) return;
+  const a = ela.value.trim(), b = elb.value.trim();
+  if(a==="" && b===""){ toast("Isi skor kedua tim dulu", true); ela.focus(); return; }
+  if(a==="" || b===""){ toast("Skor kedua tim harus diisi", true); (a===""?ela:elb).focus(); return; }
+  if(!isInt(a) || !isInt(b)){ toast("Skor harus berupa angka bulat", true); return; }
+  const na = +a, nb = +b;
+  const info = state.matchIndex[mid] || {};
+  if(na > MAX_REASONABLE || nb > MAX_REASONABLE){
+    if(!confirm(`Skor ${na}–${nb} tidak biasa untuk padel. Yakin sudah benar?`)) return;
+  }
+  if(na === nb){
+    if(!confirm("Skor sama — pertandingan seri tanpa pemenang. Simpan sebagai seri?")) return;
+  }
+  // optimistic UI
+  const aw = na>nb, bw = nb>na;
+  const rowA = $("row-a-"+mid), rowB = $("row-b-"+mid);
+  if(rowA) rowA.classList.toggle("win", aw);
+  if(rowB) rowB.classList.toggle("win", bw);
+  enqueue({ id:uid(), kind, matchId:mid, tournamentId:state.tid, scoreA:a, scoreB:b, ts:Date.now(), attempts:0 });
+  setUiStatus(mid, "pending");
+  const winner = aw ? info.nameA : bw ? info.nameB : "seri";
+  toast(na===nb ? "Skor seri disimpan — mengirim…" : `Skor disimpan — pemenang ${winner}`);
+  flushQueue();
+}
+
+function applyFilter(){
+  const on = $("onlyUnscored").checked;
+  document.querySelectorAll(".scard").forEach(c=>{
+    c.style.display = (on && c.classList.contains("is-scored")) ? "none" : "";
+  });
+}
+
+// ==================================================================
+//  Init
+// ==================================================================
+$("who").textContent = (state.session && state.session.username) || "—";
+window.addEventListener("online", ()=>{ updateQueueBadge(); flushQueue(); });
+window.addEventListener("offline", updateQueueBadge);
+window.addEventListener("beforeunload", (e)=>{ if(getQueue().length){ e.preventDefault(); e.returnValue = ""; } });
+setInterval(()=>{ if(getQueue().length) flushQueue(); }, 15000);
+
+updateQueueBadge();
+loadEvents();
+flushQueue(); // send anything left over from a previous session
+</script>
+</body>
+</html>
