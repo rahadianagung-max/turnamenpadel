@@ -425,6 +425,15 @@
       </div>
       <div class="actions"><button type="button" class="btn btn-ghost" onclick="remapCourts()">Terapkan nomor court baru</button></div>
     </div>
+    <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+      <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Import jadwal dari Google Sheet <span style="color:var(--muted); font-weight:400;">(edit massal court, tanggal &amp; jam)</span></div>
+      <p style="font-size:12px; color:var(--muted); margin:0 0 8px;">1) Klik <b>Export</b> — app menulis semua match event ini ke tab <code>Jadwal_Import</code> di spreadsheet. 2) Di Google Sheet, edit kolom <b>Court</b>, <b>Tanggal&nbsp;(YYYY-MM-DD)</b> &amp; <b>Jam&nbsp;(HH:MM)</b> saja — <b>jangan ubah kolom Match_ID</b>. Kosongkan sel bila tak ingin mengubahnya. 3) Klik <b>Import</b> untuk menyimpan.</p>
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" onclick="exportScheduleSheet()">⬇ Export ke sheet</button>
+        <button type="button" class="btn btn-primary" onclick="importScheduleSheet()">⬆ Import dari sheet</button>
+      </div>
+      <div id="importResult" style="margin-top:8px;"></div>
+    </div>
     <div id="clashWrap"></div>
     <div id="matchesWrap" style="margin-top:16px;"><p class="empty">Belum ada jadwal. Klik “Generate jadwal”.</p></div>
   </section>
@@ -804,6 +813,35 @@ async function remapCourts(){
     toast(`Nomor court diperbarui pada ${r.changed} match.`);
     loadMatches();
   }catch(e){ toast("Gagal mengubah court: "+e.message, true); }
+}
+async function exportScheduleSheet(){
+  if(!state.event) return toast("Pilih event dulu", true);
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule-export", { method:"POST" });
+    if(r.count===undefined) return toast("Backend belum ter-redeploy (endpoint export belum aktif).", true);
+    toast(`Export OK · ${r.count} match ke tab '${r.tab}'. Edit di sheet lalu klik Import.`);
+    const el=document.getElementById("importResult");
+    if(el) el.innerHTML = `<div class="ok-flag">✓ ${r.count} match diekspor ke tab <b>${esc(r.tab)}</b> di spreadsheet. Buka tab itu, edit kolom Court / Tanggal / Jam, lalu klik “Import dari sheet”.</div>`;
+  }catch(e){ toast("Gagal export: "+e.message, true); }
+}
+async function importScheduleSheet(){
+  if(!state.event) return toast("Pilih event dulu", true);
+  if(!confirm("Import jadwal dari tab 'Jadwal_Import' dan timpa court/tanggal/jam match yang cocok?")) return;
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule-import", { method:"POST" });
+    if(r.updated===undefined) return toast("Backend belum ter-redeploy (endpoint import belum aktif).", true);
+    toast(`Import OK · ${r.updated} match diperbarui${r.skipped?`, ${r.skipped} dilewati`:""}.`);
+    const el=document.getElementById("importResult");
+    if(el){
+      let html = `<div class="ok-flag">✓ ${r.updated} match diperbarui${r.skipped?` · ${r.skipped} dilewati`:""}.</div>`;
+      if(r.errors && r.errors.length){
+        html += `<div class="clash" style="margin-top:6px;"><b>${r.errorCount} baris bermasalah:</b><br>`+
+          r.errors.map(x=>`· <code>${esc(x.matchId||"")}</code> — ${esc(x.reason)}`).join("<br>")+`</div>`;
+      }
+      el.innerHTML = html;
+    }
+    loadMatches();
+  }catch(e){ toast("Gagal import: "+e.message, true); }
 }
 async function generateSchedule(){
   if(!state.event) return toast("Pilih event dulu", true);

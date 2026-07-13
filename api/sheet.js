@@ -313,6 +313,12 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/remap-courts") && method === "POST") {
       return await tRemapCourts(decodeURIComponent(path.replace("tournament/event/", "").replace("/remap-courts", "")), body);
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/schedule-export") && method === "POST") {
+      return await tExportSchedule(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule-export", "")));
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/schedule-import") && method === "POST") {
+      return await tImportSchedule(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule-import", "")));
+    }
     if (path === "tournament/repair-match-ids" && method === "POST") return await tRepairMatchIds(body);
     if (path === "tournament/recap" && method === "POST") return await tRecap(body);
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "POST") {
@@ -1871,6 +1877,27 @@ function normClock(v) {
   h = ((h % 24) + 24) % 24; m = ((m % 60) + 60) % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+// Normalise a date cell to canonical "YYYY-MM-DD". Accepts ISO, YYYY/M/D,
+// day-first D/M/YYYY (Indonesian locale), and Google Sheets serial numbers.
+// Returns "" for blank and null for an unparseable value.
+function normDate(v) {
+  let s = String(v == null ? "" : v).trim();
+  if (!s) return "";
+  // Google Sheets serial (days since 1899-12-30) if a cell was auto-formatted as a date.
+  if (/^\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 59 && n < 100000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.round(n) * 86400000);
+      return d.toISOString().slice(0, 10);
+    }
+    return null;
+  }
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/); // YYYY-MM-DD / YYYY/M/D
+  if (m) { const mo = +m[2], d = +m[3]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; return null; }
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/); // D/M/YYYY (day-first)
+  if (m) { const d = +m[1], mo = +m[2]; if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return `${m[3]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; return null; }
+  return null;
+}
 function addMinutesToTime(hhmm, minutes) {
   const parts = String(hhmm || "09:00").split(":");
   let total = (parseInt(parts[0]) || 0) * 60 + (parseInt(parts[1]) || 0) + minutes;
@@ -1920,6 +1947,13 @@ function reduceClashes(groups, namesMap) {
   }
   return best;
 }
+// Normalise a match row to the full 17-column width (A..Q) so bulk rewrites keep
+// every column — including Scheduled_Date (Q) — aligned to its own match's data.
+function padMatchRow(r) {
+  const c = Array.isArray(r) ? r.slice() : [];
+  while (c.length < 17) c.push("");
+  return c;
+}
 function mapMatchRow(x) {
   return {
     tournamentId: x[0], matchId: x[1], stage: x[2], groupLabel: x[3], bracket: x[4], round: x[5],
@@ -1948,14 +1982,17 @@ function resolveMatchIdx(rows, matchId, tid) {
   return rows.findIndex((x) => x && x[1] === rawId && (!tid || x[0] === tid));
 }
 async function rewriteEventGroupMatches(sheets, tids, newRows) {
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  // Read/clear/write the FULL A2:Q range (incl. Scheduled_Date, col Q). Reading only
+  // A2:P here left column Q orphaned: rows got reordered/regenerated but the dates
+  // stayed pinned to their old physical positions, so dates bound to the wrong match.
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const rows = r.data.values || [];
   const keep = rows.filter((x) => !(tids.includes(x[0]) && x[2] === "GROUP"));
-  const all = keep.concat(newRows);
-  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const all = keep.concat(newRows).map(padMatchRow);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   if (all.length) {
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "USER_ENTERED",
+      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW",
       requestBody: { values: all },
     });
   }
@@ -2070,7 +2107,7 @@ async function tGetEventSchedule(eventId) {
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
   const names = {};
   for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = `${x[4]} + ${x[5]}`;
-  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const matches = (mRes.data.values || []).filter((x) => tids.includes(x[0]) && x[2] === "GROUP").map((x) => ({
     ...mapMatchRow(x), category: catByTid[x[0]] || "", teamA: names[x[9]] || x[9], teamB: names[x[10]] || x[10],
   })).sort((a, b) => a.slot - b.slot || a.court - b.court);
@@ -2164,7 +2201,7 @@ async function tUpdateMatchScore(body) {
   row[15] = new Date().toISOString();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:P${idx + 2}`,
-    valueInputOption: "USER_ENTERED", requestBody: { values: [row] },
+    valueInputOption: "RAW", requestBody: { values: [row] },
   });
   return respond(200, { success: true, status: row[14], winner });
 }
@@ -2266,14 +2303,16 @@ function crossSeedRound1(groupsQual) {
   return top.concat(bot);
 }
 async function rewritePlayoffMatches(sheets, id, newRows) {
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  // Full A2:Q range so Scheduled_Date (col Q) travels with each row through the
+  // clear+rewrite; reading only A2:P orphaned dates onto the wrong matches.
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const rows = r.data.values || [];
   const keep = rows.filter((x) => !(x[0] === id && x[2] === "PLAYOFF"));
-  const all = keep.concat(newRows);
-  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const all = keep.concat(newRows).map(padMatchRow);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   if (all.length) {
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: all },
+      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW", requestBody: { values: all },
     });
   }
 }
@@ -2458,11 +2497,138 @@ async function tRemapCourts(eventId, body) {
   if (changed) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P`,
-      valueInputOption: "USER_ENTERED", requestBody: { values: rows },
+      valueInputOption: "RAW", requestBody: { values: rows },
     });
   }
   return respond(200, { success: true, changed, map: m });
 }
+
+// ==============================================================
+// SCHEDULE ROUND-TRIP: export all matches of an event to a friendly
+// "Jadwal_Import" tab, let the admin edit Court/Tanggal/Jam in Google
+// Sheets, then import the edits back (matched by Match_ID).
+// ==============================================================
+const SCHED_IMPORT_TAB = "Jadwal_Import";
+const SCHED_IMPORT_HEADER = ["Match_ID", "Kategori", "Stage", "Grup/Babak", "Tim A", "Tim B", "Court", "Tanggal (YYYY-MM-DD)", "Jam (HH:MM)"];
+
+// Create the import tab if missing; return its sheetId (gid).
+async function ensureScheduleImportTab(sheets) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID, fields: "sheets(properties(sheetId,title))" });
+  const sh = (meta.data.sheets || []).find((s) => s.properties.title === SCHED_IMPORT_TAB);
+  if (sh) return sh.properties.sheetId;
+  const res = await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ addSheet: { properties: { title: SCHED_IMPORT_TAB } } }] },
+  });
+  return res.data.replies[0].addSheet.properties.sheetId;
+}
+
+// Resolve the event's categories + entrant-name map (entrantId -> "p1 + p2").
+async function eventCatsAndNames(sheets, eventId) {
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const trs = (trRes.data.values || []).filter((x) => x[1] === eventId);
+  const tids = trs.map((x) => x[0]);
+  const catByTid = {};
+  trs.forEach((x) => { catByTid[x[0]] = x[2] || ""; });
+  const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const names = {};
+  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = `${x[4] || ""} + ${x[5] || ""}`;
+  return { tids, catByTid, names };
+}
+
+async function tExportSchedule(eventId) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` });
+  const evRow = (evRes.data.values || []).find((x) => x[0] === eventId);
+  if (!evRow) return respond(404, { error: "Event not found" });
+  const { tids, catByTid, names } = await eventCatsAndNames(sheets, eventId);
+  if (!tids.length) return respond(400, { error: "Belum ada kategori di event ini." });
+  const nm = (eid) => (eid ? (names[eid] || eid) : "");
+
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const matches = (mRes.data.values || [])
+    .map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }))
+    .filter((m) => tids.includes(m.tournamentId));
+  if (!matches.length) return respond(400, { error: "Belum ada jadwal. Generate jadwal dulu." });
+  // Group each category's matches together in play order (grup dulu, lalu playoff).
+  matches.sort((a, b) =>
+    (catByTid[a.tournamentId] || "").localeCompare(catByTid[b.tournamentId] || "") ||
+    (a.stage === b.stage ? 0 : a.stage === "GROUP" ? -1 : 1) ||
+    (a.slot - b.slot) || (a.court - b.court));
+
+  const rows = matches.map((m) => {
+    const grupBabak = m.stage === "PLAYOFF" ? `${m.bracket || ""} R${m.round || ""}`.trim() : (m.groupLabel || "");
+    return [encMatchId(m.matchId, m._row), catByTid[m.tournamentId] || "", m.stage || "", grupBabak,
+      nm(m.entrantA), nm(m.entrantB), m.court || "", m.date || "", normClock(m.time) || ""];
+  });
+
+  const gid = await ensureScheduleImportTab(sheets);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${SCHED_IMPORT_TAB}!A:Z` });
+  // Force columns A..I to plain-text so whatever the admin types stays literal
+  // (no locale auto-formatting of the date/time cells).
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ repeatCell: {
+      range: { sheetId: gid, startColumnIndex: 0, endColumnIndex: 9 },
+      cell: { userEnteredFormat: { numberFormat: { type: "TEXT" } } },
+      fields: "userEnteredFormat.numberFormat",
+    } }] },
+  });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${SCHED_IMPORT_TAB}!A1`, valueInputOption: "RAW",
+    requestBody: { values: [SCHED_IMPORT_HEADER, ...rows] },
+  });
+  return respond(200, { success: true, tab: SCHED_IMPORT_TAB, event: evRow[1] || eventId, count: rows.length });
+}
+
+async function tImportSchedule(eventId) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  let imp;
+  try {
+    imp = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${SCHED_IMPORT_TAB}!A2:I` });
+  } catch (e) {
+    return respond(400, { error: `Tab '${SCHED_IMPORT_TAB}' belum ada — klik Export dulu.` });
+  }
+  const irows = imp.data.values || [];
+  if (!irows.length) return respond(400, { error: `Tab '${SCHED_IMPORT_TAB}' kosong — klik Export dulu.` });
+
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const tids = (trRes.data.values || []).filter((x) => x[1] === eventId).map((x) => x[0]);
+
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const rows = mRes.data.values || [];
+  const now = new Date().toISOString();
+  let updated = 0, skipped = 0;
+  const errors = [];
+  for (const r of irows) {
+    const mid = String((r && r[0]) || "").trim();
+    if (!mid) continue; // blank line
+    const idx = resolveMatchIdx(rows, mid);
+    if (idx === -1) { skipped++; errors.push({ matchId: mid, reason: "match tidak ditemukan" }); continue; }
+    if (tids.length && !tids.includes(rows[idx][0])) { skipped++; errors.push({ matchId: mid, reason: "bukan milik event ini" }); continue; }
+    const row = rows[idx];
+    while (row.length < 17) row.push("");
+    const courtRaw = String(r[6] == null ? "" : r[6]).trim();
+    const timeRaw = String(r[8] == null ? "" : r[8]).trim();
+    const dateRaw = String(r[7] == null ? "" : r[7]).trim();
+    let changed = false;
+    if (courtRaw !== "") { const c = parseInt(courtRaw); const cv = isNaN(c) ? courtRaw : String(c); if (cv !== String(row[6])) { row[6] = cv; changed = true; } }
+    if (timeRaw !== "") { const tv = normClock(timeRaw); if (!tv) errors.push({ matchId: mid, reason: `jam '${timeRaw}' tidak valid` }); else if (tv !== String(row[8])) { row[8] = tv; changed = true; } }
+    if (dateRaw !== "") { const dv = normDate(dateRaw); if (dv === null) errors.push({ matchId: mid, reason: `tanggal '${dateRaw}' tidak valid (pakai YYYY-MM-DD)` }); else if (dv !== String(row[16])) { row[16] = dv; changed = true; } }
+    if (changed) { row[15] = now; updated++; }
+  }
+  if (updated) {
+    // Same order/count as read -> overwrite A:Q in place, dates stay bound to their match.
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW",
+      requestBody: { values: rows.map(padMatchRow) },
+    });
+  }
+  return respond(200, { success: true, updated, skipped, errorCount: errors.length, errors: errors.slice(0, 50) });
+}
+
 async function tUpdateMatchMeta(body) {  const { matchId, court, time, date } = body || {};
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
@@ -2474,14 +2640,18 @@ async function tUpdateMatchMeta(body) {  const { matchId, court, time, date } = 
   const row = rows[idx];
   while (row.length < 17) row.push("");
   if (court !== undefined && court !== null) row[6] = String(court);
-  if (time !== undefined && time !== null) row[8] = String(time);
+  // normClock keeps the stored time as canonical "HH:MM" text.
+  if (time !== undefined && time !== null) row[8] = normClock(time) || String(time);
   // A non-empty Scheduled_Date pins the match: mobile/TV use this exact time
-  // instead of the auto-generated slot time.
-  if (date !== undefined && date !== null) row[16] = String(date);
+  // instead of the auto-generated slot time. Stored verbatim as "YYYY-MM-DD".
+  if (date !== undefined && date !== null) row[16] = String(date).trim();
   row[15] = new Date().toISOString();
+  // RAW (not USER_ENTERED): keep date/time as literal text so Sheets never
+  // re-parses "2026-07-13"/"09:00" into locale-formatted serials that fail to
+  // round-trip back into the <input type=date|time> fields.
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:Q${idx + 2}`,
-    valueInputOption: "USER_ENTERED", requestBody: { values: [row] },
+    valueInputOption: "RAW", requestBody: { values: [row] },
   });
   return respond(200, { success: true, court: row[6], time: row[8], date: row[16] });
 }
@@ -2490,7 +2660,7 @@ async function tUpdatePlayoffScore(body) {
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const rows = r.data.values || [];
   const _pidx = resolveMatchIdx(rows, matchId, body.tournamentId);
   const row = _pidx === -1 ? null : rows[_pidx];
@@ -2518,8 +2688,8 @@ async function tUpdatePlayoffScore(body) {
       if (bronze && loser) { while (bronze.length < 16) bronze.push(""); resetSlot(bronze, mIdx === 0 ? 9 : 10, loser); }
     }
   }
-  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
-  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: rows } });
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW", requestBody: { values: rows.map(padMatchRow) } });
   return respond(200, { success: true, status: row[14], winner });
 }
 // Pure view-builder: given mapped PLAYOFF matches + a name(entrantId) fn -> brackets array.
@@ -2553,7 +2723,7 @@ async function tGetPlayoff(id) {
   const names = {};
   for (const x of (grRes.data.values || [])) if (x[0] === id) names[x[3]] = `${x[4]} + ${x[5]}`;
   const nm = (eid) => (eid ? (names[eid] || eid) : "");
-  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const all = (mRes.data.values || [])
     .map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }))
     .filter((m) => m.tournamentId === id && m.stage === "PLAYOFF");
