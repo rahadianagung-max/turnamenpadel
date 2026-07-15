@@ -222,7 +222,7 @@ const T_HEADERS = {
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
-  [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA"],
+  [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
 };
 // Create any missing tournament tabs (with header row) so the engine is self-bootstrapping.
 async function ensureTabs(sheets) {
@@ -1486,16 +1486,21 @@ async function tImport(id) {
   const category = t.tournament.category;
   const startElo = levelToElo(t.tournament.level);
 
-  const [pRes, eRes, fRes, enRes] = await Promise.all([
+  const [pRes, eRes, fRes, enRes, evRes] = await Promise.all([
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:J` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A2:H` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:J` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:B` }),
   ]);
   const pRows = pRes.data.values || [];
   const eRows = eRes.data.values || [];
   const fRows = fRes.data.values || [];
   const enRows = enRes.data.values || [];
+  // Resolve the human event name so admins can tag Form_Responses rows with
+  // the tournament/event name (not just the internal ID).
+  const evRow = (evRes.data.values || []).find((x) => x[0] === t.tournament.eventId);
+  const eventName = evRow ? evRow[1] || "" : "";
 
   const playerByName = new Map();
   for (const r of pRows) playerByName.set(normName(r[0]), { name: r[0], displayName: r[3] || r[0] });
@@ -1527,8 +1532,26 @@ async function tImport(id) {
     return { name: cleanName, elo: startElo, isNew: true };
   }
 
+  // Per-tournament isolation via the optional "Tournament" tag (col H).
+  // A row belongs to this tournament when its tag matches the tournament's
+  // name or ID. Rules (all backward-compatible — an untagged sheet behaves
+  // exactly as before, so a running tournament is never disturbed):
+  //   • If ANY row is tagged for THIS tournament → strict mode: import only
+  //     those tagged rows. New tournament B just tags its own rows and stays
+  //     fully isolated from A's rows.
+  //   • Otherwise (legacy) → import by category, but skip rows explicitly
+  //     tagged for a DIFFERENT tournament, so B's tagged rows never leak into
+  //     an untagged import of A.
+  const tName = normName(eventName);
+  const tId = String(id).toLowerCase();
+  const evId = String(t.tournament.eventId || "").toLowerCase();
+  const belongsToThis = (f) => { const tg = normName(f[7] || ""); return !!tg && (tg === tName || tg === tId || tg === evId); };
+  const taggedForOther = (f) => { const tg = normName(f[7] || ""); return !!tg && !belongsToThis(f); };
+  const strictMode = fRows.some(belongsToThis);
+
   for (const f of fRows) {
     if (catCode(f[1]) !== category) continue;
+    if (strictMode ? !belongsToThis(f) : taggedForOther(f)) continue;
     const p1 = resolvePlayer(f[2], f[3]);
     const p2 = resolvePlayer(f[4], f[5]);
     if (!p1 || !p2) continue;
