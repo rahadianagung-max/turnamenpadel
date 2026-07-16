@@ -2970,9 +2970,16 @@ async function tPublicEvent(eventId, opts) {
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
+    // Keep the public board as a nameless simulation until the group stage is
+    // complete: real team names only appear once EVERY group match is scored, so
+    // seeds are final. Until then, spectators see the placeholder projection.
+    const hasScore = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
+    const groupComplete = groupMatches.length > 0 && groupMatches.every((m) => hasScore(m.scoreA) && hasScore(m.scoreB));
+    const playoffPublic = groupComplete ? playoff : [];
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
-      advancersPerGroup: parseInt(t[6]) || 2, entrants, groups, schedule, playoff, playoffProjection,
+      advancersPerGroup: parseInt(t[6]) || 2, entrants, groups, schedule,
+      playoff: playoffPublic, playoffProjection, groupComplete,
     };
   });
   // Sponsor logos. "Sponsors" tab:

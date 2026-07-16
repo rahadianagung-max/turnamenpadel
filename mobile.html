@@ -341,7 +341,7 @@ function renderBracket(cat){
 // Projected bracket: placeholder seeds (e.g. "Winner Grup A" vs "Runner-up Grup C")
 // shown before the group stage finishes. No scores, no tap targets.
 function renderBracketProjection(proj){
-  const note = `<div class="projnote">Simulasi bagan playoff &middot; posisi final ditentukan setelah babak grup selesai</div>`;
+  const note = `<div class="projnote">Simulasi bagan playoff &middot; nama pemain muncul setelah babak grup selesai</div>`;
   const body = proj.map(b=>{
     const rounds = b.rounds.map(r=>`<div class="pround"><h4>${roundLabel(r.round,b.numRounds)}</h4>${r.matches.map(pmatchProj).join("")}</div>`).join("");
     const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE",b.numRounds)}</h4>${pmatchProj(b.bronze)}</div>`:"";
