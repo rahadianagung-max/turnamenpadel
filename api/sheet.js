@@ -2414,6 +2414,21 @@ function buildPlayoffTiers(groups, format, N) {
   return { built, summary, champCount, prospCount };
 }
 
+// Overall qualification: pool every team across all groups, rank them globally
+// (most wins → point diff → points for → fewer against), take the top `topN`
+// by ranking, and seed them into a single MAIN bracket (performance seeding,
+// with same-group round-1 avoidance). Ignores group position, so e.g. the best
+// 8 teams overall advance even if 3 came from the same group.
+function buildOverallTiers(groups, topN) {
+  const flat = [], groupOf = {};
+  groups.forEach((g) => g.standings.forEach((s) => { flat.push(s); groupOf[s.entrantId] = g.label; }));
+  flat.sort((x, y) => (y.wins - x.wins) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga));
+  const top = flat.slice(0, Math.max(0, topN | 0));
+  const b = buildBracket(top.map((s) => s.entrantId), "MAIN", groupOf);
+  const built = b.nQual >= 2 ? [{ tier: "MAIN", b }] : [];
+  const summary = built.map(({ tier, b }) => ({ tier, method: "overall", entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length }));
+  return { built, summary, qualified: b.nQual };
+}
 // Projected playoff bracket, computed from the group *structure* alone (labels
 // + size + format + advancers), so spectators can preview the knockout path
 // before any group score is in. Slots carry placeholder labels like
@@ -2475,9 +2490,20 @@ async function tGeneratePlayoff(id, body) {
   sched.courtNums = courtPool.length ? courtPool : parseCourtNumbers(b0.courtNumbers, sched.numCourts);
   sched.numCourts = sched.courtNums.length;
 
-  const { built, summary, champCount } = buildPlayoffTiers(groups, format, N);
-  if (champCount < 2) {
-    return respond(400, { error: format === "SPLIT" ? "Champion tier perlu minimal 2 tim." : `Perlu minimal 2 tim lolos (top ${N}/grup).` });
+  // Optional "top N overall" qualification (best teams by ranking across all
+  // groups), otherwise the default per-group advancement (top N/group).
+  const topOverall = parseInt(b0.topOverall) || 0;
+  let built, summary;
+  if (topOverall >= 2) {
+    const r = buildOverallTiers(groups, topOverall);
+    if (!r.built.length || r.qualified < 2) return respond(400, { error: "Perlu minimal 2 tim untuk playoff." });
+    built = r.built; summary = r.summary;
+  } else {
+    const r = buildPlayoffTiers(groups, format, N);
+    if (r.champCount < 2) {
+      return respond(400, { error: format === "SPLIT" ? "Champion tier perlu minimal 2 tim." : `Perlu minimal 2 tim lolos (top ${N}/grup).` });
+    }
+    built = r.built; summary = r.summary;
   }
 
   const now = new Date().toISOString();
