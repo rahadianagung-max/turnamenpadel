@@ -461,11 +461,14 @@
       <div class="f"><label>Jam mulai</label><input id="poStart" type="time" value="09:00" /></div>
       <div class="f"><label>Jumlah court</label><input id="poCourts" type="number" min="1" value="2" /></div>
       <div class="f"><label>Menit / match</label><input id="poMin" type="number" min="5" value="30" /></div>
+      <div class="f"><label>Lolos N besar (peringkat keseluruhan)</label><input id="poTopOverall" type="number" min="2" value="8" /></div>
     </div>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket</button>
+      <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket (per grup)</button>
+      <button type="button" class="btn btn-primary" onclick="generatePlayoffOverall()">Generate N besar (ranking)</button>
       <button type="button" class="btn btn-ghost" onclick="loadPlayoff()">↻ Muat ulang</button>
     </div>
+    <p class="lead" style="margin:8px 2px 0">“Per grup” meloloskan juara/runner-up tiap grup. “N besar (ranking)” meloloskan N tim terbaik dari seluruh grup berdasarkan peringkat (menang → selisih poin → poin masuk).</p>
     <div id="playoffWrap" style="margin-top:16px;"><p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p></div>
   </section>
 
@@ -994,14 +997,22 @@ function roundLabel(round, numRounds){
   if(fromEnd===3) return "Babak 16 Besar";
   return "Babak "+r;
 }
-async function generatePlayoff(){
+function generatePlayoffOverall(){
+  const n = parseInt(val("poTopOverall")) || 8;
+  generatePlayoff(n);
+}
+async function generatePlayoff(topOverall){
   if(!state.tournament) return;
-  if(!confirm("Generate bracket akan menimpa bracket playoff kategori ini berdasarkan standing terkini. Lanjut?")) return;
+  const overall = parseInt(topOverall) || 0;
+  const msg = overall>=2
+    ? `Generate bracket ${overall} besar (peringkat keseluruhan) akan menimpa bracket playoff kategori ini. Lanjut?`
+    : "Generate bracket akan menimpa bracket playoff kategori ini berdasarkan standing terkini. Lanjut?";
+  if(!confirm(msg)) return;
   try{
-    const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body:{
-      date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin")
-    }});
-    const methodLabel = m => m==="cross" ? "cross grup" : "seeding";
+    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin") };
+    if(overall>=2) body.topOverall = overall;
+    const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body });
+    const methodLabel = m => m==="cross" ? "cross grup" : m==="overall" ? "peringkat keseluruhan" : "seeding";
     const txt = (r.brackets||[]).map(b=>`${TIER_LABEL[b.tier]||b.tier}: ${b.entrants} tim (${methodLabel(b.method)})`).join(" · ");
     toast("Bracket dibuat · "+txt);
     loadPlayoff();
