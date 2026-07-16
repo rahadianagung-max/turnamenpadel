@@ -2321,6 +2321,37 @@ function avoidSameGroup(round1, groupOf) {
   }
   return round1;
 }
+// GUARANTEE (when mathematically possible) that no round-1 (quarterfinal) match
+// pits two teams from the same group. Each match keeps its higher seed as the
+// "anchor"; we reassign the opponents (lower seeds) to anchors via an exact
+// bipartite matching (Kuhn's algorithm) so every match has two different groups.
+// A perfect matching always exists unless one group holds more than half the
+// qualifiers (e.g. 5+ of 8) — a genuinely impossible case, where we fall back to
+// the best-effort heuristic to minimise clashes.
+function separateRound1(round1, groupOf) {
+  if (!groupOf) return round1;
+  const grp = (id) => (id ? (groupOf[id] || "") : " ");
+  const real = []; round1.forEach((m, i) => { if (m[0] && m[1]) real.push(i); });
+  if (real.length < 2) return round1;
+  const anchors = real.map((i) => round1[i][0]);
+  const opps = real.map((i) => round1[i][1]);
+  const n = real.length;
+  const allowed = opps.map((o) => anchors.map((a) => grp(o) !== grp(a)));
+  const slotOpp = new Array(n).fill(-1); // anchor slot -> opponent index
+  const tryK = (o, seen) => {
+    for (let a = 0; a < n; a++) {
+      if (allowed[o][a] && !seen[a]) {
+        seen[a] = true;
+        if (slotOpp[a] === -1 || tryK(slotOpp[a], seen)) { slotOpp[a] = o; return true; }
+      }
+    }
+    return false;
+  };
+  let matched = 0;
+  for (let o = 0; o < n; o++) { if (tryK(o, new Array(n).fill(false))) matched++; }
+  if (matched === n) { for (let a = 0; a < n; a++) round1[real[a]][1] = opps[slotOpp[a]]; return round1; }
+  return avoidSameGroup(round1, groupOf); // not fully separable — do the best we can
+}
 function buildBracket(seeded, tier, groupOf) {
   const nQual = seeded.length;
   if (nQual < 2) return { matches: [], numRounds: 0, bronze: false, nQual, soleWinner: nQual === 1 ? seeded[0] : null };
@@ -2329,7 +2360,7 @@ function buildBracket(seeded, tier, groupOf) {
   const pos = order.map((sn) => (sn <= nQual ? seeded[sn - 1] : null));
   const round1 = [];
   for (let i = 0; i < size / 2; i++) round1.push([pos[2 * i] || null, pos[2 * i + 1] || null]);
-  avoidSameGroup(round1, groupOf);
+  separateRound1(round1, groupOf);
   return bracketFromRound1(round1, tier);
 }
 // World Cup style fixed cross by group position. groupsQual = per-group entrantIds in rank order.
