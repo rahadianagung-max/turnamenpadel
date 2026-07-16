@@ -2483,6 +2483,19 @@ function buildOverallProjection(totalTeams, topN) {
   const lab = (id) => (id ? (labelOf[id] || "") : "");
   return [projectionTierView("MAIN", b, lab)];
 }
+// Simulation that mirrors an already-generated real bracket: same tiers and
+// team count, but with nameless "Unggulan 1 … Unggulan N" seed placeholders.
+// Used while the group stage is still running so the public board shows the
+// right size (e.g. 8 besar) without revealing player names yet.
+function projectionFromBrackets(brackets) {
+  return (brackets || []).filter((t) => (t.nQual || 0) >= 2).map((t) => {
+    const labelOf = {}, seeded = [];
+    for (let i = 1; i <= t.nQual; i++) { const id = `S${i}`; labelOf[id] = `Unggulan ${i}`; seeded.push(id); }
+    const bb = buildBracket(seeded, t.tier, null);
+    const lab = (id) => (id ? (labelOf[id] || "") : "");
+    return projectionTierView(t.tier, bb, lab);
+  });
+}
 // Pick the projection that matches the tournament's intended playoff plan:
 // top-N overall (seed labels) when topOverall >= 2, else per-group (group labels).
 function playoffProjectionFor(groupsInfo, format, N, topOverall) {
@@ -2964,17 +2977,19 @@ async function tPublicEvent(eventId, opts) {
       scoreA: m.scoreA, scoreB: m.scoreB, winner: m.winner, status: m.status, updatedAt: m.updatedAt || "",
     }));
     const playoff = playoffBracketsView(tMatches.filter((m) => m.stage === "PLAYOFF"), nm);
-    // Projected bracket (placeholder seeds) so spectators can preview the knockout
-    // path before the group stage finishes and the real playoff is generated.
-    const playoffProjection = playoffProjectionFor(
+    // Keep the public board as a nameless simulation until the group stage is
+    // complete: real team names only appear once EVERY group match is scored, so
+    // seeds are final. Until then, spectators see a placeholder projection.
+    const hasScore = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
+    const groupComplete = groupMatches.length > 0 && groupMatches.every((m) => hasScore(m.scoreA) && hasScore(m.scoreB));
+    // Projection source: if a real bracket was already generated, mirror its size
+    // and tiers (so e.g. an 8-team bracket previews as 8 seeds) instead of the
+    // default per-group preview; otherwise preview from the saved plan.
+    const planProjection = playoffProjectionFor(
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
-    // Keep the public board as a nameless simulation until the group stage is
-    // complete: real team names only appear once EVERY group match is scored, so
-    // seeds are final. Until then, spectators see the placeholder projection.
-    const hasScore = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
-    const groupComplete = groupMatches.length > 0 && groupMatches.every((m) => hasScore(m.scoreA) && hasScore(m.scoreB));
+    const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
