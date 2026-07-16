@@ -2499,27 +2499,67 @@ function projectionFromBrackets(brackets) {
 // Provisional "N besar" qualification panel shown above the bracket while the
 // group stage runs (top-N overall mode). A team's name is revealed only once it
 // has MATHEMATICALLY clinched a top-N spot; contested slots stay "TBC".
-// Clinch test is conservative (wins-based, ties counted as threats) so a name is
-// never shown prematurely. slots are ordered clinched-first then by live ranking.
+//
+// Clinch is by wins (primary ranking key), and SAFE — a team is confirmed only
+// when it cannot be pushed out of the top N in ANY completion of the remaining
+// matches. Because teams in a group play each other, not everyone can win their
+// remaining games; we therefore brute-force each group's remaining matches to
+// get the true worst case (the old per-team "wins+remaining" bound was far too
+// pessimistic and confirmed almost nobody). Ties in wins are counted as threats,
+// so we never confirm prematurely.
 function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
   if (!(N >= 2)) return null;
   const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
-  const remaining = {};
+  // Per-group: member ids, current wins, and remaining (unscored) intra-group matches.
+  const groups = (groupList || []).map((g) => {
+    const ids = (g.standings || []).map((s) => s.entrantId);
+    const wins = {}; (g.standings || []).forEach((s) => { wins[s.entrantId] = s.wins || 0; });
+    return { ids, wins, rem: [] };
+  });
+  const byLabel = {}; (groupList || []).forEach((g, i) => { byLabel[g.label] = groups[i]; });
   (groupMatches || []).forEach((m) => {
     if (has(m.scoreA) && has(m.scoreB)) return;
-    if (m.entrantA) remaining[m.entrantA] = (remaining[m.entrantA] || 0) + 1;
-    if (m.entrantB) remaining[m.entrantB] = (remaining[m.entrantB] || 0) + 1;
+    const g = byLabel[m.groupLabel]; if (!g || !m.entrantA || !m.entrantB) return;
+    g.rem.push([m.entrantA, m.entrantB]);
   });
   const flat = [];
-  (groupList || []).forEach((g) => (g.standings || []).forEach((s) => flat.push({
-    entrantId: s.entrantId, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0, rem: remaining[s.entrantId] || 0,
+  (groupList || []).forEach((g, gi) => (g.standings || []).forEach((s) => flat.push({
+    entrantId: s.entrantId, gi, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0,
+    rem: groups[gi].rem.filter(([a, b]) => a === s.entrantId || b === s.entrantId).length,
   })));
   if (!flat.length) return null;
+  // Max teams (id !== exclude) in a group that can finish with wins >= T over all
+  // completions of that group's remaining matches. forcedLoser (if set) loses all
+  // of its remaining matches (used to hold the team we're testing at its floor).
+  const CAP = 16; // enumeration guard (2^16); huge early-stage groups fall back to naive
+  function groupMaxAtOrAbove(g, T, exclude, forcedLoser) {
+    const base = {}; g.ids.forEach((id) => { base[id] = g.wins[id] || 0; });
+    const free = [];
+    g.rem.forEach(([a, b]) => {
+      if (forcedLoser && (a === forcedLoser || b === forcedLoser)) { const opp = a === forcedLoser ? b : a; base[opp] = (base[opp] || 0) + 1; }
+      else free.push([a, b]);
+    });
+    const k = free.length;
+    if (k > CAP) { // fallback: independent optimistic bound (safe/over-counts)
+      let c = 0; g.ids.forEach((id) => { if (id !== exclude) { const maxW = (base[id] || 0) + free.filter(([a, b]) => a === id || b === id).length; if (maxW >= T) c++; } });
+      return c;
+    }
+    let best = 0;
+    for (let mask = 0; mask < (1 << k); mask++) {
+      const w = Object.assign({}, base);
+      for (let i = 0; i < k; i++) { const [a, b] = free[i]; const winner = (mask >> i) & 1 ? a : b; w[winner] = (w[winner] || 0) + 1; }
+      let cnt = 0; for (const id of g.ids) { if (id !== exclude && (w[id] || 0) >= T) cnt++; }
+      if (cnt > best) best = cnt;
+    }
+    return best;
+  }
+  const genMemo = new Map();
+  const genericMax = (gi, T) => { const key = gi + ":" + T; if (genMemo.has(key)) return genMemo.get(key); const v = groupMaxAtOrAbove(groups[gi], T, null, null); genMemo.set(key, v); return v; };
   flat.forEach((x) => {
-    const xWorst = x.wins; // assume x loses all its remaining matches
-    let threats = 0;       // teams that could still finish at or above x
-    flat.forEach((y) => { if (y.entrantId !== x.entrantId && (y.wins + y.rem) >= xWorst) threats++; });
-    x.clinched = threats <= (N - 1);
+    const T = x.wins; // x's floor (loses all remaining)
+    let maxAhead = groupMaxAtOrAbove(groups[x.gi], T, x.entrantId, x.entrantId);
+    groups.forEach((g, gi) => { if (gi !== x.gi) maxAhead += genericMax(gi, T); });
+    x.clinched = maxAhead <= (N - 1);
   });
   flat.sort((a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf));
   const slots = [];
@@ -2974,7 +3014,7 @@ async function tPublicEvent(eventId, opts) {
     spreadsheetId: SHEET_ID,
     ranges: [
       `${TABS.t_events}!A2:H`,
-      `${TABS.t_tournaments}!A2:J`,
+      `${TABS.t_tournaments}!A2:K`,
       `${TABS.t_groups}!A2:G`,
       `${TABS.t_matches}!A2:Q`,
       `${TABS.players}!A2:J`,
