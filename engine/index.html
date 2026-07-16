@@ -198,6 +198,13 @@
 
   /* Playoff (Phase 4) */
   .tier{margin-bottom:28px;}
+  /* projected (simulated) bracket */
+  .proj-note{font-family:'Space Mono',monospace; font-size:11.5px; line-height:1.5; color:var(--accent);
+    background:rgba(255,106,0,.08); border:1px dashed rgba(255,106,0,.5); border-radius:var(--r-sm);
+    padding:11px 13px; margin-bottom:18px;}
+  .tier.proj > h3 .tag-tier{background:transparent; color:var(--accent); border:1px solid rgba(255,106,0,.5);}
+  .prow.proj{opacity:.9;}
+  .prow.proj .pteams .ln{font-style:italic; color:var(--muted);}
   .tier > h3{font-family:'Saira Condensed',sans-serif; font-size:17px; font-weight:700; margin:0 0 10px;
     display:flex; align-items:center; gap:9px;}
   .tier > h3 .tag-tier{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
@@ -1007,8 +1014,8 @@ async function loadPlayoff(){
   try{
     const { groups } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/groups");
     buildNames(groups);
-    const { brackets } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff");
-    renderPlayoff(brackets||[]);
+    const res = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff");
+    renderPlayoff(res.brackets||[], res.projection||[]);
     Object.keys(snap).forEach(id=>{ const el=document.getElementById(id); if(el && el.value==="" && snap[id]!=="") el.value=snap[id]; });
   }catch(e){ toast(e.message, true); }
 }
@@ -1056,29 +1063,48 @@ async function saveCourt(matchId){
     toast("Court diperbarui");
   }catch(e){ toast(e.message, true); }
 }
-function renderPlayoff(brackets){
+// Read-only projected match row (placeholder seeds, no score/court editing).
+function prowProj(m){
+  const bye = m.status==="BYE";
+  const tA = m.teamA ? esc(m.teamA) : '<span class="tbd">TBD</span>';
+  const tB = bye ? "" : (m.teamB ? esc(m.teamB) : '<span class="tbd">TBD</span>');
+  const teams = `<div class="pteams"><span class="ln">${tA}</span><span class="ln">${tB}</span></div>`;
+  if(bye) return `<div class="prow bye proj">${teams}<span class="byebadge">BYE</span></div>`;
+  return `<div class="prow card proj">${teams}</div>`;
+}
+// Shared bracket layout, parametrised by the per-match row renderer.
+function tierHtml(b, rowFn, showPodium){
+  const rs = b.rounds || [];
+  const last = rs.length - 1;
+  let leftC = "", rightC = "";
+  for(let r=0; r<last; r++){ const ms=rs[r].matches||[]; const h=Math.ceil(ms.length/2);
+    leftC += `<div class="pcol"><h4>${roundLabel(rs[r].round, b.numRounds)}</h4>${ms.slice(0,h).map(m=>rowFn(m,b.numRounds)).join("")}</div>`; }
+  for(let r=last-1; r>=0; r--){ const ms=rs[r].matches||[]; const h=Math.ceil(ms.length/2);
+    rightC += `<div class="pcol"><h4>${roundLabel(rs[r].round, b.numRounds)}</h4>${ms.slice(h).map(m=>rowFn(m,b.numRounds)).join("")}</div>`; }
+  const finalM = (last>=0 && rs[last] && rs[last].matches[0]) ? rowFn(rs[last].matches[0], b.numRounds) : "";
+  const bronze = b.bronze ? `<h4 class="pthird">${roundLabel("BRONZE", b.numRounds)}</h4>${rowFn(b.bronze, b.numRounds)}` : "";
+  const center = `<div class="pcol pcol-center"><h4>${last>=0 ? roundLabel(rs[last].round, b.numRounds) : "Final"}</h4>${finalM}${bronze}</div>`;
+  const bracket = `<div class="pbracket-wrap"><div class="pbracket">${leftC}${center}${rightC}</div></div>`;
+  return `<div class="tier${b.projected?' proj':''}">
+    <h3><span class="tag-tier">${TIER_LABEL[b.tier]||b.tier}${b.projected?' · Simulasi':''}</span> ${b.nQual} tim</h3>
+    ${showPodium ? podiumHtml(b.podium) : ""}
+    ${bracket}
+  </div>`;
+}
+function renderPlayoff(brackets, projection){
   const wrap = document.getElementById("playoffWrap");
-  if(!brackets.length){ wrap.innerHTML = '<p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p>'; return; }
+  if(!brackets.length){
+    const proj = (projection||[]).filter(b=>(b.rounds||[]).some(r=>(r.matches||[]).length));
+    if(proj.length){
+      wrap.innerHTML = `<div class="proj-note">Simulasi bracket — posisi final ditentukan setelah babak grup selesai. Klik “Generate bracket” di atas saat grup sudah selesai untuk membuat bracket asli.</div>`
+        + proj.map(b=>tierHtml(b, prowProj, false)).join("");
+      return;
+    }
+    wrap.innerHTML = '<p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p>'; return;
+  }
   const dEl = document.getElementById("poDate");
   const dateLabel = (dEl && dEl.value) ? `<div class="po-date">Jadwal playoff: ${esc(dEl.value)}</div>` : "";
-  wrap.innerHTML = dateLabel + brackets.map(b=>{
-    const rs = b.rounds || [];
-    const last = rs.length - 1;
-    let leftC = "", rightC = "";
-    for(let r=0; r<last; r++){ const ms=rs[r].matches||[]; const h=Math.ceil(ms.length/2);
-      leftC += `<div class="pcol"><h4>${roundLabel(rs[r].round, b.numRounds)}</h4>${ms.slice(0,h).map(m=>prow(m,b.numRounds)).join("")}</div>`; }
-    for(let r=last-1; r>=0; r--){ const ms=rs[r].matches||[]; const h=Math.ceil(ms.length/2);
-      rightC += `<div class="pcol"><h4>${roundLabel(rs[r].round, b.numRounds)}</h4>${ms.slice(h).map(m=>prow(m,b.numRounds)).join("")}</div>`; }
-    const finalM = (last>=0 && rs[last] && rs[last].matches[0]) ? prow(rs[last].matches[0], b.numRounds) : "";
-    const bronze = b.bronze ? `<h4 class="pthird">${roundLabel("BRONZE", b.numRounds)}</h4>${prow(b.bronze, b.numRounds)}` : "";
-    const center = `<div class="pcol pcol-center"><h4>${last>=0 ? roundLabel(rs[last].round, b.numRounds) : "Final"}</h4>${finalM}${bronze}</div>`;
-    const bracket = `<div class="pbracket-wrap"><div class="pbracket">${leftC}${center}${rightC}</div></div>`;
-    return `<div class="tier">
-      <h3><span class="tag-tier">${TIER_LABEL[b.tier]||b.tier}</span> ${b.nQual} tim</h3>
-      ${podiumHtml(b.podium)}
-      ${bracket}
-    </div>`;
-  }).join("");
+  wrap.innerHTML = dateLabel + brackets.map(b=>tierHtml(b, prow, true)).join("");
 }
 async function savePlayoffScore(matchId){
   try{

@@ -131,6 +131,10 @@
   .bteam .bavs .av{margin-left:-4px; box-shadow:0 0 0 2px var(--panel);} .bteam .bavs .av:first-child{margin-left:0;}
   .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.95vw,17px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); margin-left:auto; padding-left:.4vw;}
+  /* projected (simulated) bracket */
+  .bracket-block.proj .bt{color:var(--accent);}
+  .bmatch.proj{border-style:dashed;}
+  .bteam.proj{color:var(--muted); font-style:italic;}
   /* winners podium (left column when finished) */
   .winners{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2.2vh;}
   .winners .win-head{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-size:clamp(11px,1vw,17px);}
@@ -192,6 +196,8 @@ function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.
 const PATH_SLUG = slugFromPath();
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const state = { data:null };
+// Group-stage right-panel toggle: false = standings, true = playoff simulation.
+let RIGHT_ALT = false;
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
 
 async function api(p){ const r=await fetch(BASE+p); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
@@ -331,10 +337,12 @@ function derivePodium(b){
   if(bm&&bm.status==="DONE"&&bm.winner){ third = String(bm.winner)===String(bm.entrantA)?bm.teamA:bm.teamB; }
   return {champion,runnerUp,third};
 }
-function oneBracket(c, b){
+function oneBracket(c, b, cell){
+  cell = cell || bcell;
   const tierName = (TIER[b.tier]||b.tier);
+  const proj = b.projected;
   const p = derivePodium(b);
-  const pod = (p.champion||p.runnerUp||p.third)
+  const pod = (!proj && (p.champion||p.runnerUp||p.third))
     ? `<div class="bpodium">🏆 <b>${esc(firstNames(p.champion))||"—"}</b><span class="posub"> · RU ${esc(firstNames(p.runnerUp))||"—"} · 3rd ${esc(firstNames(p.third))||"—"}</span></div>` : "";
   const rs = b.rounds||[];
   const last = rs.length-1;
@@ -342,22 +350,41 @@ function oneBracket(c, b){
     const ms = rs[r].matches||[];
     const h = Math.ceil(ms.length/2);
     const part = half==="L" ? ms.slice(0,h) : ms.slice(h);
-    return `<div class="bround"><div class="brh">${roundLabel(rs[r].round,b.numRounds)}</div><div class="brcol">${part.map(m=>bcell(c,m)).join("")}</div></div>`;
+    return `<div class="bround"><div class="brh">${roundLabel(rs[r].round,b.numRounds)}</div><div class="brcol">${part.map(m=>cell(c,m)).join("")}</div></div>`;
   };
   let leftCols="", rightCols="";
   for(let r=0;r<last;r++) leftCols += roundCol(r,"L");
   for(let r=last-1;r>=0;r--) rightCols += roundCol(r,"R");
-  const finalCell = (last>=0 && rs[last] && rs[last].matches[0]) ? bcell(c, rs[last].matches[0]) : "";
-  const bronze = b.bronze ? `<div class="brh third-h">3rd Place</div><div class="brcol">${bcell(c,b.bronze)}</div>` : "";
+  const finalCell = (last>=0 && rs[last] && rs[last].matches[0]) ? cell(c, rs[last].matches[0]) : "";
+  const bronze = b.bronze ? `<div class="brh third-h">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div>` : "";
   const center = `<div class="bround center"><div class="brh">${last>=0?roundLabel(rs[last].round,b.numRounds):"Final"}</div><div class="brcol">${finalCell}</div>${bronze}</div>`;
-  return `<div class="bracket-block">
-    <div class="bt">${esc(c.category)} · ${esc(tierName)}</div>${pod}
+  return `<div class="bracket-block${proj?' proj':''}">
+    <div class="bt">${esc(c.category)} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
     <div class="bracket">${leftCols}${center}${rightCols}</div></div>`;
 }
 function bracketHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoff||[]).length);
   if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
   return cats.map(c => (c.playoff||[]).map(b => oneBracket(c,b)).join("")).join("");
+}
+// Projected (simulated) bracket: placeholder seeds shown before the group stage
+// finishes. Cells carry teamA/teamB labels (e.g. "Winner Grup A") instead of
+// real entrant ids.
+function bteamProj(label){
+  if(!label) return `<div class="bteam tbd"><span class="bnm">TBD</span></div>`;
+  return `<div class="bteam proj"><span class="bnm">${esc(label)}</span></div>`;
+}
+function bcellProj(c,m){
+  const bye=m.status==="BYE";
+  return `<div class="bmatch proj ${bye?'bye':''}">${bteamProj(m.teamA)}${bye?bteamProj(''):bteamProj(m.teamB)}</div>`;
+}
+function hasProjection(){
+  return (state.data.categories||[]).some(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
+}
+function projectionHtml(){
+  const cats = (state.data.categories||[]).filter(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
+  if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
+  return cats.map(c => (c.playoffProjection||[]).map(b => oneBracket(c,b,bcellProj)).join("")).join("");
 }
 // Find a finished bracket (champion decided) to showcase; prefer non-Prospect tiers.
 function finishedPodium(){
@@ -444,6 +471,9 @@ function renderRight(){
   const titleEl=document.getElementById("rightTitle");
   const wrap=document.getElementById("standWrap");
   if(hasPlayoff){ titleEl.textContent="Playoff Bracket"; wrap.innerHTML=bracketHtml(); return; }
+  // Group stage: alternate the right panel between standings and the projected
+  // (simulated) playoff bracket so both get airtime on the LED board.
+  if(RIGHT_ALT && hasProjection()){ titleEl.textContent="Playoff Simulation"; wrap.innerHTML=projectionHtml(); return; }
   titleEl.textContent="Group Standings";
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
   if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; return; }
@@ -609,6 +639,14 @@ async function resolveEventId(){
   EVENT_ID = await resolveEventId();
   if(EVENT_ID){
     setupQR(); load(); setInterval(load,20000); startSponsorCycle();
+    // Alternate the right panel (standings <-> playoff simulation) every 12s while
+    // the group stage is running and a projection is available.
+    setInterval(()=>{
+      if(!state.data) return;
+      const hasPlayoff=(state.data.categories||[]).some(c=>(c.playoff||[]).length);
+      if(hasPlayoff || !hasProjection()) return;
+      RIGHT_ALT=!RIGHT_ALT; renderRight();
+    }, 12000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
   } else {
     document.getElementById("nowWrap").innerHTML='';
