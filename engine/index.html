@@ -462,10 +462,16 @@
       <div class="f"><label>Jumlah court</label><input id="poCourts" type="number" min="1" value="2" /></div>
       <div class="f"><label>Menit / match</label><input id="poMin" type="number" min="5" value="30" /></div>
       <div class="f"><label>Lolos N besar (peringkat keseluruhan)</label><input id="poTopOverall" type="number" min="2" value="8" /></div>
+      <div class="f"><label>Mode simulasi</label>
+        <select id="poSimMode">
+          <option value="group">Per grup (juara/runner-up)</option>
+          <option value="overall">N besar (ranking keseluruhan)</option>
+        </select></div>
     </div>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket (per grup)</button>
       <button type="button" class="btn btn-primary" onclick="generatePlayoffOverall()">Generate N besar (ranking)</button>
+      <button type="button" class="btn btn-ghost" onclick="savePlayoffPlan()">Terapkan mode simulasi</button>
       <button type="button" class="btn btn-ghost" onclick="loadPlayoff()">↻ Muat ulang</button>
     </div>
     <p class="lead" style="margin:8px 2px 0">“Per grup” meloloskan juara/runner-up tiap grup. “N besar (ranking)” meloloskan N tim terbaik dari seluruh grup berdasarkan peringkat (menang → selisih poin → poin masuk).</p>
@@ -1001,6 +1007,17 @@ function generatePlayoffOverall(){
   const n = parseInt(val("poTopOverall")) || 8;
   generatePlayoff(n);
 }
+// Persist which mode the simulation preview should reflect (per grup vs N besar),
+// without generating the real bracket.
+async function savePlayoffPlan(){
+  if(!state.tournament) return;
+  const overall = val("poSimMode")==="overall" ? (parseInt(val("poTopOverall"))||8) : 0;
+  try{
+    await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff-plan", { method:"PUT", body:{ topOverall: overall } });
+    toast(overall>=2 ? ("Simulasi: "+overall+" besar (ranking)") : "Simulasi: per grup");
+    loadPlayoff();
+  }catch(e){ toast(e.message, true); }
+}
 async function generatePlayoff(topOverall){
   if(!state.tournament) return;
   const overall = parseInt(topOverall) || 0;
@@ -1028,6 +1045,10 @@ async function loadPlayoff(){
     const res = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff");
     renderPlayoff(res.brackets||[], res.projection||[]);
     Object.keys(snap).forEach(id=>{ const el=document.getElementById(id); if(el && el.value==="" && snap[id]!=="") el.value=snap[id]; });
+    // Reflect the stored playoff plan in the mode controls.
+    const to = parseInt(res.topOverall)||0;
+    const mEl=document.getElementById("poSimMode"); if(mEl) mEl.value = to>=2 ? "overall" : "group";
+    if(to>=2){ const nEl=document.getElementById("poTopOverall"); if(nEl) nEl.value = to; }
   }catch(e){ toast(e.message, true); }
 }
 function podiumHtml(p){

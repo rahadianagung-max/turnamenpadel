@@ -218,7 +218,7 @@ const T_HEADERS = {
   // Cols A:H are the core event fields. Cols I:M (index 8-12) are reserved for the
   // public feed showcase (status/format/category/url/highlight). Owner lives at col N.
   [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username"],
-  [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At"],
+  [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At", "Playoff_Top_Overall"],
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
@@ -345,6 +345,9 @@ const netlifyHandler = async (event) => {
     }
     if (path === "tournament/repair-match-ids" && method === "POST") return await tRepairMatchIds(body);
     if (path === "tournament/recap" && method === "POST") return await tRecap(body);
+    if (path.startsWith("tournament/") && path.endsWith("/playoff-plan") && method === "PUT") {
+      return await tSetPlayoffPlan(decodeURIComponent(path.replace("tournament/", "").replace("/playoff-plan", "")), body);
+    }
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "POST") {
       return await tGeneratePlayoff(decodeURIComponent(path.replace("tournament/", "").replace("/playoff", "")), body);
     }
@@ -2437,6 +2440,21 @@ function playoffProjectionRankLabel(rank, label) {
   const word = rank === 1 ? "Winner" : rank === 2 ? "Runner-up" : `Peringkat ${rank}`;
   return `${word} Grup ${label}`;
 }
+// Shape one built bracket into the projected-view tier object, mapping each
+// slot token to its human placeholder label via lab().
+function projectionTierView(tier, b, lab) {
+  const view = (m) => ({
+    matchId: "", round: m.round, idx: m.idx, court: "", time: "", date: "",
+    teamA: lab(m.a), teamB: lab(m.b), entrantA: null, entrantB: null,
+    scoreA: "", scoreB: "", winner: "", status: m.status, projected: true,
+  });
+  const rounds = [];
+  for (let rr = 1; rr <= b.numRounds; rr++) {
+    rounds.push({ round: rr, matches: b.matches.filter((m) => parseInt(m.round) === rr).sort((a, c) => a.idx - c.idx).map(view) });
+  }
+  const bronzeM = b.matches.find((m) => String(m.round) === "BRONZE");
+  return { tier, numRounds: b.numRounds, nQual: b.nQual, rounds, bronze: bronzeM ? view(bronzeM) : null, podium: { champion: "", runnerUp: "", third: "" }, projected: true };
+}
 function buildPlayoffProjection(groupsInfo, format, N) {
   // groupsInfo: [{ label, size }] — one entry per group, size = teams in it.
   if (!groupsInfo.length) return [];
@@ -2451,19 +2469,46 @@ function buildPlayoffProjection(groupsInfo, format, N) {
   }));
   const { built } = buildPlayoffTiers(groups, format, N);
   const lab = (id) => (id ? (labelOf[id] || "") : "");
-  return built.map(({ tier, b }) => {
-    const view = (m) => ({
-      matchId: "", round: m.round, idx: m.idx, court: "", time: "", date: "",
-      teamA: lab(m.a), teamB: lab(m.b), entrantA: null, entrantB: null,
-      scoreA: "", scoreB: "", winner: "", status: m.status, projected: true,
-    });
-    const rounds = [];
-    for (let rr = 1; rr <= b.numRounds; rr++) {
-      rounds.push({ round: rr, matches: b.matches.filter((m) => parseInt(m.round) === rr).sort((a, c) => a.idx - c.idx).map(view) });
-    }
-    const bronzeM = b.matches.find((m) => String(m.round) === "BRONZE");
-    return { tier, numRounds: b.numRounds, nQual: b.nQual, rounds, bronze: bronzeM ? view(bronzeM) : null, podium: { champion: "", runnerUp: "", third: "" }, projected: true };
+  return built.map(({ tier, b }) => projectionTierView(tier, b, lab));
+}
+// "Top N overall" projection: a single seeded MAIN bracket with placeholder
+// seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
+// generator. totalTeams caps N so we never project more slots than exist.
+function buildOverallProjection(totalTeams, topN) {
+  const n = Math.min(Math.max(0, topN | 0), Math.max(0, totalTeams | 0));
+  if (n < 2) return [];
+  const labelOf = {}, seeded = [];
+  for (let i = 1; i <= n; i++) { const id = `S${i}`; labelOf[id] = `Unggulan ${i}`; seeded.push(id); }
+  const b = buildBracket(seeded, "MAIN", null);
+  const lab = (id) => (id ? (labelOf[id] || "") : "");
+  return [projectionTierView("MAIN", b, lab)];
+}
+// Pick the projection that matches the tournament's intended playoff plan:
+// top-N overall (seed labels) when topOverall >= 2, else per-group (group labels).
+function playoffProjectionFor(groupsInfo, format, N, topOverall) {
+  if ((topOverall | 0) >= 2) {
+    const total = groupsInfo.reduce((s, g) => s + (g.size || 0), 0);
+    return buildOverallProjection(total, topOverall);
+  }
+  return buildPlayoffProjection(groupsInfo, format, N);
+}
+// Persist the intended playoff plan (col K) so the simulation preview matches
+// how the bracket will be generated: topOverall >= 2 → "N besar" seed bracket,
+// otherwise per-group. Does not generate anything; only drives the projection.
+async function tSetPlayoffPlan(id, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const topOverall = parseInt((body || {}).topOverall) || 0;
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
+  const rows = r.data.values || [], i = rows.findIndex((x) => x[0] === id);
+  if (i === -1) return respond(404, { error: "Tournament not found" });
+  while (rows[i].length < 11) rows[i].push("");
+  rows[i][10] = topOverall >= 2 ? String(topOverall) : "";
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:K${i + 2}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] },
   });
+  return respond(200, { success: true, topOverall: topOverall >= 2 ? topOverall : 0 });
 }
 async function tGeneratePlayoff(id, body) {
   const sheets = getSheets();
@@ -2514,10 +2559,10 @@ async function tGeneratePlayoff(id, body) {
   built.forEach(({ b }) => b.matches.forEach((m) => newRows.push(toRow(m))));
 
   await rewritePlayoffMatches(sheets, id, newRows);
-  await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }).then(async (r) => {
+  await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` }).then(async (r) => {
     const rows = r.data.values || [], i = rows.findIndex((x) => x[0] === id);
-    if (i !== -1) { while (rows[i].length < 8) rows[i].push(""); rows[i][7] = "PLAYOFF";
-      await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:J${i + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] } }); }
+    if (i !== -1) { while (rows[i].length < 11) rows[i].push(""); rows[i][7] = "PLAYOFF"; rows[i][10] = topOverall >= 2 ? String(topOverall) : "";
+      await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:K${i + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] } }); }
   });
   return respond(200, { success: true, format, brackets: summary, schedule: sched });
 }
@@ -2852,8 +2897,11 @@ async function tGetPlayoff(id) {
   const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
   const tRow = (tRes.data.values || []).find((x) => x[0] === id);
   const groupsInfo = Object.keys(groupSize).sort().map((label) => ({ label, size: groupSize[label] }));
-  const projection = buildPlayoffProjection(groupsInfo, (tRow && tRow[4]) || "SINGLE", (tRow && parseInt(tRow[6])) || 2);
-  return respond(200, { brackets: playoffBracketsView(all, nm), projection });
+  const topOverall = (tRow && parseInt(tRow[10])) || 0;
+  const projection = playoffProjectionFor(
+    groupsInfo, (tRow && tRow[4]) || "SINGLE", (tRow && parseInt(tRow[6])) || 2, topOverall,
+  );
+  return respond(200, { brackets: playoffBracketsView(all, nm), projection, topOverall });
 }
 
 // ==============================================================
@@ -2918,9 +2966,9 @@ async function tPublicEvent(eventId, opts) {
     const playoff = playoffBracketsView(tMatches.filter((m) => m.stage === "PLAYOFF"), nm);
     // Projected bracket (placeholder seeds) so spectators can preview the knockout
     // path before the group stage finishes and the real playoff is generated.
-    const playoffProjection = buildPlayoffProjection(
+    const playoffProjection = playoffProjectionFor(
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
-      t[4] || "SINGLE", parseInt(t[6]) || 2,
+      t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
