@@ -2379,6 +2379,77 @@ async function computeTournamentStandings(sheets, id) {
   return out;
 }
 const seedSort = (a, b) => a.rank - b.rank || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf;
+
+// Build the playoff bracket tier(s) from group standings, without touching the
+// sheet. Shared by the real generator (tGeneratePlayoff) and the projection
+// preview (buildPlayoffProjection), so both seed identically (cross-seed when
+// every group has exactly N qualifiers and the group count is a power of 2).
+// Returns { built:[{tier,b}], summary, champCount, prospCount }.
+function buildPlayoffTiers(groups, format, N) {
+  const champCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank <= N).length, 0);
+  const prospCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank > N).length, 0);
+  const built = [], summary = [];
+  const emitTier = (tier, predicate) => {
+    const groupsQual = groups.map((g) => g.standings.filter(predicate).sort((a, b) => a.rank - b.rank).map((s) => s.entrantId));
+    const cross = crossSeedRound1(groupsQual);
+    let b, method;
+    if (cross) { b = bracketFromRound1(cross, tier); method = "cross"; }
+    else {
+      const flat = [];
+      const groupOf = {};
+      groups.forEach((g) => g.standings.filter(predicate).forEach((s) => { flat.push(s); groupOf[s.entrantId] = g.label; }));
+      flat.sort(seedSort);
+      b = buildBracket(flat.map((s) => s.entrantId), tier, groupOf);
+      method = "seed";
+    }
+    built.push({ tier, b });
+    summary.push({ tier, method, entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length });
+  };
+  if (format === "SPLIT") {
+    if (champCount >= 2) emitTier("CHAMPION", (s) => s.rank <= N);
+    if (prospCount >= 2) emitTier("PROSPECT", (s) => s.rank > N);
+  } else {
+    if (champCount >= 2) emitTier("MAIN", (s) => s.rank <= N);
+  }
+  return { built, summary, champCount, prospCount };
+}
+
+// Projected playoff bracket, computed from the group *structure* alone (labels
+// + size + format + advancers), so spectators can preview the knockout path
+// before any group score is in. Slots carry placeholder labels like
+// "Winner Grup A" / "Runner-up Grup C" instead of real teams.
+function playoffProjectionRankLabel(rank, label) {
+  const word = rank === 1 ? "Winner" : rank === 2 ? "Runner-up" : `Peringkat ${rank}`;
+  return `${word} Grup ${label}`;
+}
+function buildPlayoffProjection(groupsInfo, format, N) {
+  // groupsInfo: [{ label, size }] — one entry per group, size = teams in it.
+  if (!groupsInfo.length) return [];
+  const labelOf = {};
+  const groups = groupsInfo.map((g) => ({
+    label: g.label,
+    standings: Array.from({ length: Math.max(0, g.size) }, (_, i) => {
+      const rank = i + 1, id = `${g.label}#${rank}`;
+      labelOf[id] = playoffProjectionRankLabel(rank, g.label);
+      return { entrantId: id, rank, wins: 0, gd: 0, gf: 0 };
+    }),
+  }));
+  const { built } = buildPlayoffTiers(groups, format, N);
+  const lab = (id) => (id ? (labelOf[id] || "") : "");
+  return built.map(({ tier, b }) => {
+    const view = (m) => ({
+      matchId: "", round: m.round, idx: m.idx, court: "", time: "", date: "",
+      teamA: lab(m.a), teamB: lab(m.b), entrantA: null, entrantB: null,
+      scoreA: "", scoreB: "", winner: "", status: m.status, projected: true,
+    });
+    const rounds = [];
+    for (let rr = 1; rr <= b.numRounds; rr++) {
+      rounds.push({ round: rr, matches: b.matches.filter((m) => parseInt(m.round) === rr).sort((a, c) => a.idx - c.idx).map(view) });
+    }
+    const bronzeM = b.matches.find((m) => String(m.round) === "BRONZE");
+    return { tier, numRounds: b.numRounds, nQual: b.nQual, rounds, bronze: bronzeM ? view(bronzeM) : null, podium: { champion: "", runnerUp: "", third: "" }, projected: true };
+  });
+}
 async function tGeneratePlayoff(id, body) {
   const sheets = getSheets();
   await ensureTabs(sheets);
@@ -2404,37 +2475,13 @@ async function tGeneratePlayoff(id, body) {
   sched.courtNums = courtPool.length ? courtPool : parseCourtNumbers(b0.courtNumbers, sched.numCourts);
   sched.numCourts = sched.courtNums.length;
 
-  const champCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank <= N).length, 0);
-  const prospCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank > N).length, 0);
+  const { built, summary, champCount } = buildPlayoffTiers(groups, format, N);
+  if (champCount < 2) {
+    return respond(400, { error: format === "SPLIT" ? "Champion tier perlu minimal 2 tim." : `Perlu minimal 2 tim lolos (top ${N}/grup).` });
+  }
 
   const now = new Date().toISOString();
   const toRow = (m) => [id, genId("MT"), "PLAYOFF", "", m.bracket, m.round, m.court || "", m.idx, m.time || "", m.a || "", m.b || "", "", "", m.winner || "", m.status, now];
-  const summary = [];
-  const built = [];
-  const emitTier = (tier, predicate) => {
-    const groupsQual = groups.map((g) => g.standings.filter(predicate).sort((a, b) => a.rank - b.rank).map((s) => s.entrantId));
-    const cross = crossSeedRound1(groupsQual);
-    let b, method;
-    if (cross) { b = bracketFromRound1(cross, tier); method = "cross"; }
-    else {
-      const flat = [];
-      const groupOf = {};
-      groups.forEach((g) => g.standings.filter(predicate).forEach((s) => { flat.push(s); groupOf[s.entrantId] = g.label; }));
-      flat.sort(seedSort);
-      b = buildBracket(flat.map((s) => s.entrantId), tier, groupOf);
-      method = "seed";
-    }
-    built.push({ tier, b });
-    summary.push({ tier, method, entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length });
-  };
-  if (format === "SPLIT") {
-    if (champCount < 2) return respond(400, { error: "Champion tier perlu minimal 2 tim." });
-    emitTier("CHAMPION", (s) => s.rank <= N);
-    if (prospCount >= 2) emitTier("PROSPECT", (s) => s.rank > N);
-  } else {
-    if (champCount < 2) return respond(400, { error: `Perlu minimal 2 tim lolos (top ${N}/grup).` });
-    emitTier("MAIN", (s) => s.rank <= N);
-  }
 
   schedulePlayoff(built, sched);
   const newRows = [];
@@ -2768,13 +2815,19 @@ async function tGetPlayoff(id) {
   await ensureTabs(sheets);
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
   const names = {};
-  for (const x of (grRes.data.values || [])) if (x[0] === id) names[x[3]] = `${x[4]} + ${x[5]}`;
+  const groupSize = {};
+  for (const x of (grRes.data.values || [])) if (x[0] === id) { names[x[3]] = `${x[4]} + ${x[5]}`; groupSize[x[2]] = (groupSize[x[2]] || 0) + 1; }
   const nm = (eid) => (eid ? (names[eid] || eid) : "");
   const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const all = (mRes.data.values || [])
     .map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }))
     .filter((m) => m.tournamentId === id && m.stage === "PLAYOFF");
-  return respond(200, { brackets: playoffBracketsView(all, nm) });
+  // Projected bracket for previewing the knockout path before it is generated.
+  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const tRow = (tRes.data.values || []).find((x) => x[0] === id);
+  const groupsInfo = Object.keys(groupSize).sort().map((label) => ({ label, size: groupSize[label] }));
+  const projection = buildPlayoffProjection(groupsInfo, (tRow && tRow[4]) || "SINGLE", (tRow && parseInt(tRow[6])) || 2);
+  return respond(200, { brackets: playoffBracketsView(all, nm), projection });
 }
 
 // ==============================================================
@@ -2837,9 +2890,15 @@ async function tPublicEvent(eventId, opts) {
       scoreA: m.scoreA, scoreB: m.scoreB, winner: m.winner, status: m.status, updatedAt: m.updatedAt || "",
     }));
     const playoff = playoffBracketsView(tMatches.filter((m) => m.stage === "PLAYOFF"), nm);
+    // Projected bracket (placeholder seeds) so spectators can preview the knockout
+    // path before the group stage finishes and the real playoff is generated.
+    const playoffProjection = buildPlayoffProjection(
+      groups.map((g) => ({ label: g.label, size: g.standings.length })),
+      t[4] || "SINGLE", parseInt(t[6]) || 2,
+    );
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
-      advancersPerGroup: parseInt(t[6]) || 2, entrants, groups, schedule, playoff,
+      advancersPerGroup: parseInt(t[6]) || 2, entrants, groups, schedule, playoff, playoffProjection,
     };
   });
   // Sponsor logos. "Sponsors" tab:
