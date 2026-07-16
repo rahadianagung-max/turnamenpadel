@@ -145,6 +145,8 @@
   .qchip .qn{flex:1 1 auto; min-width:0; font-size:clamp(11px,.95vw,17px); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .qchip .qn.tbc{color:var(--faint); font-style:italic; font-weight:400;}
   .qchip.ok{border-color:rgba(255,122,26,.5); background:rgba(255,122,26,.08);}
+  .qgblk{margin-bottom:.8vh;}
+  .qgl{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,14px); letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:.4vh;}
   /* winners podium (left column when finished) */
   .winners{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2.2vh;}
   .winners .win-head{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-size:clamp(11px,1vw,17px);}
@@ -392,11 +394,19 @@ function hasProjection(){
   return (state.data.categories||[]).some(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
 }
 // Compact provisional qualification strip for the LED board (clinched vs TBC).
-function tvQualifyPanelHtml(c){
-  const q=c.qualifyPanel; if(!q||!q.slots||!q.slots.length) return "";
-  const chips=q.slots.map(s=>`<div class="qchip ${s.confirmed?'ok':'tbc'}"><span class="qp">${s.pos}</span>`
+function tvQpChips(slots){
+  return slots.map(s=>`<div class="qchip ${s.confirmed?'ok':'tbc'}"><span class="qp">${s.pos}</span>`
     +(s.confirmed?`<span class="qn">${esc(firstNames(s.team))}</span>`:`<span class="qn tbc">TBC</span>`)+`</div>`).join("");
-  return `<div class="qpanel"><div class="qh">Unggulan Sementara &middot; ${q.size} Besar <span class="qsub">${q.confirmed}/${q.size} pasti lolos &middot; TBC = diperebutkan</span></div><div class="qchips">${chips}</div></div>`;
+}
+function tvQualifyPanelHtml(c){
+  const q=c.qualifyPanel; if(!q) return "";
+  if(q.mode==="group"){
+    if(!q.groups||!q.groups.length) return "";
+    const blocks=q.groups.map(g=>`<div class="qgblk"><div class="qgl">Grup ${esc(g.label)}</div><div class="qchips">${tvQpChips(g.slots)}</div></div>`).join("");
+    return `<div class="qpanel"><div class="qh">Lolos Playoff Sementara <span class="qsub">top ${q.perGroupN}/grup &middot; TBC = diperebutkan</span></div>${blocks}</div>`;
+  }
+  if(!q.slots||!q.slots.length) return "";
+  return `<div class="qpanel"><div class="qh">Unggulan Sementara &middot; ${q.size} Besar <span class="qsub">${q.confirmed}/${q.size} pasti lolos &middot; TBC = diperebutkan</span></div><div class="qchips">${tvQpChips(q.slots)}</div></div>`;
 }
 function projectionHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
