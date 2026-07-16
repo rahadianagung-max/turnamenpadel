@@ -2496,6 +2496,39 @@ function projectionFromBrackets(brackets) {
     return projectionTierView(t.tier, bb, lab);
   });
 }
+// Provisional "N besar" qualification panel shown above the bracket while the
+// group stage runs (top-N overall mode). A team's name is revealed only once it
+// has MATHEMATICALLY clinched a top-N spot; contested slots stay "TBC".
+// Clinch test is conservative (wins-based, ties counted as threats) so a name is
+// never shown prematurely. slots are ordered clinched-first then by live ranking.
+function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
+  if (!(N >= 2)) return null;
+  const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
+  const remaining = {};
+  (groupMatches || []).forEach((m) => {
+    if (has(m.scoreA) && has(m.scoreB)) return;
+    if (m.entrantA) remaining[m.entrantA] = (remaining[m.entrantA] || 0) + 1;
+    if (m.entrantB) remaining[m.entrantB] = (remaining[m.entrantB] || 0) + 1;
+  });
+  const flat = [];
+  (groupList || []).forEach((g) => (g.standings || []).forEach((s) => flat.push({
+    entrantId: s.entrantId, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0, rem: remaining[s.entrantId] || 0,
+  })));
+  if (!flat.length) return null;
+  flat.forEach((x) => {
+    const xWorst = x.wins; // assume x loses all its remaining matches
+    let threats = 0;       // teams that could still finish at or above x
+    flat.forEach((y) => { if (y.entrantId !== x.entrantId && (y.wins + y.rem) >= xWorst) threats++; });
+    x.clinched = threats <= (N - 1);
+  });
+  flat.sort((a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf));
+  const slots = [];
+  for (let i = 0; i < N; i++) {
+    const t = flat[i];
+    slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", confirmed: !!(t && t.clinched) });
+  }
+  return { size: N, confirmed: slots.filter((s) => s.confirmed).length, slots };
+}
 // Pick the projection that matches the tournament's intended playoff plan:
 // top-N overall (seed labels) when topOverall >= 2, else per-group (group labels).
 function playoffProjectionFor(groupsInfo, format, N, topOverall) {
@@ -2902,19 +2935,32 @@ async function tGetPlayoff(id) {
   const groupSize = {};
   for (const x of (grRes.data.values || [])) if (x[0] === id) { names[x[3]] = `${x[4]} + ${x[5]}`; groupSize[x[2]] = (groupSize[x[2]] || 0) + 1; }
   const nm = (eid) => (eid ? (names[eid] || eid) : "");
+  // Group membership (entrant ids per label) for standings-based clinch math.
+  const membersByLabel = new Map();
+  for (const x of (grRes.data.values || [])) if (x[0] === id) { const l = x[2]; if (!membersByLabel.has(l)) membersByLabel.set(l, []); membersByLabel.get(l).push(x[3]); }
   const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
-  const all = (mRes.data.values || [])
-    .map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }))
-    .filter((m) => m.tournamentId === id && m.stage === "PLAYOFF");
+  const mapped = (mRes.data.values || []).map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }));
+  const all = mapped.filter((m) => m.tournamentId === id && m.stage === "PLAYOFF");
+  const groupMatches = mapped.filter((m) => m.tournamentId === id && m.stage === "GROUP");
+  const groupList = [...membersByLabel.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([label, ids]) => ({ label, standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids) }));
   // Projected bracket for previewing the knockout path before it is generated.
-  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
   const tRow = (tRes.data.values || []).find((x) => x[0] === id);
   const groupsInfo = Object.keys(groupSize).sort().map((label) => ({ label, size: groupSize[label] }));
   const topOverall = (tRow && parseInt(tRow[10])) || 0;
   const projection = playoffProjectionFor(
     groupsInfo, (tRow && tRow[4]) || "SINGLE", (tRow && parseInt(tRow[6])) || 2, topOverall,
   );
-  return respond(200, { brackets: playoffBracketsView(all, nm), projection, topOverall });
+  // Provisional qualification panel (top-N overall mode, while the group stage runs).
+  const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
+  const groupComplete = groupMatches.length > 0 && groupMatches.every((m) => has(m.scoreA) && has(m.scoreB));
+  let qualifyPanel = null;
+  if (!groupComplete && topOverall >= 2) {
+    const totalTeams = groupList.reduce((s, g) => s + g.standings.length, 0);
+    qualifyPanel = buildQualifyPanel(groupList, groupMatches, Math.min(topOverall, totalTeams), nm);
+  }
+  return respond(200, { brackets: playoffBracketsView(all, nm), projection, topOverall, qualifyPanel, groupComplete });
 }
 
 // ==============================================================
@@ -2991,10 +3037,17 @@ async function tPublicEvent(eventId, opts) {
     );
     const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
+    // Provisional qualification panel (top-N overall mode only), while groups run.
+    const topOverall = parseInt(t[10]) || 0;
+    let qualifyPanel = null;
+    if (!groupComplete && topOverall >= 2) {
+      const totalTeams = groups.reduce((s, g) => s + g.standings.length, 0);
+      qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm);
+    }
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
       advancersPerGroup: parseInt(t[6]) || 2, entrants, groups, schedule,
-      playoff: playoffPublic, playoffProjection, groupComplete,
+      playoff: playoffPublic, playoffProjection, groupComplete, qualifyPanel,
     };
   });
   // Sponsor logos. "Sponsors" tab:

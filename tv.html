@@ -135,6 +135,16 @@
   .bracket-block.proj .bt{color:var(--accent);}
   .bmatch.proj{border-style:dashed;}
   .bteam.proj{color:var(--muted); font-style:italic;}
+  /* provisional qualification strip */
+  .qpanel{flex:0 0 auto; margin-bottom:1.2vh;}
+  .qh{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(14px,1.4vw,24px); margin-bottom:.7vh;}
+  .qh .qsub{font-family:'Space Mono',monospace; font-weight:400; font-size:clamp(9px,.8vw,14px); color:var(--muted); margin-left:.6vw;}
+  .qchips{display:grid; grid-template-columns:repeat(4,1fr); gap:.6vw .6vw;}
+  .qchip{display:flex; align-items:center; gap:.4vw; border:1px solid var(--line); border-radius:8px; padding:.5vh .6vw; min-width:0;}
+  .qchip .qp{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,14px); color:var(--muted); flex:0 0 auto;}
+  .qchip .qn{flex:1 1 auto; min-width:0; font-size:clamp(11px,.95vw,17px); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .qchip .qn.tbc{color:var(--faint); font-style:italic; font-weight:400;}
+  .qchip.ok{border-color:rgba(255,122,26,.5); background:rgba(255,122,26,.08);}
   /* winners podium (left column when finished) */
   .winners{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2.2vh;}
   .winners .win-head{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-size:clamp(11px,1vw,17px);}
@@ -381,10 +391,17 @@ function bcellProj(c,m){
 function hasProjection(){
   return (state.data.categories||[]).some(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
 }
+// Compact provisional qualification strip for the LED board (clinched vs TBC).
+function tvQualifyPanelHtml(c){
+  const q=c.qualifyPanel; if(!q||!q.slots||!q.slots.length) return "";
+  const chips=q.slots.map(s=>`<div class="qchip ${s.confirmed?'ok':'tbc'}"><span class="qp">${s.pos}</span>`
+    +(s.confirmed?`<span class="qn">${esc(firstNames(s.team))}</span>`:`<span class="qn tbc">TBC</span>`)+`</div>`).join("");
+  return `<div class="qpanel"><div class="qh">Unggulan Sementara &middot; ${q.size} Besar <span class="qsub">${q.confirmed}/${q.size} pasti lolos &middot; TBC = diperebutkan</span></div><div class="qchips">${chips}</div></div>`;
+}
 function projectionHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
   if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
-  return cats.map(c => (c.playoffProjection||[]).map(b => oneBracket(c,b,bcellProj)).join("")).join("");
+  return cats.map(c => tvQualifyPanelHtml(c) + (c.playoffProjection||[]).map(b => oneBracket(c,b,bcellProj)).join("")).join("");
 }
 // Find a finished bracket (champion decided) to showcase; prefer non-Prospect tiers.
 function finishedPodium(){
