@@ -205,6 +205,17 @@
   .tier.proj > h3 .tag-tier{background:transparent; color:var(--accent); border:1px solid rgba(255,106,0,.5);}
   .prow.proj{opacity:.9;}
   .prow.proj .pteams .ln{font-style:italic; color:var(--muted);}
+  /* provisional qualification panel */
+  .qpanel{border:1px solid var(--line); border-radius:var(--r-sm); background:#1B1B1F; padding:13px 15px; margin-bottom:18px;}
+  .qhead{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:16px;}
+  .qcap{font-family:'Space Mono',monospace; font-size:10.5px; color:var(--muted); margin:4px 0 11px; line-height:1.5;}
+  .qgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:8px;}
+  .qrow{display:flex; align-items:center; gap:9px; border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 11px; min-width:0;}
+  .qrow .qpos{font-family:'Space Mono',monospace; font-size:12px; color:var(--muted); flex:0 0 auto; width:16px;}
+  .qrow .qnm{flex:1 1 auto; min-width:0; font-size:13.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .qrow .qnm.tbc{color:var(--muted); font-style:italic; font-weight:400;}
+  .qrow .qtag{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:9px; color:var(--accent); letter-spacing:.04em;}
+  .qrow.ok{border-color:rgba(255,106,0,.45); background:rgba(255,106,0,.06);}
   .tier > h3{font-family:'Saira Condensed',sans-serif; font-size:17px; font-weight:700; margin:0 0 10px;
     display:flex; align-items:center; gap:9px;}
   .tier > h3 .tag-tier{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
@@ -1043,7 +1054,7 @@ async function loadPlayoff(){
     const { groups } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/groups");
     buildNames(groups);
     const res = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff");
-    renderPlayoff(res.brackets||[], res.projection||[]);
+    renderPlayoff(res.brackets||[], res.projection||[], res.qualifyPanel||null);
     Object.keys(snap).forEach(id=>{ const el=document.getElementById(id); if(el && el.value==="" && snap[id]!=="") el.value=snap[id]; });
     // Reflect the stored playoff plan in the mode controls.
     const to = parseInt(res.topOverall)||0;
@@ -1123,20 +1134,32 @@ function tierHtml(b, rowFn, showPodium){
     ${bracket}
   </div>`;
 }
-function renderPlayoff(brackets, projection){
+// Provisional qualification panel (clinched names vs TBC), shown above the bracket.
+function qualifyPanelHtml(q){
+  if(!q || !q.slots || !q.slots.length) return "";
+  const rows = q.slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
+    + (s.confirmed ? `<span class="qnm">${esc(s.team)}</span><span class="qtag">✓ Lolos</span>`
+                   : `<span class="qnm tbc">TBC</span>`)
+    + `</div>`).join("");
+  return `<div class="qpanel"><div class="qhead">Unggulan Sementara &middot; ${q.size} Besar</div>`
+    + `<div class="qcap">${q.confirmed}/${q.size} sudah pasti lolos &middot; TBC = masih diperebutkan &middot; urutan final setelah grup selesai</div>`
+    + `<div class="qgrid">${rows}</div></div>`;
+}
+function renderPlayoff(brackets, projection, qualifyPanel){
   const wrap = document.getElementById("playoffWrap");
+  const panel = qualifyPanelHtml(qualifyPanel);
   if(!brackets.length){
     const proj = (projection||[]).filter(b=>(b.rounds||[]).some(r=>(r.matches||[]).length));
     if(proj.length){
-      wrap.innerHTML = `<div class="proj-note">Simulasi bracket — posisi final ditentukan setelah babak grup selesai. Klik “Generate bracket” di atas saat grup sudah selesai untuk membuat bracket asli.</div>`
+      wrap.innerHTML = panel + `<div class="proj-note">Simulasi bracket — posisi final ditentukan setelah babak grup selesai. Klik “Generate bracket” di atas saat grup sudah selesai untuk membuat bracket asli.</div>`
         + proj.map(b=>tierHtml(b, prowProj, false)).join("");
       return;
     }
-    wrap.innerHTML = '<p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p>'; return;
+    wrap.innerHTML = panel || '<p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p>'; return;
   }
   const dEl = document.getElementById("poDate");
   const dateLabel = (dEl && dEl.value) ? `<div class="po-date">Jadwal playoff: ${esc(dEl.value)}</div>` : "";
-  wrap.innerHTML = dateLabel + brackets.map(b=>tierHtml(b, prow, true)).join("");
+  wrap.innerHTML = panel + dateLabel + brackets.map(b=>tierHtml(b, prow, true)).join("");
 }
 async function savePlayoffScore(matchId){
   try{

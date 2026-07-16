@@ -119,6 +119,18 @@
   .tier.proj > h3 .tg{background:transparent; color:var(--accent); border:1px solid rgba(255,122,26,.5);}
   .pmatch.proj{border-style:dashed;}
   .pmatch.proj .pline{color:var(--muted); font-style:italic;}
+  /* provisional qualification panel */
+  .qpanel{border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel); padding:11px 12px; margin:2px 0 16px;}
+  .qhead{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:15px; letter-spacing:.01em;}
+  .qcap{font-family:'Space Mono',monospace; font-size:9.5px; color:var(--faint); margin:3px 0 9px; line-height:1.45;}
+  .qgrid{display:grid; grid-template-columns:1fr 1fr; gap:6px;}
+  .qrow{display:flex; align-items:center; gap:7px; border:1px solid var(--line); border-radius:8px; padding:7px 9px; min-width:0;}
+  .qrow .qpos{font-family:'Space Mono',monospace; font-size:11px; color:var(--faint); flex:0 0 auto; width:14px;}
+  .qrow .qnm{flex:1 1 auto; min-width:0; font-size:12.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .qrow .qnm.tbc{color:var(--faint); font-style:italic; font-weight:400;}
+  .qrow .qtag{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:8.5px; color:var(--accent); letter-spacing:.03em;}
+  .qrow.ok{border-color:rgba(255,122,26,.45); background:rgba(255,122,26,.06);}
+  @media(max-width:380px){ .qgrid{grid-template-columns:1fr;} }
   .picker a{display:block; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel);
     padding:14px 16px; margin-bottom:9px;}
   .picker .pn{font-weight:700; font-size:15px;} .picker .pm{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
@@ -321,13 +333,26 @@ function derivePodium(b){
   if(bm&&bm.status==="DONE"&&bm.winner){ third = String(bm.winner)===String(bm.entrantA)?bm.teamA:bm.teamB; }
   return {champion,runnerUp,third};
 }
+// Provisional qualification panel: confirmed names (clinched a top-N spot) vs TBC.
+function qualifyPanelHtml(cat){
+  const q = cat.qualifyPanel;
+  if(!q || !q.slots || !q.slots.length) return "";
+  const rows = q.slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
+    + (s.confirmed ? `<span class="qnm">${esc(dispPair(s.team))}</span><span class="qtag">✓ Lolos</span>`
+                   : `<span class="qnm tbc">TBC</span>`)
+    + `</div>`).join("");
+  return `<div class="qpanel"><div class="qhead">Unggulan Sementara &middot; ${q.size} Besar</div>`
+    + `<div class="qcap">${q.confirmed}/${q.size} sudah pasti lolos &middot; TBC = masih diperebutkan &middot; urutan final setelah grup selesai</div>`
+    + `<div class="qgrid">${rows}</div></div>`;
+}
 function renderBracket(cat){
+  const panel = qualifyPanelHtml(cat);
   if(!cat.playoff.length){
     const proj = cat.playoffProjection||[];
-    if(proj.some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))) return renderBracketProjection(proj);
-    return '<p class="empty">Playoff bracket not available yet.</p>';
+    if(proj.some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))) return panel + renderBracketProjection(proj);
+    return panel || '<p class="empty">Playoff bracket not available yet.</p>';
   }
-  return cat.playoff.map(b=>{
+  return panel + cat.playoff.map(b=>{
     const pd = derivePodium(b);
     const pod = (pd.champion||pd.runnerUp||pd.third) ? `<div class="podium">
       <div class="pod g"><div class="rk">🏆 Champion</div><div class="who">${esc(dispPair(pd.champion))||"—"}</div></div>
