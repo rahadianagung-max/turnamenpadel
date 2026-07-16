@@ -112,6 +112,13 @@
   .pline .sc{margin-left:auto; font-family:'Space Mono',monospace;}
   .pline .tbd{color:var(--faint); font-style:italic;}
   .empty{color:var(--muted); font-size:13.5px; text-align:center; padding:34px 10px;}
+  /* projected (simulated) bracket */
+  .projnote{font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.02em; color:var(--accent);
+    background:rgba(255,122,26,.08); border:1px dashed rgba(255,122,26,.5); border-radius:var(--r-sm);
+    padding:9px 11px; margin:2px 0 14px; line-height:1.4;}
+  .tier.proj > h3 .tg{background:transparent; color:var(--accent); border:1px solid rgba(255,122,26,.5);}
+  .pmatch.proj{border-style:dashed;}
+  .pmatch.proj .pline{color:var(--muted); font-style:italic;}
   .picker a{display:block; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel);
     padding:14px 16px; margin-bottom:9px;}
   .picker .pn{font-weight:700; font-size:15px;} .picker .pm{font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); margin-top:3px;}
@@ -315,7 +322,11 @@ function derivePodium(b){
   return {champion,runnerUp,third};
 }
 function renderBracket(cat){
-  if(!cat.playoff.length) return '<p class="empty">Playoff bracket not available yet.</p>';
+  if(!cat.playoff.length){
+    const proj = cat.playoffProjection||[];
+    if(proj.some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))) return renderBracketProjection(proj);
+    return '<p class="empty">Playoff bracket not available yet.</p>';
+  }
   return cat.playoff.map(b=>{
     const pd = derivePodium(b);
     const pod = (pd.champion||pd.runnerUp||pd.third) ? `<div class="podium">
@@ -326,6 +337,25 @@ function renderBracket(cat){
     const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE",b.numRounds)}</h4>${pmatch(cat,b.bronze)}</div>`:"";
     return `<div class="tier"><h3><span class="tg">${TIER[b.tier]||b.tier}</span> ${b.nQual} teams</h3>${pod}${rounds}${bronze}</div>`;
   }).join("");
+}
+// Projected bracket: placeholder seeds (e.g. "Winner Grup A" vs "Runner-up Grup C")
+// shown before the group stage finishes. No scores, no tap targets.
+function renderBracketProjection(proj){
+  const note = `<div class="projnote">Simulasi bagan playoff &middot; posisi final ditentukan setelah babak grup selesai</div>`;
+  const body = proj.map(b=>{
+    const rounds = b.rounds.map(r=>`<div class="pround"><h4>${roundLabel(r.round,b.numRounds)}</h4>${r.matches.map(pmatchProj).join("")}</div>`).join("");
+    const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE",b.numRounds)}</h4>${pmatchProj(b.bronze)}</div>`:"";
+    return `<div class="tier proj"><h3><span class="tg">${TIER[b.tier]||b.tier}</span> ${b.nQual} teams</h3>${rounds}${bronze}</div>`;
+  }).join("");
+  return note+body;
+}
+function pmatchProj(m){
+  const bye = m.status==="BYE";
+  const nameA = m.teamA ? esc(m.teamA) : '<span class="tbd">TBD</span>';
+  const nameB = m.teamB ? esc(m.teamB) : (bye ? '' : '<span class="tbd">TBD</span>');
+  return `<div class="pmatch proj ${bye?'bye':''}">
+    <div class="pline"><span class="pnm">${nameA}</span><span class="sc">${bye?'BYE':''}</span></div>
+    <div class="pline"><span class="pnm">${nameB}</span><span class="sc"></span></div></div>`;
 }
 function pmatch(cat,m){
   const bye = m.status==="BYE", done = m.status==="DONE";
