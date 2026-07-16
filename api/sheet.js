@@ -2538,10 +2538,9 @@ function projectionFromBrackets(brackets) {
 // get the true worst case (the old per-team "wins+remaining" bound was far too
 // pessimistic and confirmed almost nobody). Ties in wins are counted as threats,
 // so we never confirm prematurely.
-function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
-  if (!(N >= 2)) return null;
+// Build per-group win/remaining structs aligned with groupList.
+function qpGroupStructs(groupList, groupMatches) {
   const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
-  // Per-group: member ids, current wins, and remaining (unscored) intra-group matches.
   const groups = (groupList || []).map((g) => {
     const ids = (g.standings || []).map((s) => s.entrantId);
     const wins = {}; (g.standings || []).forEach((s) => { wins[s.entrantId] = s.wins || 0; });
@@ -2553,52 +2552,73 @@ function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
     const g = byLabel[m.groupLabel]; if (!g || !m.entrantA || !m.entrantB) return;
     g.rem.push([m.entrantA, m.entrantB]);
   });
+  return groups;
+}
+// Max number of teams (id !== exclude) in group g that can finish with wins >= T
+// over all completions of g's remaining matches. forcedLoser (if set) loses all
+// its remaining matches (used to hold the team under test at its floor).
+const QP_CAP = 16; // enumeration guard (2^16); huge early-stage groups fall back to naive
+function qpGroupMaxAtOrAbove(g, T, exclude, forcedLoser) {
+  const base = {}; g.ids.forEach((id) => { base[id] = g.wins[id] || 0; });
+  const free = [];
+  g.rem.forEach(([a, b]) => {
+    if (forcedLoser && (a === forcedLoser || b === forcedLoser)) { const opp = a === forcedLoser ? b : a; base[opp] = (base[opp] || 0) + 1; }
+    else free.push([a, b]);
+  });
+  const k = free.length;
+  if (k > QP_CAP) { let c = 0; g.ids.forEach((id) => { if (id !== exclude) { const maxW = (base[id] || 0) + free.filter(([a, b]) => a === id || b === id).length; if (maxW >= T) c++; } }); return c; }
+  let best = 0;
+  for (let mask = 0; mask < (1 << k); mask++) {
+    const w = Object.assign({}, base);
+    for (let i = 0; i < k; i++) { const [a, b] = free[i]; const winner = (mask >> i) & 1 ? a : b; w[winner] = (w[winner] || 0) + 1; }
+    let cnt = 0; for (const id of g.ids) { if (id !== exclude && (w[id] || 0) >= T) cnt++; }
+    if (cnt > best) best = cnt;
+  }
+  return best;
+}
+const qpRank = (a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf);
+// Overall "N besar" panel: top-N across all groups by ranking; a name shows only
+// once the team has clinched a top-N overall spot (see clinch note above).
+function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
+  if (!(N >= 2)) return null;
+  const groups = qpGroupStructs(groupList, groupMatches);
   const flat = [];
   (groupList || []).forEach((g, gi) => (g.standings || []).forEach((s) => flat.push({
     entrantId: s.entrantId, gi, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0,
-    rem: groups[gi].rem.filter(([a, b]) => a === s.entrantId || b === s.entrantId).length,
   })));
   if (!flat.length) return null;
-  // Max teams (id !== exclude) in a group that can finish with wins >= T over all
-  // completions of that group's remaining matches. forcedLoser (if set) loses all
-  // of its remaining matches (used to hold the team we're testing at its floor).
-  const CAP = 16; // enumeration guard (2^16); huge early-stage groups fall back to naive
-  function groupMaxAtOrAbove(g, T, exclude, forcedLoser) {
-    const base = {}; g.ids.forEach((id) => { base[id] = g.wins[id] || 0; });
-    const free = [];
-    g.rem.forEach(([a, b]) => {
-      if (forcedLoser && (a === forcedLoser || b === forcedLoser)) { const opp = a === forcedLoser ? b : a; base[opp] = (base[opp] || 0) + 1; }
-      else free.push([a, b]);
-    });
-    const k = free.length;
-    if (k > CAP) { // fallback: independent optimistic bound (safe/over-counts)
-      let c = 0; g.ids.forEach((id) => { if (id !== exclude) { const maxW = (base[id] || 0) + free.filter(([a, b]) => a === id || b === id).length; if (maxW >= T) c++; } });
-      return c;
-    }
-    let best = 0;
-    for (let mask = 0; mask < (1 << k); mask++) {
-      const w = Object.assign({}, base);
-      for (let i = 0; i < k; i++) { const [a, b] = free[i]; const winner = (mask >> i) & 1 ? a : b; w[winner] = (w[winner] || 0) + 1; }
-      let cnt = 0; for (const id of g.ids) { if (id !== exclude && (w[id] || 0) >= T) cnt++; }
-      if (cnt > best) best = cnt;
-    }
-    return best;
-  }
   const genMemo = new Map();
-  const genericMax = (gi, T) => { const key = gi + ":" + T; if (genMemo.has(key)) return genMemo.get(key); const v = groupMaxAtOrAbove(groups[gi], T, null, null); genMemo.set(key, v); return v; };
+  const genericMax = (gi, T) => { const key = gi + ":" + T; if (genMemo.has(key)) return genMemo.get(key); const v = qpGroupMaxAtOrAbove(groups[gi], T, null, null); genMemo.set(key, v); return v; };
   flat.forEach((x) => {
-    const T = x.wins; // x's floor (loses all remaining)
-    let maxAhead = groupMaxAtOrAbove(groups[x.gi], T, x.entrantId, x.entrantId);
+    const T = x.wins;
+    let maxAhead = qpGroupMaxAtOrAbove(groups[x.gi], T, x.entrantId, x.entrantId);
     groups.forEach((g, gi) => { if (gi !== x.gi) maxAhead += genericMax(gi, T); });
     x.clinched = maxAhead <= (N - 1);
   });
-  flat.sort((a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf));
+  flat.sort(qpRank);
   const slots = [];
-  for (let i = 0; i < N; i++) {
-    const t = flat[i];
-    slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", confirmed: !!(t && t.clinched) });
-  }
-  return { size: N, confirmed: slots.filter((s) => s.confirmed).length, slots };
+  for (let i = 0; i < N; i++) { const t = flat[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", confirmed: !!(t && t.clinched) }); }
+  return { mode: "overall", size: N, confirmed: slots.filter((s) => s.confirmed).length, slots };
+}
+// Per-group panel: for each group, the top-N teams that advance. A name shows
+// once the team has clinched a top-N spot WITHIN ITS OWN GROUP (single-group
+// worst case), else "TBC".
+function buildQualifyPanelPerGroup(groupList, groupMatches, N, nameFn) {
+  if (!(N >= 1)) return null;
+  const groups = qpGroupStructs(groupList, groupMatches);
+  const out = [];
+  (groupList || []).forEach((gl, gi) => {
+    const g = groups[gi];
+    const teams = (gl.standings || []).map((s) => ({ entrantId: s.entrantId, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0 }));
+    if (!teams.length) return;
+    teams.forEach((x) => { x.clinched = qpGroupMaxAtOrAbove(g, x.wins, x.entrantId, x.entrantId) <= (N - 1); });
+    teams.sort(qpRank);
+    const slots = [];
+    for (let i = 0; i < N; i++) { const t = teams[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", confirmed: !!(t && t.clinched) }); }
+    out.push({ label: gl.label, confirmed: slots.filter((s) => s.confirmed).length, slots });
+  });
+  if (!out.length) return null;
+  return { mode: "group", perGroupN: N, groups: out };
 }
 // Pick the projection that matches the tournament's intended playoff plan:
 // top-N overall (seed labels) when topOverall >= 2, else per-group (group labels).
@@ -3027,9 +3047,13 @@ async function tGetPlayoff(id) {
   const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
   const groupComplete = groupMatches.length > 0 && groupMatches.every((m) => has(m.scoreA) && has(m.scoreB));
   let qualifyPanel = null;
-  if (!groupComplete && topOverall >= 2) {
-    const totalTeams = groupList.reduce((s, g) => s + g.standings.length, 0);
-    qualifyPanel = buildQualifyPanel(groupList, groupMatches, Math.min(topOverall, totalTeams), nm);
+  if (!groupComplete) {
+    if (topOverall >= 2) {
+      const totalTeams = groupList.reduce((s, g) => s + g.standings.length, 0);
+      qualifyPanel = buildQualifyPanel(groupList, groupMatches, Math.min(topOverall, totalTeams), nm);
+    } else {
+      qualifyPanel = buildQualifyPanelPerGroup(groupList, groupMatches, (tRow && parseInt(tRow[6])) || 2, nm);
+    }
   }
   return respond(200, { brackets: playoffBracketsView(all, nm), projection, topOverall, qualifyPanel, groupComplete });
 }
@@ -3108,12 +3132,17 @@ async function tPublicEvent(eventId, opts) {
     );
     const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
-    // Provisional qualification panel (top-N overall mode only), while groups run.
+    // Provisional qualification panel while groups run: "N besar" overall when a
+    // top-N plan is set, otherwise per-group (top advancersPerGroup of each group).
     const topOverall = parseInt(t[10]) || 0;
     let qualifyPanel = null;
-    if (!groupComplete && topOverall >= 2) {
-      const totalTeams = groups.reduce((s, g) => s + g.standings.length, 0);
-      qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm);
+    if (!groupComplete) {
+      if (topOverall >= 2) {
+        const totalTeams = groups.reduce((s, g) => s + g.standings.length, 0);
+        qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm);
+      } else {
+        qualifyPanel = buildQualifyPanelPerGroup(groups, groupMatches, parseInt(t[6]) || 2, nm);
+      }
     }
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],

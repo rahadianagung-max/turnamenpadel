@@ -130,6 +130,8 @@
   .qrow .qnm.tbc{color:var(--faint); font-style:italic; font-weight:400;}
   .qrow .qtag{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:8.5px; color:var(--accent); letter-spacing:.03em;}
   .qrow.ok{border-color:rgba(255,122,26,.45); background:rgba(255,122,26,.06);}
+  .qgblk{margin-top:10px;}
+  .qglabel{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:5px;}
   @media(max-width:380px){ .qgrid{grid-template-columns:1fr;} }
   .picker a{display:block; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--panel);
     padding:14px 16px; margin-bottom:9px;}
@@ -333,17 +335,27 @@ function derivePodium(b){
   if(bm&&bm.status==="DONE"&&bm.winner){ third = String(bm.winner)===String(bm.entrantA)?bm.teamA:bm.teamB; }
   return {champion,runnerUp,third};
 }
-// Provisional qualification panel: confirmed names (clinched a top-N spot) vs TBC.
-function qualifyPanelHtml(cat){
-  const q = cat.qualifyPanel;
-  if(!q || !q.slots || !q.slots.length) return "";
-  const rows = q.slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
+// Provisional qualification panel: confirmed names (clinched a spot) vs TBC.
+// Supports overall "N besar" mode and per-group mode.
+function qpRows(slots){
+  return slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
     + (s.confirmed ? `<span class="qnm">${esc(dispPair(s.team))}</span><span class="qtag">✓ Lolos</span>`
                    : `<span class="qnm tbc">TBC</span>`)
     + `</div>`).join("");
+}
+function qualifyPanelHtml(cat){
+  const q = cat.qualifyPanel;
+  if(!q) return "";
+  if(q.mode==="group"){
+    if(!q.groups || !q.groups.length) return "";
+    const blocks = q.groups.map(g=>`<div class="qgblk"><div class="qglabel">Grup ${esc(g.label)}</div><div class="qgrid">${qpRows(g.slots)}</div></div>`).join("");
+    return `<div class="qpanel"><div class="qhead">Lolos Playoff Sementara</div>`
+      + `<div class="qcap">Top ${q.perGroupN} tiap grup &middot; ✓ = sudah pasti lolos &middot; TBC = masih diperebutkan</div>${blocks}</div>`;
+  }
+  if(!q.slots || !q.slots.length) return "";
   return `<div class="qpanel"><div class="qhead">Unggulan Sementara &middot; ${q.size} Besar</div>`
     + `<div class="qcap">${q.confirmed}/${q.size} sudah pasti lolos &middot; TBC = masih diperebutkan &middot; urutan final setelah grup selesai</div>`
-    + `<div class="qgrid">${rows}</div></div>`;
+    + `<div class="qgrid">${qpRows(q.slots)}</div></div>`;
 }
 function renderBracket(cat){
   const panel = qualifyPanelHtml(cat);

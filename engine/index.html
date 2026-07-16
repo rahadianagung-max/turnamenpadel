@@ -216,6 +216,8 @@
   .qrow .qnm.tbc{color:var(--muted); font-style:italic; font-weight:400;}
   .qrow .qtag{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:9px; color:var(--accent); letter-spacing:.04em;}
   .qrow.ok{border-color:rgba(255,106,0,.45); background:rgba(255,106,0,.06);}
+  .qgblk{margin-top:12px;}
+  .qglabel{font-family:'Space Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:6px;}
   .tier > h3{font-family:'Saira Condensed',sans-serif; font-size:17px; font-weight:700; margin:0 0 10px;
     display:flex; align-items:center; gap:9px;}
   .tier > h3 .tag-tier{font-family:'Space Mono',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase;
@@ -1135,15 +1137,24 @@ function tierHtml(b, rowFn, showPodium){
   </div>`;
 }
 // Provisional qualification panel (clinched names vs TBC), shown above the bracket.
-function qualifyPanelHtml(q){
-  if(!q || !q.slots || !q.slots.length) return "";
-  const rows = q.slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
+function qpRows(slots){
+  return slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
     + (s.confirmed ? `<span class="qnm">${esc(s.team)}</span><span class="qtag">✓ Lolos</span>`
                    : `<span class="qnm tbc">TBC</span>`)
     + `</div>`).join("");
+}
+function qualifyPanelHtml(q){
+  if(!q) return "";
+  if(q.mode==="group"){
+    if(!q.groups || !q.groups.length) return "";
+    const blocks = q.groups.map(g=>`<div class="qgblk"><div class="qglabel">Grup ${esc(g.label)}</div><div class="qgrid">${qpRows(g.slots)}</div></div>`).join("");
+    return `<div class="qpanel"><div class="qhead">Lolos Playoff Sementara</div>`
+      + `<div class="qcap">Top ${q.perGroupN} tiap grup &middot; ✓ = sudah pasti lolos &middot; TBC = masih diperebutkan</div>${blocks}</div>`;
+  }
+  if(!q.slots || !q.slots.length) return "";
   return `<div class="qpanel"><div class="qhead">Unggulan Sementara &middot; ${q.size} Besar</div>`
     + `<div class="qcap">${q.confirmed}/${q.size} sudah pasti lolos &middot; TBC = masih diperebutkan &middot; urutan final setelah grup selesai</div>`
-    + `<div class="qgrid">${rows}</div></div>`;
+    + `<div class="qgrid">${qpRows(q.slots)}</div></div>`;
 }
 function renderPlayoff(brackets, projection, qualifyPanel){
   const wrap = document.getElementById("playoffWrap");
