@@ -210,7 +210,13 @@ const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&l
 const state = { data:null };
 // Group-stage right-panel toggle: false = standings, true = playoff simulation.
 let RIGHT_ALT = false;
+// Category rotation index for the bracket view when the event has 2+ categories.
+let CAT_ROT = 0;
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
+// Full category names (avoid codes like MD/WD/MIXED on the LED board).
+function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
+// When 2+ categories have content, show only the current one (rotates); else all.
+function rotateCats(list){ return (list && list.length>1) ? [list[CAT_ROT % list.length]] : (list||[]); }
 
 async function api(p){ const r=await fetch(BASE+p); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
@@ -257,11 +263,11 @@ function buildFeed(){
   const d=state.data, feed=[];
   d.categories.forEach(c=>{
     (c.schedule||[]).forEach(m=> feed.push({ key:m.matchId, c, court:m.court, sortKey:(m.slot||0), stage:"GROUP", slot:(m.slot||0),
-      time:m.time, date:m.date||"", updatedAt:m.updatedAt||"", label:`${c.category} · Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
+      time:m.time, date:m.date||"", updatedAt:m.updatedAt||"", label:`${catLabel(c.category)} · Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
     (c.playoff||[]).forEach(b=> (b.rounds||[]).forEach(r=> (r.matches||[]).forEach(m=>{
       if(m.status==="BYE" || !m.entrantA || !m.entrantB) return;
       feed.push({ key:m.matchId, c, court:m.court, sortKey:100000+(parseInt(m.round)||0)*100+(m.idx||0), stage:"PLAYOFF",
-        time:m.time, label:`${c.category} · ${TIER[b.tier]||b.tier}`, eA:m.entrantA, eB:m.entrantB, status:m.status });
+        time:m.time, label:`${catLabel(c.category)} · ${TIER[b.tier]||b.tier}`, eA:m.entrantA, eB:m.entrantB, status:m.status });
     })));
   });
   feed.sort((a,b)=> (a.sortKey-b.sortKey) || ((a.court||0)-(b.court||0)));
@@ -308,7 +314,7 @@ function standHtml(){
         <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Played</th><th>Win</th><th>Lose</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
         <tbody>${rows}</tbody></table></div>`;
     }).join("");
-    return `<div class="cat-block"><div class="cat-head">${esc(c.category)}${cap?`<span class="cat-cap">${cap}</span>`:""}</div>
+    return `<div class="cat-block"><div class="cat-head">${esc(catLabel(c.category))}${cap?`<span class="cat-cap">${cap}</span>`:""}</div>
       <div class="grp-grid" style="grid-template-columns:repeat(${cols},1fr)">${grps}</div></div>`;
   }).join("");
   return out || '<div class="center">No standings yet — enter group scores first.</div>';
@@ -371,13 +377,13 @@ function oneBracket(c, b, cell){
   const bronze = b.bronze ? `<div class="brh third-h">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div>` : "";
   const center = `<div class="bround center"><div class="brh">${last>=0?roundLabel(rs[last].round,b.numRounds):"Final"}</div><div class="brcol">${finalCell}</div>${bronze}</div>`;
   return `<div class="bracket-block${proj?' proj':''}">
-    <div class="bt">${esc(c.category)} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
+    <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
     <div class="bracket">${leftCols}${center}${rightCols}</div></div>`;
 }
 function bracketHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoff||[]).length);
   if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
-  return cats.map(c => (c.playoff||[]).map(b => oneBracket(c,b)).join("")).join("");
+  return rotateCats(cats).map(c => (c.playoff||[]).map(b => oneBracket(c,b)).join("")).join("");
 }
 // Projected (simulated) bracket: placeholder seeds shown before the group stage
 // finishes. Cells carry teamA/teamB labels (e.g. "Winner Grup A") instead of
@@ -411,7 +417,7 @@ function tvQualifyPanelHtml(c){
 function projectionHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
   if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
-  return cats.map(c => tvQualifyPanelHtml(c) + (c.playoffProjection||[]).map(b => oneBracket(c,b,bcellProj)).join("")).join("");
+  return rotateCats(cats).map(c => tvQualifyPanelHtml(c) + (c.playoffProjection||[]).map(b => oneBracket(c,b,bcellProj)).join("")).join("");
 }
 // Find a finished bracket (champion decided) to showcase; prefer non-Prospect tiers.
 function finishedPodium(){
@@ -441,7 +447,7 @@ function winnersHtml(fin){
   const p=fin.pod;
   const tierExtra = (fin.b.tier && fin.b.tier!=="MAIN") ? " · "+(TIER[fin.b.tier]||fin.b.tier) : "";
   return `<div class="winners">
-    <div class="win-head">${esc(fin.c.category)}${esc(tierExtra)}</div>
+    <div class="win-head">${esc(catLabel(fin.c.category))}${esc(tierExtra)}</div>
     ${winnerRow("champ","🏆 Champion", p.champion, "clamp(56px,5.2vw,128px)")}
     ${winnerRow("ru","🥈 Runner-up", p.runnerUp, "clamp(42px,3.6vw,86px)")}
     ${winnerRow("third","🥉 3rd Place", p.third, "clamp(34px,2.8vw,64px)")}
@@ -497,10 +503,17 @@ function renderRight(){
   const hasPlayoff=(state.data.categories||[]).some(c=>(c.playoff||[]).length);
   const titleEl=document.getElementById("rightTitle");
   const wrap=document.getElementById("standWrap");
-  if(hasPlayoff){ titleEl.textContent="Playoff Bracket"; wrap.innerHTML=bracketHtml(); return; }
+  const catSuffix=(list)=> list.length>1 ? " · "+catLabel(list[CAT_ROT % list.length].category) : "";
+  if(hasPlayoff){
+    const bcats=(state.data.categories||[]).filter(c=>(c.playoff||[]).length);
+    titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); return;
+  }
   // Group stage: alternate the right panel between standings and the projected
   // (simulated) playoff bracket so both get airtime on the LED board.
-  if(RIGHT_ALT && hasProjection()){ titleEl.textContent="Playoff Simulation"; wrap.innerHTML=projectionHtml(); return; }
+  if(RIGHT_ALT && hasProjection()){
+    const pcats=(state.data.categories||[]).filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length)));
+    titleEl.textContent="Playoff Simulation"+catSuffix(pcats); wrap.innerHTML=projectionHtml(); return;
+  }
   titleEl.textContent="Group Standings";
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
   if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; return; }
@@ -674,6 +687,15 @@ async function resolveEventId(){
       if(hasPlayoff || !hasProjection()) return;
       RIGHT_ALT=!RIGHT_ALT; renderRight();
     }, 12000);
+    // Rotate the bracket/simulation between categories every 60s when the event
+    // has 2+ categories with content, so each gets full-screen airtime.
+    setInterval(()=>{
+      if(!state.data) return;
+      const cats=state.data.categories||[];
+      const multiPlayoff=cats.filter(c=>(c.playoff||[]).length).length>1;
+      const multiProj=cats.filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))).length>1;
+      if(multiPlayoff || multiProj){ CAT_ROT++; renderRight(); }
+    }, 60000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
   } else {
     document.getElementById("nowWrap").innerHTML='';

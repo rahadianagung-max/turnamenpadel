@@ -211,11 +211,13 @@ function roundLabel(round, numRounds){
   return f===0?"Final":f===1?"Semifinal":f===2?"Quarterfinal":f===3?"Round of 16":"Round "+r;
 }
 
+// Full category names (avoid codes like MD/WD/MIXED on the board).
+function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
 function renderTabs(){
   const cats = state.data.categories;
   // Only show the category switcher when there is more than one category.
   document.getElementById("cattabs").innerHTML = cats.length>1 ? cats.map((c,i)=>
-    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(c.category)}</div>`).join("") : "";
+    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(catLabel(c.category))}</div>`).join("") : "";
   const labels = { schedule:"Schedule", standings:"Group / Standing", bracket:"Bracket" };
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
