@@ -41,6 +41,7 @@
   .col-title.up{margin-top:1.4vh;}
   .col-title.live{color:var(--accent); animation:liveblink 1.4s steps(1,end) infinite;}
   .col-title.live::before{content:"\25CF  ";}
+  .rot-cd{font-family:'Space Mono',monospace; font-size:clamp(9px,.82vw,14px); letter-spacing:.06em; color:var(--muted); margin:-.2vh 0 1vh; flex:0 0 auto;}
   @keyframes liveblink{0%,62%{opacity:1} 63%,100%{opacity:.22}}
   /* avatars */
   .av{ --s:42px; position:relative; width:var(--s); height:var(--s); border-radius:50%; overflow:hidden;
@@ -191,6 +192,7 @@
     </div>
     <div class="right">
       <div class="col-title" id="rightTitle">Group Standings</div>
+      <div class="rot-cd" id="rotCountdown" style="display:none"></div>
       <div id="standWrap"><div class="center">Loading tournament data…</div></div>
     </div>
   </div>
@@ -210,8 +212,11 @@ const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&l
 const state = { data:null };
 // Group-stage right-panel toggle: false = standings, true = playoff simulation.
 let RIGHT_ALT = false;
-// Category rotation index for the bracket view when the event has 2+ categories.
+// Category rotation for the right panel when the event has 2+ categories.
 let CAT_ROT = 0;
+const ROT_MS = 60000;      // 60s per category
+let nextRotAt = 0;         // timestamp of the next category switch (for the countdown)
+let ROT_N = 0;             // categories in the currently shown rotating view (>1 => rotating)
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
 // Full category names (avoid codes like MD/WD/MIXED on the LED board).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
@@ -506,18 +511,18 @@ function renderRight(){
   const catSuffix=(list)=> list.length>1 ? " · "+catLabel(list[CAT_ROT % list.length].category) : "";
   if(hasPlayoff){
     const bcats=(state.data.categories||[]).filter(c=>(c.playoff||[]).length);
-    titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); return;
+    ROT_N=bcats.length; titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); updateRotCountdown(); return;
   }
   // Group stage: alternate the right panel between standings and the projected
   // (simulated) playoff bracket so both get airtime on the LED board.
   if(RIGHT_ALT && hasProjection()){
     const pcats=(state.data.categories||[]).filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length)));
-    titleEl.textContent="Playoff Simulation"+catSuffix(pcats); wrap.innerHTML=projectionHtml(); return;
+    ROT_N=pcats.length; titleEl.textContent="Playoff Simulation"+catSuffix(pcats); wrap.innerHTML=projectionHtml(); updateRotCountdown(); return;
   }
-  titleEl.textContent="Group Standings";
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
-  if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; return; }
-  const blocks=cats.map(c=>{
+  ROT_N=cats.length; titleEl.textContent="Group Standings"+catSuffix(cats);
+  if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
+  const blocks=rotateCats(cats).map(c=>{
     const cap=capFor(c);
     const groups=c.groups.filter(g=>g.standings.length);
     // Two-row layout: 2 groups -> side by side; else fill top row left→right, then
@@ -530,6 +535,16 @@ function renderRight(){
   }).join("");
   wrap.innerHTML=`<div class="fit">${blocks}</div>`;
   fitStandings();
+  updateRotCountdown();
+}
+// Countdown to the next category switch, shown under the panel title.
+function updateRotCountdown(){
+  const el=document.getElementById("rotCountdown");
+  if(!el) return;
+  if(ROT_N<=1){ el.style.display="none"; return; }
+  const rem=Math.max(0, Math.round((nextRotAt-Date.now())/1000));
+  el.style.display="";
+  el.textContent="↻ Next category in "+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
 }
 function render(){
   if(!state.data) return;
@@ -687,15 +702,19 @@ async function resolveEventId(){
       if(hasPlayoff || !hasProjection()) return;
       RIGHT_ALT=!RIGHT_ALT; renderRight();
     }, 12000);
-    // Rotate the bracket/simulation between categories every 60s when the event
-    // has 2+ categories with content, so each gets full-screen airtime.
+    // Rotate the right panel (bracket / simulation / standings) between
+    // categories every 60s when the event has 2+ categories, so each gets
+    // full-screen airtime. A countdown under the title shows the time left.
+    nextRotAt = Date.now() + ROT_MS;
     setInterval(()=>{
       if(!state.data) return;
       const cats=state.data.categories||[];
-      const multiPlayoff=cats.filter(c=>(c.playoff||[]).length).length>1;
-      const multiProj=cats.filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))).length>1;
-      if(multiPlayoff || multiProj){ CAT_ROT++; renderRight(); }
+      const nBracket=cats.filter(c=>(c.playoff||[]).length).length;
+      const nProj=cats.filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))).length;
+      const nStand=cats.filter(c=>c.groups&&c.groups.some(g=>g.standings.length)).length;
+      if(Math.max(nBracket,nProj,nStand)>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
     }, 60000);
+    setInterval(updateRotCountdown, 1000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
   } else {
     document.getElementById("nowWrap").innerHTML='';
