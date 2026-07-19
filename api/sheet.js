@@ -3323,26 +3323,22 @@ async function tFinalizeElo(eventId, force) {
       const vWeek = `W${getWeekNumber(new Date(vDate))}`;
       const catByTid = {};
       for (const t of (trR.data.values || [])) if (t[1] === eventId) catByTid[t[0]] = String(t[2] || "");
-      // Per-player gender so trekkr can tell Men's Doubles (all M) from Fixed Mixed
-      // (M + F per team). Men's/Women's Doubles are uniform; Mixed resolves each
-      // player's own gender from the Players tab (default M when unknown).
-      const genderByName = {};
-      try {
-        const pr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:E` });
-        (pr.data.values || []).forEach((r) => { if (r[0]) genderByName[normName(r[0])] = String(r[4] || "").toUpperCase().startsWith("F") ? "F" : "M"; });
-      } catch (e) {}
-      const genderFor = (name, cat) => {
-        if (cat === "WD") return "F";
-        if (cat === "MD") return "M";
-        return genderByName[normName(name)] || "M"; // MIXED / unknown -> profile gender
+      // Encode the CATEGORY deterministically in the per-player gender columns so
+      // trekkr can separate boards, independent of Players-tab gender data:
+      //   Men's Doubles   -> [M,M,M,M]
+      //   Women's Doubles -> [F,F,F,F]
+      //   Fixed Mixed     -> [M,F,M,F]  (1 M + 1 F per team -> always reads as Mixed)
+      const gendersForCat = (cat) => {
+        if (cat === "WD") return ["F", "F", "F", "F"];
+        if (cat === "MIXED") return ["M", "F", "M", "F"];
+        return ["M", "M", "M", "M"]; // MD / default
       };
       const srcTag = `Trekkr Tournament ${eventId}`;
       const venueRows = [];
       for (const m of ordered) {
         const A = entMap[m.entrantA], B = entMap[m.entrantB];
         if (!A || !B || !A[0] || !B[0]) continue;
-        const cat = catCode(catByTid[m.tournamentId]);
-        const g = [genderFor(A[0], cat), genderFor(A[1], cat), genderFor(B[0], cat), genderFor(B[1], cat)];
+        const g = gendersForCat(catCode(catByTid[m.tournamentId]));
         venueRows.push([vWeek, vDate, A[0], A[1] || "", B[0], B[1] || "", Number(m.scoreA), Number(m.scoreB), g[0], g[1], g[2], g[3], srcTag]);
       }
       await writeTournamentVenueRows(sheets, venueName, venueRows, srcTag);
