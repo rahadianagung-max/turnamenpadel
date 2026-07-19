@@ -3209,18 +3209,20 @@ async function writeTournamentVenueRows(sheets, venueName, rows, sourceTag) {
         spreadsheetId: SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title: tab } } }] },
       });
       await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID, range: `${tab}!A1:J1`, valueInputOption: "USER_ENTERED",
-        requestBody: { values: [["Week", "Date", "P1_Team1", "P2_Team1", "P1_Team2", "P2_Team2", "Score_T1", "Score_T2", "Gender", "Source_URL"]] },
+        spreadsheetId: SHEET_ID, range: `${tab}!A1:M1`, valueInputOption: "USER_ENTERED",
+        requestBody: { values: [["Week", "Date", "P1_Team1", "P2_Team1", "P1_Team2", "P2_Team2", "Score_T1", "Score_T2", "P1_Team1_Gender", "P2_Team1_Gender", "P1_Team2_Gender", "P2_Team2_Gender", "Source_URL"]] },
       });
     }
   } catch (e) { console.error("venue tab create:", e); }
-  // 3) replace only this tournament's prior rows (idempotent), keep everything else
+  // 3) replace only this tournament's prior rows (idempotent), keep everything else.
+  //    Read/clear the full 13-col range; the source tag is col M (index 12) in the
+  //    new layout, but tolerate legacy rows that tagged it in col J (index 9).
   try {
     let existing = [];
-    try { const er = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!A2:J` }); existing = er.data.values || []; } catch (e) {}
-    const kept = existing.filter((r) => (r[9] || "") !== sourceTag);
+    try { const er = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!A2:M` }); existing = er.data.values || []; } catch (e) {}
+    const kept = existing.filter((r) => (r[12] || "") !== sourceTag && (r[9] || "") !== sourceTag);
     const final = kept.concat(rows);
-    await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${tab}!A2:J` });
+    await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${tab}!A2:M` });
     if (final.length) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SHEET_ID, range: `${tab}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: final },
@@ -3321,13 +3323,27 @@ async function tFinalizeElo(eventId, force) {
       const vWeek = `W${getWeekNumber(new Date(vDate))}`;
       const catByTid = {};
       for (const t of (trR.data.values || [])) if (t[1] === eventId) catByTid[t[0]] = String(t[2] || "");
-      const genderOf = (tid) => ((catByTid[tid] || "").toUpperCase().startsWith("W") ? "F" : "M");
+      // Per-player gender so trekkr can tell Men's Doubles (all M) from Fixed Mixed
+      // (M + F per team). Men's/Women's Doubles are uniform; Mixed resolves each
+      // player's own gender from the Players tab (default M when unknown).
+      const genderByName = {};
+      try {
+        const pr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:E` });
+        (pr.data.values || []).forEach((r) => { if (r[0]) genderByName[normName(r[0])] = String(r[4] || "").toUpperCase().startsWith("F") ? "F" : "M"; });
+      } catch (e) {}
+      const genderFor = (name, cat) => {
+        if (cat === "WD") return "F";
+        if (cat === "MD") return "M";
+        return genderByName[normName(name)] || "M"; // MIXED / unknown -> profile gender
+      };
       const srcTag = `Trekkr Tournament ${eventId}`;
       const venueRows = [];
       for (const m of ordered) {
         const A = entMap[m.entrantA], B = entMap[m.entrantB];
         if (!A || !B || !A[0] || !B[0]) continue;
-        venueRows.push([vWeek, vDate, A[0], A[1] || "", B[0], B[1] || "", Number(m.scoreA), Number(m.scoreB), genderOf(m.tournamentId), srcTag]);
+        const cat = catCode(catByTid[m.tournamentId]);
+        const g = [genderFor(A[0], cat), genderFor(A[1], cat), genderFor(B[0], cat), genderFor(B[1], cat)];
+        venueRows.push([vWeek, vDate, A[0], A[1] || "", B[0], B[1] || "", Number(m.scoreA), Number(m.scoreB), g[0], g[1], g[2], g[3], srcTag]);
       }
       await writeTournamentVenueRows(sheets, venueName, venueRows, srcTag);
     }
