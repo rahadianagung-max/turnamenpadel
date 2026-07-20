@@ -214,6 +214,38 @@ const CAT_CODE = {
 function catCode(s) {
   return CAT_CODE[normName(s)] || String(s || "").toUpperCase().trim();
 }
+// Optional skill level that may be written inside a Form_Responses Category cell,
+// so two same-gender categories at different levels (e.g. two Women's Doubles,
+// one Lower Bronze and one Beginner) can be separated on import. Longest phrases
+// first so "upper beginner" / "lower bronze" win over "beginner" / "bronze".
+const LEVEL_WORDS = [
+  ["upper beginner", "upper_beginner"], ["lower bronze", "lower_bronze"],
+  ["upper bronze", "upper_bronze"], ["platinum", "platinum"], ["gold", "gold"],
+  ["silver", "silver"], ["bronze", "bronze"], ["beginner", "beginner"],
+];
+// Parse a category cell into { cat, level }. cat = gender-category code
+// (MD/WD/MIXED), else catCode() passthrough. level = "" when none is present.
+// WD is checked before MD because "women's doubles" contains "men's doubles".
+function parseFormCategory(s) {
+  const n = normName(s);
+  let cat = "";
+  if (/(?:women'?s doubles|womens doubles|\bwd\b)/.test(n)) cat = "WD";
+  else if (/(?:men'?s doubles|mens doubles|\bmd\b)/.test(n)) cat = "MD";
+  else if (/(?:fixed mixed|\bmixed\b)/.test(n)) cat = "MIXED";
+  if (!cat) return { cat: catCode(s), level: "" }; // custom category: legacy passthrough, no level filter
+  let level = "";
+  for (const [word, code] of LEVEL_WORDS) { if (n.includes(word)) { level = code; break; } }
+  return { cat, level };
+}
+// A Form row's level matches a tournament's level when equal; "beginner" is also
+// accepted for an "upper_beginner" tournament (the engine has no plain beginner).
+function levelMatches(rowLevel, tourLevel) {
+  const r = String(rowLevel || "").toLowerCase();
+  const t = String(tourLevel || "").toLowerCase().trim().replace(/\s+/g, "_");
+  if (!r || r === t) return true;
+  if (r === "beginner" && t === "upper_beginner") return true;
+  return false;
+}
 const T_HEADERS = {
   // Cols A:H are the core event fields. Cols I:M (index 8-12) are reserved for the
   // public feed showcase (status/format/category/url/highlight). Owner lives at col N.
@@ -1487,6 +1519,7 @@ async function tImport(id) {
   const t = await tGetTournamentRow(sheets, id);
   if (!t) return respond(404, { error: "Tournament not found" });
   const category = t.tournament.category;
+  const tourLevel = t.tournament.level;
   const startElo = levelToElo(t.tournament.level);
 
   const [pRes, eRes, fRes, enRes, evRes] = await Promise.all([
@@ -1553,7 +1586,9 @@ async function tImport(id) {
   const strictMode = fRows.some(belongsToThis);
 
   for (const f of fRows) {
-    if (catCode(f[1]) !== category) continue;
+    const pc = parseFormCategory(f[1]);
+    if (pc.cat !== category) continue;
+    if (pc.level && !levelMatches(pc.level, tourLevel)) continue;
     if (strictMode ? !belongsToThis(f) : taggedForOther(f)) continue;
     const p1 = resolvePlayer(f[2], f[3]);
     const p2 = resolvePlayer(f[4], f[5]);

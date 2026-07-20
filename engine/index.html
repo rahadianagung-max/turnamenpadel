@@ -389,7 +389,7 @@
   <!-- 3. IMPORT -->
   <section id="sec3" class="locked">
     <div class="sec-head"><div class="num">3</div><h2>Import peserta</h2><span class="sub">dari tab Form_Responses</span></div>
-    <p class="muted">Membaca baris di <code>Form_Responses</code> yang kategorinya cocok, mencocokkan ke database Trekkr (pakai ELO terakhir), dan otomatis membuat pemain baru pada ELO level kategori.</p>
+    <p class="muted">Membaca baris di <code>Form_Responses</code> yang kategorinya cocok, mencocokkan ke database Trekkr (pakai ELO terakhir), dan otomatis membuat pemain baru pada ELO level kategori. Kolom <code>Category</code>: tulis <code>Men's Doubles</code> / <code>Women's Doubles</code> / <code>Fixed Mixed</code>. Jika ada 2 kategori gender sama beda level, tambahkan levelnya, mis. <code>Women's Doubles Lower Bronze</code> dan <code>Women's Doubles Upper Beginner</code>, agar tidak tercampur.</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="runImport()">Import dari Form</button>
       <span class="muted" id="importHint"></span>
