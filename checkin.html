@@ -25,6 +25,8 @@ body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(-
 .hint{color:var(--mu);font-size:14px;margin:0 0 16px;line-height:1.5}
 .cat{margin-bottom:22px}
 .cat>h2{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:18px;letter-spacing:.01em;margin:0 0 4px;color:var(--amb)}
+.catsel{width:100%;margin:0 0 16px;padding:11px 13px;border:1px solid var(--bd2);border-radius:12px;background:var(--s2);color:var(--tx);font:inherit;font-size:15px;font-weight:700;cursor:pointer}
+.catsel:focus{outline:none;border-color:var(--or)}
 .grp{margin-top:12px}
 .grp .gl{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--sb);margin:0 0 8px}
 .pair{background:var(--s1);border:1px solid var(--bd);border-radius:14px;padding:8px;margin-bottom:8px;display:flex;gap:8px}
@@ -156,7 +158,12 @@ const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-
 function slugFromPath(){ const m=/^\/(?:checkin|mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m?decodeURIComponent(m[1]):""; }
 const qs = new URLSearchParams(location.search);
 
-const state = { eventId:null, slug:"", data:null, sel:null, photo:"" };
+const state = { eventId:null, slug:"", data:null, sel:null, photo:"", cat:0 };
+// Full category names + level (avoid codes like MD/WD/MIXED).
+function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner", upper_beginner:"Upper Beginner", lower_bronze:"Lower Bronze", bronze:"Bronze", upper_bronze:"Upper Bronze", silver:"Silver", gold:"Gold", platinum:"Platinum"}[k] || ""; }
+function catFullLabel(c){ const cl=catLabel(c.category), lv=levelLabel(c.level); return lv ? cl+" · "+lv : cl; }
+function setCat(i){ state.cat=parseInt(i)||0; renderList(); }
 
 async function api(path, opts){
   opts=opts||{};
@@ -198,11 +205,16 @@ function renderList(){
   document.getElementById("evName").textContent = d.event.name || "Tournament";
   document.getElementById("evMeta").textContent = [d.event.venue, d.event.date].filter(Boolean).join(" · ");
   const cats = d.categories || [];
-  let html = "";
-  let anyPlayers = false;
-  cats.forEach(cat=>{
+  if(state.cat >= cats.length) state.cat = 0;
+  // Category switcher as a compact dropdown (shown only for 2+ categories).
+  const picker = cats.length>1
+    ? `<select class="catsel" aria-label="Category" onchange="setCat(this.value)">${cats.map((c,i)=>
+        `<option value="${i}" ${i===state.cat?"selected":""}>${esc(catFullLabel(c))}</option>`).join("")}</select>`
+    : "";
+  const cat = cats[state.cat];
+  let inner = "", anyPlayers = false;
+  if(cat){
     const groups = cat.groups && cat.groups.length ? cat.groups : null;
-    let inner = "";
     if(groups){
       groups.forEach(g=>{
         const rows = (g.standings||[]).map(s=>{
@@ -223,10 +235,12 @@ function renderList(){
       }).join("");
       if(rows) inner += `<div class="grp">${rows}</div>`;
     }
-    if(inner) html += `<div class="cat"><h2>${esc(cat.category)}</h2>${inner}</div>`;
-  });
-  document.getElementById("list").innerHTML = anyPlayers ? html
-    : '<p class="empty">Belum ada pemain / grup untuk turnamen ini. Minta admin untuk generate dulu.</p>';
+  }
+  // Show the full category name as a heading only when there's no dropdown.
+  const heading = (cat && cats.length===1) ? `<h2>${esc(catFullLabel(cat))}</h2>` : "";
+  const body = anyPlayers ? `<div class="cat">${heading}${inner}</div>`
+    : '<p class="empty">Belum ada pemain / grup untuk kategori ini. Minta admin untuk generate dulu.</p>';
+  document.getElementById("list").innerHTML = picker + body;
 }
 
 function selectPlayer(name){
