@@ -213,11 +213,15 @@ function roundLabel(round, numRounds){
 
 // Full category names (avoid codes like MD/WD/MIXED on the board).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner", upper_beginner:"Upper Beginner", lower_bronze:"Lower Bronze", bronze:"Bronze", upper_bronze:"Upper Bronze", silver:"Silver", gold:"Gold", platinum:"Platinum"}[k] || ""; }
+// Category tab label incl. level, so same-gender categories at different levels
+// (e.g. two Women's Doubles) can be told apart.
+function catTabLabel(c){ const cl=catLabel(c.category), lv=levelLabel(c.level); return lv ? cl+" · "+lv : cl; }
 function renderTabs(){
   const cats = state.data.categories;
   // Only show the category switcher when there is more than one category.
   document.getElementById("cattabs").innerHTML = cats.length>1 ? cats.map((c,i)=>
-    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(catLabel(c.category))}</div>`).join("") : "";
+    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(catTabLabel(c))}</div>`).join("") : "";
   const labels = { schedule:"Order of Play", standings:"Group / Standing", bracket:"Bracket" };
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
