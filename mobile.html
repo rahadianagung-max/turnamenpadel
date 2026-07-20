@@ -178,7 +178,7 @@ const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const state = { data:null, cat:0, view:"schedule", player:"" };
+const state = { data:null, cat:0, view:"standings", player:"" };
 
 async function api(path){ const r = await fetch(BASE+path); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 
@@ -218,7 +218,7 @@ function renderTabs(){
   // Only show the category switcher when there is more than one category.
   document.getElementById("cattabs").innerHTML = cats.length>1 ? cats.map((c,i)=>
     `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(catLabel(c.category))}</div>`).join("") : "";
-  const labels = { schedule:"Schedule", standings:"Group / Standing", bracket:"Bracket" };
+  const labels = { schedule:"Order of Play", standings:"Group / Standing", bracket:"Bracket" };
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
   </div>
