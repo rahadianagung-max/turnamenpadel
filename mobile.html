@@ -34,6 +34,9 @@
   .tab{flex:0 0 auto; padding:8px 14px; border:1px solid var(--line); border-radius:999px; background:var(--panel);
     font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; white-space:nowrap;}
   .tab.on{background:var(--accent); color:#1a0d06; border-color:var(--accent);}
+  .catsel{flex:0 0 auto; max-width:100%; padding:9px 13px; border:1px solid var(--line); border-radius:999px;
+    background:var(--panel); color:var(--tx); font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;}
+  .catsel:focus{outline:none; border-color:var(--accent);}
   .subtabs{display:flex; gap:0; margin:14px 0 4px; border:1px solid var(--line); border-radius:999px; padding:3px; background:var(--panel);}
   .subtab{flex:1; text-align:center; padding:8px 4px; border-radius:999px; font-size:11.5px; font-weight:600;
     color:var(--muted); cursor:pointer; white-space:nowrap;}
@@ -220,15 +223,18 @@ function catTabLabel(c){ const cl=catLabel(c.category), lv=levelLabel(c.level); 
 function renderTabs(){
   const cats = state.data.categories;
   // Only show the category switcher when there is more than one category.
-  document.getElementById("cattabs").innerHTML = cats.length>1 ? cats.map((c,i)=>
-    `<div class="tab ${i===state.cat?'on':''}" onclick="setCat(${i})">${esc(catTabLabel(c))}</div>`).join("") : "";
+  // Category switcher as a compact dropdown (labels can be long, e.g. with level).
+  document.getElementById("cattabs").innerHTML = cats.length>1
+    ? `<select class="catsel" aria-label="Category" onchange="setCat(this.value)">${cats.map((c,i)=>
+        `<option value="${i}" ${i===state.cat?"selected":""}>${esc(catTabLabel(c))}</option>`).join("")}</select>`
+    : "";
   const labels = { schedule:"Order of Play", standings:"Group / Standing", bracket:"Bracket" };
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
   </div>
   <p class="tap-hint">Klik nama pemain untuk melihat <b>track record</b> di Trekkr.</p>`;
 }
-function setCat(i){ state.cat=i; renderTabs(); renderBody(); }
+function setCat(i){ state.cat=parseInt(i)||0; renderTabs(); renderBody(); }
 function setView(v){ state.view=v; renderTabs(); renderBody(); }
 
 function renderBody(){
