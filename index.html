@@ -42,6 +42,7 @@ a{color:inherit;text-decoration:none}
 .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:22px}
 .tcard{position:relative;display:block;background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:16px 18px;color:var(--tx);text-decoration:none;transition:border-color .15s,transform .1s}
 a.tcard:hover{border-color:var(--or);transform:translateY(-2px)}
+.tcard .tlogo{width:40px;height:40px;border-radius:10px;object-fit:contain;background:#fff;padding:3px;margin-bottom:10px;display:block}
 .tcard .tn{font-family:'Saira Condensed',sans-serif;font-weight:800;font-size:17px;line-height:1.25;padding-right:22px}
 .tcard .tm{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--mu)}
 .tcard .tdate{display:inline-flex;align-items:center;gap:5px;color:var(--amb);background:rgba(255,176,0,.1);border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;letter-spacing:.03em}
@@ -105,7 +106,8 @@ a.tcard:hover .tgo{color:var(--or)}
 <header class="hd"><div class="container inner">
   <span class="brand">Turnamen<b>Padel</b></span>
   <nav class="nav">
-    <a class="btn btn-line btn-sm navcta" href="/admin.html">Admin Login</a>
+    <a class="btn btn-line btn-sm" href="/admin.html">Admin Login</a>
+    <a class="btn btn-line btn-sm navcta" href="/demo.html"><i class="ti ti-cpu"></i> Try the engine</a>
     <a class="btn btn-pr btn-sm navcta" href="/contact"><i class="ti ti-mail"></i> Contact us</a>
   </nav>
 </div></header>
@@ -196,24 +198,30 @@ a.tcard:hover .tgo{color:var(--or)}
 <script>
 (function(){
   var BASE = (location.hostname.indexOf("turnamenpadel")>=0 || location.protocol==="https:") ? "/api" : "https://www.turnamenpadel.com/api";
+  var TRK = "https://trekkr.online/api";
   var esc = function(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); };
-  function fmtDate(d){ if(!d) return ""; var t=new Date(String(d)+"T00:00:00"); if(isNaN(t.getTime())) return String(d); return t.toLocaleDateString("en-US",{day:"numeric",month:"short",year:"numeric"}); }
+  var empty = '<p style="color:var(--mu);font-size:14px">Tournaments coming soon.</p>';
+  // Player count from our own API.
   fetch(BASE+"/landing-stats").then(function(r){return r.json();}).then(function(d){
-    var pc=document.getElementById("statPlayers"), el=document.getElementById("tlist");
-    if(pc && d.playerCount!=null) pc.textContent = Number(d.playerCount).toLocaleString("en-US");
-    var list = d.tournaments || [];
-    if(el){
-      el.innerHTML = list.length ? list.map(function(t){
-        var meta=[];
-        if(t.date)  meta.push('<span class="tdate"><i class="ti ti-calendar-event"></i>'+esc(fmtDate(t.date))+'</span>');
-        if(t.venue) meta.push("<span>"+esc(t.venue)+"</span>");
-        var inner='<div class="tn">'+esc(t.name)+'</div><div class="tm">'+meta.join("")+'</div>';
-        return t.url
-          ? '<a class="tcard" href="'+esc(t.url)+'" target="_blank" rel="noopener">'+inner+'<span class="tgo"><i class="ti ti-external-link"></i></span></a>'
-          : '<div class="tcard">'+inner+'</div>';
-      }).join("") : '<p style="color:var(--mu);font-size:14px">Tournaments coming soon.</p>';
-    }
-  }).catch(function(){ var el=document.getElementById("tlist"); if(el) el.innerHTML=''; });
+    var pc=document.getElementById("statPlayers");
+    if(pc && d && d.playerCount!=null) pc.textContent = Number(d.playerCount).toLocaleString("en-US");
+  }).catch(function(){});
+  // Tournaments & leagues we track — pulled from Trekkr's public API so this list
+  // is identical to trekkr.online/tournament (same shared Tracked_Events tab).
+  fetch(TRK+"/tracked-events").then(function(r){return r.json();}).then(function(d){
+    var el=document.getElementById("tlist"); if(!el) return;
+    var list=(d && d.events) || [];
+    el.innerHTML = list.length ? list.map(function(t){
+      var av = t.logoUrl ? '<img class="tlogo" src="'+esc(t.logoUrl)+'" alt="" onerror="this.style.display=\'none\'"/>' : '';
+      var meta=[];
+      if(t.monthYear) meta.push('<span class="tdate"><i class="ti ti-calendar-event"></i>'+esc(t.monthYear)+'</span>');
+      if(t.location)  meta.push("<span>"+esc(t.location)+"</span>");
+      var inner=av+'<div class="tn">'+esc(t.name)+'</div><div class="tm">'+meta.join("")+'</div>';
+      return t.url
+        ? '<a class="tcard" href="'+esc(t.url)+'" target="_blank" rel="noopener">'+inner+'<span class="tgo"><i class="ti ti-external-link"></i></span></a>'
+        : '<div class="tcard">'+inner+'</div>';
+    }).join("") : empty;
+  }).catch(function(){ var el=document.getElementById("tlist"); if(el) el.innerHTML=empty; });
 })();
 </script>
 </body>
