@@ -306,6 +306,7 @@ const netlifyHandler = async (event) => {
     if (path === "auth/login") return await login(body);
 
     if (path === "players" && method === "GET") return await getPlayers(params);
+    if (path === "landing-stats" && method === "GET") return await getLandingStats();
     if (path === "players" && method === "POST") return await addPlayer(body);
     if (path === "players/update" && method === "PUT") return await updatePlayer(body);
     if (path === "players/claim" && method === "POST") return await claimProfile(body);
@@ -534,6 +535,23 @@ async function login({ username, password }) {
 }
 
 // ── PLAYERS ──
+// Lightweight public stats for the landing page: how many players are in the
+// Trekkr database and the list of tournaments (events) we run/track. One call,
+// only the columns needed, cached at the edge.
+async function getLandingStats() {
+  const sheets = getSheets();
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:A` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` }),
+  ]);
+  const playerCount = (pRes.data.values || []).filter((r) => r[0] && String(r[0]).trim()).length;
+  const tournaments = (eRes.data.values || [])
+    .filter((x) => x[0] && x[1])
+    .map((x) => ({ name: x[1], venue: x[2] || "", date: x[3] || "" }))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));  // newest first
+  return respond(200, { playerCount, tournamentCount: tournaments.length, tournaments },
+    { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" });
+}
 async function getPlayers(params) {
   const sheets = getSheets();
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:K` });
