@@ -143,6 +143,7 @@ const TABS = {
   reg_forms: "RegForms",
   registrations: "Registrations",
   leads: "Tournament_Leads",
+  tracked_events: "Tracked_Events",
 };
 
 const headers = {
@@ -255,6 +256,7 @@ const T_HEADERS = {
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
+  [TABS.tracked_events]: ["Name", "URL", "Date", "Venue"],
 };
 // Create any missing tournament tabs (with header row) so the engine is self-bootstrapping.
 async function ensureTabs(sheets) {
@@ -540,16 +542,16 @@ async function login({ username, password }) {
 // only the columns needed, cached at the edge.
 async function getLandingStats() {
   const sheets = getSheets();
-  const [pRes, eRes] = await Promise.all([
+  // Curated "Tracked_Events" tab: Name | URL | Date | Venue. Missing tab -> [].
+  const [pRes, tRes] = await Promise.all([
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:A` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.tracked_events}!A2:D` }).catch(() => ({ data: { values: [] } })),
   ]);
   const playerCount = (pRes.data.values || []).filter((r) => r[0] && String(r[0]).trim()).length;
-  const tournaments = (eRes.data.values || [])
-    .filter((x) => x[0] && x[1])
-    .map((x) => ({ name: x[1], venue: x[2] || "", date: x[3] || "" }))
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)));  // newest first
-  return respond(200, { playerCount, tournamentCount: tournaments.length, tournaments },
+  const tournaments = (tRes.data.values || [])
+    .filter((x) => x[0] && String(x[0]).trim())
+    .map((x) => ({ name: x[0], url: (x[1] || "").trim(), date: x[2] || "", venue: x[3] || "" }));
+  return respond(200, { playerCount, tournaments },
     { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" });
 }
 async function getPlayers(params) {
