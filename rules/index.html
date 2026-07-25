@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rules — Manual Book PBPI 2025 · TurnamenPadel</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,800;0,900;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont/dist/tabler-icons.min.css"/>
+<style>
+:root{--bg:#0A0A0B;--s1:#141416;--bd:#2A2A2E;--bd2:#37373d;--tx:#F5F5F7;--mu:#A1A1AA;--or:#FF6A00;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:'Plus Jakarta Sans',sans-serif;color:var(--tx);background:var(--bg);display:flex;flex-direction:column}
+a{color:inherit;text-decoration:none}
+.hd{position:sticky;top:0;z-index:20;background:rgba(10,10,11,.85);backdrop-filter:blur(12px);border-bottom:1px solid var(--bd)}
+.hd .inner{max-width:1100px;margin:0 auto;padding:11px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.brand{font-family:'Saira Condensed',sans-serif;font-style:italic;font-weight:900;font-size:20px;text-transform:uppercase;letter-spacing:-.01em}
+.brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+.title{font-size:13px;color:var(--mu);border-left:1px solid var(--bd);padding-left:12px}
+.sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:13px;border-radius:999px;padding:9px 16px;border:1px solid var(--bd2);cursor:pointer}
+.btn.pr{background:var(--or);color:#0A0A0B;border-color:var(--or)}
+.btn.pr:hover{filter:brightness(1.08)}
+.btn.line:hover{border-color:var(--tx)}
+.viewer{flex:1;min-height:0}
+.viewer object{width:100%;height:100%;border:0;display:block}
+.fallback{max-width:520px;margin:64px auto;padding:0 24px;text-align:center;color:var(--mu);line-height:1.6}
+.fallback h1{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;color:var(--tx);font-size:26px;margin:0 0 10px}
+.fallback .btn{margin-top:16px}
+@media(max-width:560px){.title{display:none}.hd .inner{padding:10px 14px}}
+</style>
+</head>
+<body>
+<header class="hd"><div class="inner">
+  <a class="brand" href="/">Turnamen<b>Padel</b></a>
+  <span class="title">Manual Book PBPI 2025</span>
+  <div class="sp"></div>
+  <a class="btn line" href="/"><i class="ti ti-arrow-left"></i> Home</a>
+  <a class="btn pr" href="/rules/PBPI-Manual-Book-2025.pdf" download><i class="ti ti-download"></i> Download PDF</a>
+</div></header>
+<div class="viewer">
+  <object data="/rules/PBPI-Manual-Book-2025.pdf" type="application/pdf">
+    <div class="fallback">
+      <h1>Manual Book PBPI 2025</h1>
+      <p>Peraturan resmi Perkumpulan Besar Padel Indonesia. Browser kamu tidak bisa menampilkan PDF di halaman ini.</p>
+      <a class="btn pr" href="/rules/PBPI-Manual-Book-2025.pdf" target="_blank" rel="noopener"><i class="ti ti-file-text"></i> Buka / Download Manual Book</a>
+    </div>
+  </object>
+</div>
+</body>
+</html>
