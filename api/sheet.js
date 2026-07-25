@@ -102,6 +102,7 @@ async function ensureLeadsTab(sheets) {
     requestBody: { values: [[
       "Timestamp", "Name", "WhatsApp", "Email", "Tournament_Date", "Participants",
       "Category", "Venue", "City", "Package", "Notes", "Status",
+      "Tournament_Days", "Hours_Per_Day", "Courts",
     ]] },
   });
 }
@@ -114,11 +115,12 @@ async function submitLead(body) {
   const now = new Date().toISOString();
   const category = Array.isArray(body.category) ? body.category.join(", ") : String(body.category || "");
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID, range: `${TABS.leads}!A:L`, valueInputOption: "USER_ENTERED",
+    spreadsheetId: SHEET_ID, range: `${TABS.leads}!A:O`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[
       now, name, whatsapp, String(body.email || ""), String(body.date || ""),
       String(body.participants || ""), category, String(body.venue || ""), String(body.city || ""),
       String(body.package || ""), String(body.notes || ""), "new",
+      String(body.days || ""), String(body.hours || ""), String(body.courts || ""),
     ]] },
   });
   return respond(200, { success: true });
