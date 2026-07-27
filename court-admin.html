@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Monitor Lapangan — TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0B; --panel:#141416; --panel2:#1B1B1F; --line:#2A2A2E;
+    --text:#F5F5F7; --muted:#A1A1AA; --faint:#6B6B72;
+    --accent:#FF6A00; --accent2:#FFB000; --danger:#ff6f60; --warn:#ffd166; --ok:#38d39f;
+    --r:14px; --r-sm:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Plus Jakarta Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; line-height:1.5;
+    background-image:radial-gradient(900px 500px at 85% -10%, rgba(255,106,0,.08), transparent 60%); background-attachment:fixed;}
+  .wrap{max-width:1120px; margin:0 auto; padding:22px 18px 90px; position:relative; z-index:1;}
+
+  header{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+  .brand{display:flex; align-items:baseline; gap:11px;}
+  .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:24px; letter-spacing:-.02em;}
+  .logo .dot{color:var(--accent);}
+  .tag{font-family:'Space Mono',monospace; font-size:10.5px; letter-spacing:.16em; text-transform:uppercase; color:var(--faint); border:1px solid var(--line); padding:4px 8px; border-radius:6px;}
+  .hactions{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--muted);}
+  .hactions a{color:var(--muted); text-decoration:none; border:1px solid var(--line); padding:6px 10px; border-radius:8px;}
+  .hactions a:hover{border-color:var(--accent); color:var(--text);}
+  .hactions .who b{color:var(--text);}
+
+  select,input[type=time]{background:#1B1B1F; border:1px solid var(--line); color:var(--text); padding:10px 12px; border-radius:var(--r-sm); font-family:inherit; font-size:14px; outline:none;}
+  select:focus,input:focus{border-color:var(--accent);}
+  .pickrow{display:flex; gap:12px; flex-wrap:wrap; align-items:end; margin-bottom:14px;}
+  .pick label{display:block; font-size:11px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;}
+  .pick select{min-width:280px;}
+
+  .btn{font-family:inherit; font-weight:700; font-size:13.5px; border:none; border-radius:var(--r-sm); padding:10px 15px; cursor:pointer; transition:transform .08s, filter .15s; display:inline-flex; align-items:center; gap:8px;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent); color:var(--bg);} .btn-primary:hover{filter:brightness(1.06);}
+  .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);} .btn-ghost:hover{border-color:var(--accent);}
+  .btn-sm{padding:8px 11px; font-size:12.5px;}
+
+  /* Live-links panel */
+  .links{background:linear-gradient(180deg,var(--panel),var(--panel2)); border:1px solid var(--line); border-radius:var(--r); padding:14px 16px; margin-bottom:18px;}
+  .links h4{margin:0 0 4px; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:16px;}
+  .links .sub{font-size:12.5px; color:var(--muted); margin:0 0 12px;}
+  .linkgrid{display:flex; flex-wrap:wrap; gap:9px;}
+  .linkchip{display:inline-flex; align-items:center; gap:8px; background:#111114; border:1px solid var(--line); border-radius:999px; padding:7px 12px; font-family:'Space Mono',monospace; font-size:12.5px; color:var(--text); cursor:pointer;}
+  .linkchip:hover{border-color:var(--accent);}
+  .linkchip .cn{color:var(--accent2); font-weight:700;}
+  .liveflag{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:var(--ok); background:rgba(56,211,159,.12); border-radius:999px; padding:5px 11px; margin-left:8px;}
+
+  .courts{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px;}
+  .courtcol{background:rgba(255,255,255,.015); border:1px solid var(--line); border-radius:var(--r); padding:12px;}
+  .courthead{display:flex; align-items:center; gap:9px; margin:2px 4px 12px;}
+  .courthead .cn{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:19px;}
+  .courthead .cnt{font-family:'Space Mono',monospace; font-size:11px; color:var(--faint);}
+
+  .mcard{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:11px 12px; margin-bottom:11px;}
+  .mcard.st-done{border-color:rgba(56,211,159,.30);}
+  .mcard.st-live{border-color:rgba(255,176,0,.35);}
+  .mtop{display:flex; align-items:center; gap:7px; margin-bottom:8px; font-family:'Space Mono',monospace; font-size:10.5px; color:var(--muted); flex-wrap:wrap;}
+  .mtop .cat{color:#0A0A0B; background:var(--accent2); font-weight:700; padding:2px 6px; border-radius:5px; font-size:9.5px;}
+  .mtop .badge{margin-left:auto; font-weight:700; font-size:10px; padding:2px 7px; border-radius:999px;}
+  .badge.st-empty{color:var(--faint); border:1px solid var(--line);}
+  .badge.st-done{color:var(--ok); background:rgba(56,211,159,.13);}
+  .badge.st-saving{color:var(--warn); background:rgba(255,209,102,.13);}
+  .badge.st-error{color:var(--danger); background:rgba(255,111,96,.13);}
+
+  .team{display:flex; align-items:center; gap:9px; padding:4px 0;}
+  .team .nm{flex:1; font-size:13.5px; font-weight:600; word-break:break-word;}
+  .team.win .nm{color:var(--accent);}
+  .team .sin{width:52px; text-align:center; font-family:'Space Mono',monospace; font-size:17px; font-weight:700; background:#111114; border:1.5px solid var(--line); color:var(--text); border-radius:9px; padding:7px 4px; outline:none;}
+  .team .sin:focus{border-color:var(--accent);}
+  .sep{height:1px; background:var(--line); margin:1px 0;}
+  .sched{display:flex; align-items:center; gap:7px; margin-top:9px; flex-wrap:wrap;}
+  .sched label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--faint);}
+  .sched select,.sched input{padding:6px 8px; font-size:12.5px; border-radius:8px;}
+  .sched select{min-width:64px;}
+  .sched input[type=time]{width:104px;}
+  .mactions{display:flex; gap:7px; margin-top:9px;}
+  .mactions .btn{flex:1; justify-content:center;}
+
+  .empty{color:var(--muted); font-size:13.5px; padding:14px 4px;}
+  .empty.err{color:var(--danger);}
+  #toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); z-index:50; background:#1c1c20; border:1px solid var(--line); border-left:3px solid var(--accent); color:var(--text); padding:12px 18px; border-radius:10px; font-size:13.5px; box-shadow:0 10px 30px rgba(0,0,0,.4); opacity:0; transition:opacity .2s, transform .2s; max-width:90vw;}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  #toast.err{border-left-color:var(--danger);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="logo">Turnamen<span class="dot">Padel</span></span><span class="tag">Monitor Lapangan</span></div>
+    <div class="hactions">
+      <span class="who">Admin: <b id="who">—</b></span>
+      <a href="/score">Input Skor</a>
+      <a href="/engine">Engine</a>
+      <a href="#" onclick="logout();return false;">Keluar</a>
+    </div>
+  </header>
+
+  <div class="pickrow">
+    <div class="pick">
+      <label>Event</label>
+      <select id="eventSelect" onchange="onPickEvent(this.value)"><option value="">— pilih event —</option></select>
+    </div>
+    <button type="button" class="btn btn-ghost" onclick="reload()">↻ Muat ulang</button>
+  </div>
+
+  <div class="links" id="linksPanel" style="display:none;">
+    <h4>Link skor per lapangan <span id="liveFlag"></span></h4>
+    <p class="sub">Bagikan link ini ke penjaga tiap lapangan — tanpa login. Klik untuk menyalin. Tekan “Set Live” agar link pendek <code>/court1</code> menunjuk ke event ini.</p>
+    <div class="linkgrid" id="linkGrid"></div>
+    <div style="margin-top:12px;"><button type="button" class="btn btn-primary btn-sm" id="setLiveBtn" onclick="setLive()">Set event ini sebagai Live</button></div>
+  </div>
+
+  <div id="courtsWrap"><p class="empty">Pilih event untuk memonitor lapangan.</p></div>
+</div>
+<div id="toast"></div>
+
+<script>
+let SESSION=null;
+try{ SESSION=JSON.parse(sessionStorage.getItem("tp_session")||localStorage.getItem("tp_session")||"null"); }catch(e){}
+if(!SESSION || !SESSION.username){ location.replace("/admin.html"); }
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const ORIGIN = location.origin;
+const LEVEL={beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+
+const state={ session:SESSION, events:[], eventId:"", event:null, matches:[], liveEventId:"", numCourts:1 };
+
+const $=id=>document.getElementById(id);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const isInt=v=>/^\d+$/.test(String(v).trim());
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function cssid(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,"_"); }
+function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const p=s.split(/[:.]/); let h=parseInt(p[0],10),m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m))m=0; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
+function tkey(t){ const s=fmtTime(t); if(!s) return 1e9; const [h,m]=s.split(":"); return (parseInt(h)||0)*60+(parseInt(m)||0); }
+function toast(msg,isErr){ const t=$("toast"); t.textContent=msg; t.className=isErr?"err show":"show"; clearTimeout(t._t); t._t=setTimeout(()=>{ t.className=t.className.replace("show","").trim(); },3200); }
+function logout(){ try{ sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session"); }catch(e){} location.replace("/admin.html"); }
+
+async function rawFetch(path,opts={}){ const res=await fetch(`${BASE}/${path}`,{ method:opts.method||"GET", headers:{"Content-Type":"application/json"}, body:opts.body?JSON.stringify(opts.body):undefined }); let data={}; try{ data=await res.json(); }catch(e){} return {res,data}; }
+async function api(path,opts={}){ const {res,data}=await rawFetch(path,opts); if(!res.ok){ const e=new Error(data.error||`HTTP ${res.status}`); e.status=res.status; throw e; } return data; }
+async function apiWithRetry(path,opts={},tries=4){ let delay=500,lastErr; for(let i=0;i<tries;i++){ try{ const {res,data}=await rawFetch(path,opts); if(res.ok) return data; if(res.status>=500||res.status===429){ lastErr=new Error(data.error||`HTTP ${res.status}`);} else { const e=new Error(data.error||`HTTP ${res.status}`); e.status=res.status; e.fatal=true; throw e; } }catch(e){ if(e.fatal) throw e; lastErr=e; } if(i<tries-1){ await sleep(delay); delay=Math.min(delay*2,4000);} } throw lastErr; }
+
+function catLabel(c){ return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed"}[c]||c||""; }
+function roundLabel(round,numRounds){ if(String(round)==="BRONZE") return "Juara 3"; const r=parseInt(round),fe=numRounds-r; if(fe===0)return"Final"; if(fe===1)return"Semifinal"; if(fe===2)return"Perempat Final"; if(fe===3)return"16 Besar"; return "Babak "+r; }
+
+// ---- events ----
+async function loadEvents(){
+  const s=state.session||{};
+  const q="?admin="+encodeURIComponent(s.username||"")+"&role="+encodeURIComponent(s.role||"");
+  const [{events}, settingsRes] = await Promise.all([
+    api("tournament/events"+q),
+    api("settings").catch(()=>({settings:{}})),
+  ]);
+  state.events=events||[];
+  state.liveEventId=(settingsRes.settings&&settingsRes.settings.liveEventId)||"";
+  const sel=$("eventSelect");
+  sel.innerHTML='<option value="">— pilih event —</option>'+state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
+  // default: remembered -> live -> newest
+  let def=localStorage.getItem("tp_court_admin_event")||"";
+  if(!(def && state.events.some(e=>e.eventId===def))) def=(state.liveEventId && state.events.some(e=>e.eventId===state.liveEventId))?state.liveEventId:(state.events[0]&&state.events[0].eventId)||"";
+  if(def){ sel.value=def; await onPickEvent(def); }
+}
+async function onPickEvent(eventId){
+  state.eventId=eventId; state.matches=[]; state.event=null;
+  if(!eventId){ $("courtsWrap").innerHTML='<p class="empty">Pilih event.</p>'; $("linksPanel").style.display="none"; localStorage.removeItem("tp_court_admin_event"); return; }
+  localStorage.setItem("tp_court_admin_event",eventId);
+  await load();
+}
+function flatten(payload){
+  const out=[];
+  (payload.categories||[]).forEach(cat=>{
+    const clabel=catLabel(cat.category)+(cat.level?(" "+(LEVEL[cat.level]||cat.level)):"");
+    (cat.schedule||[]).forEach(m=>{
+      out.push({ kind:"group", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:parseInt(m.court)||0, slot:m.slot||0, time:m.time||"",
+        label:"Grup "+(m.groupLabel||""), nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status });
+    });
+    (cat.playoff||[]).forEach(b=>{
+      const push=(m,slot,label)=>{ if(!m||!m.entrantA||!m.entrantB) return; out.push({ kind:"playoff", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:parseInt(m.court)||0, slot:slot, time:m.time||"", label:label, nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status }); };
+      (b.rounds||[]).forEach(r=>(r.matches||[]).forEach(m=>push(m,(parseInt(m.round)||0)*100+(m.idx||0),roundLabel(m.round,b.numRounds))));
+      if(b.bronze) push(b.bronze,99999,"Juara 3");
+    });
+  });
+  return out;
+}
+async function load(){
+  $("courtsWrap").innerHTML='<p class="empty">Memuat…</p>';
+  try{
+    const payload=await api(`tournament/event/${encodeURIComponent(state.eventId)}/public?live=1`);
+    state.event=payload.event||null;
+    state.numCourts=Math.max(1,(payload.event&&payload.event.numCourts)||1);
+    state.matches=flatten(payload);
+    renderLinks(); render();
+  }catch(e){ $("courtsWrap").innerHTML=`<p class="empty err">Gagal memuat: ${esc(e.message)}</p>`; }
+}
+function courtNumbers(){
+  const set=new Set();
+  for(let i=1;i<=state.numCourts;i++) set.add(i);
+  state.matches.forEach(m=>{ if(m.court>0) set.add(m.court); });
+  return [...set].sort((a,b)=>a-b);
+}
+function renderLinks(){
+  const nums=courtNumbers();
+  const isLive=state.liveEventId===state.eventId;
+  $("liveFlag").innerHTML=isLive?'<span class="liveflag"><i>●</i> LIVE</span>':'';
+  $("setLiveBtn").textContent=isLive?"Event ini sudah Live ✓":"Set event ini sebagai Live";
+  $("setLiveBtn").disabled=isLive;
+  const suffix=isLive?"":("?e="+encodeURIComponent(state.eventId));
+  $("linkGrid").innerHTML=nums.map(n=>{
+    const url=ORIGIN+"/court"+n+suffix;
+    return `<span class="linkchip" title="Klik untuk menyalin" onclick="copyLink('${esc(url)}')"><span class="cn">/court${n}</span> ${isLive?"":'<span style="color:var(--faint)">'+esc(suffix)+'</span>'}</span>`;
+  }).join("");
+  $("linksPanel").style.display="";
+}
+function copyLink(url){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast("Link disalin: "+url)).catch(()=>toast(url)); }
+async function setLive(){
+  try{ await api("settings",{method:"POST",body:{key:"liveEventId",value:state.eventId}}); state.liveEventId=state.eventId; renderLinks(); toast("Event ini kini Live — link /court1 dst menunjuk ke sini ✓"); }
+  catch(e){ toast("Gagal: "+e.message,true); }
+}
+
+const byCid={};
+function render(){
+  const wrap=$("courtsWrap");
+  const nums=courtNumbers();
+  const unassigned=state.matches.filter(m=>!m.court);
+  const cols=nums.map(n=>({ n, list:state.matches.filter(m=>m.court===n).sort((a,b)=>tkey(a.time)-tkey(b.time)||a.slot-b.slot) }));
+  if(unassigned.length) cols.push({ n:0, list:unassigned.sort((a,b)=>tkey(a.time)-tkey(b.time)||a.slot-b.slot) });
+  wrap.innerHTML=`<div class="courts">`+cols.map(col=>{
+    const title=col.n?`Lapangan ${col.n}`:"Tanpa lapangan";
+    const body=col.list.length?col.list.map(m=>mcard(m,nums)).join(""):'<p class="empty">Belum ada match.</p>';
+    return `<div class="courtcol"><div class="courthead"><span class="cn">${esc(title)}</span><span class="cnt">${col.list.length} match</span></div>${body}</div>`;
+  }).join("")+`</div>`;
+  cols.forEach(col=>col.list.forEach(initStatus));
+}
+function mcard(m,nums){
+  const cid=cssid(m.matchId); byCid[cid]=m;
+  const has=v=>v!=="" && v!=null;
+  const sa=has(m.scoreA)?esc(String(m.scoreA)):"", sb=has(m.scoreB)?esc(String(m.scoreB)):"";
+  const done=m.status==="DONE";
+  const aw=done&&String(m.winner)===String(m.entrantA), bw=done&&String(m.winner)===String(m.entrantB);
+  const opts=nums.map(n=>`<option value="${n}" ${n===m.court?"selected":""}>${n}</option>`).join("")+(m.court?"":`<option value="0" selected>—</option>`);
+  return `<div class="mcard ${done?'st-done':''}" id="card-${cid}">
+    <div class="mtop"><span class="cat">${esc(m.cat)}</span><span>${esc(m.label)}</span><span class="badge" id="badge-${cid}"></span></div>
+    <div class="team ${aw?'win':''}" id="row-a-${cid}"><span class="nm">${esc(m.nameA)}</span><input class="sin" id="a-${cid}" type="number" inputmode="numeric" min="0" value="${sa}"></div>
+    <div class="sep"></div>
+    <div class="team ${bw?'win':''}" id="row-b-${cid}"><span class="nm">${esc(m.nameB)}</span><input class="sin" id="b-${cid}" type="number" inputmode="numeric" min="0" value="${sb}"></div>
+    <div class="sched">
+      <label>Lap</label><select id="ct-${cid}">${opts}</select>
+      <label>Jam</label><input type="time" id="tm-${cid}" value="${esc(fmtTime(m.time))}">
+    </div>
+    <div class="mactions">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="saveMeta('${cid}')">Simpan jadwal</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="saveScore('${cid}')">${done?"Revisi skor":"Simpan skor"}</button>
+    </div>
+  </div>`;
+}
+function initStatus(m){ const cid=cssid(m.matchId); const b=$("badge-"+cid); if(!b) return; if(m.status==="DONE"){ b.textContent="✓ Selesai"; b.className="badge st-done"; } else { b.textContent="Belum diskor"; b.className="badge st-empty"; } }
+function setBadge(cid,st,label){ const b=$("badge-"+cid); if(b){ b.textContent=label; b.className="badge st-"+st; } }
+
+async function saveScore(cid){
+  const m=byCid[cid]; if(!m) return;
+  const a=$("a-"+cid).value.trim(), b=$("b-"+cid).value.trim();
+  if(a==="" && b===""){ toast("Isi skor kedua tim",true); return; }
+  if(a==="" || b===""){ toast("Skor kedua tim harus diisi",true); return; }
+  if(!isInt(a)||!isInt(b)){ toast("Skor harus angka bulat",true); return; }
+  const na=+a, nb=+b;
+  if(na===nb && !confirm("Skor sama — simpan sebagai seri?")) return;
+  setBadge(cid,"saving","⟳ Menyimpan…");
+  const path=m.kind==="playoff"?"tournament/playoff/match":"tournament/match";
+  try{
+    await apiWithRetry(path,{method:"PUT",body:{matchId:m.matchId,tournamentId:m.tid,scoreA:a,scoreB:b}});
+    const aw=na>nb,bw=nb>na;
+    $("row-a-"+cid).classList.toggle("win",aw); $("row-b-"+cid).classList.toggle("win",bw);
+    $("card-"+cid).classList.add("st-done"); setBadge(cid,"done","✓ Selesai");
+    toast(na===nb?"Skor seri tersimpan":`Tersimpan — ${aw?m.nameA:m.nameB}`);
+    if(m.kind==="playoff") setTimeout(reload,600); // bracket may advance
+  }catch(e){ setBadge(cid,"error","⚠ Gagal"); toast("Gagal simpan skor: "+e.message,true); }
+}
+async function saveMeta(cid){
+  const m=byCid[cid]; if(!m) return;
+  const court=$("ct-"+cid).value, time=$("tm-"+cid).value;
+  setBadge(cid,"saving","⟳ Menyimpan…");
+  try{
+    await apiWithRetry("tournament/match/meta",{method:"PUT",body:{matchId:m.matchId,tournamentId:m.tid,court:court,time:time}});
+    toast("Jadwal tersimpan");
+    reload();
+  }catch(e){ initStatus(m); toast("Gagal simpan jadwal: "+e.message,true); }
+}
+function reload(){ if(state.eventId) load(); }
+
+$("who").textContent=(state.session&&state.session.username)||"—";
+loadEvents().catch(e=>toast(e.message,true));
+setInterval(()=>{ if(state.eventId && !(document.activeElement&&document.activeElement.classList&&(document.activeElement.classList.contains("sin")||document.activeElement.tagName==="SELECT"||document.activeElement.type==="time"))) load(); }, 30000);
+</script>
+</body>
+</html>
