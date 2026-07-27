@@ -381,7 +381,7 @@ async function loadMatches(){
     // entrant names
     state.names = {};
     (groupsRes.groups||[]).forEach(g => (g.members||[]).forEach(m => {
-      if(m && m.entrantId) state.names[m.entrantId] = `${m.player1Name} + ${m.player2Name}`;
+      if(m && m.entrantId) state.names[m.entrantId] = m.display || `${m.player1Name} + ${m.player2Name}`;
     }));
     render(matchesRes.matches||[], playoffRes.brackets||[]);
   }catch(e){ $("matchesWrap").innerHTML = `<p class="empty">Gagal memuat: ${esc(e.message)}. Klik “Muat ulang”.</p>`; }

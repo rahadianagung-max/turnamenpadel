@@ -176,6 +176,20 @@ function levelToElo(level) {
 function normName(s) {
   return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
+// Platform-wide display rule: every tournament VIEW shows a player's Display_Name
+// (Players col D), not the raw registered name. Editable entrant fields keep the
+// raw name (needed for matching/ELO); only display labels are resolved here.
+// Returns a Map(normName(rawName) -> displayName). Missing player -> raw name kept.
+async function loadDisplayNames(sheets) {
+  const map = new Map();
+  try {
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:D` });
+    for (const row of (r.data.values || [])) { if (row[0]) map.set(normName(row[0]), String(row[3] || row[0])); }
+  } catch (e) { /* Players tab optional */ }
+  return map;
+}
+function displayName(map, raw) { if (raw == null || raw === "") return raw || ""; return (map && map.get(normName(raw))) || raw; }
+function displayPair(map, p1, p2) { return `${displayName(map, p1)} + ${displayName(map, p2)}`; }
 // Merge a club/venue name into an existing comma-separated clubs string.
 // Returns the new joined string, or null if the club was already present (no change).
 function mergeClub(existing, clubName) {
@@ -1758,11 +1772,14 @@ async function tGetGroups(id) {
   await ensureTabs(sheets);
   const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
   const rows = (r.data.values || []).filter((x) => x[0] === id);
+  const dmap = await loadDisplayNames(sheets);
   const map = new Map();
   for (const x of rows) {
     const label = x[2] || "?";
     if (!map.has(label)) map.set(label, []);
-    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0 });
+    // player1Name/player2Name stay raw (the engine's entrant-edit inputs bind to
+    // them); `display` is the view label (Display_Name) for scoring/read surfaces.
+    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0, display: displayPair(dmap, x[4], x[5]) });
   }
   const groups = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, members]) => ({
     label, size: members.length, matches: (members.length * (members.length - 1)) / 2, members,
@@ -2249,8 +2266,9 @@ async function tGetEventSchedule(eventId) {
   const catByTid = {};
   for (const x of trs) catByTid[x[0]] = x[2];
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const dmap = await loadDisplayNames(sheets);
   const names = {};
-  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = `${x[4]} + ${x[5]}`;
+  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = displayPair(dmap, x[4], x[5]);
   const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const matches = (mRes.data.values || []).filter((x) => tids.includes(x[0]) && x[2] === "GROUP").map((x) => ({
     ...mapMatchRow(x), category: catByTid[x[0]] || "", teamA: names[x[9]] || x[9], teamB: names[x[10]] || x[10],
@@ -2305,12 +2323,13 @@ async function tGetStandings(id) {
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
   const grRows = (grRes.data.values || []).filter((x) => x[0] === id);
   if (!grRows.length) return respond(200, { groups: [] });
+  const dmap = await loadDisplayNames(sheets);
   const names = {}, members = new Map();
   for (const x of grRows) {
     const label = x[2];
     if (!members.has(label)) members.set(label, []);
     members.get(label).push(x[3]);
-    names[x[3]] = `${x[4]} + ${x[5]}`;
+    names[x[3]] = displayPair(dmap, x[4], x[5]);
   }
   const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
   const matches = (mRes.data.values || []).filter((x) => x[0] === id && x[2] === "GROUP").map(mapMatchRow);
@@ -2927,8 +2946,9 @@ async function eventCatsAndNames(sheets, eventId) {
   const catByTid = {};
   trs.forEach((x) => { catByTid[x[0]] = x[2] || ""; });
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const dmap = await loadDisplayNames(sheets);
   const names = {};
-  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = `${x[4] || ""} + ${x[5] || ""}`;
+  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = displayPair(dmap, x[4], x[5]);
   return { tids, catByTid, names };
 }
 
@@ -3116,9 +3136,10 @@ async function tGetPlayoff(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const dmap = await loadDisplayNames(sheets);
   const names = {};
   const groupSize = {};
-  for (const x of (grRes.data.values || [])) if (x[0] === id) { names[x[3]] = `${x[4]} + ${x[5]}`; groupSize[x[2]] = (groupSize[x[2]] || 0) + 1; }
+  for (const x of (grRes.data.values || [])) if (x[0] === id) { names[x[3]] = displayPair(dmap, x[4], x[5]); groupSize[x[2]] = (groupSize[x[2]] || 0) + 1; }
   const nm = (eid) => (eid ? (names[eid] || eid) : "");
   // Group membership (entrant ids per label) for standings-based clinch math.
   const membersByLabel = new Map();
@@ -3198,7 +3219,8 @@ async function tPublicEvent(eventId, opts) {
       entrants[x[3]] = { player1: x[4] || "", player2: x[5] || "", seedElo: parseInt(x[6]) || 0 };
       const l = x[2]; if (!members.has(l)) members.set(l, []); members.get(l).push(x[3]);
     }
-    const nm = (eid) => { const e = entrants[eid]; return e ? `${e.player1} + ${e.player2}` : (eid || ""); };
+    const pd = (raw) => { const p = players[normName(raw)]; return (p && p.display) || raw || ""; };
+    const nm = (eid) => { const e = entrants[eid]; return e ? `${pd(e.player1)} + ${pd(e.player2)}` : (eid || ""); };
     const tMatches = allMatches.filter((m) => m.tournamentId === tid);
     const groupMatches = tMatches.filter((m) => m.stage === "GROUP");
     const groups = [...members.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, ids]) => ({
