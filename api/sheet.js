@@ -305,6 +305,7 @@ const netlifyHandler = async (event) => {
 
     // --- ROUTES ---
     if (path === "settings" && method === "GET") return await getSettings();
+    if (path === "settings" && method === "POST") return await setSetting(body);
     if (path === "public/feed" && method === "GET") return await getPublicFeed();
     if (path === "leads" && method === "POST") return await submitLead(body);
     if (path === "auth/login") return await login(body);
@@ -1367,6 +1368,42 @@ async function getSettings() {
     // Settings tab may not exist yet — return defaults
     return respond(200, { settings: {} });
   }
+}
+// Upsert a single key/value into the Settings tab (self-bootstrapping). Used to
+// pin the "live" courts event so the bare /court1../courtN links resolve to it.
+async function setSetting(body) {
+  const key = String((body && body.key) || "").trim();
+  if (!key) return respond(400, { error: "key required" });
+  const value = body && body.value != null ? String(body.value) : "";
+  const sheets = getSheets();
+  // Ensure the Settings tab exists (with a header row).
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const existing = (meta.data.sheets || []).map((s) => s.properties.title);
+  if (!existing.includes("Settings")) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      requestBody: { requests: [{ addSheet: { properties: { title: "Settings" } } }] },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: "Settings!A1", valueInputOption: "RAW",
+      requestBody: { values: [["Key", "Value"]] },
+    });
+  }
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Settings!A2:B" });
+  const rows = res.data.values || [];
+  const i = rows.findIndex((r) => r[0] === key);
+  if (i === -1) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID, range: "Settings!A:B", valueInputOption: "RAW",
+      requestBody: { values: [[key, value]] },
+    });
+  } else {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `Settings!A${i + 2}:B${i + 2}`, valueInputOption: "RAW",
+      requestBody: { values: [[key, value]] },
+    });
+  }
+  return respond(200, { success: true, key, value });
 }
 // ==============================================================
 // TOURNAMENT HANDLERS (Phase 1: events, tournaments, import, entrants)

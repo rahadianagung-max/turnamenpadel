@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Skor Lapangan — TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0A0B; --panel:#141416; --panel2:#1B1B1F; --line:#2A2A2E;
+    --text:#F5F5F7; --muted:#A1A1AA; --faint:#6B6B72;
+    --accent:#FF6A00; --accent2:#FFB000; --press:#FF7D1F;
+    --danger:#ff6f60; --warn:#ffd166; --ok:#38d39f;
+    --r:14px; --r-sm:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Plus Jakarta Sans',sans-serif; background:var(--bg); color:var(--text);
+    min-height:100vh; line-height:1.5;
+    background-image:
+      radial-gradient(900px 500px at 85% -10%, rgba(255,106,0,.10), transparent 60%),
+      radial-gradient(700px 500px at -5% 10%, rgba(255,176,0,.07), transparent 55%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:720px; margin:0 auto; padding:20px 16px 90px; position:relative; z-index:1;}
+
+  /* Court hero */
+  .chero{display:flex; align-items:center; gap:14px; margin-bottom:6px;}
+  .courtbadge{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    min-width:78px; padding:10px 12px; border-radius:16px;
+    background:linear-gradient(150deg,var(--accent),var(--accent2)); color:#0A0A0B;
+    box-shadow:0 10px 24px rgba(255,106,0,.28);
+  }
+  .courtbadge .lbl{font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; opacity:.85;}
+  .courtbadge .num{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:40px; line-height:.9;}
+  .cinfo .logo{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:20px; letter-spacing:-.02em;}
+  .cinfo .logo .dot{color:var(--accent);}
+  .cinfo .evt{font-size:13px; color:var(--muted); margin-top:2px;}
+  .cinfo .evt b{color:var(--text);}
+
+  .subbar{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:14px 0 4px; font-size:12.5px; color:var(--muted);}
+  .subbar .sp{flex:1;}
+  .subbar a,.subbar button{color:var(--muted); text-decoration:none; border:1px solid var(--line); background:transparent; padding:7px 11px; border-radius:8px; font:inherit; font-size:12.5px; cursor:pointer;}
+  .subbar a:hover,.subbar button:hover{border-color:var(--accent); color:var(--text);}
+  .switch{display:inline-flex; align-items:center; gap:8px; cursor:pointer; user-select:none;}
+  .switch input{width:16px; height:16px; accent-color:var(--accent);}
+
+  /* Queue banner */
+  #queueBar{
+    position:sticky; top:0; z-index:20; margin:10px 0 4px;
+    display:none; align-items:center; gap:12px; padding:11px 14px; border-radius:12px;
+    background:rgba(255,176,0,.10); border:1px solid rgba(255,176,0,.35); color:var(--warn);
+    font-size:13px; font-family:'Space Mono',monospace;
+  }
+  #queueBar.offline{background:rgba(255,111,96,.10); border-color:rgba(255,111,96,.4); color:var(--danger);}
+  #queueBar .qtext{flex:1;}
+  #queueBar button{font-family:inherit; font-size:12px; font-weight:700; border:1px solid currentColor; color:inherit; background:transparent; border-radius:7px; padding:6px 10px; cursor:pointer;}
+
+  .empty{color:var(--muted); font-size:14px; padding:22px 4px; text-align:center;}
+  .empty.err{color:var(--danger);}
+
+  h3.sect{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:16px; letter-spacing:-.01em;
+    margin:22px 0 10px; display:flex; align-items:center; gap:10px; color:var(--muted);}
+  h3.sect .cnt{font-family:'Space Mono',monospace; font-size:11px; color:var(--faint); font-weight:400;}
+
+  /* Score card */
+  .scard{background:linear-gradient(180deg, var(--panel), var(--panel2)); border:1px solid var(--line);
+    border-radius:var(--r); padding:13px 14px; margin-bottom:12px;}
+  .scard.st-done{border-color:rgba(56,211,159,.35);}
+  .scard.st-error{border-color:rgba(255,111,96,.5);}
+  .scard-top{display:flex; align-items:center; gap:8px; margin-bottom:10px; font-family:'Space Mono',monospace; font-size:11px; color:var(--muted); flex-wrap:wrap;}
+  .scard-top .cat{color:#0A0A0B; background:var(--accent2); font-weight:700; padding:2px 7px; border-radius:6px; font-size:10px; letter-spacing:.02em;}
+  .scard-top .gl{color:var(--faint);}
+  .scard-top .badge{margin-left:auto; font-weight:700; font-size:10.5px; letter-spacing:.03em; padding:3px 8px; border-radius:999px;}
+  .badge.st-empty{color:var(--faint); border:1px solid var(--line);}
+  .badge.st-pending,.badge.st-saving{color:var(--warn); background:rgba(255,209,102,.13);}
+  .badge.st-done{color:var(--ok); background:rgba(56,211,159,.13);}
+  .badge.st-error{color:var(--danger); background:rgba(255,111,96,.13);}
+
+  .teamrow{display:flex; align-items:center; gap:12px; padding:7px 0;}
+  .teamrow .nm{flex:1; font-size:15.5px; font-weight:600; word-break:break-word;}
+  .teamrow.win .nm{color:var(--accent);}
+  .teamrow .sin{
+    width:78px; text-align:center; font-family:'Space Mono',monospace; font-size:24px; font-weight:700;
+    background:#111114; border:1.5px solid var(--line); color:var(--text); border-radius:12px; padding:10px 6px; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .teamrow .sin:focus{border-color:var(--accent); box-shadow:0 0 0 3px rgba(255,106,0,.14);}
+  .teamsep{height:1px; background:var(--line); margin:2px 0;}
+  .btn{font-family:inherit; font-weight:700; font-size:15px; border:none; border-radius:var(--r-sm);
+    padding:13px; cursor:pointer; transition:transform .08s, filter .15s; display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:10px;}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background:var(--accent); color:var(--bg);} .btn-primary:hover{filter:brightness(1.06);}
+  .scard.st-done .btn-primary{background:transparent; color:var(--muted); border:1px solid var(--line);}
+  .scard.st-done .btn-primary:hover{border-color:var(--accent); color:var(--text);}
+
+  #toast{position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(20px); z-index:50;
+    background:#1c1c20; border:1px solid var(--line); border-left:3px solid var(--accent); color:var(--text);
+    padding:12px 18px; border-radius:10px; font-size:13.5px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+    opacity:0; transition:opacity .2s, transform .2s; max-width:90vw;}
+  #toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  #toast.err{border-left-color:var(--danger);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="chero">
+    <div class="courtbadge"><span class="lbl">Lapangan</span><span class="num" id="courtNum">?</span></div>
+    <div class="cinfo">
+      <div class="logo">Turnamen<span class="dot">Padel</span></div>
+      <div class="evt" id="evtLine">Memuat event…</div>
+    </div>
+  </div>
+
+  <div class="subbar">
+    <label class="switch"><input type="checkbox" id="onlyUnscored" onchange="applyFilter()"> Sembunyikan yang sudah diskor</label>
+    <span class="sp"></span>
+    <button type="button" onclick="reload(true)">↻ Muat ulang</button>
+  </div>
+
+  <div id="queueBar">
+    <span class="qtext" id="queueText"></span>
+    <button type="button" onclick="flushQueue(true)">Kirim ulang</button>
+  </div>
+
+  <div id="matchesWrap"><p class="empty">Memuat pertandingan…</p></div>
+</div>
+<div id="toast"></div>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const LEVEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+const MAX_REASONABLE = 30;
+
+const state = { court:0, eventId:"", eventName:"", matches:[], names:{} };
+const uiStatus = {}; // matchId -> status
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const isInt = v => /^\d+$/.test(String(v).trim());
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const p=x.split(/[:.]/); let h=parseInt(p[0],10), m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
+function tkey(t){ const s=fmtTime(t); if(!s) return 1e9; const [h,m]=s.split(":"); return (parseInt(h)||0)*60+(parseInt(m)||0); }
+function toast(msg, isErr){ const t=$("toast"); t.textContent=msg; t.className=isErr?"err show":"show"; clearTimeout(t._t); t._t=setTimeout(()=>{ t.className=t.className.replace("show","").trim(); },3400); }
+
+// ---- network ----
+async function rawFetch(path, opts={}){
+  const res = await fetch(`${BASE}/${path}`, { method:opts.method||"GET", headers:{"Content-Type":"application/json"}, body:opts.body?JSON.stringify(opts.body):undefined });
+  let data={}; try{ data=await res.json(); }catch(e){}
+  return { res, data };
+}
+async function api(path, opts={}){
+  const { res, data } = await rawFetch(path, opts);
+  if(!res.ok){ const e=new Error(data.error||`HTTP ${res.status}`); e.status=res.status; throw e; }
+  return data;
+}
+async function apiWithRetry(path, opts={}, tries=5){
+  let delay=600, lastErr;
+  for(let i=0;i<tries;i++){
+    try{
+      const { res, data } = await rawFetch(path, opts);
+      if(res.ok) return data;
+      if(res.status>=500 || res.status===408 || res.status===429){ lastErr=new Error(data.error||`HTTP ${res.status}`); }
+      else { const e=new Error(data.error||`HTTP ${res.status}`); e.status=res.status; e.fatal=true; throw e; }
+    }catch(e){ if(e.fatal) throw e; lastErr=e; }
+    if(i<tries-1){ await sleep(delay); delay=Math.min(delay*2,8000); }
+  }
+  throw lastErr;
+}
+
+// ==================================================================
+//  Offline-safe submit queue (optimistic UI + localStorage)
+// ==================================================================
+function QKEY(){ return "tp_court_queue_"+state.eventId; }
+function getQueue(){ try{ return JSON.parse(localStorage.getItem(QKEY())||"[]"); }catch(e){ return []; } }
+function setQueue(q){ try{ localStorage.setItem(QKEY(), JSON.stringify(q)); }catch(e){} updateQueueBadge(); }
+function enqueue(item){ const q=getQueue().filter(x=>!(x.matchId===item.matchId && x.kind===item.kind)); q.push(item); setQueue(q); }
+
+let flushing=false;
+async function flushQueue(manual){
+  if(flushing) return;
+  if(!navigator.onLine){ updateQueueBadge(); if(manual) toast("Masih offline — skor tersimpan & terkirim otomatis nanti", true); return; }
+  const batch=getQueue();
+  if(!batch.length){ updateQueueBadge(); return; }
+  flushing=true; const remaining=[];
+  try{
+    for(const item of batch){
+      setUiStatus(item.matchId,"saving");
+      try{
+        const path = item.kind==="playoff" ? "tournament/playoff/match" : "tournament/match";
+        await apiWithRetry(path, { method:"PUT", body:{ matchId:item.matchId, tournamentId:item.tournamentId, scoreA:item.scoreA, scoreB:item.scoreB }});
+        setUiStatus(item.matchId,"done");
+      }catch(e){
+        if(e.fatal){ setUiStatus(item.matchId,"error"); toast(`Skor ditolak server: ${e.message}`, true); }
+        else { item.attempts=(item.attempts||0)+1; setUiStatus(item.matchId,"pending"); remaining.push(item); }
+      }
+    }
+  } finally {
+    const added=getQueue().filter(x=>!batch.some(o=>o.id===x.id));
+    setQueue(remaining.concat(added));
+    flushing=false;
+    if(manual && !getQueue().length) toast("Semua skor terkirim ✓");
+    if(!getQueue().length) reload(); // pull fresh server truth (advances brackets etc.)
+  }
+}
+function updateQueueBadge(){
+  const bar=$("queueBar"), txt=$("queueText"), n=getQueue().length;
+  bar.classList.remove("offline");
+  if(!navigator.onLine && n){ bar.classList.add("offline"); txt.textContent=`Offline — ${n} skor menunggu, terkirim otomatis saat online.`; bar.style.display="flex"; }
+  else if(n){ txt.textContent=`${n} skor sedang dikirim…`; bar.style.display="flex"; }
+  else bar.style.display="none";
+}
+function setUiStatus(matchId, st){
+  uiStatus[matchId]=st;
+  const badge=$("badge-"+cssid(matchId)), card=$("card-"+cssid(matchId));
+  if(badge){ badge.textContent={empty:"Belum diinput",saving:"⟳ Menyimpan…",pending:"⟳ Antre",done:"✓ Tersimpan",error:"⚠ Ditolak"}[st]||st; badge.className="badge st-"+st; }
+  if(card){ card.classList.remove("st-done","st-error"); if(st==="done")card.classList.add("st-done"); if(st==="error")card.classList.add("st-error"); card.classList.toggle("is-scored", st==="done"); }
+}
+function cssid(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,"_"); }
+
+// ==================================================================
+//  Event resolution + loading
+// ==================================================================
+function pickLiveEvent(events){
+  if(!events||!events.length) return "";
+  const today=new Date().toISOString().slice(0,10);
+  const wd=events.map(e=>({e, d:String(e.date||"").slice(0,10)}));
+  const byCreated=(a,b)=>String(b.e.createdAt||"").localeCompare(String(a.e.createdAt||""));
+  const tdy=wd.filter(x=>x.d===today).sort(byCreated); if(tdy.length) return tdy[0].e.eventId;
+  const up=wd.filter(x=>x.d && x.d>today).sort((a,b)=>a.d.localeCompare(b.d)); if(up.length) return up[0].e.eventId;
+  const past=wd.filter(x=>x.d && x.d<today).sort((a,b)=>b.d.localeCompare(a.d)); if(past.length) return past[0].e.eventId;
+  return events.slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")))[0].eventId;
+}
+async function resolveEvent(){
+  const url=new URL(location.href);
+  const eParam=url.searchParams.get("e");
+  if(eParam) return eParam;
+  try{ const { settings } = await api("settings"); if(settings && settings.liveEventId) return settings.liveEventId; }catch(e){}
+  const { events } = await api("tournament/events");
+  return pickLiveEvent(events||[]);
+}
+
+function roundLabel(round, numRounds){
+  if(String(round)==="BRONZE") return "Perebutan Juara 3";
+  const r=parseInt(round), fromEnd=numRounds-r;
+  if(fromEnd===0) return "Final"; if(fromEnd===1) return "Semifinal";
+  if(fromEnd===2) return "Perempat Final"; if(fromEnd===3) return "Babak 16 Besar";
+  return "Babak "+r;
+}
+function catLabel(c){ return { MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Mixed" }[c] || c || ""; }
+
+function flatten(payload, court){
+  const out=[];
+  (payload.categories||[]).forEach(cat=>{
+    const clabel = catLabel(cat.category) + (cat.level?(" "+(LEVEL[cat.level]||cat.level)):"");
+    (cat.schedule||[]).forEach(m=>{
+      if(String(m.court)!==String(court)) return;
+      out.push({ kind:"group", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:m.court, slot:m.slot||0, time:m.time,
+        label:"Grup "+(m.groupLabel||""), nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB,
+        scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status });
+    });
+    (cat.playoff||[]).forEach(b=>{
+      const push=(m,slot,label)=>{
+        if(!m || !m.entrantA || !m.entrantB) return;
+        if(String(m.court)!==String(court)) return;
+        out.push({ kind:"playoff", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:m.court, slot:slot, time:m.time,
+          label:label, nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB,
+          scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status });
+      };
+      (b.rounds||[]).forEach(r=> (r.matches||[]).forEach(m=> push(m, (parseInt(m.round)||0)*100+(m.idx||0), roundLabel(m.round,b.numRounds)) ));
+      if(b.bronze) push(b.bronze, 99999, "Perebutan Juara 3");
+    });
+  });
+  out.sort((a,b)=> tkey(a.time)-tkey(b.time) || (a.slot-b.slot));
+  return out;
+}
+
+async function load(){
+  if(!state.eventId){
+    $("matchesWrap").innerHTML='<p class="empty">Belum ada event aktif. Buat & jadwalkan event di engine dulu.</p>';
+    $("evtLine").textContent="—"; return;
+  }
+  const payload = await api(`tournament/event/${encodeURIComponent(state.eventId)}/public?live=1`);
+  state.eventName = (payload.event && payload.event.name) || "";
+  const d = (payload.event && payload.event.date) || "";
+  $("evtLine").innerHTML = `<b>${esc(state.eventName)}</b>${d?" · "+esc(d):""}`;
+  state.matches = flatten(payload, state.court);
+  render();
+}
+function render(){
+  const wrap=$("matchesWrap");
+  if(!state.matches.length){ wrap.innerHTML=`<p class="empty">Belum ada pertandingan terjadwal di Lapangan ${esc(String(state.court))} untuk event ini.</p>`; return; }
+  wrap.innerHTML = `<h3 class="sect">Jadwal Lapangan ${esc(String(state.court))} <span class="cnt">${state.matches.length} match</span></h3>` +
+    state.matches.map(scoreCard).join("");
+  state.matches.forEach(initStatus);
+  applyFilter();
+}
+function scoreCard(m){
+  const cid=cssid(m.matchId);
+  const has=v=>v!=="" && v!=null;
+  const sa=has(m.scoreA)?esc(String(m.scoreA)):"", sb=has(m.scoreB)?esc(String(m.scoreB)):"";
+  const done=m.status==="DONE";
+  const aw=done && String(m.winner)===String(m.entrantA), bw=done && String(m.winner)===String(m.entrantB);
+  const meta=`<span class="cat">${esc(m.cat)}</span><span class="gl">${esc(m.label)}${m.time?" · "+esc(fmtTime(m.time)):""}</span>`;
+  return `<div class="scard ${done?'st-done is-scored':''}" id="card-${cid}" data-mid="${esc(m.matchId)}">
+    <div class="scard-top">${meta}<span class="badge" id="badge-${cid}"></span></div>
+    <div class="teamrow ${aw?'win':''}" id="row-a-${cid}">
+      <span class="nm">${esc(m.nameA)}</span>
+      <input class="sin" id="a-${cid}" type="number" inputmode="numeric" min="0" value="${sa}"
+        onkeydown="if(event.key==='Enter'){document.getElementById('b-'+this.dataset.cid).focus();}" data-cid="${cid}" />
+    </div>
+    <div class="teamsep"></div>
+    <div class="teamrow ${bw?'win':''}" id="row-b-${cid}">
+      <span class="nm">${esc(m.nameB)}</span>
+      <input class="sin" id="b-${cid}" type="number" inputmode="numeric" min="0" value="${sb}"
+        onkeydown="if(event.key==='Enter'){saveScore('${cid}');}" data-cid="${cid}" />
+    </div>
+    <button type="button" class="btn btn-primary" onclick="saveScore('${cid}')">${done?"Revisi skor":"Simpan skor"}</button>
+  </div>`;
+}
+const byCid={};
+function initStatus(m){
+  byCid[cssid(m.matchId)]=m;
+  const queued=getQueue().some(x=>x.matchId===m.matchId);
+  if(queued) setUiStatus(m.matchId,"pending");
+  else if(m.status==="DONE") setUiStatus(m.matchId,"done");
+  else setUiStatus(m.matchId,"empty");
+}
+function saveScore(cid){
+  const m=byCid[cid]; if(!m) return;
+  const ela=$("a-"+cid), elb=$("b-"+cid);
+  const a=ela.value.trim(), b=elb.value.trim();
+  if(a==="" && b===""){ toast("Isi skor kedua tim dulu", true); ela.focus(); return; }
+  if(a==="" || b===""){ toast("Skor kedua tim harus diisi", true); (a===""?ela:elb).focus(); return; }
+  if(!isInt(a) || !isInt(b)){ toast("Skor harus angka bulat", true); return; }
+  const na=+a, nb=+b;
+  if(na>MAX_REASONABLE || nb>MAX_REASONABLE){ if(!confirm(`Skor ${na}–${nb} tidak biasa. Yakin?`)) return; }
+  if(na===nb){ if(!confirm("Skor sama — seri tanpa pemenang. Simpan sebagai seri?")) return; }
+  const aw=na>nb, bw=nb>na;
+  const rowA=$("row-a-"+cid), rowB=$("row-b-"+cid);
+  if(rowA) rowA.classList.toggle("win",aw); if(rowB) rowB.classList.toggle("win",bw);
+  enqueue({ id:uid(), kind:m.kind, matchId:m.matchId, tournamentId:m.tid, scoreA:a, scoreB:b, ts:Date.now(), attempts:0 });
+  setUiStatus(m.matchId,"pending");
+  toast(na===nb?"Skor seri disimpan — mengirim…":`Skor disimpan — ${aw?m.nameA:m.nameB}`);
+  flushQueue();
+}
+function applyFilter(){
+  const on=$("onlyUnscored").checked;
+  document.querySelectorAll(".scard").forEach(c=>{ c.style.display=(on && c.classList.contains("is-scored"))?"none":""; });
+}
+function reload(manual){
+  // don't clobber an in-progress edit / unsent scores
+  if(!manual){ if(document.activeElement && document.activeElement.classList && document.activeElement.classList.contains("sin")) return; if(getQueue().length) return; }
+  load().catch(e=>{ if(manual) toast(e.message,true); });
+}
+
+// ==================================================================
+//  Init
+// ==================================================================
+(async function init(){
+  const url=new URL(location.href);
+  const pm=location.pathname.match(/court\/?(\d+)/i);
+  state.court = pm ? parseInt(pm[1]) : (parseInt(url.searchParams.get("court"))||1);
+  $("courtNum").textContent=String(state.court);
+  document.title=`Lapangan ${state.court} — Skor`;
+  window.addEventListener("online", ()=>{ updateQueueBadge(); flushQueue(); });
+  window.addEventListener("offline", updateQueueBadge);
+  window.addEventListener("beforeunload", (e)=>{ if(getQueue().length){ e.preventDefault(); e.returnValue=""; } });
+  try{
+    state.eventId = await resolveEvent();
+    updateQueueBadge();
+    await load();
+    flushQueue(); // send anything left from a previous session
+    setInterval(()=>{ if(getQueue().length) flushQueue(); }, 15000);
+    setInterval(()=>reload(false), 25000); // gentle live refresh
+  }catch(e){
+    $("matchesWrap").innerHTML=`<p class="empty err">Gagal memuat: ${esc(e.message)}. Coba muat ulang.</p>`;
+  }
+})();
+</script>
+</body>
+</html>
