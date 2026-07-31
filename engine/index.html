@@ -140,6 +140,8 @@
   .gcard li{padding:7px 14px; font-size:13.5px; display:flex; justify-content:space-between; gap:10px; align-items:baseline;}
   .gcard li:not(:last-child){border-bottom:1px solid rgba(40,49,44,.4);}
   .gcard li .s{font-family:'Space Mono',monospace; color:var(--accent2); font-size:12px; flex:none;}
+  .gcard li .gtn{display:block; font-weight:800; color:var(--accent, #FF6A00); line-height:1.15;}
+  .gcard li .gsub{display:block; font-weight:500; font-size:12px; color:var(--muted); margin-top:1px;}
 
   /* result / toast */
   .result{margin-top:16px; border:1px dashed var(--line); border-radius:var(--r-sm); padding:14px 16px; display:none;}
@@ -814,7 +816,12 @@ function renderGroups(groups){
   wrap.innerHTML = '<div class="groups">' + groups.map(g=>`
     <div class="gcard">
       <h3>Grup ${esc(g.label)} <span class="meta">${g.size} psg · ${g.matches} match · ~${g.matches*mm}m</span></h3>
-      <ul>${g.members.map(m=>`<li><span>${esc(m.player1Name)} + ${esc(m.player2Name)}</span><span class="s">${m.seedElo}</span></li>`).join("")}</ul>
+      <ul>${g.members.map(m=>{
+        const tn=(m.teamName||"").trim();
+        const pair=`${esc(m.player1Name)} + ${esc(m.player2Name)}`;
+        const nm = tn ? `<b class="gtn">${esc(tn)}</b><span class="gsub">${pair}</span>` : pair;
+        return `<li><span>${nm}</span><span class="s">${m.seedElo}</span></li>`;
+      }).join("")}</ul>
     </div>`).join("") + '</div>';
 }
 
