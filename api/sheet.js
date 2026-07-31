@@ -268,7 +268,7 @@ const T_HEADERS = {
   // public feed showcase (status/format/category/url/highlight). Owner lives at col N.
   [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username"],
   [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At", "Playoff_Top_Overall"],
-  [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At"],
+  [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At", "Team_Name"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
@@ -1689,11 +1689,12 @@ async function tImport(id) {
 async function tListEntrants(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:J` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
   const entrants = (r.data.values || []).filter((x) => x[0] === id).map((x) => ({
     tournamentId: x[0], entrantId: x[1], player1Name: x[2], player1Ig: x[3],
     player2Name: x[4], player2Ig: x[5], seedElo: parseInt(x[6]) || 0,
     isNewP1: x[7] === "TRUE", isNewP2: x[8] === "TRUE", createdAt: x[9],
+    teamName: x[10] || "",
   }));
   return respond(200, { entrants });
 }
@@ -1703,16 +1704,16 @@ async function tUpdateEntrant(body) {
   if (!entrantId || !updates) return respond(400, { error: "entrantId and updates required" });
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:J` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
   const rows = r.data.values || [];
   const idx = rows.findIndex((x) => x[1] === entrantId);
   if (idx === -1) return respond(404, { error: "Entrant not found" });
   const row = rows[idx];
-  while (row.length < 10) row.push("");
-  const map = { player1Name: 2, player1Ig: 3, player2Name: 4, player2Ig: 5, seedElo: 6 };
+  while (row.length < 11) row.push("");
+  const map = { player1Name: 2, player1Ig: 3, player2Name: 4, player2Ig: 5, seedElo: 6, teamName: 10 };
   for (const [k, v] of Object.entries(updates)) { if (k in map) row[map[k]] = v; }
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A${idx + 2}:J${idx + 2}`,
+    spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A${idx + 2}:K${idx + 2}`,
     valueInputOption: "USER_ENTERED", requestBody: { values: [row] },
   });
   return respond(200, { success: true });
@@ -1770,8 +1771,14 @@ async function tDrawGroups(id) {
 async function tGetGroups(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const [r, enr] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
+  ]);
   const rows = (r.data.values || []).filter((x) => x[0] === id);
+  // Entrant_ID -> optional custom team name (col K). Blank falls back to player names on the client.
+  const teamNameById = {};
+  for (const x of (enr.data.values || [])) { if (x[0] === id && x[1]) teamNameById[x[1]] = x[10] || ""; }
   const dmap = await loadDisplayNames(sheets);
   const map = new Map();
   for (const x of rows) {
@@ -1779,7 +1786,7 @@ async function tGetGroups(id) {
     if (!map.has(label)) map.set(label, []);
     // player1Name/player2Name stay raw (the engine's entrant-edit inputs bind to
     // them); `display` is the view label (Display_Name) for scoring/read surfaces.
-    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0, display: displayPair(dmap, x[4], x[5]) });
+    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0, display: displayPair(dmap, x[4], x[5]), teamName: teamNameById[x[3]] || "" });
   }
   const groups = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, members]) => ({
     label, size: members.length, matches: (members.length * (members.length - 1)) / 2, members,
@@ -3188,11 +3195,12 @@ async function tPublicEvent(eventId, opts) {
       `${TABS.t_groups}!A2:G`,
       `${TABS.t_matches}!A2:Q`,
       `${TABS.players}!A2:J`,
+      `${TABS.t_entrants}!A2:K`,
     ],
   });
   const vr = br.data.valueRanges || [];
   const val = (i) => (vr[i] && vr[i].values) || [];
-  const evRows = val(0), trRows = val(1), allGroups = val(2), mRows = val(3), plRows = val(4);
+  const evRows = val(0), trRows = val(1), allGroups = val(2), mRows = val(3), plRows = val(4), enRows = val(5);
   // Spectator board is identical for everyone: cache mobile at the CDN (slight delay OK),
   // keep TV always fresh (?live=1 -> no-store).
   const cc = (opts && opts.live)
@@ -3214,9 +3222,12 @@ async function tPublicEvent(eventId, opts) {
   const categories = tournaments.map((t) => {
     const tid = t[0];
     const grRows = allGroups.filter((x) => x[0] === tid);
+    // Entrant_ID -> optional custom team name (col K). Blank => displays fall back to player names.
+    const teamNameById = {};
+    for (const x of enRows) { if (x[0] === tid && x[1]) teamNameById[x[1]] = x[10] || ""; }
     const entrants = {}, members = new Map();
     for (const x of grRows) {
-      entrants[x[3]] = { player1: x[4] || "", player2: x[5] || "", seedElo: parseInt(x[6]) || 0 };
+      entrants[x[3]] = { player1: x[4] || "", player2: x[5] || "", seedElo: parseInt(x[6]) || 0, teamName: teamNameById[x[3]] || "" };
       const l = x[2]; if (!members.has(l)) members.set(l, []); members.get(l).push(x[3]);
     }
     const pd = (raw) => { const p = players[normName(raw)]; return (p && p.display) || raw || ""; };

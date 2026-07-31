@@ -61,6 +61,12 @@
   .team .nm{display:flex; align-items:center; gap:5px; flex-wrap:wrap;}
   .team.w .nm{color:var(--accent); font-weight:700;}
   .team .sc{margin-left:auto; font-family:'Space Mono',monospace; font-size:15px;}
+  /* Opsi D: custom team name as the title, players stacked underneath (both inside
+     the flex .nm / .nmcell wrappers, so give them full width to stack vertically). */
+  .tname{flex-basis:100%; font-weight:800; letter-spacing:.01em; line-height:1.15;}
+  .team.w .tname{color:var(--accent);}
+  .tplayers{flex-basis:100%; display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:11.5px; color:var(--muted); font-weight:500; margin-top:1px;}
+  .tplayers .pl{color:var(--muted);}
   /* schedule: player picker + my next match */
   .schedctl{display:flex; align-items:center; gap:8px; margin:14px 0 2px;}
   .schedctl label{font-family:'Space Mono',monospace; font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:.05em; flex:0 0 auto;}
@@ -205,7 +211,12 @@ function teamNames(cat, entrantId, withAv){
   if(!e) return entrantId ? esc(entrantId) : '<span class="tbd">TBD</span>';
   const a = (withAv?avatar(e.player1):"")+plink(e.player1);
   const b = (withAv?avatar(e.player2):"")+plink(e.player2);
-  return `${a} <span style="color:var(--faint)">+</span> ${b}`;
+  const players = `${a} <span style="color:var(--faint)">+</span> ${b}`;
+  // Opsi D: when a pair has a custom team name, show it as the title with the
+  // players on a smaller second line (still clickable). Empty => players only.
+  const tn = (e.teamName||"").trim();
+  if(tn) return `<span class="tname">${esc(tn)}</span><span class="tplayers">${players}</span>`;
+  return players;
 }
 
 function roundLabel(round, numRounds){
