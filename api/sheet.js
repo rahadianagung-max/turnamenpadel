@@ -2618,6 +2618,20 @@ function playoffProjectionRankLabel(rank, label) {
   const word = rank === 1 ? "Winner" : rank === 2 ? "Runner-up" : `Peringkat ${rank}`;
   return `${word} Grup ${label}`;
 }
+// Group-based seed placeholder labels for an n-slot bracket:
+// "Winner Grup A", "Runner-up Grup A", "Winner Grup B", … (group-major).
+// Falls back to "Unggulan i" only when no group labels are available.
+function seedGroupLabels(n, groupLabels) {
+  const labels = (groupLabels || []).filter((x) => x != null && x !== "");
+  if (!labels.length) return Array.from({ length: n }, (_, i) => `Unggulan ${i + 1}`);
+  const perGroup = Math.max(1, Math.ceil(n / labels.length));
+  const out = [];
+  for (let g = 0; g < labels.length && out.length < n; g++) {
+    for (let r = 1; r <= perGroup && out.length < n; r++) out.push(playoffProjectionRankLabel(r, labels[g]));
+  }
+  while (out.length < n) out.push(`Unggulan ${out.length + 1}`);
+  return out;
+}
 // Shape one built bracket into the projected-view tier object, mapping each
 // slot token to its human placeholder label via lab().
 function projectionTierView(tier, b, lab) {
@@ -2652,11 +2666,12 @@ function buildPlayoffProjection(groupsInfo, format, N) {
 // "Top N overall" projection: a single seeded MAIN bracket with placeholder
 // seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
 // generator. totalTeams caps N so we never project more slots than exist.
-function buildOverallProjection(totalTeams, topN) {
+function buildOverallProjection(totalTeams, topN, groupLabels) {
   const n = Math.min(Math.max(0, topN | 0), Math.max(0, totalTeams | 0));
   if (n < 2) return [];
   const labelOf = {}, seeded = [];
-  for (let i = 1; i <= n; i++) { const id = `S${i}`; labelOf[id] = `Unggulan ${i}`; seeded.push(id); }
+  const names = seedGroupLabels(n, groupLabels);
+  for (let i = 1; i <= n; i++) { const id = `S${i}`; labelOf[id] = names[i - 1]; seeded.push(id); }
   const b = buildBracket(seeded, "MAIN", null);
   const lab = (id) => (id ? (labelOf[id] || "") : "");
   return [projectionTierView("MAIN", b, lab)];
@@ -2665,10 +2680,11 @@ function buildOverallProjection(totalTeams, topN) {
 // team count, but with nameless "Unggulan 1 … Unggulan N" seed placeholders.
 // Used while the group stage is still running so the public board shows the
 // right size (e.g. 8 besar) without revealing player names yet.
-function projectionFromBrackets(brackets) {
+function projectionFromBrackets(brackets, groupLabels) {
   return (brackets || []).filter((t) => (t.nQual || 0) >= 2).map((t) => {
     const labelOf = {}, seeded = [];
-    for (let i = 1; i <= t.nQual; i++) { const id = `S${i}`; labelOf[id] = `Unggulan ${i}`; seeded.push(id); }
+    const names = seedGroupLabels(t.nQual, groupLabels);
+    for (let i = 1; i <= t.nQual; i++) { const id = `S${i}`; labelOf[id] = names[i - 1]; seeded.push(id); }
     const bb = buildBracket(seeded, t.tier, null);
     const lab = (id) => (id ? (labelOf[id] || "") : "");
     return projectionTierView(t.tier, bb, lab);
@@ -2772,7 +2788,7 @@ function buildQualifyPanelPerGroup(groupList, groupMatches, N, nameFn) {
 function playoffProjectionFor(groupsInfo, format, N, topOverall) {
   if ((topOverall | 0) >= 2) {
     const total = groupsInfo.reduce((s, g) => s + (g.size || 0), 0);
-    return buildOverallProjection(total, topOverall);
+    return buildOverallProjection(total, topOverall, groupsInfo.map((g) => g.label));
   }
   return buildPlayoffProjection(groupsInfo, format, N);
 }
@@ -3305,7 +3321,7 @@ async function tPublicEvent(eventId, opts) {
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
-    const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff) : planProjection;
+    const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, groups.map((g) => g.label)) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     // Provisional qualification panel while groups run: "N besar" overall when a
     // top-N plan is set, otherwise per-group (top advancersPerGroup of each group).
