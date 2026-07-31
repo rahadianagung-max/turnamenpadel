@@ -130,6 +130,15 @@
   .gcard li .s{font-family:'Space Mono',monospace; color:var(--accent2); font-size:12px; flex:none;}
   .gcard li .gtn{display:block; font-weight:800; color:var(--accent, #FF6A00); line-height:1.15;}
   .gcard li .gsub{display:block; font-weight:500; font-size:12px; color:var(--muted); margin-top:1px;}
+  .seedbox{border:1px solid var(--line); border-radius:var(--r-sm); background:#1B1B1F; padding:12px 14px;}
+  .seedhd{font-size:12.5px; color:var(--muted); margin-bottom:8px;}
+  .seedlist{list-style:none; margin:0; padding:0;}
+  .seedrow{display:flex; align-items:center; gap:10px; padding:6px 4px; border-bottom:1px solid rgba(40,49,44,.4);}
+  .seedrow .sn{font-family:'Space Mono',monospace; color:var(--accent2); width:26px; text-align:center; flex:none;}
+  .seedrow .inc{font-size:11px; color:var(--muted); display:flex; align-items:center; gap:4px; flex:none;}
+  .seedrow .tm{flex:1; font-weight:600; font-size:13.5px;}
+  .seedrow.out .tm{color:var(--muted); text-decoration:line-through;}
+  .seedrow .mv{display:flex; gap:4px; flex:none;}
 
   /* result / toast */
   .result{margin-top:16px; border:1px dashed var(--line); border-radius:var(--r-sm); padding:14px 16px; display:none;}
@@ -425,11 +434,18 @@
       <div class="f"><label>Jam mulai</label><input id="poStart" type="time" value="09:00" /></div>
       <div class="f"><label>Jumlah court</label><input id="poCourts" type="number" min="1" value="2" /></div>
       <div class="f"><label>Menit / match</label><input id="poMin" type="number" min="5" value="30" /></div>
+      <div class="f"><label>Break 1 mulai (opsional)</label><input id="poBreak1Start" type="time" /></div>
+      <div class="f"><label>Break 1 selesai</label><input id="poBreak1End" type="time" /></div>
+      <div class="f"><label>Break 2 mulai (opsional)</label><input id="poBreak2Start" type="time" /></div>
+      <div class="f"><label>Break 2 selesai</label><input id="poBreak2End" type="time" /></div>
     </div>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket</button>
+      <button type="button" class="btn btn-ghost" onclick="openSeedEditor()">🔧 Bracket modifikasi (seeding manual)</button>
       <button type="button" class="btn btn-ghost" onclick="loadPlayoff()">↻ Muat ulang</button>
     </div>
+    <p class="lead" style="margin:8px 2px 0"><b>Bracket modifikasi</b>: atur sendiri urutan seed &amp; tim mana yang ikut. <b>Break</b> playoff opsional (maks 2): match yang jatuh pada/setelah jam break digeser ke setelahnya.</p>
+    <div id="seedEditor" style="margin-top:14px;"></div>
     <div id="playoffWrap" style="margin-top:16px;"><p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p></div>
   </section>
 
@@ -914,11 +930,72 @@ async function generatePlayoff(){
   if(!confirm("Generate bracket akan menimpa bracket playoff kategori ini berdasarkan standing terkini. Lanjut?")) return;
   try{
     const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body:{
-      date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin")
+      date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"), breaks: collectPoBreaks()
     }});
-    const methodLabel = m => m==="cross" ? "cross grup" : "seeding";
+    const methodLabel = m => m==="cross" ? "cross grup" : m==="custom" ? "seeding manual" : "seeding";
     const txt = (r.brackets||[]).map(b=>`${TIER_LABEL[b.tier]||b.tier}: ${b.entrants} tim (${methodLabel(b.method)})`).join(" · ");
     toast("Bracket dibuat · "+txt);
+    loadPlayoff();
+  }catch(e){ toast(e.message, true); }
+}
+// Collect the 2 optional playoff break input pairs.
+function collectPoBreaks(){
+  const out=[];
+  for(let i=1;i<=2;i++){ const s=val("poBreak"+i+"Start"), e=val("poBreak"+i+"End"); if(s||e) out.push({start:s,end:e}); }
+  return out;
+}
+// ---- Modified bracket: manual seeding editor ----
+let seedList = [];
+async function openSeedEditor(){
+  if(!state.tournament) return toast("Pilih kategori dulu", true);
+  try{
+    const { groups } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/standings");
+    const flat=[];
+    (groups||[]).forEach(g=>(g.standings||[]).forEach(s=> flat.push(s)));
+    flat.sort((a,b)=> (b.wins-a.wins) || (b.gd-a.gd) || (b.gf-a.gf) || ((a.ga||0)-(b.ga||0)));
+    seedList = flat.map(s=>({ entrantId:s.entrantId, team:s.team||nameOf(s.entrantId), include:true }));
+    renderSeedEditor();
+  }catch(e){ toast(e.message, true); }
+}
+function renderSeedEditor(){
+  const el=document.getElementById("seedEditor");
+  if(!el) return;
+  if(!seedList.length){ el.innerHTML=""; return; }
+  let seedNo=0;
+  const rows = seedList.map((s,i)=>{
+    const sn = s.include ? (++seedNo) : "–";
+    return `<li class="seedrow ${s.include?'':'out'}">
+      <span class="sn">${sn}</span>
+      <label class="inc"><input type="checkbox" ${s.include?'checked':''} onchange="toggleSeed(${i})"> ikut</label>
+      <span class="tm">${esc(s.team)}</span>
+      <span class="mv">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="moveSeed(${i},-1)" ${i===0?'disabled':''}>↑</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="moveSeed(${i},1)" ${i===seedList.length-1?'disabled':''}>↓</button>
+      </span></li>`;
+  }).join("");
+  el.innerHTML = `<div class="seedbox">
+    <div class="seedhd">Seeding manual — urut #1 vs #terakhir, dst. Centang tim yang ikut, geser untuk atur lawan.</div>
+    <ol class="seedlist">${rows}</ol>
+    <div class="actions" style="margin-top:10px;">
+      <button type="button" class="btn btn-primary" onclick="generatePlayoffCustom()">Generate bracket (seeding manual)</button>
+      <button type="button" class="btn btn-ghost" onclick="closeSeedEditor()">Batal</button>
+    </div>
+  </div>`;
+}
+function toggleSeed(i){ if(seedList[i]){ seedList[i].include=!seedList[i].include; renderSeedEditor(); } }
+function moveSeed(i,dir){ const j=i+dir; if(j<0||j>=seedList.length) return; const t=seedList[i]; seedList[i]=seedList[j]; seedList[j]=t; renderSeedEditor(); }
+function closeSeedEditor(){ seedList=[]; const el=document.getElementById("seedEditor"); if(el) el.innerHTML=""; }
+async function generatePlayoffCustom(){
+  if(!state.tournament) return;
+  const order = seedList.filter(s=>s.include).map(s=>s.entrantId);
+  if(order.length<2) return toast("Pilih minimal 2 tim untuk bracket.", true);
+  if(!confirm(`Generate bracket seeding manual (${order.length} tim) akan menimpa bracket playoff kategori ini. Lanjut?`)) return;
+  try{
+    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"), breaks: collectPoBreaks(), seedOrder: order };
+    const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body });
+    const txt = (r.brackets||[]).map(b=>`${TIER_LABEL[b.tier]||b.tier}: ${b.entrants} tim (seeding manual)`).join(" · ");
+    toast("Bracket dibuat · "+txt);
+    closeSeedEditor();
     loadPlayoff();
   }catch(e){ toast(e.message, true); }
 }
