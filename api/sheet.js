@@ -2744,7 +2744,7 @@ function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
   });
   flat.sort(qpRank);
   const slots = [];
-  for (let i = 0; i < N; i++) { const t = flat[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", confirmed: !!(t && t.clinched) }); }
+  for (let i = 0; i < N; i++) { const t = flat[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", entrantId: t && t.clinched ? t.entrantId : "", confirmed: !!(t && t.clinched) }); }
   return { mode: "overall", size: N, confirmed: slots.filter((s) => s.confirmed).length, slots };
 }
 // Per-group panel: for each group, the top-N teams that advance. A name shows
@@ -2761,7 +2761,7 @@ function buildQualifyPanelPerGroup(groupList, groupMatches, N, nameFn) {
     teams.forEach((x) => { x.clinched = qpGroupMaxAtOrAbove(g, x.wins, x.entrantId, x.entrantId) <= (N - 1); });
     teams.sort(qpRank);
     const slots = [];
-    for (let i = 0; i < N; i++) { const t = teams[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", confirmed: !!(t && t.clinched) }); }
+    for (let i = 0; i < N; i++) { const t = teams[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", entrantId: t && t.clinched ? t.entrantId : "", confirmed: !!(t && t.clinched) }); }
     out.push({ label: gl.label, confirmed: slots.filter((s) => s.confirmed).length, slots });
   });
   if (!out.length) return null;
