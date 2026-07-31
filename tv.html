@@ -593,12 +593,9 @@ function renderRight(){
     const bcats=(state.data.categories||[]).filter(c=>(c.playoff||[]).length);
     ROT_N=bcats.length; titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); updateRotCountdown(); requestAnimationFrame(drawBracketConnectors); return;
   }
-  // Group stage: alternate the right panel between standings and the projected
-  // (simulated) playoff bracket so both get airtime on the LED board.
-  if(RIGHT_ALT && hasProjection()){
-    const pcats=(state.data.categories||[]).filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length)));
-    ROT_N=pcats.length; titleEl.textContent="Playoff Simulation"+catSuffix(pcats); wrap.innerHTML=projectionHtml(); updateRotCountdown(); requestAnimationFrame(drawBracketConnectors); return;
-  }
+  // Group stage: show Group Standings only. The simulated/projected playoff
+  // bracket is intentionally NOT rotated in — the bracket appears only once the
+  // real playoff has started (hasPlayoff above).
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
   ROT_N=cats.length; titleEl.textContent="Group Standings"+catSuffix(cats);
   if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
@@ -774,14 +771,8 @@ async function resolveEventId(){
   EVENT_ID = await resolveEventId();
   if(EVENT_ID){
     setupQR(); load(); setInterval(load,20000); startSponsorCycle();
-    // Alternate the right panel (standings <-> playoff simulation) every 12s while
-    // the group stage is running and a projection is available.
-    setInterval(()=>{
-      if(!state.data) return;
-      const hasPlayoff=(state.data.categories||[]).some(c=>(c.playoff||[]).length);
-      if(hasPlayoff || !hasProjection()) return;
-      RIGHT_ALT=!RIGHT_ALT; renderRight();
-    }, 12000);
+    // Group stage shows Group Standings only; the simulated playoff bracket is no
+    // longer rotated in. The real bracket appears once the playoff actually starts.
     // Rotate the right panel (bracket / simulation / standings) between
     // categories every 60s when the event has 2+ categories, so each gets
     // full-screen airtime. A countdown under the title shows the time left.
