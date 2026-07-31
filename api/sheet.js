@@ -266,8 +266,8 @@ function levelMatches(rowLevel, tourLevel) {
 const T_HEADERS = {
   // Cols A:H are the core event fields. Cols I:M (index 8-12) are reserved for the
   // public feed showcase (status/format/category/url/highlight). Owner lives at col N.
-  // Cols O:P (index 14-15) hold an optional mid-day break window (HH:MM).
-  [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username", "Break_Start", "Break_End"],
+  // Cols O:V (index 14-21) hold up to 4 optional break windows (HH:MM pairs).
+  [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username", "Break1_Start", "Break1_End", "Break2_Start", "Break2_End", "Break3_Start", "Break3_End", "Break4_Start", "Break4_End"],
   [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At", "Playoff_Top_Overall"],
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At", "Team_Name"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO", "Team_Name"],
@@ -1501,12 +1501,14 @@ async function getPublicFeed() {
 async function tListEvents(params = {}) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:P` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` });
   let events = (r.data.values || []).map((x) => ({
     eventId: x[0], name: x[1], venue: x[2], date: x[3], startTime: x[4],
     numCourts: parseInt(x[5]) || 0, matchMinutes: parseInt(x[6]) || 15, createdAt: x[7],
     adminUsername: x[13] || "",   // col N — owning admin
-    breakStart: x[14] || "", breakEnd: x[15] || "",   // cols O:P — optional break window
+    // cols O:V — up to 4 optional break windows
+    breaks: [0, 1, 2, 3].map((i) => ({ start: x[14 + i * 2] || "", end: x[15 + i * 2] || "" })).filter((b) => b.start || b.end),
+    breakStart: x[14] || "", breakEnd: x[15] || "",   // legacy single-break compat
   }));
   // Per-admin scoping for the engine: a regular admin sees ONLY the events they
   // created; a superadmin sees every event. Ownerless/legacy events are visible
@@ -2174,7 +2176,7 @@ async function rewriteEventGroupMatches(sheets, tids, newRows) {
 async function tScheduleEvent(eventId, body) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:P` });
+  const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` });
   const evRows = evRes.data.values || [];
   const evIdx = evRows.findIndex((x) => x[0] === eventId);
   if (evIdx === -1) return respond(404, { error: "Event not found" });
@@ -2186,27 +2188,35 @@ async function tScheduleEvent(eventId, body) {
   const courtNums = parseCourtNumbers(b.courtNumbers, numCourtsRaw);
   const numCourts = courtNums.length;
   const matchMinutes = parseInt(b.matchMinutes) || parseInt(evRow[6]) || 15;
-  // Optional mid-day break (cols O:P). Caller can set/clear it; otherwise keep stored.
-  const breakProvided = (b.breakStart != null) || (b.breakEnd != null);
-  const breakStart = normClock(breakProvided ? b.breakStart : evRow[14]) || "";
-  const breakEnd = normClock(breakProvided ? b.breakEnd : evRow[15]) || "";
   const hm2min = (t) => { const p = String(t || "").trim().split(":"); if (p.length < 2) return null; const h = parseInt(p[0]), m = parseInt(p[1]); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m; };
   const min2hm = (x) => { x = ((Math.round(x) % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
-  const breakStartMin = hm2min(breakStart), breakEndMin = hm2min(breakEnd);
-  const breakDur = (breakStartMin != null && breakEndMin != null && breakEndMin > breakStartMin) ? (breakEndMin - breakStartMin) : 0;
   const startMin = hm2min(startTime) || 0;
-  // Slot -> wall-clock time, pushing any match at/after the break start past the break.
-  const slotTime = (absSlot) => { let mnt = startMin + absSlot * matchMinutes; if (breakDur > 0 && mnt >= breakStartMin) mnt += breakDur; return min2hm(mnt); };
+  // Up to 4 optional break windows (cols O:V). Accept the new `breaks` array, the
+  // legacy single breakStart/breakEnd, or fall back to the stored windows.
+  const breakProvided = Array.isArray(b.breaks) || (b.breakStart != null) || (b.breakEnd != null);
+  let breaks;
+  if (Array.isArray(b.breaks)) breaks = b.breaks.slice(0, 4).map((x) => ({ start: normClock(x && x.start) || "", end: normClock(x && x.end) || "" }));
+  else if (b.breakStart != null || b.breakEnd != null) breaks = [{ start: normClock(b.breakStart) || "", end: normClock(b.breakEnd) || "" }];
+  else breaks = [0, 1, 2, 3].map((i) => ({ start: normClock(evRow[14 + i * 2]) || "", end: normClock(evRow[15 + i * 2]) || "" }));
+  while (breaks.length < 4) breaks.push({ start: "", end: "" });
+  // Valid windows -> cumulative shift. A break's start is entered in final wall-clock
+  // time; convert to the pre-break ("natural") timeline by subtracting earlier breaks.
+  const valid = breaks.map((x) => ({ s: hm2min(x.start), e: hm2min(x.end) })).filter((x) => x.s != null && x.e != null && x.e > x.s).sort((a, b2) => a.s - b2.s);
+  const natBreaks = []; let acc = 0;
+  for (const bk of valid) { natBreaks.push({ nat: bk.s - acc, dur: bk.e - bk.s }); acc += bk.e - bk.s; }
+  // Slot -> wall-clock time, pushing matches past every break they fall on/after.
+  const slotTime = (absSlot) => { const tN = startMin + absSlot * matchMinutes; let add = 0; for (const nb of natBreaks) if (tN >= nb.nat) add += nb.dur; return min2hm(tN + add); };
   const overridden = (b.startTime != null && String(b.startTime).trim() !== "") || b.numCourts != null || b.matchMinutes != null || (b.courtNumbers != null && String(b.courtNumbers).trim() !== "");
   if (overridden || breakProvided) {
-    while (evRow.length < 16) evRow.push("");
+    while (evRow.length < 22) evRow.push("");
     evRow[4] = startTime; evRow[5] = numCourts; evRow[6] = matchMinutes;
-    evRow[14] = breakStart; evRow[15] = breakEnd;
+    for (let i = 0; i < 4; i++) { evRow[14 + i * 2] = breaks[i].start; evRow[15 + i * 2] = breaks[i].end; }
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A${evIdx + 2}:P${evIdx + 2}`,
+      spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A${evIdx + 2}:V${evIdx + 2}`,
       valueInputOption: "USER_ENTERED", requestBody: { values: [evRow] },
     });
   }
+  const breaksOut = breaks.filter((x) => x.start || x.end);
 
   const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
   const tournaments = (trRes.data.values || []).filter((x) => x[1] === eventId);
@@ -2265,7 +2275,7 @@ async function tScheduleEvent(eventId, body) {
   await rewriteEventGroupMatches(sheets, tids, newRows);
   return respond(200, {
     success: true, engine: "block-play-v1", scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
-    breakStart, breakEnd, clashes, clashCount: clashes.length,
+    breaks: breaksOut, breakStart: breaksOut[0] ? breaksOut[0].start : "", breakEnd: breaksOut[0] ? breaksOut[0].end : "", clashes, clashCount: clashes.length,
   });
 }
 // All matches for one tournament (admin per-category view).
@@ -3207,7 +3217,7 @@ async function tPublicEvent(eventId, opts) {
   const br = await sheets.spreadsheets.values.batchGet({
     spreadsheetId: SHEET_ID,
     ranges: [
-      `${TABS.t_events}!A2:P`,
+      `${TABS.t_events}!A2:V`,
       `${TABS.t_tournaments}!A2:K`,
       `${TABS.t_groups}!A2:G`,
       `${TABS.t_matches}!A2:Q`,
@@ -3226,7 +3236,9 @@ async function tPublicEvent(eventId, opts) {
 
   const evRow = evRows.find((x) => x[0] === eventId);
   if (!evRow) return respond(404, { error: "Event not found" }, { "Cache-Control": "no-store" });
-  const event = { eventId: evRow[0], name: evRow[1], venue: evRow[2], date: evRow[3], startTime: evRow[4], numCourts: parseInt(evRow[5]) || 1, matchMinutes: parseInt(evRow[6]) || 15, breakStart: evRow[14] || "", breakEnd: evRow[15] || "" };
+  const event = { eventId: evRow[0], name: evRow[1], venue: evRow[2], date: evRow[3], startTime: evRow[4], numCourts: parseInt(evRow[5]) || 1, matchMinutes: parseInt(evRow[6]) || 15,
+    breaks: [0, 1, 2, 3].map((i) => ({ start: evRow[14 + i * 2] || "", end: evRow[15 + i * 2] || "" })).filter((b) => b.start || b.end),
+    breakStart: evRow[14] || "", breakEnd: evRow[15] || "" };
 
   const players = {};
   for (const r of plRows) {

@@ -452,19 +452,23 @@ function matchDateLabel(m){
 }
 function timeToMin(t){ const s=fmtTime(t); if(!s) return null; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
 function minToTime(x){ x=((Math.round(x)%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
+// Build a natural-time -> wall-clock shifter for up to 4 optional breaks.
+function makeBreakShift(ev){
+  const raw = (Array.isArray(ev.breaks) && ev.breaks.length) ? ev.breaks
+            : ((ev.breakStart||ev.breakEnd) ? [{start:ev.breakStart,end:ev.breakEnd}] : []);
+  const valid = raw.map(b=>({s:timeToMin(b.start),e:timeToMin(b.end)})).filter(b=>b.s!=null&&b.e!=null&&b.e>b.s).sort((a,b)=>a.s-b.s);
+  const nb=[]; let acc=0;
+  for(const b of valid){ nb.push({nat:b.s-acc, dur:b.e-b.s}); acc+=b.e-b.s; }
+  return (tN)=>{ let add=0; for(const x of nb) if(tN>=x.nat) add+=x.dur; return tN+add; };
+}
 function predictTimes(){
   const ev=state.data.event||{};
   const mm=parseInt(ev.matchMinutes)||15;
   const startMin=timeToMin(ev.startTime);
   if(startMin==null) return {};   // no start time -> fall back to stored m.time
-  // Optional break: matches at/after the break start are pushed past it.
-  const bs=timeToMin(ev.breakStart), be=timeToMin(ev.breakEnd);
-  const bd=(bs!=null&&be!=null&&be>bs)?(be-bs):0;
+  const shift=makeBreakShift(ev);
   const pred={};
-  (state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{
-    let t=startMin+(m.slot||0)*mm; if(bd&&t>=bs) t+=bd;
-    pred[m.matchId]=minToTime(t);
-  }));
+  (state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{ pred[m.matchId]=minToTime(shift(startMin+(m.slot||0)*mm)); }));
   return pred;
 }
 
