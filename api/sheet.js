@@ -269,7 +269,7 @@ const T_HEADERS = {
   [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username"],
   [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At", "Playoff_Top_Overall"],
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At", "Team_Name"],
-  [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO"],
+  [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO", "Team_Name"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
   [TABS.tracked_events]: ["Name", "URL", "Date", "Venue"],
@@ -1723,11 +1723,11 @@ async function tUpdateEntrant(body) {
 // TOURNAMENT HANDLERS (Phase 2: group draw & read/sync)
 // ==============================================================
 async function rewriteGroups(sheets, id, newRows) {
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:H` });
   const rows = r.data.values || [];
   const keep = rows.filter((x) => x[0] !== id);
   const all = keep.concat(newRows);
-  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:H` });
   if (all.length) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2`, valueInputOption: "USER_ENTERED",
@@ -1742,7 +1742,7 @@ async function tDrawGroups(id) {
   await ensureTabs(sheets);
   const t = await tGetTournamentRow(sheets, id);
   if (!t) return respond(404, { error: "Tournament not found" });
-  const enr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:J` });
+  const enr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
   const entrants = (enr.data.values || []).filter((x) => x[0] === id);
   if (!entrants.length) return respond(400, { error: "Belum ada peserta untuk diundi" });
 
@@ -1755,12 +1755,14 @@ async function tDrawGroups(id) {
     const members = shuffled.slice(cursor, cursor + sizes[gi]);
     cursor += sizes[gi];
     for (const e of members) {
-      newRows.push([id, t.tournament.category, label, e[1], e[2], e[4], parseInt(e[6]) || 0]);
+      // Persist the custom team name (entrants col K) into the group row (col H)
+      // so the Sheet's Tournament_Groups tab carries it too.
+      newRows.push([id, t.tournament.category, label, e[1], e[2], e[4], parseInt(e[6]) || 0, e[10] || ""]);
     }
     const matches = (sizes[gi] * (sizes[gi] - 1)) / 2;
     summary.push({
       label, size: sizes[gi], matches,
-      members: members.map((e) => ({ entrantId: e[1], player1Name: e[2], player2Name: e[4], seedElo: parseInt(e[6]) || 0 })),
+      members: members.map((e) => ({ entrantId: e[1], player1Name: e[2], player2Name: e[4], seedElo: parseInt(e[6]) || 0, teamName: e[10] || "" })),
     });
   }
   await rewriteGroups(sheets, id, newRows);
@@ -1772,11 +1774,12 @@ async function tGetGroups(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
   const [r, enr] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:H` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
   ]);
   const rows = (r.data.values || []).filter((x) => x[0] === id);
-  // Entrant_ID -> optional custom team name (col K). Blank falls back to player names on the client.
+  // Entrant_ID -> optional custom team name (entrants col K). Used as a fallback for
+  // group rows drawn before the group tab carried its own Team_Name (col H).
   const teamNameById = {};
   for (const x of (enr.data.values || [])) { if (x[0] === id && x[1]) teamNameById[x[1]] = x[10] || ""; }
   const dmap = await loadDisplayNames(sheets);
@@ -1786,7 +1789,7 @@ async function tGetGroups(id) {
     if (!map.has(label)) map.set(label, []);
     // player1Name/player2Name stay raw (the engine's entrant-edit inputs bind to
     // them); `display` is the view label (Display_Name) for scoring/read surfaces.
-    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0, display: displayPair(dmap, x[4], x[5]), teamName: teamNameById[x[3]] || "" });
+    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0, display: displayPair(dmap, x[4], x[5]), teamName: (x[7] || "").trim() || teamNameById[x[3]] || "" });
   }
   const groups = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, members]) => ({
     label, size: members.length, matches: (members.length * (members.length - 1)) / 2, members,
