@@ -2810,6 +2810,8 @@ async function tGeneratePlayoff(id, body) {
     numCourts: parseInt(b0.numCourts) || 1,
     matchMinutes: parseInt(b0.matchMinutes) || 15,
     date: b0.date || "",
+    // Up to 2 optional break windows for the playoff timeline.
+    breaks: Array.isArray(b0.breaks) ? b0.breaks.slice(0, 2).map((x) => ({ start: normClock(x && x.start) || "", end: normClock(x && x.end) || "" })).filter((x) => x.start || x.end) : [],
   };
   // Reuse the same court numbers the group stage used (so playoff plays on courts 3-6 too).
   const mResP = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
@@ -2822,8 +2824,17 @@ async function tGeneratePlayoff(id, body) {
   // Optional "top N overall" qualification (best teams by ranking across all
   // groups), otherwise the default per-group advancement (top N/group).
   const topOverall = parseInt(b0.topOverall) || 0;
+  // Modified bracket: an explicit custom seed order (array of entrantIds). The
+  // admin controls exactly who meets whom, so we keep the order as-is (no
+  // same-group separation) and build a single MAIN bracket from it.
+  const customOrder = Array.isArray(b0.seedOrder) ? b0.seedOrder.map((x) => String(x || "").trim()).filter(Boolean) : [];
   let built, summary;
-  if (topOverall >= 2) {
+  if (customOrder.length >= 2) {
+    const b = buildBracket(customOrder, "MAIN", null);
+    if (b.nQual < 2) return respond(400, { error: "Perlu minimal 2 tim untuk playoff." });
+    built = [{ tier: "MAIN", b }];
+    summary = [{ tier: "MAIN", method: "custom", entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length }];
+  } else if (topOverall >= 2) {
     const r = buildOverallTiers(groups, topOverall);
     if (!r.built.length || r.qualified < 2) return respond(400, { error: "Perlu minimal 2 tim untuk playoff." });
     built = r.built; summary = r.summary;
@@ -2856,6 +2867,14 @@ function schedulePlayoff(built, sched) {
   const courts = (sched.courtNums && sched.courtNums.length) ? sched.courtNums : Array.from({ length: Math.max(1, sched.numCourts || 1) }, (_, i) => i + 1);
   const C = courts.length;
   const dur = sched.matchMinutes || 15;
+  // Optional break windows (up to 2): push any match at/after a break past it (cumulative).
+  const hm = (t) => { const p = String(t || "").trim().split(":"); if (p.length < 2) return null; const h = parseInt(p[0]), m = parseInt(p[1]); return (isNaN(h) || isNaN(m)) ? null : h * 60 + m; };
+  const mh = (x) => { x = ((Math.round(x) % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, "0") + ":" + String(x % 60).padStart(2, "0"); };
+  const startMin = hm(sched.startTime) || 0;
+  const valid = (sched.breaks || []).map((b) => ({ s: hm(b.start), e: hm(b.end) })).filter((b) => b.s != null && b.e != null && b.e > b.s).sort((a, b) => a.s - b.s);
+  const natBreaks = []; let acc = 0;
+  for (const bk of valid) { natBreaks.push({ nat: bk.s - acc, dur: bk.e - bk.s }); acc += bk.e - bk.s; }
+  const waveTime = (offsetSlots) => { const tN = startMin + offsetSlots * dur; let add = 0; for (const nb of natBreaks) if (tN >= nb.nat) add += nb.dur; return mh(tN + add); };
   const maxR = Math.max(0, ...built.map((t) => t.b.numRounds));
   let wave = 0;
   for (let L = 1; L <= maxR; L++) {
@@ -2866,7 +2885,7 @@ function schedulePlayoff(built, sched) {
     }
     for (let j = 0; j < real.length; j++) {
       real[j].court = courts[j % C];
-      real[j].time = addMinutesToTime(sched.startTime, (wave + Math.floor(j / C)) * dur);
+      real[j].time = waveTime(wave + Math.floor(j / C));
     }
     if (real.length) wave += Math.ceil(real.length / C);
   }
