@@ -301,8 +301,11 @@ function predictGroupTimes(feed){
   const mm=parseInt(ev.matchMinutes)||15;
   const startMin=timeToMin(ev.startTime);
   if(startMin==null) return {};   // no start time -> fall back to stored m.time
+  // Optional break: matches at/after the break start are pushed past it.
+  const bs=timeToMin(ev.breakStart), be=timeToMin(ev.breakEnd);
+  const bd=(bs!=null&&be!=null&&be>bs)?(be-bs):0;
   const pred={};
-  feed.forEach(f=>{ if(f.stage==="GROUP") pred[f.key]=minToTime(startMin + (f.slot||0)*mm); });
+  feed.forEach(f=>{ if(f.stage==="GROUP"){ let t=startMin+(f.slot||0)*mm; if(bd&&t>=bs) t+=bd; pred[f.key]=minToTime(t); } });
   return pred;
 }
 

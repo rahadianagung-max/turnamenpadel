@@ -457,8 +457,14 @@ function predictTimes(){
   const mm=parseInt(ev.matchMinutes)||15;
   const startMin=timeToMin(ev.startTime);
   if(startMin==null) return {};   // no start time -> fall back to stored m.time
+  // Optional break: matches at/after the break start are pushed past it.
+  const bs=timeToMin(ev.breakStart), be=timeToMin(ev.breakEnd);
+  const bd=(bs!=null&&be!=null&&be>bs)?(be-bs):0;
   const pred={};
-  (state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{ pred[m.matchId]=minToTime(startMin+(m.slot||0)*mm); }));
+  (state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{
+    let t=startMin+(m.slot||0)*mm; if(bd&&t>=bs) t+=bd;
+    pred[m.matchId]=minToTime(t);
+  }));
   return pred;
 }
 

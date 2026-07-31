@@ -437,8 +437,10 @@
       <div class="f"><label>Jumlah court</label><input id="schCourts" type="number" min="1" /></div>
       <div class="f"><label>Nomor court (opsional)</label><input id="schCourtNums" type="text" placeholder="mis. 3,4,5,6" /></div>
       <div class="f"><label>Menit / match</label><input id="schMin" type="number" min="5" /></div>
+      <div class="f"><label>Break mulai (opsional)</label><input id="schBreakStart" type="time" /></div>
+      <div class="f"><label>Break selesai (opsional)</label><input id="schBreakEnd" type="time" /></div>
     </div>
-    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi.</p>
+    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: isi jam mulai &amp; selesai (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break. Kosongkan keduanya untuk tanpa break.</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
       <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Muat match kategori ini</button>
@@ -843,6 +845,9 @@ function fillScheduleParams(){
   m.value = e.matchMinutes || 15;
   const cn = document.getElementById("schCourtNums");
   if(cn) cn.value = e.courtNumbers || "";
+  const bs = document.getElementById("schBreakStart"), be = document.getElementById("schBreakEnd");
+  if(bs) bs.value = e.breakStart || "";
+  if(be) be.value = e.breakEnd || "";
 }
 async function remapCourts(){
   if(!state.event) return toast("Pilih event dulu", true);
@@ -892,13 +897,16 @@ async function generateSchedule(){
   if(!confirm("Generate jadwal menimpa jadwal babak grup SEMUA kategori di event ini. Lanjut?")) return;
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
-      startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums")
+      startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
+      breakStart: val("schBreakStart"), breakEnd: val("schBreakEnd")
     }});
     // backend persists overrides — reflect them locally so labels/context stay in sync
     state.event.startTime = val("schStart") || state.event.startTime;
     state.event.courtNumbers = val("schCourtNums") || "";
     state.event.numCourts = (r && r.numCourts) || parseInt(val("schCourts")) || state.event.numCourts;
     state.event.matchMinutes = parseInt(val("schMin")) || state.event.matchMinutes;
+    state.event.breakStart = (r && r.breakStart!=null) ? r.breakStart : val("schBreakStart");
+    state.event.breakEnd = (r && r.breakEnd!=null) ? r.breakEnd : val("schBreakEnd");
     renderContext();
     if(r.engine!=="clustered-2to3"){
       toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (pola 2–3 belum aktif).", true);
