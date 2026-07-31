@@ -65,9 +65,15 @@
   /* Stack the two players of a team vertically so each name gets ~half the card
      width and can wrap instead of being truncated. */
   .tmblk{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7vh;}
+  .tmpair{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7vh; min-width:0; max-width:100%;}
   .tmblk .pl{display:flex; align-items:center; gap:.55vw; min-width:0; max-width:100%;}
   .tmblk .plnm{font-weight:700; font-size:var(--nmf,clamp(14px,1.3vw,26px)); line-height:1.12;
     white-space:normal; overflow-wrap:anywhere; word-break:break-word;}
+  /* Opsi D: big custom team name; players demoted to a smaller support line. */
+  .tmblk .tmname{font-weight:900; letter-spacing:.01em; line-height:1.05; text-align:center; color:var(--text);
+    font-size:calc(var(--nmf,clamp(14px,1.3vw,26px)) * 1.35); white-space:normal; overflow-wrap:anywhere; word-break:break-word;}
+  .tmblk.has-tn .tmpair{flex-direction:row; gap:1vw; flex-wrap:wrap;}
+  .tmblk.has-tn .plnm{font-size:calc(var(--nmf,clamp(14px,1.3vw,26px)) * .72); font-weight:600; color:var(--muted);}
   .np-vs{flex:0 0 auto; align-self:center; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
     font-size:clamp(12px,1.1vw,20px); letter-spacing:.12em;}
   .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
@@ -239,10 +245,14 @@ function avatar(name,size){ const ph=photoOf(name); const init=(String(name||"?"
   return `<span class="av" style="--s:${size}"><i>${esc(init)}</i>${ph?`<img src="${esc(ph)}" alt="" onerror="this.remove()"/>`:""}</span>`; }
 function pairPlayers(c, eid){ const e=c.entrants && c.entrants[eid]; if(!e) return [eid||"TBD",""]; return [e.player1||"", e.player2||""]; }
 
+function teamNameOf(c, eid){ const e=c.entrants && c.entrants[eid]; return e && e.teamName ? String(e.teamName).trim() : ""; }
 function teamBlock(c, eid, sz){
   const [p1,p2]=pairPlayers(c,eid);
   const chip=(n)=>`<div class="pl">${avatar(n,sz)}<span class="plnm">${esc(dispName(n))||"TBD"}</span></div>`;
-  return `<div class="tmblk">${chip(p1)}${p2?chip(p2):""}</div>`;
+  const tn=teamNameOf(c,eid);
+  // Opsi D (TV): the custom team name is the marquee; players shrink to a support line.
+  const title=tn?`<div class="tmname">${esc(tn)}</div>`:"";
+  return `<div class="tmblk${tn?' has-tn':''}">${title}<div class="tmpair">${chip(p1)}${p2?chip(p2):""}</div></div>`;
 }
 function nowCard(f, sz, nmf){
   return `<div class="np-card" style="--nmf:${nmf}">
@@ -258,10 +268,11 @@ function nowCard(f, sz, nmf){
 function upRow(f){
   const [a1,a2]=pairPlayers(f.c,f.eA), [b1,b2]=pairPlayers(f.c,f.eB);
   const nm=(x,y)=> esc(dispName(x))+(y?" & "+esc(dispName(y)):"");
+  const lbl=(eid,x,y)=>{ const t=teamNameOf(f.c,eid); return t?esc(t):nm(x,y); };
   return `<div class="up-row">
     <span class="up-time">${f.time?fmtTime(f.time):"—"}</span>
     <span class="up-court">Court ${esc(f.court||"?")}</span>
-    <span class="up-teams"><b>${nm(a1,a2)}</b><span class="up-x">vs</span><b>${nm(b1,b2)}</b></span>
+    <span class="up-teams"><b>${lbl(f.eA,a1,a2)}</b><span class="up-x">vs</span><b>${lbl(f.eB,b1,b2)}</b></span>
   </div>`;
 }
 
@@ -311,7 +322,10 @@ function standHtml(){
         const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
         const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
         const [p1,p2]=pairPlayers(c,s.entrantId);
-        const pair = `<span class="p1">${esc(dispName(p1))||esc(dispName(s.team))}</span>${p2?`<span class="p2">${esc(dispName(p2))}</span>`:""}`;
+        const _tn=teamNameOf(c,s.entrantId);
+        const pair = _tn
+          ? `<span class="p1">${esc(_tn)}</span><span class="p2">${esc(dispName(p1))}${p2?" & "+esc(dispName(p2)):""}</span>`
+          : `<span class="p1">${esc(dispName(p1))||esc(dispName(s.team))}</span>${p2?`<span class="p2">${esc(dispName(p2))}</span>`:""}`;
         return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
           <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
           <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
@@ -334,9 +348,12 @@ function roundLabel(round, numRounds){
 function bteam(c, eid, score, win){
   if(!eid) return `<div class="bteam tbd"><span class="bnm">TBD</span></div>`;
   const [p1,p2]=pairPlayers(c,eid);
+  const tn=teamNameOf(c,eid);
+  // Opsi D: on the bracket, lead with the team name when set (players otherwise).
+  const label = tn ? esc(tn) : `${esc(dispName(p1))}${p2?" & "+esc(dispName(p2)):""}`;
   return `<div class="bteam ${win?'win':''}">
     <span class="bavs">${avatar(p1,"clamp(16px,1.3vw,26px)")}${p2?avatar(p2,"clamp(16px,1.3vw,26px)"):""}</span>
-    <span class="bnm">${esc(dispName(p1))}${p2?" & "+esc(dispName(p2)):""}</span>
+    <span class="bnm">${label}</span>
     <span class="bsc">${(score!==''&&score!=null)?esc(String(score)):''}</span></div>`;
 }
 // data-key/data-parent so the SVG overlay can draw connector lines to the final.
@@ -510,7 +527,10 @@ function cardHtml(c, g){
     const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
     const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
     const [p1,p2]=pairPlayers(c,s.entrantId);
-    const pair = `<span class="p1">${esc(dispName(p1))||esc(dispName(s.team))}</span>${p2?`<span class="p2">${esc(dispName(p2))}</span>`:""}`;
+    const _tn=teamNameOf(c,s.entrantId);
+    const pair = _tn
+      ? `<span class="p1">${esc(_tn)}</span><span class="p2">${esc(dispName(p1))}${p2?" & "+esc(dispName(p2)):""}</span>`
+      : `<span class="p1">${esc(dispName(p1))||esc(dispName(s.team))}</span>${p2?`<span class="p2">${esc(dispName(p2))}</span>`:""}`;
     return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
       <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
       <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
