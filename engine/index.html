@@ -121,6 +121,8 @@
   td{padding:10px; border-bottom:1px solid rgba(40,49,44,.55); vertical-align:middle;}
   tr:hover td{background:rgba(255,255,255,.015);}
   .pair{font-weight:600;} .vs{color:var(--faint); font-weight:400; margin:0 7px; font-family:'Space Mono',monospace; font-size:12px;}
+  .pair .teamname{font-weight:800; color:var(--accent, #FF6A00); letter-spacing:.01em; line-height:1.15;}
+  .pair .teamname + .pairline{display:block; font-weight:500; font-size:12.5px; color:var(--muted, #A1A1AA); margin-top:2px;}
   .seed{font-family:'Space Mono',monospace; color:var(--accent2);}
   .badge{font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     background:rgba(255,209,102,.14); color:var(--warn); padding:2px 6px; border-radius:5px; margin-left:7px;}
@@ -731,9 +733,11 @@ async function loadEntrants(){
 function rowHtml(e,i){
   const nb1 = e.isNewP1 ? '<span class="badge">new</span>' : '';
   const nb2 = e.isNewP2 ? '<span class="badge">new</span>' : '';
+  const tn = (e.teamName||"").trim();
+  const tnHtml = tn ? `<div class="teamname">${esc(tn)}</div>` : "";
   return `<tr id="row-${e.entrantId}">
     <td class="seed">${i+1}</td>
-    <td class="pair">${esc(e.player1Name)}${nb1}<span class="vs">+</span>${esc(e.player2Name)}${nb2}</td>
+    <td class="pair">${tnHtml}<span class="pairline">${esc(e.player1Name)}${nb1}<span class="vs">+</span>${esc(e.player2Name)}${nb2}</span></td>
     <td class="seed">${e.seedElo}</td>
     <td><button type="button" class="btn btn-ghost btn-sm" onclick='editRow(${JSON.stringify(e)})'>Edit</button></td>
   </tr>`;
@@ -745,7 +749,8 @@ function editRow(e){
     <td><div style="display:flex; gap:8px;">
       <input id="ed1-${e.entrantId}" value="${esc(e.player1Name)}" />
       <input id="ed2-${e.entrantId}" value="${esc(e.player2Name)}" />
-    </div></td>
+    </div>
+    <input id="edt-${e.entrantId}" value="${esc(e.teamName||'')}" placeholder="Nama tim (opsional, mis. Anomali Erdogan)" style="width:100%; margin-top:8px;" /></td>
     <td><input id="eds-${e.entrantId}" type="number" value="${e.seedElo}" style="width:74px" /></td>
     <td style="white-space:nowrap">
       <button type="button" class="btn btn-primary btn-sm" onclick="saveRow('${e.entrantId}')">Simpan</button>
@@ -756,6 +761,7 @@ async function saveRow(id){
   try{
     await api("tournament/entrant", { method:"PUT", body:{ entrantId:id, updates:{
       player1Name: val("ed1-"+id), player2Name: val("ed2-"+id), seedElo: val("eds-"+id),
+      teamName: val("edt-"+id),
     }}});
     toast("Peserta diperbarui");
     loadEntrants();
