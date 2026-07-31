@@ -2510,25 +2510,37 @@ function buildBracket(seeded, tier, groupOf) {
   separateRound1(round1, groupOf);
   return bracketFromRound1(round1, tier);
 }
-// World Cup style fixed cross by group position. groupsQual = per-group entrantIds in rank order.
-// Applies only when every group has exactly 2 qualifiers and group count is a power of 2 (2,4,8...).
-// Pairs group i with mirror group (g-1-i), crossing positions: 1(i) vs 2(mirror), 1(mirror) vs 2(i).
-// Guarantees two teams from the same group land in opposite halves (can only meet in the final).
+// World Cup style fixed cross seeding. groupsQual = per-group entrantIds in rank
+// order (index 0 = group A, 1 = B, …). Applies only when every group has exactly
+// 2 qualifiers and the group count is a power of 2 (2, 4, 8…).
+//
+// Groups are paired by MIRROR (A↔H, B↔G, C↔F, D↔E for 8 groups). Each mirror pair
+// yields two round-1 matches — Winner(i) vs Runner-up(mirror) and Winner(mirror)
+// vs Runner-up(i) — split into OPPOSITE bracket halves, so a group's winner &
+// runner-up (and the two mirror winners) can only meet in the final. For 8 groups
+// this produces exactly:
+//   Left : WA-RUH, WD-RUE, WB-RUG, WC-RUF
+//   Right: WE-RUD, WH-RUA, WF-RUC, WG-RUB
 function crossSeedRound1(groupsQual) {
   const g = groupsQual.length;
   if (g < 2) return null;
   if ((g & (g - 1)) !== 0) return null;           // group count must be a power of 2
   if (!groupsQual.every((a) => a.length === 2)) return null; // exactly 2 per group
   const W = groupsQual.map((a) => a[0]), R = groupsQual.map((a) => a[1]);
-  const top = [], bot = [];
-  // Pair group i with group i + g/2 (4 groups → A↔C, B↔D), rank1 of one vs rank2 of the other.
-  // Same-group teams land in opposite bracket halves, so #1 and #2 of a group can only meet in the final.
-  for (let i = 0; i < g / 2; i++) {
-    const j = i + g / 2;
-    top.push([W[i], R[j]]); // e.g. 1A vs 2C
-    bot.push([W[j], R[i]]); // e.g. 1C vs 2A
+  const mir = (i) => g - 1 - i;                    // mirror group: A↔H, B↔G, …
+  // Left half: winners of the low-half groups in standard bracket-seed order,
+  // each vs the runner-up of its mirror group.
+  const lowGroups = seedOrder(g / 2).map((s) => s - 1);
+  const left = lowGroups.map((i) => [W[i], R[mir(i)]]);
+  // Right half: the sibling match of each left match ([W(mirror), RU(group)]),
+  // swapped within every quarter so mirror teams land in opposite halves.
+  const right = [];
+  for (let k = 0; k < lowGroups.length; k += 2) {
+    const a = lowGroups[k], b = lowGroups[k + 1];
+    if (b !== undefined) { right.push([W[mir(b)], R[b]]); right.push([W[mir(a)], R[a]]); }
+    else right.push([W[mir(a)], R[a]]);
   }
-  return top.concat(bot);
+  return left.concat(right);
 }
 async function rewritePlayoffMatches(sheets, id, newRows) {
   // Full A2:Q range so Scheduled_Date (col Q) travels with each row through the
