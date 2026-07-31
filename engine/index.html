@@ -437,10 +437,16 @@
       <div class="f"><label>Jumlah court</label><input id="schCourts" type="number" min="1" /></div>
       <div class="f"><label>Nomor court (opsional)</label><input id="schCourtNums" type="text" placeholder="mis. 3,4,5,6" /></div>
       <div class="f"><label>Menit / match</label><input id="schMin" type="number" min="5" /></div>
-      <div class="f"><label>Break mulai (opsional)</label><input id="schBreakStart" type="time" /></div>
-      <div class="f"><label>Break selesai (opsional)</label><input id="schBreakEnd" type="time" /></div>
+      <div class="f"><label>Break 1 mulai (opsional)</label><input id="schBreak1Start" type="time" /></div>
+      <div class="f"><label>Break 1 selesai</label><input id="schBreak1End" type="time" /></div>
+      <div class="f"><label>Break 2 mulai (opsional)</label><input id="schBreak2Start" type="time" /></div>
+      <div class="f"><label>Break 2 selesai</label><input id="schBreak2End" type="time" /></div>
+      <div class="f"><label>Break 3 mulai (opsional)</label><input id="schBreak3Start" type="time" /></div>
+      <div class="f"><label>Break 3 selesai</label><input id="schBreak3End" type="time" /></div>
+      <div class="f"><label>Break 4 mulai (opsional)</label><input id="schBreak4Start" type="time" /></div>
+      <div class="f"><label>Break 4 selesai</label><input id="schBreak4End" type="time" /></div>
     </div>
-    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: isi jam mulai &amp; selesai (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break. Kosongkan keduanya untuk tanpa break.</p>
+    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: hingga 4 jeda, isi jam mulai &amp; selesai tiap break (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break (kumulatif untuk beberapa break). Kosongkan pasangan yang tak dipakai.</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
       <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Muat match kategori ini</button>
@@ -845,9 +851,25 @@ function fillScheduleParams(){
   m.value = e.matchMinutes || 15;
   const cn = document.getElementById("schCourtNums");
   if(cn) cn.value = e.courtNumbers || "";
-  const bs = document.getElementById("schBreakStart"), be = document.getElementById("schBreakEnd");
-  if(bs) bs.value = e.breakStart || "";
-  if(be) be.value = e.breakEnd || "";
+  fillBreaks(e.breaks || (e.breakStart||e.breakEnd ? [{start:e.breakStart,end:e.breakEnd}] : []));
+}
+// Prefill the 4 break input pairs from a breaks array.
+function fillBreaks(breaks){
+  for(let i=1;i<=4;i++){
+    const b = (breaks && breaks[i-1]) || {};
+    const s = document.getElementById("schBreak"+i+"Start"), e = document.getElementById("schBreak"+i+"End");
+    if(s) s.value = b.start || "";
+    if(e) e.value = b.end || "";
+  }
+}
+// Collect the 4 break input pairs (only pairs with any value).
+function collectBreaks(){
+  const out = [];
+  for(let i=1;i<=4;i++){
+    const s = val("schBreak"+i+"Start"), e = val("schBreak"+i+"End");
+    if(s || e) out.push({ start: s, end: e });
+  }
+  return out;
 }
 async function remapCourts(){
   if(!state.event) return toast("Pilih event dulu", true);
@@ -898,15 +920,14 @@ async function generateSchedule(){
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
-      breakStart: val("schBreakStart"), breakEnd: val("schBreakEnd")
+      breaks: collectBreaks()
     }});
     // backend persists overrides — reflect them locally so labels/context stay in sync
     state.event.startTime = val("schStart") || state.event.startTime;
     state.event.courtNumbers = val("schCourtNums") || "";
     state.event.numCourts = (r && r.numCourts) || parseInt(val("schCourts")) || state.event.numCourts;
     state.event.matchMinutes = parseInt(val("schMin")) || state.event.matchMinutes;
-    state.event.breakStart = (r && r.breakStart!=null) ? r.breakStart : val("schBreakStart");
-    state.event.breakEnd = (r && r.breakEnd!=null) ? r.breakEnd : val("schBreakEnd");
+    state.event.breaks = (r && r.breaks) ? r.breaks : collectBreaks();
     renderContext();
     if(r.engine!=="clustered-2to3"){
       toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (pola 2–3 belum aktif).", true);
