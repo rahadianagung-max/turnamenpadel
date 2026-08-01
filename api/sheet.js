@@ -404,6 +404,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "POST") {
       return await tGeneratePlayoff(decodeURIComponent(path.replace("tournament/", "").replace("/playoff", "")), body);
     }
+    if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "DELETE") {
+      return await tResetPlayoff(decodeURIComponent(path.replace("tournament/", "").replace("/playoff", "")));
+    }
     if (path.startsWith("tournament/") && path.endsWith("/import") && method === "POST") {
       return await tImport(decodeURIComponent(path.replace("tournament/", "").replace("/import", "")));
     }
@@ -2888,6 +2891,27 @@ async function tGeneratePlayoff(id, body) {
       await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:K${i + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] } }); }
   });
   return respond(200, { success: true, format, brackets: summary, schedule: sched });
+}
+// Delete a tournament's generated playoff bracket so the board falls back to the
+// simulation/projection again. Removes all PLAYOFF match rows and clears the
+// tournament's PLAYOFF status; the saved simulation plan (top-N, col K) is kept.
+async function tResetPlayoff(id) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  await rewritePlayoffMatches(sheets, id, []);
+  // Clear the "PLAYOFF" status flag (col H) so the tournament is no longer marked
+  // as in the knockout phase; keep the top-N plan (col K) intact.
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
+  const rows = r.data.values || [], i = rows.findIndex((x) => x[0] === id);
+  if (i !== -1 && (rows[i][7] || "") === "PLAYOFF") {
+    while (rows[i].length < 11) rows[i].push("");
+    rows[i][7] = "";
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:K${i + 2}`,
+      valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] },
+    });
+  }
+  return respond(200, { success: true });
 }
 // Assign court + planned time to playoff matches, round-by-round across tiers (shared court pool).
 // BYE matches get no court/time. Each tier's bronze is scheduled at that tier's final round level.
