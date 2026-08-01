@@ -2787,17 +2787,16 @@ function buildQualifyPanelPerGroup(groupList, groupMatches, N, nameFn) {
   const out = [];
   (groupList || []).forEach((gl, gi) => {
     const g = groups[gi];
-    // When a group has no remaining matches its standings are FINAL, so the actual
-    // top-N (with tiebreakers applied) are confirmed — even teams tied on wins that
-    // the wins-only worst case can't separate. `gl.standings` is already rank-ordered.
+    // A team's name is revealed only once its OWN group has finished ALL matches.
+    // While a group still has matches to play, every slot stays "TBC" — even a
+    // mathematically-safe leader — so no player name enters the board early.
+    // Once the group is complete its standings are final, so the top-N (full
+    // tiebreakers applied; gl.standings is already rank-ordered) are confirmed.
     const complete = (g.rem || []).length === 0;
     const finalTopN = complete ? new Set((gl.standings || []).slice(0, N).map((s) => s.entrantId)) : null;
     const teams = (gl.standings || []).map((s) => ({ entrantId: s.entrantId, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0 }));
     if (!teams.length) return;
-    teams.forEach((x) => {
-      x.clinched = (finalTopN ? finalTopN.has(x.entrantId) : false)
-        || qpGroupMaxAtOrAbove(g, x.wins, x.entrantId, x.entrantId) <= (N - 1);
-    });
+    teams.forEach((x) => { x.clinched = !!(finalTopN && finalTopN.has(x.entrantId)); });
     teams.sort(qpRank);
     const slots = [];
     for (let i = 0; i < N; i++) { const t = teams[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", entrantId: t && t.clinched ? t.entrantId : "", confirmed: !!(t && t.clinched) }); }
