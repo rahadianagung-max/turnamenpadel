@@ -442,6 +442,7 @@
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket</button>
       <button type="button" class="btn btn-ghost" onclick="openSeedEditor()">🔧 Bracket modifikasi (seeding manual)</button>
+      <button type="button" class="btn btn-ghost" onclick="resetPlayoff()">🗑 Hapus bracket (kembali ke simulasi)</button>
       <button type="button" class="btn btn-ghost" onclick="loadPlayoff()">↻ Muat ulang</button>
     </div>
     <p class="lead" style="margin:8px 2px 0"><b>Bracket modifikasi</b>: atur sendiri urutan seed &amp; tim mana yang ikut. <b>Break</b> playoff opsional (maks 2): match yang jatuh pada/setelah jam break digeser ke setelahnya.</p>
@@ -996,6 +997,15 @@ async function generatePlayoffCustom(){
     const txt = (r.brackets||[]).map(b=>`${TIER_LABEL[b.tier]||b.tier}: ${b.entrants} tim (seeding manual)`).join(" · ");
     toast("Bracket dibuat · "+txt);
     closeSeedEditor();
+    loadPlayoff();
+  }catch(e){ toast(e.message, true); }
+}
+async function resetPlayoff(){
+  if(!state.tournament) return toast("Pilih kategori dulu", true);
+  if(!confirm("Hapus bracket playoff kategori ini dan kembali ke SIMULASI? Semua skor playoff yang sudah diinput akan hilang. Babak grup tidak terpengaruh.")) return;
+  try{
+    await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"DELETE" });
+    toast("Bracket dihapus · kembali ke simulasi");
     loadPlayoff();
   }catch(e){ toast(e.message, true); }
 }
