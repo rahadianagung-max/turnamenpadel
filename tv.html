@@ -402,7 +402,14 @@ function oneBracket(c, b, cell){
   const tnm = (eid, fallback) => { const t = eid ? teamNameOf(c, eid) : ""; return t ? esc(t) : (esc(firstNames(fallback))||"—"); };
   const pod = (!proj && (p.champion||p.runnerUp||p.third))
     ? `<div class="bpodium">🏆 <b>${tnm(p.champE,p.champion)}</b><span class="posub"> · RU ${tnm(p.ruE,p.runnerUp)} · 3rd ${tnm(p.thirdE,p.third)}</span></div>` : "";
-  const rs = b.rounds||[];
+  // Prune fully-decided leading rounds (real bracket only): once e.g. the Round of
+  // 16 is complete the board shows Quarterfinal → Final only, then SF → Final, etc.
+  // Always keep at least the final round; the simulation shows every round.
+  const allRounds = b.rounds||[];
+  const roundDone = (rd) => (rd.matches||[]).length>0 && (rd.matches||[]).every(m=> m.status==="DONE" || m.status==="BYE");
+  let startR = 0;
+  if(!proj){ while(startR < allRounds.length-1 && roundDone(allRounds[startR])) startR++; }
+  const rs = allRounds.slice(startR);
   const last = rs.length-1;
   const roundCol = (r, half)=>{
     const ms = rs[r].matches||[];
