@@ -10,6 +10,7 @@
     { "source": "/checkin/:slug", "destination": "/checkin.html" },
     { "source": "/contact", "destination": "/contact.html" },
     { "source": "/calculator", "destination": "/calculator.html" },
+    { "source": "/draw", "destination": "/draw.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
 }

@@ -198,6 +198,64 @@ async function calcResult(body) {
   return respond(200, { success: true });
 }
 
+// Group Draw ("spin the wheel") commit. Writes an audit trail to Draw_Results &
+// Draw_Log (idempotent per draw_id) and — when a tournamentId is given — applies
+// the drawn group distribution to Tournament_Groups so the scheduler can run.
+function colLetters(n) { let s = ""; n = Math.max(1, n); while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; }
+async function drawRewriteTab(sheets, title, header, drawIdIdx, drawId, newRows) {
+  await ensureTabWithHeader(sheets, title, header);
+  const end = colLetters(header.length);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${title}!A2:${end}` });
+  const rows = r.data.values || [];
+  const keep = rows.filter((x) => (x[drawIdIdx] || "") !== drawId); // idempotent: drop this draw_id
+  const all = keep.concat(newRows);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${title}!A2:${end}` });
+  if (all.length) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${title}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: all },
+    });
+  }
+}
+async function tDrawCommit(body) {
+  const b = body || {};
+  const drawId = String(b.draw_id || "").trim();
+  if (!drawId) return respond(400, { error: "draw_id required" });
+  const results = Array.isArray(b.results) ? b.results : [];
+  const logs = Array.isArray(b.log) ? b.log : [];
+  if (!results.length) return respond(400, { error: "results required" });
+  const sheets = getSheets();
+  const now = new Date().toISOString();
+  const tid = String(b.tournament_id || "").trim();
+
+  const resHeader = ["Timestamp", "Draw_ID", "Tournament_ID", "Tournament_Name", "Mode", "Groups", "Pairs_Per_Group", "Random_Key", "Random_Key_Hash", "Group", "Pot", "Pair_ID", "Player1", "Player2", "Rating", "Team_Name", "Status"];
+  const resRows = results.map((x) => [
+    now, drawId, tid, String(b.tournament_name || ""), String(b.mode || ""),
+    String(b.groups || ""), String(b.pairs_per_group || ""), String(b.random_key || ""), String(b.random_key_hash || ""),
+    String(x.group || ""), String(x.pot || ""), String(x.pair_id || ""), String(x.player1 || ""), String(x.player2 || ""),
+    x.rating == null ? "" : String(x.rating), String(x.team_name || ""), String(x.status || ""),
+  ]);
+  const logHeader = ["Timestamp", "Draw_ID", "Tournament_ID", "N", "Pot", "Group", "Pair_ID", "At"];
+  const logRows = logs.map((l) => [now, drawId, tid, String(l.n || ""), String(l.pot || ""), String(l.group || ""), String(l.pair_id || ""), String(l.at || "")]);
+
+  await drawRewriteTab(sheets, TABS.draw_results, resHeader, 1, drawId, resRows);
+  await drawRewriteTab(sheets, TABS.draw_log, logHeader, 1, drawId, logRows);
+
+  // Optional: apply the drawn distribution to the tournament's groups so the
+  // engine's Berger scheduler can run without a manual re-draw.
+  let groupsApplied = 0;
+  if (tid) {
+    try {
+      const tr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:C` });
+      const trow = (tr.data.values || []).find((x) => x[0] === tid);
+      const category = trow ? (trow[2] || "") : "";
+      const newRows = results.map((x) => [tid, category, String(x.group || ""), String(x.pair_id || ""), String(x.player1 || ""), String(x.player2 || ""), x.rating == null ? "" : String(x.rating), String(x.team_name || "")]);
+      await rewriteGroups(sheets, tid, newRows);
+      groupsApplied = newRows.length;
+    } catch (e) { console.error("draw group apply:", e); }
+  }
+  return respond(200, { success: true, results: resRows.length, groupsApplied });
+}
+
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
 const TABS = {
@@ -220,6 +278,8 @@ const TABS = {
   tracked_events: "Tracked_Events",
   calc_leads: "Calculator_Leads",
   calc_results: "Calculator_Results",
+  draw_results: "Draw_Results",
+  draw_log: "Draw_Log",
 };
 
 const headers = {
@@ -399,6 +459,7 @@ const netlifyHandler = async (event) => {
     if (path === "leads" && method === "POST") return await submitLead(body);
     if (path === "calc/gate" && method === "POST") return await calcGate(body);
     if (path === "calc/result" && method === "POST") return await calcResult(body);
+    if (path === "draw/commit" && method === "POST") return await tDrawCommit(body);
     if (path === "auth/login") return await login(body);
 
     if (path === "players" && method === "GET") return await getPlayers(params);
