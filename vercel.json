@@ -9,6 +9,7 @@
     { "source": "/tv/:slug", "destination": "/tv.html" },
     { "source": "/checkin/:slug", "destination": "/checkin.html" },
     { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/calculator", "destination": "/calculator.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
 }

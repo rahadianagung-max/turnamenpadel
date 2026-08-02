@@ -126,6 +126,78 @@ async function submitLead(body) {
   return respond(200, { success: true });
 }
 
+// Tournament Time Calculator lead capture. Two self-bootstrapping tabs:
+// Calculator_Leads (email gate) and Calculator_Results (computed estimate + intent).
+async function ensureTabWithHeader(sheets, title, header) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const existing = (meta.data.sheets || []).map((s) => s.properties.title);
+  if (existing.includes(title)) return;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title } } }] },
+  });
+  const colEnd = String.fromCharCode(64 + Math.min(26, header.length));
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${title}!A1:${colEnd}1`, valueInputOption: "RAW",
+    requestBody: { values: [header] },
+  });
+}
+async function calcGate(body) {
+  const name = String((body && body.name) || "").trim();
+  const email = String((body && body.email) || "").trim();
+  if (!name || !email) return respond(400, { error: "name and email required" });
+  const sheets = getSheets();
+  await ensureTabWithHeader(sheets, TABS.calc_leads, ["Timestamp", "Lead_ID", "Name", "Email", "Source", "User_Agent", "Status"]);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.calc_leads}!A:G`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[
+      new Date().toISOString(), String((body && body.lead_id) || ""), name, email,
+      String((body && body.source) || "turnamenpadel.com/calculator"),
+      String((body && body.user_agent) || "").slice(0, 400), "GATE",
+    ]] },
+  });
+  return respond(200, { success: true });
+}
+async function calcResult(body) {
+  const b = body || {};
+  const email = String(b.email || "").trim();
+  if (!email) return respond(400, { error: "email required" });
+  const sheets = getSheets();
+  await ensureTabWithHeader(sheets, TABS.calc_results, [
+    "Timestamp", "Lead_ID", "Name", "Email", "Mode", "Format_Priority", "Input_Unit",
+    "Target_Pairs", "Hours_Available", "Courts", "Court_Rate_Per_Hour", "Total_Pairs",
+    "Total_Players", "Categories_Count", "Categories_Detail", "Total_Matches",
+    "Total_Duration_Min", "Total_Duration_Label", "Court_Hours_Optimal", "Court_Hours_Full",
+    "Estimated_Court_Cost", "Potential_Saving", "Has_Bye", "Options_Considered",
+    "Services_Requested", "Rules_Ref", "Interested_In_Management", "Status",
+  ]);
+  // Light per-email rate limit: max 20 result rows per rolling hour.
+  try {
+    const cutoff = Date.now() - 3600 * 1000;
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.calc_results}!A2:D` });
+    const recent = (r.data.values || []).filter((x) => (x[3] || "").trim().toLowerCase() === email.toLowerCase() && Date.parse(x[0] || "") >= cutoff).length;
+    if (recent >= 20) return respond(200, { success: true, skipped: "rate_limited" });
+  } catch (e) { /* if the read fails, still record the row below */ }
+  const interested = b.interested_in_management === true || b.interested_in_management === "true";
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.calc_results}!A:AB`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[
+      new Date().toISOString(), String(b.lead_id || ""), String(b.name || ""), email,
+      String(b.mode || ""), String(b.format_priority || ""), String(b.input_unit || ""),
+      b.target_pairs == null ? "" : String(b.target_pairs), b.hours_available == null ? "" : String(b.hours_available),
+      b.courts == null ? "" : String(b.courts), b.court_rate_per_hour == null ? "" : String(b.court_rate_per_hour),
+      b.total_pairs == null ? "" : String(b.total_pairs), b.total_players == null ? "" : String(b.total_players),
+      b.categories_count == null ? "" : String(b.categories_count), String(b.categories_detail || ""),
+      b.total_matches == null ? "" : String(b.total_matches), b.total_duration_min == null ? "" : String(b.total_duration_min),
+      String(b.total_duration_label || ""), b.court_hours_optimal == null ? "" : String(b.court_hours_optimal),
+      b.court_hours_full == null ? "" : String(b.court_hours_full), b.estimated_court_cost == null ? "" : String(b.estimated_court_cost),
+      b.potential_saving == null ? "" : String(b.potential_saving), b.has_bye ? "TRUE" : "FALSE",
+      String(b.options_considered || ""), String(b.services_requested || ""),
+      String(b.rules_ref || ""), interested ? "TRUE" : "FALSE", interested ? "HOT" : "NEW",
+    ]] },
+  });
+  return respond(200, { success: true });
+}
+
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 
 const TABS = {
@@ -146,6 +218,8 @@ const TABS = {
   registrations: "Registrations",
   leads: "Tournament_Leads",
   tracked_events: "Tracked_Events",
+  calc_leads: "Calculator_Leads",
+  calc_results: "Calculator_Results",
 };
 
 const headers = {
@@ -323,6 +397,8 @@ const netlifyHandler = async (event) => {
     if (path === "settings" && method === "POST") return await setSetting(body);
     if (path === "public/feed" && method === "GET") return await getPublicFeed();
     if (path === "leads" && method === "POST") return await submitLead(body);
+    if (path === "calc/gate" && method === "POST") return await calcGate(body);
+    if (path === "calc/result" && method === "POST") return await calcResult(body);
     if (path === "auth/login") return await login(body);
 
     if (path === "players" && method === "GET") return await getPlayers(params);
