@@ -2241,7 +2241,9 @@ async function rewriteEventGroupMatches(sheets, tids, newRows) {
   // stayed pinned to their old physical positions, so dates bound to the wrong match.
   const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const rows = r.data.values || [];
-  const keep = rows.filter((x) => !(tids.includes(x[0]) && x[2] === "GROUP"));
+  // Keep valid rows only: drop this event's GROUP rows (being rewritten) AND any
+  // orphaned/garbage rows with no Tournament_ID or Match_ID (leftover shells).
+  const keep = rows.filter((x) => x[0] && x[1] && !(tids.includes(x[0]) && x[2] === "GROUP"));
   const all = keep.concat(newRows).map(padMatchRow);
   await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   if (all.length) {
@@ -2626,7 +2628,9 @@ async function rewritePlayoffMatches(sheets, id, newRows) {
   // clear+rewrite; reading only A2:P orphaned dates onto the wrong matches.
   const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const rows = r.data.values || [];
-  const keep = rows.filter((x) => !(x[0] === id && x[2] === "PLAYOFF"));
+  // Keep valid rows only: drop this tournament's PLAYOFF rows (being rewritten) AND
+  // any orphaned/garbage rows with no Tournament_ID or Match_ID (leftover shells).
+  const keep = rows.filter((x) => x[0] && x[1] && !(x[0] === id && x[2] === "PLAYOFF"));
   const all = keep.concat(newRows).map(padMatchRow);
   await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   if (all.length) {
