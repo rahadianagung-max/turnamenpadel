@@ -378,6 +378,7 @@
     <p id="groupPreview">—</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="drawGroups()">Undi grup</button>
+      <button type="button" class="btn btn-ghost" onclick="openWheelDraw()">🎡 Undian roda (spin the wheel)</button>
       <button type="button" class="btn btn-ghost" onclick="loadGroups()">↻ Sync dari sheet</button>
     </div>
     <div id="groupsWrap" style="margin-top:18px;"></div>
@@ -716,6 +717,10 @@ function updateGroupPreview(){
   const mm = (state.event && state.event.matchMinutes) || 15;
   const detail = sizes.map(s=>{ const m=s*(s-1)/2; return `~${m} match ≈ ${m*mm}m`; });
   el.textContent = `${n} peserta · target ${target}/grup → ${sizes.length} grup [${sizes.join(", ")}] · per grup ${detail.join(" / ")}`;
+}
+function openWheelDraw(){
+  if(!state.tournament) return toast("Pilih kategori dulu", true);
+  window.open("/draw?t="+encodeURIComponent(state.tournament.tournamentId), "_blank", "noopener");
 }
 async function drawGroups(){
   if(!state.tournament) return;
