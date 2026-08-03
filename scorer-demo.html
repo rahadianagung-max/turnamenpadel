@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scorer Desk (Demo) — TurnamenPadel</title>
+<meta name="robots" content="noindex"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0C0D10;--panel:#15171C;--panel2:#1B1E25;--line:#282C35;--orange:#FF6A00;--text:#F2F3F5;--muted:#878E9A;--green:#2FBF6B;--amber:#FFB020;--red:#FF4D4D;--r:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.5}
+.wrap{max-width:1180px;margin:0 auto;padding:18px 16px 60px}
+h1,h2,h3{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;line-height:1.05}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:9px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--orange);box-shadow:0 0 14px var(--orange)}
+.brand b{font-size:13px;letter-spacing:.16em;font-weight:700;font-family:'Saira Condensed',sans-serif;text-transform:uppercase}
+header h1{font-size:26px;font-weight:800}
+header .ev{font-size:12px;color:var(--muted);text-align:right;line-height:1.4}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.tab{padding:9px 15px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;font-weight:600;font-size:13px;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em}
+.tab.on{background:var(--orange);color:#0C0D10;border-color:var(--orange)}
+.sec{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:14px;font-weight:800;color:var(--muted);margin:22px 0 10px}
+.courts{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.court{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.court .ch{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--panel2);border-bottom:1px solid var(--line)}
+.court .ch b{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:15px;font-weight:800}
+.court .ch span{font-size:11px;color:var(--muted);font-family:'Space Mono',monospace}
+.m{padding:11px 14px;border-bottom:1px solid #1E2128}
+.m:last-child{border-bottom:0}
+.m .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.m .grp{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);text-transform:uppercase}
+.m .tm{font-size:11px;color:var(--orange);font-family:'Space Mono',monospace}
+.badge{font-size:9.5px;font-family:'Saira Condensed',sans-serif;letter-spacing:.06em;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:100px}
+.badge.done{background:rgba(47,191,107,.16);color:var(--green)}
+.badge.sch{background:rgba(255,176,32,.14);color:var(--amber)}
+.badge.bye{background:rgba(135,142,154,.16);color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr 46px;gap:8px;align-items:center;padding:5px 0}
+.row .tn{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.win .tn{color:var(--orange)}
+.row .sc{width:46px;text-align:center;background:#0A0B0E;border:1.5px solid var(--line);color:var(--text);border-radius:8px;padding:7px 2px;font-family:'Saira Condensed',sans-serif;font-weight:800;font-size:18px;outline:none}
+.row .sc:focus{border-color:var(--orange)}
+.empty{color:var(--muted);font-size:13px;padding:14px}
+.note{margin-top:24px;font-size:12px;color:var(--muted);text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="dot"></span><b>TurnamenPadel · Scorer Desk</b></div>
+    <div class="ev" id="evInfo"></div>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div id="body"></div>
+  <div class="note">Demo scorer desk — scores are simulated from your plan. In a real event, entries here sync live to the player phones and the TV board.</div>
+</div>
+
+<script>
+"use strict";
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+function fmtTime(t){ return t? String(t) : "—"; }
+var DEMO={event:{name:"Padel Demo Cup",venue:"Demo Venue",date:"2026-07-12",numCourts:3,matchMinutes:15},players:{},categories:[]};
+function loadDemoData(){ try{ var s=localStorage.getItem("tp_demo_data"); if(s){ var d=JSON.parse(s); if(d&&d.categories&&d.categories.length) return d; } }catch(e){} return DEMO; }
+var DATA=loadDemoData(), CAT=0;
+
+function roundLabel(round, numRounds){
+  if(round==="BRONZE") return "3rd place";
+  var r=parseInt(round,10), f=numRounds-r;
+  return ["Final","Semifinal","Quarterfinal","Round of 16","Round of 32"][f]||("Round "+r);
+}
+function badge(status){
+  if(status==="DONE") return '<span class="badge done">Done</span>';
+  if(status==="BYE") return '<span class="badge bye">Bye</span>';
+  return '<span class="badge sch">To play</span>';
+}
+function scoreRow(team,score,win){
+  return '<div class="row'+(win?" win":"")+'"><span class="tn">'+esc(team||"TBD")+'</span>'+
+    '<input class="sc" inputmode="numeric" value="'+(score===""||score==null?"":score)+'"></div>';
+}
+function matchCard(m, extra){
+  var win=m.winner, aw=win&&String(win)===String(m.entrantA), bw=win&&String(win)===String(m.entrantB);
+  return '<div class="m"><div class="top"><span class="grp">'+esc(extra||"")+'</span>'+
+    (m.time?'<span class="tm">'+esc(fmtTime(m.time))+'</span>':'')+badge(m.status)+'</div>'+
+    scoreRow(m.teamA, m.scoreA, aw)+scoreRow(m.teamB, m.scoreB, bw)+'</div>';
+}
+
+function renderTabs(){
+  document.getElementById("tabs").innerHTML=(DATA.categories||[]).map(function(c,i){
+    return '<button class="tab '+(i===CAT?"on":"")+'" data-i="'+i+'">'+esc(c.category)+'</button>';
+  }).join("");
+  Array.prototype.forEach.call(document.querySelectorAll("#tabs .tab"), function(b){
+    b.onclick=function(){ CAT=+b.getAttribute("data-i"); renderTabs(); renderBody(); };
+  });
+}
+function renderBody(){
+  var c=(DATA.categories||[])[CAT]; var el=document.getElementById("body");
+  if(!c){ el.innerHTML='<div class="empty">No simulation loaded. Run a simulation first.</div>'; return; }
+  var courts={};
+  (c.schedule||[]).forEach(function(m){ (courts[m.court]=courts[m.court]||[]).push(m); });
+  var courtNos=Object.keys(courts).sort(function(a,b){return a-b;});
+  var h='<div class="sec">Group stage — order of play</div><div class="courts">';
+  h+=courtNos.map(function(no){
+    var list=courts[no].slice().sort(function(a,b){return (a.slot||0)-(b.slot||0);});
+    return '<div class="court"><div class="ch"><b>Court '+esc(no)+'</b><span>'+list.length+' matches</span></div>'+
+      list.map(function(m){ return matchCard(m, "Group "+m.groupLabel); }).join("")+'</div>';
+  }).join("");
+  h+='</div>';
+  // playoff
+  var po=(c.playoff||[])[0];
+  if(po && po.rounds){
+    h+='<div class="sec">Playoff bracket</div><div class="courts">';
+    h+=po.rounds.map(function(rd){
+      var mm=(rd.matches||[]).filter(function(m){ return m.teamA||m.teamB; });
+      if(!mm.length) return "";
+      return '<div class="court"><div class="ch"><b>'+esc(roundLabel(rd.round,po.numRounds))+'</b><span>'+mm.length+'</span></div>'+
+        mm.map(function(m){ return matchCard(m, ""); }).join("")+'</div>';
+    }).join("");
+    if(po.bronze && (po.bronze.teamA||po.bronze.teamB)){
+      h+='<div class="court"><div class="ch"><b>3rd place</b><span>1</span></div>'+matchCard(po.bronze,"")+'</div>';
+    }
+    h+='</div>';
+  }
+  el.innerHTML=h;
+}
+(function boot(){
+  var e=DATA.event||{};
+  document.getElementById("evInfo").innerHTML=esc(e.name||"Demo")+"<br>"+[e.venue,e.date].filter(Boolean).map(esc).join(" · ");
+  renderTabs(); renderBody();
+})();
+</script>
+</body>
+</html>

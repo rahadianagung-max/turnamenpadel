@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Simulasi Turnamen — TurnamenPadel</title>
-<meta name="description" content="Simulasikan turnamen padel kamu dari awal sampai podium: format grup & bracket, estimasi durasi dan biaya court, lalu rasakan tampilan mobile player & TV LED seakan-akan acara sudah berjalan. Gratis dari TurnamenPadel.">
+<title>Tournament Simulator — TurnamenPadel</title>
+<meta name="description" content="Simulate your padel tournament from setup to podium: group & bracket format, duration estimate, then feel the live player and TV LED screens as if the event were already running. Free from TurnamenPadel.">
 <meta name="robots" content="index,follow">
 <link rel="canonical" href="https://turnamenpadel.com/simulasi">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Simulasi Turnamen — TurnamenPadel">
-<meta property="og:description" content="Rencanakan, rasakan, dan jalankan turnamen padel kamu — format, jadwal, biaya, plus pratinjau layar mobile & TV yang terasa nyata.">
+<meta property="og:title" content="Tournament Simulator — TurnamenPadel">
+<meta property="og:description" content="Plan, feel, and run your padel tournament — format, schedule, plus a lifelike preview of the player and TV screens.">
 <meta property="og:url" content="https://turnamenpadel.com/simulasi">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -243,6 +243,66 @@ footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-si
 .lfmsg{font-size:12.5px;color:var(--muted);text-align:center;margin-top:12px}
 textarea#lfNotes{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14.5px;outline:none;min-height:76px;resize:vertical}
 textarea#lfNotes:focus{border-color:var(--orange)}
+
+/* ---- Result: recommendation cards ---- */
+.rec{position:relative;text-align:left;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:0;margin-bottom:14px;cursor:pointer;transition:.15s;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;display:block;overflow:hidden}
+.rec:hover{border-color:#41474F}
+.rec.reco{border-color:var(--orange)}
+.rec .rechead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 16px 12px;background:linear-gradient(150deg,#1B1206,var(--panel) 60%)}
+.rec.alt .rechead{background:linear-gradient(150deg,#06131B,var(--panel) 60%)}
+.rec .rectitle{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:18px;font-weight:800;letter-spacing:.01em}
+.rec .rectag{font-size:9.5px;font-family:'Saira Condensed',sans-serif;letter-spacing:.08em;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:100px;padding:2px 8px;white-space:nowrap}
+.rec.alt .rectag{color:#57C4FF;border-color:#57C4FF}
+.rec .recbig{font-family:'Saira Condensed',sans-serif;font-weight:800;font-size:34px;line-height:1;color:var(--orange);white-space:nowrap;font-variant-numeric:tabular-nums}
+.rec.alt .recbig{color:#57C4FF}
+.rec .recbig small{display:block;font-size:10px;color:var(--muted);letter-spacing:.1em;font-weight:600}
+.rec .recmeta{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 12px}
+.rundown{padding:0 16px 16px}
+.rundown .rl{display:flex;gap:10px;align-items:baseline;padding:7px 0;border-top:1px solid #1E2128;font-size:13px}
+.rundown .rl:first-child{border-top:0}
+.rundown .rl .tm{font-family:'Saira Condensed',sans-serif;font-weight:800;color:var(--orange);font-variant-numeric:tabular-nums;min-width:52px}
+.rundown .rl .lb{color:#C6CBD3}
+.rundown .rl .lb b{color:var(--text)}
+.rec .recpick{padding:12px 16px;border-top:1px solid var(--line);font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:13px;color:var(--orange);display:flex;align-items:center;justify-content:space-between}
+.rec.alt .recpick{color:#57C4FF}
+.recnarr{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin:0 16px 14px;font-size:13px;line-height:1.6;color:#C6CBD3}
+
+/* ---- Simulation page (S4) ---- */
+.simhero{background:linear-gradient(158deg,#160E22 0%,var(--panel) 62%);border:1px solid #2E2440;border-radius:var(--r);padding:20px;margin-bottom:16px}
+.simhero .eyebrow{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;color:#B98BFF}
+.simhero h2{font-size:22px;font-weight:800;margin:6px 0 4px}
+.simhero p{font-size:13px;color:var(--muted);line-height:1.5;margin:0}
+.devnote{font-size:12px;color:var(--amber);background:rgba(255,176,32,.08);border:1px solid rgba(255,176,32,.28);border-radius:10px;padding:10px 12px;margin:14px 0 4px;line-height:1.5}
+.simbtns{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+@media(max-width:560px){.simbtns{grid-template-columns:1fr}}
+.simbtn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px;cursor:pointer;color:var(--text);font-family:inherit;text-align:left;transition:.15s}
+.simbtn:hover{border-color:var(--orange);background:#141118}
+.simbtn .ic{width:38px;height:38px;border-radius:10px;background:rgba(255,106,0,.14);color:var(--orange);display:grid;place-items:center;font-size:20px}
+.simbtn b{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:15px;font-weight:800}
+.simbtn small{font-size:11.5px;color:var(--muted);line-height:1.4}
+
+/* in-page full viewer */
+.viewer{position:fixed;inset:0;z-index:85;background:#050608;display:none;flex-direction:column}
+.viewer.show{display:flex}
+.viewer .vbar{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.viewer .vbar b{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:14px;font-weight:800}
+.viewer .vbar .vback{background:var(--orange);color:#0C0D10;border:0;border-radius:8px;padding:9px 14px;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-weight:800;font-size:13px;cursor:pointer}
+.viewer .vbar .vnote{font-size:11px;color:var(--muted);margin-left:auto}
+.viewer iframe{flex:1;width:100%;border:0;background:#0C0D10}
+
+/* ---- Interested / service ---- */
+.svc{background:linear-gradient(150deg,#1B1206,var(--panel) 60%);border:1px solid #3A2411;border-radius:var(--r);padding:20px;margin-top:20px}
+.svc h3{font-size:20px;font-weight:800;margin:0 0 4px}
+.svc p{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 14px}
+.svcbtns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+@media(max-width:520px){.svcbtns{grid-template-columns:1fr}}
+.svcbtn{position:relative;text-align:left;background:var(--panel2);border:1.5px solid var(--line);border-radius:12px;padding:15px;cursor:pointer;color:var(--text);font-family:inherit;transition:.15s}
+.svcbtn:hover{border-color:var(--orange);background:#141118}
+.svcbtn .tg{font-family:'Saira Condensed',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
+.svcbtn b{display:block;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:16px;font-weight:800;margin:6px 0 4px}
+.svcbtn span{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
+.svcmsg{font-size:12.5px;text-align:center;margin-top:12px;color:var(--muted)}
+.resetrow{margin-top:14px;text-align:center}
 </style>
 </head>
 <body>
@@ -250,13 +310,13 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 <div id="gate">
   <div class="inner">
     <div class="gate-mark"><span class="gate-dot"></span><span>TurnamenPadel</span></div>
-    <h1>Simulasi<br><em>Turnamen</em></h1>
-    <p class="lead">Rencanakan turnamen kamu dari awal sampai podium — format grup &amp; bracket, estimasi durasi dan biaya court, lalu rasakan tampilan mobile player &amp; TV LED seakan-akan acara sudah berjalan.</p>
-    <label class="f"><span>Nama</span><input type="text" id="gName" placeholder="Nama kamu" autocomplete="name"></label>
-    <label class="f"><span>Email</span><input type="email" id="gEmail" placeholder="nama@email.com" autocomplete="email"></label>
-    <button class="cta" id="gBtn">Mulai Simulasi</button>
+    <h1>Tournament<br><em>Simulator</em></h1>
+    <p class="lead">Plan your tournament from setup to podium — group &amp; bracket format, duration estimate, then feel the live player &amp; TV LED screens as if the event were already running.</p>
+    <label class="f"><span>Name</span><input type="text" id="gName" placeholder="Your name" autocomplete="name"></label>
+    <label class="f"><span>Email</span><input type="email" id="gEmail" placeholder="you@email.com" autocomplete="email"></label>
+    <button class="cta" id="gBtn">Start Simulation</button>
     <div id="gErr" style="color:var(--red);font-size:12.5px;margin-top:10px;display:none"></div>
-    <p class="gate-note">Email dipakai untuk mengirim hasil perhitungan dan info turnamen. No spam.</p>
+    <p class="gate-note">We use your email to send the result and tournament info. No spam.</p>
   </div>
 </div>
 
@@ -266,120 +326,113 @@ textarea#lfNotes:focus{border-color:var(--orange)}
       <div class="brand"><span class="brand-dot"></span><b>TurnamenPadel</b></div>
       <div class="whoami" id="whoami"></div>
     </div>
-    <h1>Simulasi <em>Turnamen</em></h1>
-    <div class="sub">Rencanakan, rasakan, lalu jalankan — format, jadwal, biaya, dan pratinjau layar mobile &amp; TV.</div>
+    <h1>Tournament <em>Simulator</em></h1>
+    <div class="sub">Plan, feel it, then make it real — format, schedule, and a live preview of the player &amp; TV screens.</div>
   </header>
 
-  <div class="tabs" role="tablist">
-    <button class="tab" id="tabA" role="tab" aria-selected="true">Target Peserta<span class="t2">Punya target peserta → butuh berapa jam &amp; court?</span></button>
-    <button class="tab" id="tabB" role="tab" aria-selected="false">Court &amp; Jam<span class="t2">Punya court &amp; jam → muat berapa peserta?</span></button>
+  <div class="steps" id="steps"></div>
+
+  <!-- STEP 1: SETUP -->
+  <div id="S1">
+    <div class="card">
+      <h2>Number of pairs</h2>
+      <div class="hint">How many pairs (teams) are you planning for?</div>
+      <div class="stepper">
+        <button type="button" id="pMinus">−</button>
+        <input type="number" id="pTotal" value="32" min="4" max="200">
+        <button type="button" id="pPlus">+</button>
+      </div>
+      <div class="seghelp" id="pHelp"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tournament format</h2>
+      <div class="hint">Your priority — this drives how groups are split.</div>
+      <div class="fmtctrl" id="fmtCtrl"></div>
+    </div>
+
+    <div class="card">
+      <h2>Number of categories</h2>
+      <div class="hint">e.g. Men's, Women's, Mixed…</div>
+      <div class="stepper">
+        <button type="button" data-step="catCount" data-d="-1">−</button>
+        <input type="number" id="catCount" value="1" min="1" max="6">
+        <button type="button" data-step="catCount" data-d="1">+</button>
+      </div>
+      <div class="seghelp" id="catHelp"></div>
+    </div>
+
+    <div class="card">
+      <h2>Schedule &amp; location</h2>
+      <div class="grid2">
+        <label class="f"><span>Tournament start time</span><input type="text" id="evStart" value="08:00" placeholder="08:00" inputmode="numeric"></label>
+        <label class="f"><span>Tournament date</span><input type="text" id="evDate" placeholder="12 Jul 2026"></label>
+      </div>
+      <label class="f"><span>Location (city)</span><input type="text" id="evCity" placeholder="Jakarta"></label>
+    </div>
+
+    <div class="card">
+      <h2>Options</h2>
+      <div class="switch"><span>3rd-place playoff (parallel with the finals)</span><input type="checkbox" id="opt3rd" checked></div>
+      <div class="switch"><span>Lock number of pairs (keep as entered, even if it creates byes)</span><input type="checkbox" id="optLock"></div>
+      <div class="switch"><span>Finals run simultaneously across categories <small style="color:var(--muted)">(turn off → one category at a time to podium)</small></span><input type="checkbox" id="optFinalSeq" checked></div>
+    </div>
+
+    <details class="adv" id="advPanel">
+      <summary>Advanced timing</summary>
+      <div class="advbody">
+        <div class="advgrid">
+          <label class="f"><span>Group match (min)</span><input type="number" id="mGroup" value="15" min="5" max="60"></label>
+          <label class="f"><span>Playoff match (min)</span><input type="number" id="mPlayoff" value="20" min="5" max="60"></label>
+          <label class="f"><span>Final (min)</span><input type="number" id="mFinal" value="25" min="5" max="90"></label>
+          <label class="f"><span>Court change (min)</span><input type="number" id="mChange" value="1" min="0" max="10"></label>
+          <label class="f"><span>Break between rounds (min)</span><input type="number" id="mBreak" value="3" min="0" max="30"></label>
+          <label class="f"><span>Opening (min)</span><input type="number" id="mOpen" value="15" min="0" max="60"></label>
+          <label class="f"><span>Awarding (min)</span><input type="number" id="mAward" value="15" min="0" max="45"></label>
+          <label class="f"><span>Safety buffer (min)</span><input type="number" id="mBuffer" value="10" min="0" max="60"></label>
+        </div>
+        <p class="seghelp">Groups hold 4–7 pairs. Size 4 → top 1 advances, size 5–7 → top 2.</p>
+      </div>
+    </details>
+
+    <button class="cta" id="toCourts">Next — Courts</button>
   </div>
 
-  <!-- ================= MODE A ================= -->
-  <section id="modeA">
-    <div class="steps" id="stepsA"></div>
-
-    <div id="A1">
-      <div class="card">
-        <h2>Target Peserta</h2>
-        <div class="hint">Berapa banyak yang kamu targetkan ikut?</div>
-        <div class="stepper">
-          <button type="button" id="pMinus">−</button>
-          <input type="number" id="pTotal" value="64" min="4" max="400">
-          <button type="button" id="pPlus">+</button>
-        </div>
-        <div class="unit">
-          <button type="button" data-unit="pair" aria-pressed="true">Pair</button>
-          <button type="button" data-unit="player" aria-pressed="false">Pemain</button>
-        </div>
-        <div class="seghelp" id="pHelp"></div>
+  <!-- STEP 2: COURTS -->
+  <div id="S2" style="display:none">
+    <button class="back" id="backS1">← Edit setup</button>
+    <div class="card">
+      <h2>Number of courts</h2>
+      <div class="hint" id="courtsHint">How many courts do you have available?</div>
+      <div class="stepper">
+        <button type="button" data-step="courts" data-d="-1">−</button>
+        <input type="number" id="courts" value="3" min="1" max="12">
+        <button type="button" data-step="courts" data-d="1">+</button>
       </div>
-
-      <div class="card">
-        <h2>Format Turnamen</h2>
-        <div class="hint">Prioritas kamu — ini yang menentukan pembagian grup.</div>
-        <div class="fmtctrl" id="fmtCtrlA"></div>
-      </div>
-
-      <div class="card">
-        <h2>Estimasi Sewa Court</h2>
-        <div class="hint">Harga rata-rata di venue kamu.</div>
-        <div class="ratelab"><span class="v" id="rateVal">Rp 300.000</span><span class="u">/ court / jam</span></div>
-        <input type="range" id="rate" min="100000" max="800000" step="25000" value="300000">
-      </div>
-
-      <div id="advSlotA"></div>
-      <button class="cta" id="calcA">Lanjut — Pilih Kategori</button>
     </div>
+    <button class="cta" id="toResult">See result</button>
+  </div>
 
-    <div id="A2" style="display:none"></div>
-    <div id="A3" style="display:none"></div>
-    <div id="A4" style="display:none"></div>
-  </section>
+  <!-- STEP 3: RESULT -->
+  <div id="S3" style="display:none"></div>
 
-  <!-- ================= MODE B ================= -->
-  <section id="modeB" style="display:none">
-    <div class="steps" id="stepsB"></div>
+  <!-- STEP 4: SIMULATION -->
+  <div id="S4" style="display:none"></div>
 
-    <div id="B1">
-      <div class="card">
-        <h2>Yang Kamu Punya</h2>
-        <div class="hint">Kami carikan berapa peserta dan berapa kategori yang paling pas.</div>
-        <div class="grid2">
-          <label class="f"><span>Court</span>
-            <div class="stepper"><button type="button" data-step="courtsB" data-d="-1">−</button><input type="number" id="courtsB" value="4" min="2" max="8"><button type="button" data-step="courtsB" data-d="1">+</button></div>
-          </label>
-          <label class="f"><span>Durasi (jam)</span>
-            <div class="stepper"><button type="button" data-step="hours" data-d="-1">−</button><input type="number" id="hours" value="10" min="2" max="16" step="0.5"><button type="button" data-step="hours" data-d="1">+</button></div>
-          </label>
-        </div>
-        <div class="flabel">Estimasi Sewa Court</div>
-        <div class="ratelab"><span class="v" id="rateValB">Rp 300.000</span><span class="u">/ court / jam</span></div>
-        <input type="range" id="rateB" min="100000" max="800000" step="25000" value="300000">
-      </div>
-
-      <div id="advSlotB"></div>
-      <button class="cta" id="calcB">Cari Kombinasi Terbaik</button>
-    </div>
-
-    <div id="B2" style="display:none"></div>
-    <div id="B3" style="display:none"></div>
-  </section>
-
-  <!-- panel advance dipindah-pindah ke mode yang aktif -->
-  <details class="adv" id="advPanel">
-    <summary>Pengaturan Lanjutan</summary>
-    <div class="advbody">
-      <div class="advgrid">
-        <label class="f"><span>Match Grup (menit)</span><input type="number" id="mGroup" value="15" min="5" max="60"></label>
-        <label class="f"><span>Match Playoff (menit)</span><input type="number" id="mPlayoff" value="20" min="5" max="60"></label>
-        <label class="f"><span>Final (menit)</span><input type="number" id="mFinal" value="25" min="5" max="90"></label>
-        <label class="f"><span>Ganti Court (menit)</span><input type="number" id="mChange" value="1" min="0" max="10"></label>
-        <label class="f"><span>Break Antar Babak (menit)</span><input type="number" id="mBreak" value="3" min="0" max="30"></label>
-        <label class="f"><span>Opening (menit)</span><input type="number" id="mOpen" value="15" min="0" max="60"></label>
-        <label class="f"><span>Awarding (menit)</span><input type="number" id="mAward" value="15" min="0" max="45"></label>
-        <label class="f"><span>Buffer Aman (menit)</span><input type="number" id="mBuffer" value="10" min="0" max="60"></label>
-      </div>
-      <div class="switch"><span>Perebutan juara 3 (paralel dengan final)</span><input type="checkbox" id="opt3rd" checked></div>
-      <div class="switch"><span>Kunci jumlah input (jangan dikurangi walau ada bye)</span><input type="checkbox" id="optLock"></div>
-      <div class="switch"><span>Final serempak semua kategori <small style="color:var(--muted)">(matikan → kategori berurutan sampai podium)</small></span><input type="checkbox" id="optFinalSeq" checked></div>
-      <div class="advgrid" style="margin-top:12px">
-        <label class="f"><span>Jam Mulai Acara</span><input type="text" id="evStart" value="08:00" placeholder="08:00" inputmode="numeric"></label>
-        <label class="f"><span>Tanggal (opsional)</span><input type="text" id="evDate" placeholder="12 Jul 2026"></label>
-      </div>
-      <p class="seghelp">Grup diisi 4–7 pair. Isi 4 lolos 1, isi 5–7 lolos 2. Jam mulai &amp; tanggal dipakai untuk pratinjau layar yang terasa nyata.</p>
-    </div>
-  </details>
-
-  <footer>Simulasi Turnamen<br>TurnamenPadel — bagian dari ekosistem SportsActvd</footer>
+  <footer>Tournament Simulator<br>TurnamenPadel — part of the SportsActvd ecosystem</footer>
 </div>
 
 <div class="overlay" id="ov"><div class="sheet" id="ovBody"></div></div>
 
+<div class="viewer" id="viewer">
+  <div class="vbar"><button class="vback" id="vBack">← Back to simulation</button><b id="vTitle">Preview</b><span class="vnote">Best viewed on a TV or desktop screen.</span></div>
+  <iframe id="vFrame" title="Preview"></iframe>
+</div>
+
 <script>
 "use strict";
 
-var R = { mGroup:15, mPlayoff:20, mFinal:25, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false };
+var R = { mGroup:15, mPlayoff:20, mFinal:25, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false, preferClean:false };
 var EVENT = { start:"08:00", date:"", venue:"", city:"" };
 var GMIN=4, GMAX=7, CMIN=2, CMAX=8, KMAX=6;
 
@@ -400,18 +453,18 @@ var B={ step:1, courts:4, hours:10, fmt:"balanced", pick:null, rate:300000 };
 var LAST=null;
 
 var FORMATS=[
-  {id:"fast",    t:"Cepat",    d:"Grup kecil (isi 4), match paling sedikit, acara paling pendek."},
-  {id:"balanced",t:"Seimbang", d:"Campur grup 4–6. Kompromi antara durasi dan jumlah main. Rekomendasi kami."},
-  {id:"fair",    t:"Fair",     d:"Grup besar (isi 5–7), semua main lebih banyak, acara paling panjang."}
+  {id:"fast",    t:"Fast",     d:"Small groups (size 4), fewest matches, shortest event."},
+  {id:"balanced",t:"Balanced", d:"Mixed groups of 4–6. A compromise between duration and matches played. Our recommendation."},
+  {id:"fair",    t:"Fair",     d:"Large groups (size 5–7), everyone plays more, longest event."}
 ];
 
 function $(id){ return document.getElementById(id); }
 function n(id){ return parseFloat($(id).value)||0; }
 function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
 function rp(v){ return "Rp "+Math.round(v).toLocaleString("id-ID"); }
-function hm(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h===0? mm+" menit" : h+" jam"+(mm?" "+mm+" menit":""); }
+function hm(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h===0? mm+" min" : h+" hr"+(mm?" "+mm+" min":""); }
 function el(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+":"+(mm<10?"0":"")+mm; }
-function bigTime(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+'<small>j</small>'+(mm<10?"0":"")+mm+'<small>m</small>'; }
+function bigTime(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+'<small>h</small>'+(mm<10?"0":"")+mm+'<small>m</small>'; }
 function isPow2(x){ return x>=1 && (x&(x-1))===0; }
 function pow2ceil(x){ var b=1; while(b<x) b*=2; return b; }
 function c2(x){ return x*(x-1)/2; }
@@ -420,6 +473,7 @@ function syncR(){
   R.mBreak=n("mBreak"); R.mOpen=n("mOpen"); R.mAward=n("mAward"); R.buffer=n("mBuffer"); R.third=$("opt3rd").checked;
   R.lockInput=$("optLock").checked; R.finalSeq=$("optFinalSeq").checked;
   EVENT.start=($("evStart").value||"08:00").trim(); EVENT.date=($("evDate").value||"").trim();
+  EVENT.city=($("evCity").value||"").trim();
 }
 
 /* ---------- format grup ---------- */
@@ -442,6 +496,8 @@ function bestConfig(P,mode){
   var cands=allConfigs(P); if(!cands.length) return null;
   var byMatch=cands.slice().sort(function(a,b){ return a.groupMatches-b.groupMatches; });
   var cleanOnes=cands.filter(function(c){ return c.clean; }).sort(function(a,b){ return a.groupMatches-b.groupMatches; });
+  /* When the pair count is locked, keep it exact AND prefer a bye-free (clean) bracket. */
+  if(R.preferClean && cleanOnes.length) return cleanOnes[0];
   if(mode==="fast") return byMatch[0];
   if(mode==="fair") return cleanOnes.length ? cleanOnes[cleanOnes.length-1] : byMatch[byMatch.length-1];
   if(!cleanOnes.length) return byMatch[0];
@@ -449,7 +505,7 @@ function bestConfig(P,mode){
 }
 function sizesLabel(sz){
   var m={}; sz.forEach(function(s){ m[s]=(m[s]||0)+1; });
-  return Object.keys(m).sort(function(a,b){return b-a;}).map(function(k){ return m[k]+" grup isi "+k; }).join(" + ");
+  return Object.keys(m).sort(function(a,b){return b-a;}).map(function(k){ return m[k]+(m[k]>1?" groups of ":" group of ")+k; }).join(" + ");
 }
 function playoffRounds(Q){
   if(Q<2) return [];
@@ -458,14 +514,14 @@ function playoffRounds(Q){
   while(adv>1){ adv=adv/2; r.push(adv); }
   return r;
 }
-function roundName(d){ return ["Final","Semifinal","Perempat Final","16 Besar","32 Besar","64 Besar"][d]||"Babak Awal"; }
+function roundName(d){ return ["Final","Semifinal","Quarterfinal","Round of 16","Round of 32","Round of 64"][d]||"Early Round"; }
 
 /* ---------- engine ---------- */
 function computeEvent(pairsList, courts, mode){
   var info=[];
   for(var i=0;i<pairsList.length;i++){
     var conf=bestConfig(pairsList[i],mode); if(!conf) return null;
-    info.push({ name:"Kategori "+(i+1), pairs:pairsList[i], conf:conf, rounds:playoffRounds(conf.Q) });
+    info.push({ name:"Category "+(i+1), pairs:pairsList[i], conf:conf, rounds:playoffRounds(conf.Q) });
   }
   var blocks=[], totalGM=0, totalPar=0, minSlots=1;
   info.forEach(function(x){
@@ -491,8 +547,8 @@ function computeEvent(pairsList, courts, mode){
         var L=x.rounds.length, idx=L-1-d;
         if(idx>=0 && idx<L && x.rounds[idx]>0){ m+=x.rounds[idx]; det.push(x.name+": "+x.rounds[idx]); }
       });
-      if(thirdCount && d===0 && thirdParallel){ m+=thirdCount; det.push("Juara 3: "+thirdCount+" (paralel)"); }
-      if(thirdCount && d===1 && !thirdParallel){ m+=thirdCount; det.push("Juara 3: "+thirdCount); }
+      if(thirdCount && d===0 && thirdParallel){ m+=thirdCount; det.push("3rd place: "+thirdCount+" (parallel)"); }
+      if(thirdCount && d===1 && !thirdParallel){ m+=thirdCount; det.push("3rd place: "+thirdCount); }
       if(m===0) continue;
       var md=(d===0)?R.mFinal:R.mPlayoff;
       var par=Math.max(1,Math.min(courts,m));
@@ -515,7 +571,7 @@ function computeEvent(pairsList, courts, mode){
                       dur:Math.ceil(mm/par)*(md+R.mChange), brk:R.mBreak, detail:[x.name+": "+mm] });
       }
       if(R.third && x.rounds.length>=2){
-        blocks.push({ key:"po", label:x.name+" · Juara 3", short:(x.name+" JUARA 3").toUpperCase(),
+        blocks.push({ key:"po", label:x.name+" · 3rd place", short:(x.name+" 3RD PLACE").toUpperCase(),
                       matches:1, courts:1, slots:1, dur:(R.mPlayoff+R.mChange), brk:R.mBreak, detail:[x.name+": 1"] });
       }
     });
@@ -596,145 +652,236 @@ function runSheet(ev){
     ev.blocks.forEach(function(b){
       if(b.brk>0) h+='<div class="seg brk" style="flex:'+(b.brk/total)+'"></div>';
       if(b.courts>=k) h+='<div class="seg '+b.key+'" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.08)?esc(b.short):"")+'</div>';
-      else h+='<div class="seg free" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.13)?"BEBAS":"")+'</div>';
+      else h+='<div class="seg free" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.13)?"FREE":"")+'</div>';
     });
     h+='</div></div>';
   }
-  h+='<div class="rs-peak">'+(ev.finalSeq?'↑ kategori berurutan sampai podium — selesai menit '+el(R.mOpen+ev.playDur):'↑ semua final serempak — puncak acara di menit '+el(R.mOpen+ev.playDur))+'</div>'+
+  h+='<div class="rs-peak">'+(ev.finalSeq?'↑ categories one at a time to podium — finishes at '+el(R.mOpen+ev.playDur):'↑ all finals simultaneous — event peak at '+el(R.mOpen+ev.playDur))+'</div>'+
     '<div class="legend">'+
-    '<span><i style="background:#8A4110"></i>Grup</span>'+
+    '<span><i style="background:#8A4110"></i>Group</span>'+
     '<span><i style="background:#C25100"></i>Playoff</span>'+
-    '<span><i style="background:var(--orange)"></i>Final + Juara 3</span>'+
-    '<span><i style="background:repeating-linear-gradient(45deg,#0F2418,#0F2418 3px,#0C1D13 3px,#0C1D13 6px)"></i>Court bebas</span></div></div>';
+    '<span><i style="background:var(--orange)"></i>Final + 3rd place</span>'+
+    '<span><i style="background:repeating-linear-gradient(45deg,#0F2418,#0F2418 3px,#0C1D13 3px,#0C1D13 6px)"></i>Court free</span></div></div>';
   return h;
 }
-function setupSummary(ev){
-  var h='<div class="sect"><div class="secthead"><h3>Pembagian Kategori</h3><span class="note">format '+esc(fmtLabel(ev.mode))+'</span></div><div class="card"><table class="tbl">'+
-    '<tr><th>Kategori</th><th class="num">Pair</th><th>Grup</th><th class="num">Lolos</th><th class="num">Bracket</th></tr>';
-  ev.info.forEach(function(x){
-    h+='<tr><td>'+esc(x.name)+'</td><td class="num">'+x.pairs+'</td><td>'+sizesLabel(x.conf.sizes)+
-      '</td><td class="num">'+x.conf.Q+'</td><td class="num '+(x.conf.byes?"bad":"ok")+'">'+(x.conf.byes?x.conf.byes+" bye":"penuh")+'</td></tr>';
-  });
-  h+='<tr class="tot"><td>Total</td><td class="num">'+ev.totalPairs+'</td><td>'+ev.totalMatches+' match</td><td class="num">–</td><td class="num">–</td></tr>';
-  return h+'</table></div></div>';
-}
-function costSummary(ev,rate){
-  var save=Math.max(0, ev.fullCourtHours-ev.actualCourtHours)*rate;
-  var early=ev.courtsInfo.filter(function(c){ return c.used && c.endMin < R.mOpen+ev.playDur-20; });
-  var h='<div class="sect"><div class="secthead"><h3>Estimasi Sewa Court</h3><span class="note">'+rp(rate)+' / court / jam</span></div><div class="card"><table class="tbl">'+
-    '<tr><td>Sewa flat semua court</td><td class="num">'+ev.fullCourtHours+' court-jam</td><td class="num">'+rp(ev.fullCourtHours*rate)+'</td></tr>'+
-    '<tr class="tot"><td>Sewa optimal</td><td class="num">'+ev.actualCourtHours+' court-jam</td><td class="num">'+rp(ev.actualCourtHours*rate)+'</td></tr></table>';
-  h += save>0
-    ? '<div class="advice good" style="margin:14px 0 0"><b class="h">Potensi hemat '+rp(save)+'</b>'+
-      (early.length ? early.map(function(c){ return "Court "+c.no+" selesai di menit "+el(c.endMin); }).join(" · ")+". " : "")+
-      'Minta venue hitung sewa per court, jangan flat sampai acara bubar.</div>'
-    : '<div class="advice info" style="margin:14px 0 0"><b class="h">Semua court terpakai penuh</b>Tidak ada yang bisa dilepas lebih awal — babak final masih membutuhkan semuanya.</div>';
-  return h+'</div></div>';
-}
-function timeDetail(ev){
-  var t=R.mOpen;
-  var h='<details class="more"><summary>Lihat rincian waktu</summary><div class="body"><table class="tbl">'+
-    '<tr><th>Bagian</th><th class="num">Match</th><th class="num">Durasi</th><th class="num">Mulai</th></tr>'+
-    '<tr><td>Opening</td><td class="num">–</td><td class="num">'+hm(R.mOpen)+'</td><td class="num">0:00</td></tr>';
+/* ===== new flow state ===== */
+var ST={ step:1, pairs:32, K:1, courts:3, fmt:"balanced", chosen:null, rec1:null, rec2:null };
+
+/* ---------- schedule timing helpers ---------- */
+function annotateTimes(ev){
+  var t=_tmin(EVENT.start);
+  ev.startAbs=t; ev.openStart=t; t+=R.mOpen;
+  ev.groupStart=null; ev.groupEnd=null;
   ev.blocks.forEach(function(b){
-    if(b.brk>0){ h+='<tr class="sub"><td>Break</td><td class="num">–</td><td class="num">'+hm(b.brk)+'</td><td class="num">'+el(t)+'</td></tr>'; t+=b.brk; }
-    h+='<tr><td>'+esc(b.label)+'</td><td class="num">'+b.matches+'</td><td class="num">'+hm(b.dur)+'</td><td class="num">'+el(t)+'</td></tr>';
-    t+=b.dur;
+    t+=b.brk; b.startMin=t; t+=b.dur; b.endMin=t;
+    if(b.key==="group"){ ev.groupStart=b.startMin; ev.groupEnd=b.endMin; }
   });
-  h+='<tr><td>Awarding</td><td class="num">–</td><td class="num">'+hm(R.mAward)+'</td><td class="num">'+el(t)+'</td></tr>'+
-     '<tr class="sub"><td>Buffer aman</td><td class="num">–</td><td class="num">'+hm(R.buffer)+'</td><td class="num">–</td></tr>'+
-     '<tr class="tot"><td>Total</td><td class="num">'+ev.totalMatches+'</td><td class="num">'+hm(ev.totalMinutes)+'</td><td class="num">–</td></tr>'+
-     '</table></div></details>';
-  return h;
+  ev.awardStart=t;
+  ev.finishMin=ev.startAbs+ev.totalMinutes;
+  return ev;
 }
-function advisor(ev){
-  var out=[];
-  var byeCats=ev.info.filter(function(x){ return x.conf.byes>0; });
-  if(byeCats.length)
-    out.push({t:"warn",h:"Masih ada bye",b:byeCats.map(function(x){ return x.name+" ("+x.pairs+" pair): "+x.conf.byes+" bye"; }).join(" · ")+". Kembali ke pilihan kategori dan ambil rekomendasi jumlah peserta yang bebas bye."});
-  if(ev.tooManyCats)
-    out.push({t:"err",h:"Kategori lebih banyak dari court",b:ev.info.length+" kategori di "+ev.courts+" court — final tidak bisa serempak. Idealnya kategori = court."});
-  if(R.third && !ev.thirdParallel)
-    out.push({t:"warn",h:"Juara 3 belum paralel dengan final",b:"Butuh "+(ev.info.length*2)+" court untuk final + juara 3 serempak, tersedia "+ev.courts+". Sekarang juara 3 digeser ke babak sebelumnya."});
-  var idle=ev.courtsInfo.filter(function(c){ return !c.used; });
-  if(idle.length)
-    out.push({t:"info",h:idle.length+" court tidak terpakai",b:"Peserta belum cukup mengisi semua court — 1 pair tidak bisa main di 2 court sekaligus. Cukup "+(ev.courts-idle.length)+" court."});
-  if(ev.totalMinutes>660)
-    out.push({t:"warn",h:"Acara terlalu panjang",b:"Total "+hm(ev.totalMinutes)+". Di atas 11 jam kualitas main turun dan peserta mulai pulang. Tambah court, kurangi peserta, atau pecah 2 hari."});
-  if(!out.length) out.push({t:"good",h:"Struktur sudah rapi",b:"Tidak ada bye, court terpakai efisien, semua final serempak."});
-  return '<div class="sect"><div class="secthead"><h3>Rekomendasi</h3><span class="note">'+out.length+' catatan</span></div>'+
-    out.map(function(a){ return '<div class="advice '+a.t+'"><b class="h">'+a.h+'</b>'+a.b+'</div>'; }).join("")+'</div>';
-}
-/* ========== RASAKAN (preview) + LANJUT (lead form) ========== */
-function leadBox(){ return previewBlock() + leadFormBlock(); }
 
-function previewBlock(){
-  return '<div class="preview"><div class="eyebrow">Rasakan · seakan-akan sudah berjalan</div>'+
-    '<h3>Coba layar turnamenmu</h3>'+
-    '<p class="s">Kami isi turnamen contoh dari rencana di atas — grup, jadwal jam nyata (mulai '+esc(EVENT.start||"08:00")+'), skor, sampai bracket. Lihat persis yang dilihat pemain di HP dan penonton di layar TV.</p>'+
-    '<div class="prevmeta" id="prevMeta"></div>'+
-    '<button class="cta" id="runPrev" style="margin-top:0">▶ Jalankan simulasi layar</button>'+
-    '<div id="frames"></div>'+
-    '<div class="prevhint">Pratinjau memakai data contoh dari rencanamu. Turnamen aslimu tampil sama persis.</div></div>';
+/* ---------- category split for fixed K ---------- */
+function sizesFor(P,K,F,lock){
+  if(lock){ var e=exactForK(P,K,F); return e?{sizes:e.sizes,total:P,adjusted:false,byes:e.byes}:null; }
+  var r=recommendForK(P,K,F);
+  if(r) return {sizes:r.sizes,total:r.total,adjusted:r.total!==P,byes:0};
+  var e2=exactForK(P,K,F); return e2?{sizes:e2.sizes,total:P,adjusted:false,byes:e2.byes}:null;
 }
-function leadFormBlock(){
-  var ev=LAST&&LAST.ev; if(!ev) return '';
-  var players=ev.totalPairs*2, cats=ev.info.length;
-  var catLabel=ev.info.map(function(x){ return x.pairs+" pair"; }).join(" · ");
-  return '<div class="leadform"><div class="eyebrow">Lanjut · wujudkan</div>'+
-    '<h3>Mau kami bantu jalankan?</h3>'+
-    '<p class="s">Rencana &amp; simulasi di atas otomatis kami lampirkan. Tinggal lengkapi kontak — tim kami hubungi dalam 1×24 jam. Belum ada pembayaran.</p>'+
-    '<div class="prefill">Dari simulasimu: <b>'+ev.totalPairs+' pair</b> ('+players+' pemain) · <b>'+cats+' kategori</b> ('+esc(catLabel)+') · <b>'+ev.courts+' court</b> · estimasi durasi <b>'+hm(ev.totalMinutes)+'</b> · sewa <b>'+rp(ev.actualCourtHours*((LAST&&LAST.rate)||300000))+'</b></div>'+
-    '<div class="lf2">'+
-      '<label class="f"><span>Nama</span><input type="text" id="lfName" value="'+esc(USER.name||'')+'" placeholder="Nama kamu"></label>'+
-      '<label class="f"><span>WhatsApp <span style="color:var(--orange)">*</span></span><input type="text" id="lfWa" placeholder="08xxxxxxxxxx" inputmode="numeric"></label>'+
-      '<label class="f"><span>Email</span><input type="email" id="lfEmail" value="'+esc(USER.email||'')+'" placeholder="nama@email.com"></label>'+
-      '<label class="f"><span>Tanggal Acara</span><input type="text" id="lfDate" value="'+esc(EVENT.date||'')+'" placeholder="12 Jul 2026"></label>'+
-      '<label class="f"><span>Venue</span><input type="text" id="lfVenue" value="'+esc(EVENT.venue||'')+'" placeholder="La Familia Padel"></label>'+
-      '<label class="f"><span>Kota</span><input type="text" id="lfCity" value="'+esc(EVENT.city||'')+'" placeholder="Jakarta"></label>'+
-    '</div>'+
-    '<div class="flabel" style="margin-bottom:8px">Paket</div>'+
-    '<div class="pkgs2" id="lfPkgs">'+
-      '<label class="pkg2 on"><input type="radio" name="lfpkg" value="License Engine" checked><span class="tg">Self-service</span><h4>Lisensi Engine</h4><p>Jalankan sendiri dengan toolkit lengkap: bracket, live score, layar HP pemain &amp; TV.</p></label>'+
-      '<label class="pkg2"><input type="radio" name="lfpkg" value="Full Management"><span class="tg">Done for you</span><h4>Full Management</h4><p>Kami jalankan end-to-end: seeding, jadwal, scoring on-site, hasil.</p></label>'+
-    '</div>'+
-    '<label class="f"><span>Catatan (opsional)</span><textarea id="lfNotes" placeholder="Sponsor, format khusus, tanggal alternatif, dll."></textarea></label>'+
-    '<button class="cta" id="lfSubmit">Kirim permintaan</button>'+
-    '<div class="lfmsg" id="lfMsg">Dengan mengirim, brief turnamenmu tersimpan dan tim kami akan menghubungi. Belum ada pembayaran.</div>'+
-    '<div class="ruleslink" style="margin-top:14px">Aturan main mengacu pada <a href="https://turnamenpadel.com/rules" target="_blank" rel="noopener">dokumen acuan PBPI</a>.</div></div>';
+function makeRec(P,K,courts,F,seq,lock){
+  var savedClean=R.preferClean; R.preferClean=!!lock;
+  var sz=sizesFor(P,K,F,lock);
+  if(!sz){ R.preferClean=savedClean; return null; }
+  var savedSeq=R.finalSeq; R.finalSeq=seq;
+  var ev=computeEvent(sz.sizes,courts,F);
+  R.finalSeq=savedSeq; R.preferClean=savedClean;
+  if(!ev) return null;
+  annotateTimes(ev);
+  return { P:P, K:K, courts:courts, fmt:F, seq:seq, lock:lock, sizes:sz.sizes,
+           adjTotal:sz.total, adjusted:sz.adjusted, byes:sz.byes||0, ev:ev, totalMinutes:ev.totalMinutes };
 }
-function updatePrevMeta(){
-  var m=$("prevMeta"); if(!m||!LAST) return; var ev=LAST.ev;
-  m.innerHTML='<span class="chip"><b>'+ev.totalPairs+'</b> pair</span>'+
-    '<span class="chip"><b>'+ev.info.length+'</b> kategori</span>'+
-    '<span class="chip"><b>'+ev.courts+'</b> court</span>'+
-    '<span class="chip">mulai <b>'+esc(EVENT.start||"08:00")+'</b></span>';
-}
-function bindLead(){
-  updatePrevMeta();
-  var rp2=$("runPrev"); if(rp2) rp2.onclick=runPreview;
-  var pk=$("lfPkgs");
-  if(pk) pk.addEventListener("change",function(){
-    Array.prototype.forEach.call(pk.querySelectorAll(".pkg2"),function(l){ l.classList.toggle("on", l.querySelector("input").checked); });
+function buildRecommendations(){
+  var P=ST.pairs, K=ST.K, C=ST.courts, F=ST.fmt, seq=R.finalSeq, lock=R.lockInput;
+  var rec1=makeRec(P,K,C,F,seq,lock);
+  if(!rec1) return { rec1:null, rec2:null };
+  var best=null;
+  ["fast","balanced","fair"].forEach(function(f2){
+    [false,true].forEach(function(s2){
+      if(f2===F && s2===seq) return;
+      var r=makeRec(P,K,C,f2,s2,lock);
+      if(!r) return;
+      if(!best || r.totalMinutes<best.totalMinutes) best=r;
+    });
   });
-  var sb=$("lfSubmit"); if(sb) sb.onclick=submitLeadForm;
+  var rec2=(best && best.totalMinutes <= rec1.totalMinutes-15) ? best : null;
+  return { rec1:rec1, rec2:rec2 };
 }
-function runPreview(){
+function recDiff(a,b){
+  var parts=[];
+  if(a.fmt!==b.fmt) parts.push(fmtLabel(b.fmt)+" format");
+  if(a.seq!==b.seq) parts.push(b.seq?"finals one category at a time":"simultaneous finals");
+  return { changes:parts.join(" + ")||"a tuned schedule", save:a.totalMinutes-b.totalMinutes };
+}
+
+/* ---------- narrative / run-down ---------- */
+function narrative(rec){
+  var ev=rec.ev, P=rec.adjTotal||rec.P, K=rec.K, C=rec.courts;
+  var startS=_tstr(ev.startAbs), xd=Math.floor(ev.finishMin/1440), finishS=_tstr(ev.finishMin)+(xd>0?" +"+xd+"d":"");
+  var catWord=K>1?(K+" categories"):"1 category";
+  var seq=rec.seq && K>1;
+  var lines=[{ tm:startS, label:"<b>Opening</b>" }];
+  if(!seq){
+    var poB=ev.blocks.filter(function(b){ return b.key==="po"; });
+    var fB=ev.blocks.filter(function(b){ return b.key==="final"; });
+    lines.push({ tm:_tstr(ev.groupStart), label:"<b>Group stage</b>"+(K>1?" — all categories":"") });
+    if(poB.length) lines.push({ tm:_tstr(poB[0].startMin), label:"<b>Playoffs</b> begin" });
+    if(fB.length) lines.push({ tm:_tstr(fB[0].startMin), label:"<b>Finals</b>"+(K>1?" — all categories together":"") });
+  } else {
+    lines.push({ tm:_tstr(ev.groupStart)+"–"+_tstr(ev.groupEnd), label:"<b>Group stage</b> — all categories" });
+    ev.info.forEach(function(x,ci){
+      var bs=ev.blocks.filter(function(b){ return b.label.indexOf(x.name)===0; });
+      if(!bs.length) return;
+      var fin=bs.filter(function(b){ return b.key==="final"; })[0];
+      lines.push({ tm:_tstr(bs[0].startMin), label:"<b>"+esc(x.name)+"</b> — playoff"+(fin?", final "+_tstr(fin.startMin):"")+(ci>0?" (same format)":"") });
+    });
+  }
+  lines.push({ tm:_tstr(ev.awardStart), label:"<b>Awarding</b>" });
+  var html='<div class="rundown">'+lines.map(function(l){
+    return '<div class="rl"><span class="tm">'+esc(l.tm)+'</span><span class="lb">'+l.label+'</span></div>';
+  }).join("")+'</div>';
+  var txt="Tournament with "+P+" pairs across "+catWord+" on "+C+" courts. Format: "+fmtLabel(rec.fmt)+
+    ". Finals: "+(seq?"one category at a time to podium":"simultaneous")+
+    ". Estimated start "+startS+", finish by "+finishS+" (~"+hm(ev.totalMinutes)+"). Run-down: "+
+    lines.map(function(l){ return l.label.replace(/<[^>]+>/g,"")+" "+l.tm; }).join("; ")+".";
+  return { html:html, text:txt, startS:startS, finishS:finishS };
+}
+
+/* ---------- result rendering ---------- */
+function recCard(rec, isAlt, diff){
+  var ev=rec.ev, nr=narrative(rec);
+  var adjNote = rec.adjusted ? " · adjusted to "+rec.adjTotal+" pairs for a bye-free bracket"
+              : (rec.byes ? " · "+rec.byes+" bye"+(rec.byes>1?"s":"") : "");
+  var title = isAlt ? "Alternative — faster" : "Recommended";
+  var sub = isAlt ? ("Change: "+esc(diff.changes)) : (fmtLabel(rec.fmt)+" · "+((rec.seq&&rec.K>1)?"sequential finals":"simultaneous finals"));
+  var tag = isAlt ? ('<span class="rectag">Saves '+hm(diff.save)+'</span>') : '<span class="rectag">Your setup</span>';
+  var prose = "A tournament with <b>"+(rec.adjTotal||rec.P)+" pairs</b> across <b>"+rec.K+" categor"+(rec.K>1?"ies":"y")+
+    "</b> on <b>"+rec.courts+" courts</b>"+adjNote+", estimated to start at <b>"+nr.startS+"</b> and finish by <b>"+nr.finishS+"</b>.";
+  return '<button class="rec '+(isAlt?"alt":"reco")+'" data-pick="'+(isAlt?"2":"1")+'">'+
+    '<div class="rechead"><div><div class="rectitle">'+title+'</div>'+
+      '<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc(sub)+'</div></div>'+
+      '<div class="recbig">'+hm(ev.totalMinutes).replace(" hr","h").replace(" min","m")+'<small>DURATION</small></div></div>'+
+    '<div class="recnarr">'+prose+'</div>'+
+    nr.html+
+    '<div class="recmeta"><span class="chip"><b>'+ev.totalMatches+'</b> matches</span>'+
+      '<span class="chip">start <b>'+nr.startS+'</b></span><span class="chip">finish <b>'+nr.finishS+'</b></span>'+tag+'</div>'+
+    '<div class="recpick">Choose this &amp; simulate <span>→</span></div></button>';
+}
+function renderResult(){
+  syncSetup();
+  ST.courts=Math.max(1,Math.min(12,Math.round(n("courts"))));
+  var recs=buildRecommendations();
+  ST.rec1=recs.rec1; ST.rec2=recs.rec2;
+  var h='<button class="back" id="bkS2">← Edit courts</button>';
+  if(!recs.rec1){
+    h+='<div class="advice err"><b class="h">Can’t build this format</b>Try adjusting the number of pairs, categories, or courts.</div>';
+    $("S3").innerHTML=h; $("bkS2").onclick=function(){ showStep(2); }; showStep(3); return;
+  }
+  h+='<div class="secthead" style="margin-bottom:10px"><h3>Your result</h3><span class="note">'+(recs.rec2?"2 options":"1 option")+'</span></div>';
+  h+=recCard(recs.rec1, false, null);
+  if(recs.rec2) h+=recCard(recs.rec2, true, recDiff(recs.rec1,recs.rec2));
+  else h+='<div class="advice info" style="margin-top:4px"><b class="h">No faster combination</b>At '+ST.pairs+' pairs on '+ST.courts+' courts, this is already the most efficient setup.</div>';
+  $("S3").innerHTML=h;
+  $("bkS2").onclick=function(){ showStep(2); };
+  Array.prototype.forEach.call($("S3").querySelectorAll("[data-pick]"), function(b){
+    b.onclick=function(){ pickRec(b.getAttribute("data-pick")); };
+  });
+  showStep(3);
+}
+function pickRec(which){
+  var rec = which==="2" ? ST.rec2 : ST.rec1;
+  if(!rec) return;
+  ST.chosen=rec;
+  R.finalSeq=rec.seq;
+  LAST={ mode:"SIM", ev:rec.ev, fmt:rec.fmt, rate:0, courts:rec.courts, target:rec.P };
+  renderSim();
+  showStep(4);
+}
+
+/* ---------- simulation page (S4) ---------- */
+function renderSim(){
+  var rec=ST.chosen, ev=rec.ev, nr=narrative(rec);
   var data=buildDemoFromPlan();
-  if(!data){ alert("Jalankan rencana dulu."); return; }
   try{ localStorage.setItem("tp_demo_data", JSON.stringify(data)); }catch(e){}
-  var bust="?t="+Date.now();
-  $("frames").innerHTML=
-    '<div class="frames">'+
-      '<div class="device phone"><div class="cap"><b>Layar Pemain (HP)</b><a href="/mobile-demo.html" target="_blank" rel="noopener">buka penuh ↗</a></div>'+
-        '<iframe title="Player mobile view" src="/mobile-demo.html'+bust+'"></iframe></div>'+
-      '<div class="device tv"><div class="cap"><b>Layar TV / LED Venue</b><a href="/tv-demo.html" target="_blank" rel="noopener">buka penuh ↗</a></div>'+
-        '<iframe title="TV display" src="/tv-demo.html'+bust+'"></iframe></div>'+
-    '</div>';
-  var b=$("runPrev"); if(b) b.textContent="↻ Acak ulang simulasi";
-  $("frames").scrollIntoView({behavior:"smooth",block:"nearest"});
+  var h='<button class="back" id="bkS3">← Back to result</button>'+
+    '<div class="simhero"><div class="eyebrow">Tournament simulation · '+esc(nr.startS)+'–'+esc(nr.finishS)+'</div>'+
+    '<h2>Feel your tournament</h2>'+
+    '<p>'+(rec.adjTotal||rec.P)+' pairs · '+rec.K+' categor'+(rec.K>1?"ies":"y")+' · '+rec.courts+' courts. The screens below are filled from your plan — real groups, real times, scores, bracket and podium.</p>'+
+    '<div class="devnote">These screens are built for a TV or computer display. On a phone they will look cramped — open them on a big screen for the full effect.</div>'+
+    '<div class="simbtns">'+
+      '<button class="simbtn" data-view="mobile"><span class="ic">📱</span><b>Player page</b><small>Each player’s schedule, court &amp; next match.</small></button>'+
+      '<button class="simbtn" data-view="scorer"><span class="ic">🖊️</span><b>Scorer page</b><small>Court-by-court score entry desk.</small></button>'+
+      '<button class="simbtn" data-view="tv"><span class="ic">📺</span><b>TV LED page</b><small>Live scores &amp; bracket for venue screens.</small></button>'+
+    '</div></div>'+
+    interestedBlock();
+  $("S4").innerHTML=h;
+  $("bkS3").onclick=function(){ showStep(3); };
+  Array.prototype.forEach.call($("S4").querySelectorAll("[data-view]"), function(b){
+    b.onclick=function(){ openViewer(b.getAttribute("data-view")); };
+  });
+  bindInterested();
+}
+function openViewer(view){
+  var map={ mobile:{url:"/mobile-demo.html",title:"Player page"},
+            scorer:{url:"/scorer-demo.html",title:"Scorer page"},
+            tv:{url:"/tv-demo.html",title:"TV LED page"} };
+  var m=map[view]; if(!m) return;
+  $("vTitle").textContent=m.title;
+  $("vFrame").src=m.url+"?t="+Date.now();
+  $("viewer").className="viewer show";
 }
 
+/* ---------- interested / lead ---------- */
+function interestedBlock(){
+  return '<div class="svc"><h3>Yes, I’m interested</h3>'+
+    '<p>Like what you see? Leave your phone number and pick how you’d like to work with us. We’ll reach out within one business day.</p>'+
+    '<label class="f"><span>Phone / WhatsApp <span style="color:var(--orange)">*</span></span><input type="text" id="svcPhone" placeholder="08xxxxxxxxxx" inputmode="numeric"></label>'+
+    '<div class="svcbtns">'+
+      '<button class="svcbtn" data-svc="Full operation (referee, scorer, tournament director)"><span class="tg">Done for you</span><b>Full operation</b><span>Referee, scorer &amp; tournament director — we run it end-to-end.</span></button>'+
+      '<button class="svcbtn" data-svc="Engine only"><span class="tg">Self-service</span><b>Engine only</b><span>License the engine and run it yourself with the full toolkit.</span></button>'+
+    '</div>'+
+    '<div class="svcmsg" id="svcMsg">Nothing is sent until you pick one of the two options above.</div>'+
+    '<div class="resetrow"><button class="back" id="svcReset">↺ Reset &amp; start over</button></div></div>';
+}
+function bindInterested(){
+  Array.prototype.forEach.call($("S4").querySelectorAll("[data-svc]"), function(b){
+    b.onclick=function(){ submitService(b.getAttribute("data-svc")); };
+  });
+  var r=$("svcReset"); if(r) r.onclick=resetAll;
+}
+function submitService(service){
+  var phone=($("svcPhone").value||"").trim(), msg=$("svcMsg");
+  if(phone.replace(/\D/g,"").length<8){ msg.style.color="var(--red)"; msg.textContent="Please enter a valid phone number first."; return; }
+  var rec=ST.chosen, nr=narrative(rec);
+  var body={
+    name:USER.name, whatsapp:phone, email:USER.email,
+    date:EVENT.date, city:EVENT.city, venue:"",
+    participants:(rec.adjTotal||rec.P)*2, courts:rec.courts, category:[rec.K+" categor"+(rec.K>1?"ies":"y")],
+    package:service, notes:nr.text, source:"turnamenpadel.com/simulasi",
+    lead_id: LEAD_ID||(LEAD_ID=newLeadId())
+  };
+  postLead("leads", body);
+  $("ovBody").innerHTML='<div class="okmark">✓</div><h3 style="text-align:center">Request sent</h3>'+
+    '<p class="s" style="text-align:center">Thanks '+esc(USER.name||"")+'! Your tournament brief &amp; simulation summary are in. Our team will contact you at <b style="color:var(--text)">'+esc(phone)+'</b>, usually within one business day.</p>'+
+    '<button class="cta" id="ovClose">Close</button>';
+  $("ov").className="overlay show";
+  $("ovClose").onclick=function(){ $("ov").className="overlay"; };
+}
+function resetAll(){
+  ST={ step:1, pairs:Math.max(4,Math.round(n("pTotal"))), K:Math.max(1,Math.round(n("catCount"))), courts:3, fmt:ST.fmt, chosen:null, rec1:null, rec2:null };
+  $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){}
+  $("S3").innerHTML=""; $("S4").innerHTML="";
+  showStep(1);
+}
 /* ---- simulasi data dari rencana (untuk layar mobile & TV) ---- */
 var TPNAMES=['Andi','Budi','Citra','Dewi','Eka','Fajar','Gita','Hadi','Indra','Joko','Kira','Lina','Maya','Nanda','Oka','Putri','Rama','Sari','Tari','Umar','Vino','Wira','Yoga','Zaki','Bayu','Cinta','Doni','Esa','Fika','Galih','Hana','Iqbal','Jihan','Kemal','Laras','Miko','Nadia','Owen','Pita','Rizki','Sena','Tio','Ubai','Vera','Wina','Xena','Yudha','Zahra','Arya','Bella','Cakra','Dinda','Elang','Fira','Gala','Hesti','Ilham','Jasmine'];
 function _ri(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
@@ -747,7 +894,7 @@ function _grank(teams){ return teams.slice().sort(function(a,b){ return b.W-a.W 
 function buildDemoFromPlan(){
   var ev=LAST&&LAST.ev; if(!ev) return null;
   var courts=Math.max(1,ev.courts), startM=_tmin(EVENT.start), slotLen=R.mGroup+R.mChange;
-  var CATNAMES=["Men's Doubles","Women's Doubles","Mixed Doubles","Open","Kategori 5","Kategori 6"];
+  var CATNAMES=["Men's Doubles","Women's Doubles","Mixed Doubles","Open","Category 5","Category 6"];
   var players={}, cats=[], allGroupMatches=[], pool=_shuffle(TPNAMES.slice()), pc=0;
 
   ev.info.forEach(function(catInfo,ci){
@@ -767,7 +914,7 @@ function buildDemoFromPlan(){
     var gm=[];
     groups.forEach(function(g){ for(var i=0;i<g.teams.length;i++)for(var j=i+1;j<g.teams.length;j++) gm.push({cat:ci,gl:g.letter,a:g.teams[i],b:g.teams[j],sa:null,sb:null}); });
     gm.forEach(function(m){ allGroupMatches.push(m); });
-    cats.push({ci:ci,name:CATNAMES[ci]||("Kategori "+(ci+1)),groups:groups,teams:teams,entrants:entrants,gm:gm,conf:catInfo.conf});
+    cats.push({ci:ci,name:CATNAMES[ci]||("Category "+(ci+1)),groups:groups,teams:teams,entrants:entrants,gm:gm,conf:catInfo.conf});
   });
 
   /* jadwal grup: interleave antar-grup, sebar ke court, jam nyata dari EVENT.start */
@@ -842,293 +989,54 @@ function buildDemoFromPlan(){
   });
 
   return {
-    event:{ name:(EVENT.venue?EVENT.venue+" Cup":"Padel Sim Cup"), venue:(EVENT.venue||"La Familia")+(EVENT.city?", "+EVENT.city:", Jakarta"), date:(EVENT.date||"2026-07-12"), numCourts:courts, matchMinutes:R.mGroup },
+    event:{ name:(EVENT.city?EVENT.city+" Open":"Padel Sim Cup"), venue:(EVENT.city||"Demo Venue"), date:(EVENT.date||"2026-07-12"), numCourts:courts, matchMinutes:R.mGroup },
     players:players, categories:outCats, sponsors:[], mobileBanner:'' };
 }
 
-/* ---- kirim lead dari form Lanjut ---- */
-function submitLeadForm(){
-  var wa=($("lfWa").value||"").trim();
-  var msg=$("lfMsg");
-  if(wa.replace(/\D/g,'').length<8){ msg.style.color="var(--red)"; msg.textContent="Isi nomor WhatsApp yang valid."; return; }
-  var ev=LAST&&LAST.ev, pkgEl=document.querySelector('input[name="lfpkg"]:checked');
-  var nm=($("lfName").value||USER.name||"").trim(), em=($("lfEmail").value||USER.email||"").trim();
-  EVENT.venue=($("lfVenue").value||"").trim(); EVENT.city=($("lfCity").value||"").trim(); EVENT.date=($("lfDate").value||"").trim();
-  USER.name=nm||USER.name; USER.email=em||USER.email;
-  var body={
-    timestamp:new Date().toISOString(), lead_id: LEAD_ID||(LEAD_ID=newLeadId()),
-    name:nm, whatsapp:wa, email:em,
-    date:EVENT.date, participants:ev?ev.totalPairs*2:"", days:1, hours: ev?Math.ceil(ev.totalMinutes/30)/2:"",
-    courts: ev?ev.courts:"", category: ev?ev.info.map(function(x){return x.pairs+" pair";}):[],
-    venue:EVENT.venue, city:EVENT.city, package: pkgEl?pkgEl.value:"License Engine",
-    notes:($("lfNotes").value||"").trim(),
-    source:"turnamenpadel.com/simulasi",
-    plan_pairs: ev?ev.totalPairs:"", plan_categories: ev?ev.info.length:"",
-    plan_duration_min: ev?Math.round(ev.totalMinutes):"", plan_duration_label: ev?hm(ev.totalMinutes):"",
-    plan_final_mode: ev?(ev.finalSeq?"Kategori berurutan":"Final serempak"):"",
-    plan_format: (LAST?fmtLabel(LAST.fmt):"")
-  };
-  postLead("leads", body);
-  /* juga catat di calc/result agar terhubung dengan funnel simulasi */
-  try{ if(LAST){ var p=buildPayload(true); p.lead_id=body.lead_id; p.whatsapp=wa; p.source="turnamenpadel.com/simulasi"; postLead("calc/result", p); } }catch(e){}
-  $("ovBody").innerHTML='<div class="okmark">✓</div><h3 style="text-align:center">Permintaan terkirim</h3>'+
-    '<p class="s" style="text-align:center">Terima kasih '+esc(nm||"")+'! Brief &amp; simulasi turnamenmu sudah kami terima. Tim TurnamenPadel akan menghubungi lewat WhatsApp <b style="color:var(--text)">'+esc(wa)+'</b>, biasanya dalam 1×24 jam.</p>'+
-    '<button class="cta" id="ovClose">Tutup</button>';
-  $("ov").className="overlay show";
-  $("ovClose").onclick=function(){ $("ov").className="overlay"; };
-}
-
-/* ================= MODE A — WIZARD ================= */
-function stepsBar(id, names, cur){
-  var h="";
+/* ================= STEP NAV + UI ================= */
+function stepsBar(cur){
+  var names=["Setup","Courts","Result","Simulate"], h="";
   names.forEach(function(nm,i){
     if(i) h+='<span class="bar"></span>';
     h+='<span class="s '+(cur===i+1?"on":(cur>i+1?"done":""))+'"><span class="dot">'+(i+1)+'</span><span class="nm">'+nm+'</span></span>';
   });
-  $(id).innerHTML=h;
+  $("steps").innerHTML=h;
 }
-function showA(step){
-  A.step=step;
-  ["A1","A2","A3","A4"].forEach(function(id,i){ $(id).style.display = (i+1===step)?"":"none"; });
-  stepsBar("stepsA",["Peserta","Kategori","Court","Hasil"],step);
-  if(step===1) $("advSlotA").appendChild($("advPanel"));
+function showStep(step){
+  ST.step=step;
+  ["S1","S2","S3","S4"].forEach(function(id,i){ $(id).style.display=(i+1===step)?"":"none"; });
+  stepsBar(step);
   window.scrollTo({top:0,behavior:"smooth"});
 }
-function totalPairs(){ var v=Math.max(0,Math.round(n("pTotal"))); return UNIT==="player"?Math.floor(v/2):v; }
-
-function renderA2(){
+function syncSetup(){
   syncR();
-  A.total=totalPairs(); A.rate=n("rate");
-  if(A.total<GMIN){ alert("Minimal "+GMIN+" pair."); return; }
-  var lock=R.lockInput;
-  var h='<button class="back" id="backA1">← Ubah target peserta</button>'+
-    '<div class="card"><h2>Pilih Jumlah Kategori</h2>'+
-    '<div class="hint">Target kamu <b style="color:var(--text)">'+A.total+' pair</b>. '+
-      (lock?'Mode <b style="color:var(--orange)">kunci input</b> aktif — jumlah dipertahankan persis, walau ada bye.':'Tiap opsi kami sesuaikan sedikit supaya bracket penuh tanpa bye.')+'</div>';
-  var recos=[], k;
-  for(k=1;k<=KMAX;k++){
-    var r=lock ? exactForK(A.total,k,A.fmt) : recommendForK(A.total,k,A.fmt);
-    if(r) recos.push(r);
-  }
-  if(!recos.length){
-    h+='<div class="advice err"><b class="h">'+(lock?'Jumlah belum bisa dibagi':'Belum ada format bebas bye')+'</b>Coba ubah jumlah peserta atau format turnamen.</div></div>';
-    $("A2").innerHTML=h; $("backA1").onclick=function(){ showA(1); }; return;
-  }
-  var closest=recos.slice().sort(function(a,b){
-    return (Math.abs(a.delta)-Math.abs(b.delta)) || ((a.byes||0)-(b.byes||0)) || (Math.abs(2.5-a.k)-Math.abs(2.5-b.k));
-  })[0];
-  h+='</div>';
-  recos.forEach(function(r){
-    var conf=bestConfig(r.sizes[0],A.fmt);
-    var tm=0, rbyes=0; r.sizes.forEach(function(p){ var c=bestConfig(p,A.fmt); tm+=c.groupMatches+c.Q; rbyes+=c.byes; });
-    var byeTag = rbyes===0 ? '<span class="tag g">Tanpa bye</span>'
-      : '<span class="tag" style="color:var(--amber);border-color:var(--amber)">'+rbyes+' bye</span>';
-    var headTag = lock ? (rbyes===0?'<span class="tag">Bracket penuh</span>':'')
-                       : (r===closest?'<span class="tag">Paling dekat target</span>':'');
-    var tags=headTag+byeTag;
-    h+='<button class="pickcard '+(r===closest?"reco":"")+'" data-k="'+r.k+'"><div class="ph"><div>'+
-      '<div class="pt">'+r.k+' Kategori'+tags+'</div>'+
-      '<div class="pd">'+r.sizes.join(" + ")+' pair per kategori · '+sizesLabel(conf.sizes)+' → '+conf.Q+' lolos · ± '+tm+' match</div></div>'+
-      '<div class="pv">'+r.total+'<small>PAIR</small></div></div>'+
-      '<div class="pd" style="margin-top:6px">'+(r.locked?"Sesuai jumlah input kamu":(r.delta===0?"Pas dengan target kamu":(r.delta>0?"+"+r.delta:r.delta)+" pair dari target"))+'</div></button>';
-  });
-  $("A2").innerHTML=h;
-  $("backA1").onclick=function(){ showA(1); };
-  Array.prototype.forEach.call($("A2").querySelectorAll("[data-k]"), function(b){
-    b.onclick=function(){
-      var kk=parseInt(b.getAttribute("data-k"),10);
-      var r=recos.filter(function(x){ return x.k===kk; })[0];
-      A.k=r.k; A.sizes=r.sizes; A.adjTotal=r.total;
-      renderA3(); showA(3);
-    };
-  });
-  showA(2);
+  ST.pairs=Math.max(GMIN,Math.round(n("pTotal")));
+  ST.K=Math.max(1,Math.min(KMAX,Math.round(n("catCount"))));
 }
-function renderA3(){
-  var rows=courtOptions(A.sizes,A.fmt);
-  var reco=pickCourts(rows,A.k);
-  var h='<button class="back" id="backA2">← Ubah jumlah kategori</button>'+
-    '<div class="card"><h2>Pilih Jumlah Court</h2>'+
-    '<div class="hint"><b style="color:var(--text)">'+A.adjTotal+' pair · '+A.k+' kategori</b>. Nambah court memangkas waktu sampai titik tertentu saja.</div></div>';
-  rows.forEach(function(r){
-    var tags=(r.courts===reco?'<span class="tag">Paling efisien</span>':'')+
-             (r.courts>=A.k*2?'<span class="tag g">Final + juara 3 serempak</span>':'');
-    h+='<button class="pickcard '+(r.courts===reco?"reco":"")+'" data-c="'+r.courts+'"><div class="ph"><div>'+
-      '<div class="pt">'+r.courts+' Court'+tags+'</div>'+
-      '<div class="pd">'+r.ev.actualCourtHours+' court-jam · sewa '+rp(r.ev.actualCourtHours*A.rate)+'</div></div>'+
-      '<div class="pv" style="font-size:24px">'+hm(r.ev.totalMinutes).replace(" jam","j").replace(" menit","m")+'<small>DURASI</small></div></div></button>';
-  });
-  $("A3").innerHTML=h;
-  $("backA2").onclick=function(){ renderA2(); };
-  Array.prototype.forEach.call($("A3").querySelectorAll("[data-c]"), function(b){
-    b.onclick=function(){ A.courts=parseInt(b.getAttribute("data-c"),10); renderA4(); showA(4); };
-  });
-}
-function renderA4(){
-  var ev=computeEvent(A.sizes,A.courts,A.fmt);
-  LAST={ mode:"A", ev:ev, rate:A.rate, courts:A.courts, unit:UNIT, fmt:A.fmt, target:A.total };
-  var h='<button class="back" id="backA3">← Ubah jumlah court</button>'+
-    '<div class="hero"><div class="eyebrow">Estimasi Total Durasi</div><div class="big">'+bigTime(ev.totalMinutes)+'</div>'+
-    '<div class="clock">'+ev.totalPairs+' pair · '+A.k+' kategori · '+A.courts+' court</div><div class="meta">'+
-    '<span class="chip">format <b>'+esc(fmtLabel(A.fmt))+'</b></span>'+
-    '<span class="chip"><b>'+ev.totalMatches+'</b> match</span>'+
-    '<span class="chip">sewa <b>'+ev.actualCourtHours+'</b> court-jam</span>'+
-    '<span class="chip">estimasi <b>'+rp(ev.actualCourtHours*A.rate)+'</b></span></div></div>';
-  h+=setupSummary(ev);
-  h+='<div class="sect"><div class="secthead"><h3>Run Sheet per Court</h3><span class="note">court dipakai bersama saat grup</span></div>'+runSheet(ev)+'</div>';
-  h+=costSummary(ev,A.rate)+advisor(ev)+timeDetail(ev)+leadBox();
-  $("A4").innerHTML=h;
-  $("backA3").onclick=function(){ showA(3); };
-  bindLead();
-}
-
-/* ================= MODE B — WIZARD ================= */
-function showB(step){
-  B.step=step;
-  ["B1","B2","B3"].forEach(function(id,i){ $(id).style.display=(i+1===step)?"":"none"; });
-  stepsBar("stepsB",["Court & Jam","Format","Hasil"],step);
-  if(step===1) $("advSlotB").appendChild($("advPanel"));
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-function findCapacity(hours,courts,mode){
-  var budget=hours*60, res=[], k, p;
-  for(k=1;k<=KMAX;k++){
-    var best=null;
-    for(p=GMIN;p<=48;p++){
-      var sizes=[]; for(var i=0;i<k;i++) sizes.push(p);
-      var ev=computeEvent(sizes,courts,mode);
-      if(!ev) continue;
-      if(ev.totalMinutes<=budget) best={k:k,p:p,ev:ev}; else break;
-    }
-    if(best) res.push(best);
-  }
-  res.forEach(function(r){
-    var conf=bestConfig(r.p,mode);
-    r.total=r.k*r.p; r.conf=conf; r.clean=conf.byes===0;
-    r.score=r.total*10+(r.clean?30:0)+(r.k===courts?25:0)+((r.k>=2&&r.k<=4)?15:0)-Math.abs(courts-r.k)*4;
-  });
-  res.sort(function(a,b){ return b.score-a.score; });
-  return res;
-}
-function renderB2(){
-  syncR();
-  B.courts=Math.min(CMAX,Math.max(CMIN,Math.round(n("courtsB"))));
-  B.hours=n("hours"); B.rate=n("rateB");
-  var h='<button class="back" id="backB1">← Ubah court &amp; jam</button>'+
-    '<div class="card"><h2>Pilih Format Turnamen</h2>'+
-    '<div class="hint"><b style="color:var(--text)">'+B.courts+' court · '+B.hours+' jam</b>. Tiap format menghasilkan kapasitas berbeda.</div></div>';
-  var any=false;
-  FORMATS.forEach(function(f){
-    var opts=findCapacity(B.hours,B.courts,f.id);
-    if(!opts.length){
-      h+='<button class="pickcard" disabled style="opacity:.45"><div class="ph"><div><div class="pt">'+f.t+'</div>'+
-         '<div class="pd">Tidak muat dengan durasi ini</div></div></div></button>';
-      return;
-    }
-    any=true;
-    var top=opts[0];
-    h+='<button class="pickcard '+(f.id===B.fmt?"reco":"")+'" data-f="'+f.id+'"><div class="ph"><div>'+
-      '<div class="pt">'+f.t+(top.clean?'<span class="tag g">Tanpa bye</span>':'')+'</div>'+
-      '<div class="pd">'+f.d+'</div>'+
-      '<div class="pd" style="margin-top:5px;color:var(--text)">'+top.k+' kategori × '+top.p+' pair · '+sizesLabel(top.conf.sizes)+' · '+hm(top.ev.totalMinutes)+'</div></div>'+
-      '<div class="pv">'+top.total+'<small>PAIR</small></div></div></button>';
-  });
-  if(!any) h+='<div class="advice err"><b class="h">Belum muat</b>Dengan '+B.hours+' jam dan '+B.courts+' court, format group stage + playoff belum bisa jalan. Tambah jam atau court.</div>';
-  $("B2").innerHTML=h;
-  $("backB1").onclick=function(){ showB(1); };
-  Array.prototype.forEach.call($("B2").querySelectorAll("[data-f]"), function(b){
-    b.onclick=function(){ B.fmt=b.getAttribute("data-f"); renderB3(); showB(3); };
-  });
-  showB(2);
-}
-function renderB3(){
-  var opts=findCapacity(B.hours,B.courts,B.fmt);
-  var top=opts[0]; B.pick=top;
-  var ev=top.ev;
-  LAST={ mode:"B", ev:ev, rate:B.rate, courts:B.courts, hours:B.hours, fmt:B.fmt,
-         options:opts.slice(0,4).map(function(o){ return o.k+" kategori x "+o.p+" pair = "+o.total; }) };
-  var h='<button class="back" id="backB2">← Ubah format</button>'+
-    '<div class="hero"><div class="eyebrow">Kapasitas Maksimal</div><div class="big">'+top.total+'<small> pair</small></div>'+
-    '<div class="clock">'+B.courts+' court · '+B.hours+' jam · terpakai '+hm(ev.totalMinutes)+'</div><div class="meta">'+
-    '<span class="chip">format <b>'+esc(fmtLabel(B.fmt))+'</b></span>'+
-    '<span class="chip"><b>'+top.k+'</b> kategori × <b>'+top.p+'</b> pair</span>'+
-    '<span class="chip">sisa <b>'+hm(Math.max(0,B.hours*60-ev.totalMinutes))+'</b></span>'+
-    '<span class="chip">estimasi <b>'+rp(ev.actualCourtHours*B.rate)+'</b></span></div></div>';
-  h+=setupSummary(ev);
-  h+='<div class="sect"><div class="secthead"><h3>Run Sheet per Court</h3><span class="note">court dipakai bersama saat grup</span></div>'+runSheet(ev)+'</div>';
-  h+=costSummary(ev,B.rate)+advisor(ev)+timeDetail(ev)+leadBox();
-  $("B3").innerHTML=h;
-  $("backB2").onclick=function(){ renderB2(); };
-  bindLead();
-}
-
-/* ---------- lead ---------- */
-function buildPayload(interested){
-  var L=LAST, ev=L.ev;
-  return {
-    timestamp:new Date().toISOString(), name:USER.name, email:USER.email,
-    mode: L.mode==="A"?"Target Peserta":"Court & Jam",
-    format_priority: fmtLabel(L.fmt),
-    input_unit: L.unit||"pair",
-    target_pairs: L.target||null,
-    hours_available: L.hours||null,
-    courts: L.courts, court_rate_per_hour: L.rate,
-    total_pairs: ev.totalPairs, total_players: ev.totalPairs*2,
-    categories_count: ev.info.length,
-    categories_detail: ev.info.map(function(x){ return x.pairs+" pair ("+sizesLabel(x.conf.sizes)+", "+x.conf.Q+" lolos)"; }).join(" | "),
-    total_matches: ev.totalMatches,
-    total_duration_min: Math.round(ev.totalMinutes),
-    total_duration_label: hm(ev.totalMinutes),
-    court_hours_optimal: ev.actualCourtHours, court_hours_full: ev.fullCourtHours,
-    estimated_court_cost: Math.round(ev.actualCourtHours*L.rate),
-    potential_saving: Math.round(Math.max(0,ev.fullCourtHours-ev.actualCourtHours)*L.rate),
-    has_bye: ev.info.some(function(x){ return x.conf.byes>0; }),
-    options_considered: L.options?L.options.join(" | "):"",
-    services_requested: interested ? "Wasit, Score desk, Tournament director, Aplikasi end-to-end" : "",
-    rules_ref:"https://turnamenpadel.com/rules",
-    interested_in_management: interested,
-    status: interested?"HOT":"NEW"
-  };
-}
-function sendLead(interested){
-  var p=buildPayload(interested);
-  p.lead_id = LEAD_ID || (LEAD_ID = newLeadId());
-  postLead("calc/result", p);
-  $("ovBody").innerHTML=
-    (interested
-      ? '<div class="okmark">✓</div><h3 style="text-align:center">Terkirim</h3><p class="s" style="text-align:center">Tim TurnamenPadel akan menghubungi <b style="color:var(--text)">'+esc(USER.email)+'</b> dalam 1×24 jam.</p>'
-      : '<h3>Oke, tidak masalah</h3><p class="s">Hasil perhitungan tetap kami simpan supaya bisa dilanjutkan nanti. Tidak ada yang menghubungi kecuali kamu minta.</p>')+
-    '<button class="cta" id="ovClose">Tutup</button>';
-  $("ov").className="overlay show";
-  $("ovClose").onclick=function(){ $("ov").className="overlay"; };
-}
-
-/* ---------- UI dasar ---------- */
-function updateHelp(){
-  var raw=Math.max(0,Math.round(n("pTotal"))), p=totalPairs();
-  $("pHelp").innerHTML = UNIT==="player"
-    ? raw+" pemain = <b>"+p+" pair</b>"+(raw%2?" (1 pemain belum punya partner)":"")
-    : p+" pair = <b>"+(p*2)+" pemain</b>";
-}
-function buildFmtA(){
-  $("fmtCtrlA").innerHTML=FORMATS.map(function(f){
-    return '<button type="button" data-fmt="'+f.id+'" aria-pressed="'+(A.fmt===f.id)+'"><strong>'+f.t+'</strong><span>'+f.d+'</span></button>';
+function buildFmt(){
+  $("fmtCtrl").innerHTML=FORMATS.map(function(f){
+    return '<button type="button" data-fmt="'+f.id+'" aria-pressed="'+(ST.fmt===f.id)+'"><strong>'+f.t+'</strong><span>'+f.d+'</span></button>';
   }).join("");
-  Array.prototype.forEach.call($("fmtCtrlA").querySelectorAll("button"), function(b){
-    b.onclick=function(){ A.fmt=b.getAttribute("data-fmt"); buildFmtA(); };
+  Array.prototype.forEach.call($("fmtCtrl").querySelectorAll("button"), function(b){
+    b.onclick=function(){ ST.fmt=b.getAttribute("data-fmt"); buildFmt(); };
   });
 }
-function setTab(m){
-  $("tabA").setAttribute("aria-selected", m==="A"?"true":"false");
-  $("tabB").setAttribute("aria-selected", m==="B"?"true":"false");
-  $("modeA").style.display=m==="A"?"":"none";
-  $("modeB").style.display=m==="B"?"":"none";
-  if(m==="A") showA(A.step); else showB(B.step);
+function updateCatHelp(){
+  var p=Math.max(0,Math.round(n("pTotal"))), K=Math.max(1,Math.round(n("catCount")));
+  var per=Math.floor(p/K), rem=p%K, s=rem? (per+1)+"–"+per : (""+per);
+  $("catHelp").innerHTML = K+" categor"+(K>1?"ies":"y")+" → ~<b>"+s+" pairs</b> each.";
 }
+function updateHelp(){
+  var p=Math.max(0,Math.round(n("pTotal")));
+  $("pHelp").innerHTML = p+" pairs = <b>"+(p*2)+" players</b>. Recommended: even counts and their multiples (16, 24, 32, 48…) give clean, bye-free brackets — but any number works.";
+  updateCatHelp();
+}
+
+/* ---------- gate ---------- */
 $("gBtn").onclick=function(){
   var nm=$("gName").value.trim(), em=$("gEmail").value.trim();
-  if(nm.length<2){ $("gErr").textContent="Masukkan nama kamu."; $("gErr").style.display="block"; return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){ $("gErr").textContent="Format email belum benar."; $("gErr").style.display="block"; return; }
+  if(nm.length<2){ $("gErr").textContent="Please enter your name."; $("gErr").style.display="block"; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){ $("gErr").textContent="That email doesn’t look right."; $("gErr").style.display="block"; return; }
   USER.name=nm; USER.email=em;
   LEAD_ID = newLeadId();
   postLead("calc/gate", { lead_id:LEAD_ID, name:nm, email:em, source:"turnamenpadel.com/simulasi", user_agent:navigator.userAgent });
@@ -1136,38 +1044,37 @@ $("gBtn").onclick=function(){
   $("whoami").innerHTML=esc(nm)+"<br>"+esc(em);
 };
 $("gEmail").onkeydown=function(e){ if(e.key==="Enter") $("gBtn").click(); };
-$("pMinus").onclick=function(){ $("pTotal").value=Math.max(4,(parseInt($("pTotal").value,10)||0)-(UNIT==="player"?2:1)); updateHelp(); };
-$("pPlus").onclick =function(){ $("pTotal").value=Math.min(400,(parseInt($("pTotal").value,10)||0)+(UNIT==="player"?2:1)); updateHelp(); };
+
+/* ---------- setup handlers ---------- */
+$("pMinus").onclick=function(){ $("pTotal").value=Math.max(4,(parseInt($("pTotal").value,10)||0)-1); updateHelp(); };
+$("pPlus").onclick =function(){ $("pTotal").value=Math.min(200,(parseInt($("pTotal").value,10)||0)+1); updateHelp(); };
 $("pTotal").oninput=updateHelp;
-Array.prototype.forEach.call(document.querySelectorAll("[data-unit]"), function(b){
-  b.onclick=function(){
-    var was=UNIT; UNIT=b.getAttribute("data-unit");
-    if(was!==UNIT){ var v=parseInt($("pTotal").value,10)||0; $("pTotal").value=UNIT==="player"?v*2:Math.floor(v/2); }
-    Array.prototype.forEach.call(document.querySelectorAll("[data-unit]"), function(x){
-      x.setAttribute("aria-pressed", x.getAttribute("data-unit")===UNIT?"true":"false");
-    });
-    updateHelp();
-  };
-});
+$("catCount").oninput=updateCatHelp;
 Array.prototype.forEach.call(document.querySelectorAll("[data-step]"), function(e2){
   e2.onclick=function(){
     var t=$(e2.getAttribute("data-step")), d=+e2.getAttribute("data-d"), st=parseFloat(t.step)||1;
     var v=(parseFloat(t.value)||0)+d*st;
     t.value=Math.min(parseFloat(t.max), Math.max(parseFloat(t.min), v));
+    if(t.id==="catCount") updateCatHelp();
   };
 });
-$("rate").oninput =function(){ $("rateVal").textContent=rp(n("rate")); };
-$("rateB").oninput=function(){ $("rateValB").textContent=rp(n("rateB")); };
-$("tabA").onclick=function(){ setTab("A"); };
-$("tabB").onclick=function(){ setTab("B"); };
-$("calcA").onclick=renderA2;
-$("calcB").onclick=renderB2;
+$("toCourts").onclick=function(){
+  syncSetup();
+  if(ST.pairs < GMIN*ST.K){ alert("You need at least "+(GMIN*ST.K)+" pairs for "+ST.K+" categories."); return; }
+  $("courtsHint").innerHTML="For <b>"+ST.pairs+" pairs</b> across <b>"+ST.K+"</b> categor"+(ST.K>1?"ies":"y")+" — how many courts do you have?";
+  showStep(2);
+};
+$("backS1").onclick=function(){ showStep(1); };
+$("toResult").onclick=renderResult;
+
+/* ---------- viewer + overlay ---------- */
+$("vBack").onclick=function(){ $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){} };
 $("ov").onclick=function(e){ if(e.target===$("ov")) $("ov").className="overlay"; };
 
-buildFmtA();
+/* ---------- init ---------- */
+buildFmt();
 updateHelp();
-showA(1);
-stepsBar("stepsB",["Court & Jam","Format","Hasil"],1);
+showStep(1);
 </script>
 </body>
 </html>
