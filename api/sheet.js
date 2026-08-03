@@ -128,17 +128,42 @@ async function submitLead(body) {
 
 // Tournament Time Calculator lead capture. Two self-bootstrapping tabs:
 // Calculator_Leads (email gate) and Calculator_Results (computed estimate + intent).
+const CALC_LEADS_HEADER = ["Timestamp", "Lead_ID", "Name", "Email", "Source", "User_Agent", "Status"];
+const CALC_RESULTS_HEADER = [
+  "Timestamp", "Lead_ID", "Name", "Email", "Mode", "Format_Priority", "Input_Unit",
+  "Target_Pairs", "Hours_Available", "Courts", "Court_Rate_Per_Hour", "Total_Pairs",
+  "Total_Players", "Categories_Count", "Categories_Detail", "Total_Matches",
+  "Total_Duration_Min", "Total_Duration_Label", "Court_Hours_Optimal", "Court_Hours_Full",
+  "Estimated_Court_Cost", "Potential_Saving", "Has_Bye", "Options_Considered",
+  "Services_Requested", "Rules_Ref", "Interested_In_Management", "Status",
+];
 async function ensureTabWithHeader(sheets, title, header) {
+  const end = colLetters(header.length); // correct even past column Z (e.g. AA/AB)
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-  const existing = (meta.data.sheets || []).map((s) => s.properties.title);
-  if (existing.includes(title)) return;
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title } } }] },
-  });
-  const colEnd = String.fromCharCode(64 + Math.min(26, header.length));
+  const found = (meta.data.sheets || []).find((s) => s.properties.title === title);
+  if (!found) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title } } }] },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${title}!A1:${end}1`, valueInputOption: "RAW", requestBody: { values: [header] },
+    });
+    return;
+  }
+  // Tab exists — make sure row 1 is the header. Repairs older tabs that were left
+  // header-less (e.g. a >26-column header that failed to write on first create).
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${title}!A1:${end}1` });
+  const row1 = (r.data.values && r.data.values[0]) || [];
+  if ((row1[0] || "") === header[0]) return; // header already present
+  if (row1.some((c) => String(c || "").trim() !== "")) {
+    // row 1 holds data — push everything down one row, then write the header on top
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SHEET_ID,
+      requestBody: { requests: [{ insertDimension: { range: { sheetId: found.properties.sheetId, dimension: "ROWS", startIndex: 0, endIndex: 1 }, inheritFromBefore: false } }] },
+    });
+  }
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID, range: `${title}!A1:${colEnd}1`, valueInputOption: "RAW",
-    requestBody: { values: [header] },
+    spreadsheetId: SHEET_ID, range: `${title}!A1:${end}1`, valueInputOption: "RAW", requestBody: { values: [header] },
   });
 }
 async function calcGate(body) {
@@ -146,7 +171,7 @@ async function calcGate(body) {
   const email = String((body && body.email) || "").trim();
   if (!name || !email) return respond(400, { error: "name and email required" });
   const sheets = getSheets();
-  await ensureTabWithHeader(sheets, TABS.calc_leads, ["Timestamp", "Lead_ID", "Name", "Email", "Source", "User_Agent", "Status"]);
+  await ensureTabWithHeader(sheets, TABS.calc_leads, CALC_LEADS_HEADER);
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.calc_leads}!A:G`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[
@@ -162,14 +187,7 @@ async function calcResult(body) {
   const email = String(b.email || "").trim();
   if (!email) return respond(400, { error: "email required" });
   const sheets = getSheets();
-  await ensureTabWithHeader(sheets, TABS.calc_results, [
-    "Timestamp", "Lead_ID", "Name", "Email", "Mode", "Format_Priority", "Input_Unit",
-    "Target_Pairs", "Hours_Available", "Courts", "Court_Rate_Per_Hour", "Total_Pairs",
-    "Total_Players", "Categories_Count", "Categories_Detail", "Total_Matches",
-    "Total_Duration_Min", "Total_Duration_Label", "Court_Hours_Optimal", "Court_Hours_Full",
-    "Estimated_Court_Cost", "Potential_Saving", "Has_Bye", "Options_Considered",
-    "Services_Requested", "Rules_Ref", "Interested_In_Management", "Status",
-  ]);
+  await ensureTabWithHeader(sheets, TABS.calc_results, CALC_RESULTS_HEADER);
   // Light per-email rate limit: max 20 result rows per rolling hour.
   try {
     const cutoff = Date.now() - 3600 * 1000;
@@ -196,6 +214,14 @@ async function calcResult(body) {
     ]] },
   });
   return respond(200, { success: true });
+}
+// One-shot header repair, safe to hit from a browser (GET). Ensures/repairs the
+// Calculator_Leads & Calculator_Results header rows without adding any data.
+async function calcEnsure() {
+  const sheets = getSheets();
+  await ensureTabWithHeader(sheets, TABS.calc_leads, CALC_LEADS_HEADER);
+  await ensureTabWithHeader(sheets, TABS.calc_results, CALC_RESULTS_HEADER);
+  return respond(200, { success: true, message: "Header tab Calculator_Leads & Calculator_Results dipastikan." });
 }
 
 // Group Draw ("spin the wheel") commit. Writes an audit trail to Draw_Results &
@@ -459,6 +485,7 @@ const netlifyHandler = async (event) => {
     if (path === "leads" && method === "POST") return await submitLead(body);
     if (path === "calc/gate" && method === "POST") return await calcGate(body);
     if (path === "calc/result" && method === "POST") return await calcResult(body);
+    if (path === "calc/ensure" && method === "GET") return await calcEnsure();
     if (path === "draw/commit" && method === "POST") return await tDrawCommit(body);
     if (path === "auth/login") return await login(body);
 
