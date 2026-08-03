@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulasi Turnamen — TurnamenPadel</title>
+<meta name="description" content="Simulasikan turnamen padel kamu dari awal sampai podium: format grup & bracket, estimasi durasi dan biaya court, lalu rasakan tampilan mobile player & TV LED seakan-akan acara sudah berjalan. Gratis dari TurnamenPadel.">
+<meta name="robots" content="index,follow">
+<link rel="canonical" href="https://turnamenpadel.com/simulasi">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Simulasi Turnamen — TurnamenPadel">
+<meta property="og:description" content="Rencanakan, rasakan, dan jalankan turnamen padel kamu — format, jadwal, biaya, plus pratinjau layar mobile & TV yang terasa nyata.">
+<meta property="og:url" content="https://turnamenpadel.com/simulasi">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0C0D10;--panel:#15171C;--panel2:#1B1E25;--line:#282C35;
+  --orange:#FF6A00;--orange-soft:rgba(255,106,0,.14);
+  --text:#F2F3F5;--muted:#878E9A;--green:#2FBF6B;--amber:#FFB020;--red:#FF4D4D;--r:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',system-ui,sans-serif;font-size:15px;line-height:1.55;padding-bottom:96px;overflow-x:hidden}
+.wrap{max-width:760px;margin:0 auto;padding:0 16px}
+h1,h2,h3{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.02em;line-height:1.05}
+a{color:var(--orange)}
+
+#gate{position:fixed;inset:0;z-index:90;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
+#gate .inner{width:100%;max-width:400px}
+.gate-mark{display:flex;align-items:center;gap:10px;margin-bottom:26px}
+.gate-dot{width:10px;height:10px;border-radius:50%;background:var(--orange);box-shadow:0 0 18px var(--orange)}
+.gate-mark span{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.18em;font-size:13px;font-weight:700}
+#gate h1{font-size:40px;font-weight:800;margin-bottom:12px}
+#gate h1 em{font-style:normal;color:var(--orange)}
+#gate p.lead{color:var(--muted);font-size:14px;margin-bottom:24px}
+.gate-note{font-size:12px;color:var(--muted);margin-top:14px;line-height:1.5}
+
+header{border-bottom:1px solid var(--line);padding:18px 0 16px;margin-bottom:18px}
+.brandrow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:9px}
+.brand-dot{width:8px;height:8px;border-radius:50%;background:var(--orange)}
+.brand b{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:700}
+.whoami{font-size:11px;color:var(--muted);text-align:right;line-height:1.3}
+header h1{font-size:34px;font-weight:800;margin-top:14px}
+header h1 em{font-style:normal;color:var(--orange)}
+header .sub{color:var(--muted);font-size:13.5px;margin-top:8px}
+
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel);padding:6px;border-radius:var(--r);margin-bottom:16px}
+.tab{padding:12px 8px;border-radius:9px;border:0;background:transparent;color:var(--muted);cursor:pointer;text-align:center;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:14px;font-weight:700;transition:.18s}
+.tab .t2{display:block;font-family:'Plus Jakarta Sans',sans-serif;text-transform:none;letter-spacing:0;font-size:11px;font-weight:500;opacity:.75;margin-top:2px}
+.tab[aria-selected="true"]{background:var(--orange);color:#0C0D10}
+
+.steps{display:flex;align-items:center;gap:6px;margin-bottom:16px;overflow:hidden}
+.steps .s{flex:1;display:flex;align-items:center;gap:7px;min-width:0}
+.steps .dot{width:22px;height:22px;flex:0 0 22px;border-radius:50%;border:1px solid var(--line);color:var(--muted);display:grid;place-items:center;font-family:'Saira Condensed',sans-serif;font-size:12px;font-weight:700}
+.steps .nm{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:11px;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps .s.on .dot{background:var(--orange);border-color:var(--orange);color:#0C0D10}
+.steps .s.on .nm{color:var(--text)}
+.steps .s.done .dot{border-color:var(--orange);color:var(--orange)}
+.steps .bar{flex:0 0 12px;height:1px;background:var(--line)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px}
+.card+.card{margin-top:14px}
+.card h2{font-size:17px;font-weight:700;margin-bottom:2px}
+.card .hint{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+label.f{display:block;margin-bottom:14px}
+label.f>span,.flabel{display:block;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:11.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=email],input[type=number]{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:'Plus Jakarta Sans',sans-serif;font-size:15px;outline:none;transition:.15s}
+input:focus{border-color:var(--orange);box-shadow:0 0 0 3px var(--orange-soft)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input[type=range]{width:100%;accent-color:var(--orange);background:transparent;margin-top:2px}
+.ratelab{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.ratelab .v{font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:17px;color:var(--orange)}
+.ratelab .u{font-size:11px;color:var(--muted);font-weight:500}
+
+.stepper{display:flex;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stepper button{width:52px;height:56px;border:0;background:transparent;color:var(--orange);font-size:24px;cursor:pointer;font-family:'Saira Condensed',sans-serif;line-height:1}
+.stepper button:active{background:var(--orange-soft)}
+.stepper input{border:0!important;background:transparent!important;text-align:center;box-shadow:none!important;font-family:'Saira Condensed',sans-serif;font-weight:800;font-size:26px}
+
+.unit{display:grid;grid-template-columns:1fr 1fr;gap:5px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:4px;margin-top:9px}
+.unit button{border:0;background:transparent;color:var(--muted);padding:8px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600}
+.unit button[aria-pressed="true"]{background:var(--orange);color:#0C0D10}
+
+.seghelp{font-size:11.5px;color:var(--muted);margin-top:7px;line-height:1.45}
+.seghelp b{color:var(--text);font-weight:600}
+
+.fmtctrl{display:grid;gap:8px}
+.fmtctrl button{text-align:left;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:11px;padding:13px 14px;cursor:pointer;font-family:'Plus Jakarta Sans',sans-serif;transition:.15s;width:100%}
+.fmtctrl button strong{display:block;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:14.5px;font-weight:700;margin-bottom:2px}
+.fmtctrl button span{font-size:12px;color:var(--muted);line-height:1.45;display:block}
+.fmtctrl button[aria-pressed="true"]{border-color:var(--orange);background:linear-gradient(140deg,#1B1206,var(--panel2) 60%)}
+.fmtctrl button[aria-pressed="true"] strong{color:var(--orange)}
+
+.cta{width:100%;background:var(--orange);color:#0C0D10;border:0;border-radius:12px;padding:16px;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-weight:800;font-size:17px;cursor:pointer;margin-top:6px;transition:.15s}
+.cta:hover{filter:brightness(1.08)}
+.cta.sec{background:transparent;border:1px solid var(--orange);color:var(--orange)}
+.back{background:none;border:0;color:var(--muted);font-size:12.5px;cursor:pointer;padding:4px 0;margin-bottom:12px;font-family:'Plus Jakarta Sans',sans-serif}
+.back:hover{color:var(--orange)}
+
+details.adv{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);margin-top:14px;overflow:hidden}
+details.adv summary{padding:15px 18px;cursor:pointer;list-style:none;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:13px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::after{content:'+';color:var(--orange);font-size:20px}
+details.adv[open] summary::after{content:'\2212'}
+.advbody{padding:16px 18px 18px;border-top:1px solid var(--line)}
+.advgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--line);margin-top:6px}
+.switch span{font-size:13.5px}
+.switch input{width:20px;height:20px;accent-color:var(--orange)}
+
+.pickcard{width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:10px;cursor:pointer;transition:.15s;color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;display:block}
+.pickcard:hover{border-color:#41474F}
+.pickcard.reco{border-color:var(--orange);background:linear-gradient(150deg,#1B1206,var(--panel) 55%)}
+.pickcard .ph{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.pickcard .pt{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:17px;font-weight:700}
+.pickcard .pd{font-size:12.5px;color:var(--muted);line-height:1.5;margin-top:3px}
+.pickcard .pv{font-family:'Saira Condensed',sans-serif;font-weight:800;font-size:30px;line-height:1;color:var(--orange);text-align:right;white-space:nowrap}
+.pickcard .pv small{display:block;font-size:10.5px;color:var(--muted);letter-spacing:.1em;font-weight:600}
+.tag{font-size:9.5px;font-family:'Saira Condensed',sans-serif;letter-spacing:.08em;font-weight:700;color:var(--orange);border:1px solid var(--orange);border-radius:100px;padding:1px 6px;margin-left:6px;white-space:nowrap;vertical-align:2px}
+.tag.g{color:var(--green);border-color:var(--green)}
+
+.hero{background:linear-gradient(158deg,#1C1005 0%,var(--panel) 62%);border:1px solid #3A2411;border-radius:var(--r);padding:22px;position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;right:-60px;top:-60px;width:180px;height:180px;border-radius:50%;background:var(--orange);opacity:.09;filter:blur(30px)}
+.hero .eyebrow{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;color:var(--orange)}
+.hero .big{font-family:'Saira Condensed',sans-serif;font-weight:800;font-size:64px;line-height:.92;margin:8px 0 6px;font-variant-numeric:tabular-nums}
+.hero .big small{font-size:26px;font-weight:600;color:var(--muted)}
+.hero .clock{font-size:13.5px;color:#C6CBD3}
+.hero .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.chip{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:100px;padding:5px 11px;font-size:11.5px;color:var(--muted)}
+.chip b{color:var(--text);font-weight:600}
+
+.sect{margin-top:20px}
+.secthead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:10px}
+.secthead h3{font-size:15px;font-weight:700}
+.secthead .note{font-size:11.5px;color:var(--muted)}
+
+.runsheet{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px 14px 14px}
+.rs-scale{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);padding-left:70px;margin-bottom:6px;font-variant-numeric:tabular-nums}
+.rs-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.rs-lab{width:62px;flex:0 0 62px;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:11px;letter-spacing:.06em;color:var(--muted);font-weight:600;line-height:1.15}
+.rs-lab b{display:block;color:var(--text);font-size:12.5px}
+.rs-bar{flex:1;display:flex;height:30px;border-radius:7px;overflow:hidden;background:#101216}
+.seg{display:flex;align-items:center;justify-content:center;font-size:9.5px;font-family:'Saira Condensed',sans-serif;font-weight:700;letter-spacing:.04em;color:#0C0D10;overflow:hidden;white-space:nowrap;text-transform:uppercase}
+.seg.group{background:#8A4110;color:#FFD9BF}
+.seg.po{background:#C25100;color:#FFE3CE}
+.seg.final{background:var(--orange);box-shadow:inset 0 0 0 1px #FFA866}
+.seg.brk{background:#20242B}
+.seg.free{background:repeating-linear-gradient(45deg,#0F2418,#0F2418 5px,#0C1D13 5px,#0C1D13 10px);color:var(--green)}
+.rs-peak{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);font-size:11px;color:var(--orange);font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-weight:700;text-align:right}
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:11px;color:var(--muted)}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:-1px}
+
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:11px;color:var(--muted);font-weight:600;padding:8px 6px;border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 6px;border-bottom:1px solid #1E2128;vertical-align:top}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .tot td{font-weight:700;color:var(--orange);border-top:1px solid var(--line)}
+.tbl .sub td{color:var(--muted);font-size:12px}
+.ok{color:var(--green)}.bad{color:var(--amber)}
+
+details.more{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:14px}
+details.more summary{padding:14px 18px;cursor:pointer;list-style:none;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.1em;font-size:12.5px;font-weight:700;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+details.more summary::-webkit-details-marker{display:none}
+details.more summary::after{content:'+';color:var(--orange);font-size:20px}
+details.more[open] summary::after{content:'\2212'}
+details.more .body{padding:14px 18px 18px;border-top:1px solid var(--line)}
+
+.advice{border-radius:12px;padding:13px 14px;margin-bottom:9px;font-size:13px;line-height:1.5;border:1px solid}
+.advice b.h{display:block;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:12.5px;margin-bottom:3px}
+.advice.warn{background:rgba(255,176,32,.07);border-color:rgba(255,176,32,.3);color:#F0DCB6}
+.advice.warn b.h{color:var(--amber)}
+.advice.good{background:rgba(47,191,107,.07);border-color:rgba(47,191,107,.28);color:#C4E6D2}
+.advice.good b.h{color:var(--green)}
+.advice.info{background:var(--panel);border-color:var(--line);color:#C6CBD3}
+.advice.info b.h{color:var(--orange)}
+.advice.err{background:rgba(255,77,77,.07);border-color:rgba(255,77,77,.3);color:#F0C6C6}
+.advice.err b.h{color:var(--red)}
+
+.leadbox{background:linear-gradient(150deg,#1B1206,var(--panel) 60%);border:1px solid #3A2411;border-radius:var(--r);padding:20px;margin-top:22px;text-align:center}
+.leadbox h3{font-size:19px;font-weight:800;margin-bottom:8px}
+.leadbox p{font-size:13px;color:var(--muted);margin-bottom:14px}
+.leadbox ul{list-style:none;text-align:left;margin:0 auto 16px;max-width:340px;font-size:13px}
+.leadbox ul li{padding:5px 0 5px 22px;position:relative;color:#C6CBD3}
+.leadbox ul li::before{content:'✓';position:absolute;left:0;color:var(--orange);font-weight:700}
+.leadbtns{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.leadbtns .cta{margin-top:0;padding:14px;font-size:15px}
+.ruleslink{text-align:center;font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.55}
+
+.overlay{position:fixed;inset:0;background:rgba(6,7,9,.82);backdrop-filter:blur(4px);z-index:80;display:none;align-items:flex-end;justify-content:center}
+.overlay.show{display:flex}
+.sheet{background:var(--panel);border:1px solid var(--line);border-radius:20px 20px 0 0;width:100%;max-width:760px;padding:22px 18px 30px;max-height:88vh;overflow:auto;animation:up .28s ease}
+@keyframes up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.sheet h3{font-size:20px;font-weight:800;margin-bottom:6px}
+.sheet p.s{font-size:13px;color:var(--muted);margin-bottom:16px}
+.payload{background:#0A0B0E;border:1px solid var(--line);border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#8FB4A0;white-space:pre-wrap;word-break:break-word;max-height:230px;overflow:auto;line-height:1.5}
+.mockbadge{display:inline-block;background:rgba(255,176,32,.15);color:var(--amber);border:1px solid rgba(255,176,32,.35);font-size:10px;padding:3px 8px;border-radius:100px;font-family:'Saira Condensed',sans-serif;letter-spacing:.1em;font-weight:700;text-transform:uppercase;margin-bottom:10px}
+.okmark{width:52px;height:52px;border-radius:50%;background:rgba(47,191,107,.15);color:var(--green);display:grid;place-items:center;font-size:26px;margin:0 auto 12px}
+
+footer{margin-top:34px;padding-top:18px;border-top:1px solid var(--line);font-size:11.5px;color:#5C626C;text-align:center;line-height:1.6}
+@media(max-width:440px){.hero .big{font-size:52px}header h1{font-size:28px}.advgrid{grid-template-columns:1fr}.steps .nm{display:none}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---- Rasakan (preview) ---- */
+.preview{background:linear-gradient(158deg,#160E22 0%,var(--panel) 62%);border:1px solid #2E2440;border-radius:var(--r);padding:22px;margin-top:22px;position:relative;overflow:hidden}
+.preview .eyebrow{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;color:#B98BFF}
+.preview h3{font-size:22px;font-weight:800;margin:6px 0 4px}
+.preview p.s{font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5}
+.prevmeta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.frames{display:grid;grid-template-columns:minmax(0,260px) minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:640px){.frames{grid-template-columns:1fr}}
+.device{background:#050608;border:1px solid var(--line);border-radius:20px;padding:10px;box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.device.tv{border-radius:14px;padding:8px}
+.device .cap{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:4px 6px 8px}
+.device .cap b{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:12px;font-weight:700}
+.device .cap a{font-size:11px;color:var(--orange);font-weight:600}
+.device iframe{width:100%;border:0;background:#0C0D10;border-radius:12px;display:block}
+.device.phone iframe{height:560px}
+.device.tv iframe{height:420px;aspect-ratio:16/9;height:auto}
+.prevhint{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.5;text-align:center}
+
+/* ---- Lanjut (lead form) ---- */
+.leadform{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;margin-top:22px}
+.leadform .eyebrow{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:12px;font-weight:600;color:var(--orange)}
+.leadform h3{font-size:22px;font-weight:800;margin:6px 0 4px}
+.leadform p.s{font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5}
+.leadform .prefill{background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:11px 13px;font-size:12px;color:#C6CBD3;margin-bottom:16px;line-height:1.6}
+.leadform .prefill b{color:var(--orange)}
+.lf2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.lf2{grid-template-columns:1fr}}
+.pkgs2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+@media(max-width:520px){.pkgs2{grid-template-columns:1fr}}
+.pkg2{position:relative;border:1.5px solid var(--line);background:var(--panel2);border-radius:12px;padding:14px;cursor:pointer;transition:.15s}
+.pkg2.on{border-color:var(--orange);background:linear-gradient(140deg,#1B1206,var(--panel2) 60%)}
+.pkg2 .tg{font-family:'Saira Condensed',sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--amber)}
+.pkg2 h4{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;font-size:16px;font-weight:800;margin:6px 0 4px}
+.pkg2 p{font-size:11.5px;color:var(--muted);line-height:1.45;margin:0}
+.pkg2 input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.lfmsg{font-size:12.5px;color:var(--muted);text-align:center;margin-top:12px}
+textarea#lfNotes{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:'Plus Jakarta Sans',sans-serif;font-size:14.5px;outline:none;min-height:76px;resize:vertical}
+textarea#lfNotes:focus{border-color:var(--orange)}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="inner">
+    <div class="gate-mark"><span class="gate-dot"></span><span>TurnamenPadel</span></div>
+    <h1>Simulasi<br><em>Turnamen</em></h1>
+    <p class="lead">Rencanakan turnamen kamu dari awal sampai podium — format grup &amp; bracket, estimasi durasi dan biaya court, lalu rasakan tampilan mobile player &amp; TV LED seakan-akan acara sudah berjalan.</p>
+    <label class="f"><span>Nama</span><input type="text" id="gName" placeholder="Nama kamu" autocomplete="name"></label>
+    <label class="f"><span>Email</span><input type="email" id="gEmail" placeholder="nama@email.com" autocomplete="email"></label>
+    <button class="cta" id="gBtn">Mulai Simulasi</button>
+    <div id="gErr" style="color:var(--red);font-size:12.5px;margin-top:10px;display:none"></div>
+    <p class="gate-note">Email dipakai untuk mengirim hasil perhitungan dan info turnamen. No spam.</p>
+  </div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <header>
+    <div class="brandrow">
+      <div class="brand"><span class="brand-dot"></span><b>TurnamenPadel</b></div>
+      <div class="whoami" id="whoami"></div>
+    </div>
+    <h1>Simulasi <em>Turnamen</em></h1>
+    <div class="sub">Rencanakan, rasakan, lalu jalankan — format, jadwal, biaya, dan pratinjau layar mobile &amp; TV.</div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" id="tabA" role="tab" aria-selected="true">Target Peserta<span class="t2">Punya target peserta → butuh berapa jam &amp; court?</span></button>
+    <button class="tab" id="tabB" role="tab" aria-selected="false">Court &amp; Jam<span class="t2">Punya court &amp; jam → muat berapa peserta?</span></button>
+  </div>
+
+  <!-- ================= MODE A ================= -->
+  <section id="modeA">
+    <div class="steps" id="stepsA"></div>
+
+    <div id="A1">
+      <div class="card">
+        <h2>Target Peserta</h2>
+        <div class="hint">Berapa banyak yang kamu targetkan ikut?</div>
+        <div class="stepper">
+          <button type="button" id="pMinus">−</button>
+          <input type="number" id="pTotal" value="64" min="4" max="400">
+          <button type="button" id="pPlus">+</button>
+        </div>
+        <div class="unit">
+          <button type="button" data-unit="pair" aria-pressed="true">Pair</button>
+          <button type="button" data-unit="player" aria-pressed="false">Pemain</button>
+        </div>
+        <div class="seghelp" id="pHelp"></div>
+      </div>
+
+      <div class="card">
+        <h2>Format Turnamen</h2>
+        <div class="hint">Prioritas kamu — ini yang menentukan pembagian grup.</div>
+        <div class="fmtctrl" id="fmtCtrlA"></div>
+      </div>
+
+      <div class="card">
+        <h2>Estimasi Sewa Court</h2>
+        <div class="hint">Harga rata-rata di venue kamu.</div>
+        <div class="ratelab"><span class="v" id="rateVal">Rp 300.000</span><span class="u">/ court / jam</span></div>
+        <input type="range" id="rate" min="100000" max="800000" step="25000" value="300000">
+      </div>
+
+      <div id="advSlotA"></div>
+      <button class="cta" id="calcA">Lanjut — Pilih Kategori</button>
+    </div>
+
+    <div id="A2" style="display:none"></div>
+    <div id="A3" style="display:none"></div>
+    <div id="A4" style="display:none"></div>
+  </section>
+
+  <!-- ================= MODE B ================= -->
+  <section id="modeB" style="display:none">
+    <div class="steps" id="stepsB"></div>
+
+    <div id="B1">
+      <div class="card">
+        <h2>Yang Kamu Punya</h2>
+        <div class="hint">Kami carikan berapa peserta dan berapa kategori yang paling pas.</div>
+        <div class="grid2">
+          <label class="f"><span>Court</span>
+            <div class="stepper"><button type="button" data-step="courtsB" data-d="-1">−</button><input type="number" id="courtsB" value="4" min="2" max="8"><button type="button" data-step="courtsB" data-d="1">+</button></div>
+          </label>
+          <label class="f"><span>Durasi (jam)</span>
+            <div class="stepper"><button type="button" data-step="hours" data-d="-1">−</button><input type="number" id="hours" value="10" min="2" max="16" step="0.5"><button type="button" data-step="hours" data-d="1">+</button></div>
+          </label>
+        </div>
+        <div class="flabel">Estimasi Sewa Court</div>
+        <div class="ratelab"><span class="v" id="rateValB">Rp 300.000</span><span class="u">/ court / jam</span></div>
+        <input type="range" id="rateB" min="100000" max="800000" step="25000" value="300000">
+      </div>
+
+      <div id="advSlotB"></div>
+      <button class="cta" id="calcB">Cari Kombinasi Terbaik</button>
+    </div>
+
+    <div id="B2" style="display:none"></div>
+    <div id="B3" style="display:none"></div>
+  </section>
+
+  <!-- panel advance dipindah-pindah ke mode yang aktif -->
+  <details class="adv" id="advPanel">
+    <summary>Pengaturan Lanjutan</summary>
+    <div class="advbody">
+      <div class="advgrid">
+        <label class="f"><span>Match Grup (menit)</span><input type="number" id="mGroup" value="15" min="5" max="60"></label>
+        <label class="f"><span>Match Playoff (menit)</span><input type="number" id="mPlayoff" value="20" min="5" max="60"></label>
+        <label class="f"><span>Final (menit)</span><input type="number" id="mFinal" value="25" min="5" max="90"></label>
+        <label class="f"><span>Ganti Court (menit)</span><input type="number" id="mChange" value="1" min="0" max="10"></label>
+        <label class="f"><span>Break Antar Babak (menit)</span><input type="number" id="mBreak" value="3" min="0" max="30"></label>
+        <label class="f"><span>Opening (menit)</span><input type="number" id="mOpen" value="15" min="0" max="60"></label>
+        <label class="f"><span>Awarding (menit)</span><input type="number" id="mAward" value="15" min="0" max="45"></label>
+        <label class="f"><span>Buffer Aman (menit)</span><input type="number" id="mBuffer" value="10" min="0" max="60"></label>
+      </div>
+      <div class="switch"><span>Perebutan juara 3 (paralel dengan final)</span><input type="checkbox" id="opt3rd" checked></div>
+      <div class="switch"><span>Kunci jumlah input (jangan dikurangi walau ada bye)</span><input type="checkbox" id="optLock"></div>
+      <div class="switch"><span>Final serempak semua kategori <small style="color:var(--muted)">(matikan → kategori berurutan sampai podium)</small></span><input type="checkbox" id="optFinalSeq" checked></div>
+      <div class="advgrid" style="margin-top:12px">
+        <label class="f"><span>Jam Mulai Acara</span><input type="text" id="evStart" value="08:00" placeholder="08:00" inputmode="numeric"></label>
+        <label class="f"><span>Tanggal (opsional)</span><input type="text" id="evDate" placeholder="12 Jul 2026"></label>
+      </div>
+      <p class="seghelp">Grup diisi 4–7 pair. Isi 4 lolos 1, isi 5–7 lolos 2. Jam mulai &amp; tanggal dipakai untuk pratinjau layar yang terasa nyata.</p>
+    </div>
+  </details>
+
+  <footer>Simulasi Turnamen<br>TurnamenPadel — bagian dari ekosistem SportsActvd</footer>
+</div>
+
+<div class="overlay" id="ov"><div class="sheet" id="ovBody"></div></div>
+
+<script>
+"use strict";
+
+var R = { mGroup:15, mPlayoff:20, mFinal:25, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false };
+var EVENT = { start:"08:00", date:"", venue:"", city:"" };
+var GMIN=4, GMAX=7, CMIN=2, CMAX=8, KMAX=6;
+
+var USER={name:"",email:""};
+/* Lead capture → backend (fire-and-forget; never blocks or breaks the UI). */
+var API = (location.protocol.indexOf("http")===0) ? "/api" : "https://www.turnamenpadel.com/api";
+var LEAD_ID = "";
+function newLeadId(){ try{ return crypto.randomUUID(); }catch(e){ return "cl-"+Date.now()+"-"+Math.random().toString(16).slice(2); } }
+function postLead(path, body){
+  try{
+    fetch(API+"/"+path, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(body||{}), keepalive:true })
+      .catch(function(e){ console.error("lead post failed", e); });
+  }catch(e){ console.error("lead post failed", e); }
+}
+var UNIT="pair";
+var A={ step:1, total:0, fmt:"balanced", k:0, sizes:null, adjTotal:0, courts:0, rate:300000 };
+var B={ step:1, courts:4, hours:10, fmt:"balanced", pick:null, rate:300000 };
+var LAST=null;
+
+var FORMATS=[
+  {id:"fast",    t:"Cepat",    d:"Grup kecil (isi 4), match paling sedikit, acara paling pendek."},
+  {id:"balanced",t:"Seimbang", d:"Campur grup 4–6. Kompromi antara durasi dan jumlah main. Rekomendasi kami."},
+  {id:"fair",    t:"Fair",     d:"Grup besar (isi 5–7), semua main lebih banyak, acara paling panjang."}
+];
+
+function $(id){ return document.getElementById(id); }
+function n(id){ return parseFloat($(id).value)||0; }
+function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+function rp(v){ return "Rp "+Math.round(v).toLocaleString("id-ID"); }
+function hm(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h===0? mm+" menit" : h+" jam"+(mm?" "+mm+" menit":""); }
+function el(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+":"+(mm<10?"0":"")+mm; }
+function bigTime(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+'<small>j</small>'+(mm<10?"0":"")+mm+'<small>m</small>'; }
+function isPow2(x){ return x>=1 && (x&(x-1))===0; }
+function pow2ceil(x){ var b=1; while(b<x) b*=2; return b; }
+function c2(x){ return x*(x-1)/2; }
+function syncR(){
+  R.mGroup=n("mGroup"); R.mPlayoff=n("mPlayoff"); R.mFinal=n("mFinal"); R.mChange=n("mChange");
+  R.mBreak=n("mBreak"); R.mOpen=n("mOpen"); R.mAward=n("mAward"); R.buffer=n("mBuffer"); R.third=$("opt3rd").checked;
+  R.lockInput=$("optLock").checked; R.finalSeq=$("optFinalSeq").checked;
+  EVENT.start=($("evStart").value||"08:00").trim(); EVENT.date=($("evDate").value||"").trim();
+}
+
+/* ---------- format grup ---------- */
+function groupSizes(P,g){ var b=Math.floor(P/g),r=P%g,s=[]; for(var i=0;i<g;i++) s.push(b+(i<r?1:0)); return s; }
+function qualOf(sz){ return sz>=5?2:1; }
+function buildConfig(P,g){
+  var sz=groupSizes(P,g),Q=0,gm=0,par=0;
+  for(var i=0;i<sz.length;i++){ Q+=qualOf(sz[i]); gm+=c2(sz[i]); par+=Math.floor(sz[i]/2); }
+  var B2=pow2ceil(Math.max(Q,2));
+  return { g:g, sizes:sz, Q:Q, groupMatches:gm, maxPar:par, B:B2, byes:B2-Q,
+           clean:isPow2(Q)&&Q>=2, valid:Math.min.apply(null,sz)>=GMIN && Math.max.apply(null,sz)<=GMAX };
+}
+function allConfigs(P){
+  if(P<GMIN) return [];
+  var lo=Math.ceil(P/GMAX), hi=Math.floor(P/GMIN), out=[];
+  for(var g=lo;g<=hi;g++){ var c=buildConfig(P,g); if(c.valid) out.push(c); }
+  return out;
+}
+function bestConfig(P,mode){
+  var cands=allConfigs(P); if(!cands.length) return null;
+  var byMatch=cands.slice().sort(function(a,b){ return a.groupMatches-b.groupMatches; });
+  var cleanOnes=cands.filter(function(c){ return c.clean; }).sort(function(a,b){ return a.groupMatches-b.groupMatches; });
+  if(mode==="fast") return byMatch[0];
+  if(mode==="fair") return cleanOnes.length ? cleanOnes[cleanOnes.length-1] : byMatch[byMatch.length-1];
+  if(!cleanOnes.length) return byMatch[0];
+  return (cleanOnes[0].groupMatches <= byMatch[0].groupMatches*1.35) ? cleanOnes[0] : byMatch[0];
+}
+function sizesLabel(sz){
+  var m={}; sz.forEach(function(s){ m[s]=(m[s]||0)+1; });
+  return Object.keys(m).sort(function(a,b){return b-a;}).map(function(k){ return m[k]+" grup isi "+k; }).join(" + ");
+}
+function playoffRounds(Q){
+  if(Q<2) return [];
+  var Bp=pow2ceil(Q), r=[], adv, first=Q-Bp/2;
+  if(first>0){ r.push(first); adv=Bp/2; } else adv=Q;
+  while(adv>1){ adv=adv/2; r.push(adv); }
+  return r;
+}
+function roundName(d){ return ["Final","Semifinal","Perempat Final","16 Besar","32 Besar","64 Besar"][d]||"Babak Awal"; }
+
+/* ---------- engine ---------- */
+function computeEvent(pairsList, courts, mode){
+  var info=[];
+  for(var i=0;i<pairsList.length;i++){
+    var conf=bestConfig(pairsList[i],mode); if(!conf) return null;
+    info.push({ name:"Kategori "+(i+1), pairs:pairsList[i], conf:conf, rounds:playoffRounds(conf.Q) });
+  }
+  var blocks=[], totalGM=0, totalPar=0, minSlots=1;
+  info.forEach(function(x){
+    totalGM+=x.conf.groupMatches; totalPar+=x.conf.maxPar;
+    minSlots=Math.max(minSlots, Math.ceil(x.conf.groupMatches/x.conf.maxPar));
+  });
+  var gPar=Math.max(1,Math.min(courts,totalPar));
+  var gSlots=Math.max(minSlots, Math.ceil(totalGM/gPar));
+  blocks.push({ key:"group", label:"Group Stage", short:"GRUP", matches:totalGM, courts:gPar,
+                slots:gSlots, dur:gSlots*(R.mGroup+R.mChange), brk:0,
+                detail:info.map(function(x){ return x.name+": "+x.conf.groupMatches; }) });
+
+  var maxDepth=0; info.forEach(function(x){ maxDepth=Math.max(maxDepth,x.rounds.length); });
+  var thirdCount=R.third ? info.filter(function(x){ return x.rounds.length>=2; }).length : 0;
+  var thirdParallel=(info.length+thirdCount)<=courts;
+
+  var sequential = R.finalSeq && info.length>1;
+  if(!sequential){
+    /* Final serempak: babak playoff kedua kategori berjalan paralel per kedalaman bracket. */
+    for(var d=maxDepth-1; d>=0; d--){
+      var m=0, det=[];
+      info.forEach(function(x){
+        var L=x.rounds.length, idx=L-1-d;
+        if(idx>=0 && idx<L && x.rounds[idx]>0){ m+=x.rounds[idx]; det.push(x.name+": "+x.rounds[idx]); }
+      });
+      if(thirdCount && d===0 && thirdParallel){ m+=thirdCount; det.push("Juara 3: "+thirdCount+" (paralel)"); }
+      if(thirdCount && d===1 && !thirdParallel){ m+=thirdCount; det.push("Juara 3: "+thirdCount); }
+      if(m===0) continue;
+      var md=(d===0)?R.mFinal:R.mPlayoff;
+      var par=Math.max(1,Math.min(courts,m));
+      blocks.push({ key:d===0?"final":"po", label:roundName(d), short:roundName(d).toUpperCase(),
+                    matches:m, courts:par, slots:Math.ceil(m/par),
+                    dur:Math.ceil(m/par)*(md+R.mChange), brk:R.mBreak, detail:det });
+    }
+  } else {
+    /* Kategori berurutan: satu kategori tuntas sampai podium, baru kategori berikutnya. */
+    info.forEach(function(x){
+      var L=x.rounds.length;
+      for(var ri=0; ri<L; ri++){
+        var d=L-1-ri, mm=x.rounds[ri];
+        if(mm<=0) continue;
+        var md=(d===0)?R.mFinal:R.mPlayoff;
+        var par=Math.max(1,Math.min(courts,mm));
+        blocks.push({ key:d===0?"final":"po", label:x.name+" · "+roundName(d),
+                      short:(x.name+" "+roundName(d)).toUpperCase(),
+                      matches:mm, courts:par, slots:Math.ceil(mm/par),
+                      dur:Math.ceil(mm/par)*(md+R.mChange), brk:R.mBreak, detail:[x.name+": "+mm] });
+      }
+      if(R.third && x.rounds.length>=2){
+        blocks.push({ key:"po", label:x.name+" · Juara 3", short:(x.name+" JUARA 3").toUpperCase(),
+                      matches:1, courts:1, slots:1, dur:(R.mPlayoff+R.mChange), brk:R.mBreak, detail:[x.name+": 1"] });
+      }
+    });
+  }
+
+  var playDur=0; blocks.forEach(function(b){ playDur+=b.brk+b.dur; });
+  var totalMinutes=R.mOpen+playDur+R.mAward+R.buffer;
+
+  var courtsInfo=[];
+  for(var k=1;k<=courts;k++){
+    var t=0,lastBusy=0;
+    blocks.forEach(function(b){ t+=b.brk+b.dur; if(b.courts>=k) lastBusy=t; });
+    var rented=lastBusy>0 ? R.mOpen+lastBusy : 0;
+    courtsInfo.push({ no:k, endMin:R.mOpen+lastBusy, hours:Math.ceil(rented/30)/2, used:lastBusy>0 });
+  }
+  return { info:info, blocks:blocks, courtsInfo:courtsInfo, playDur:playDur, totalMinutes:totalMinutes,
+           totalMatches:blocks.reduce(function(a,b){return a+b.matches;},0),
+           totalPairs:info.reduce(function(a,x){return a+x.pairs;},0),
+           courts:courts, mode:mode,
+           actualCourtHours:courtsInfo.reduce(function(a,c){return a+c.hours;},0),
+           fullCourtHours:Math.ceil(totalMinutes/30)/2*courts,
+           thirdParallel:thirdParallel, tooManyCats:info.length>courts, finalSeq:sequential };
+}
+
+/* ---------- rekomendasi ---------- */
+function evenSplit(total,k){
+  var b=Math.floor(total/k), r=total%k, s=[];
+  for(var i=0;i<k;i++) s.push(b+(i<r?1:0));
+  return s.sort(function(a,b2){ return b2-a; });
+}
+function allClean(sizes,mode){
+  return sizes.every(function(p){ var c=bestConfig(p,mode); return c && c.byes===0; });
+}
+function recommendForK(target,k,mode){
+  for(var d=0; d<=20; d++){
+    var cands = d===0 ? [target] : [target+d, target-d];
+    for(var i=0;i<cands.length;i++){
+      var tot=cands[i];
+      if(tot < GMIN*k || tot > 400) continue;
+      var sizes=evenSplit(tot,k);
+      if(Math.max.apply(null,sizes) > 40) continue;
+      if(allClean(sizes,mode)) return { k:k, total:tot, sizes:sizes, delta:tot-target };
+    }
+  }
+  return null;
+}
+/* Revisi 1 — "kunci input": pertahankan jumlah pair persis, bagi rata ke k kategori,
+   tanpa batas 40/kategori dan boleh menerima bye. */
+function exactForK(total,k,mode){
+  if(total < GMIN*k) return null;
+  var sizes=evenSplit(total,k), byes=0;
+  for(var i=0;i<sizes.length;i++){ var c=bestConfig(sizes[i],mode); if(!c) return null; byes+=c.byes; }
+  return { k:k, total:total, sizes:sizes, delta:0, byes:byes, locked:true };
+}
+function courtOptions(sizes,mode){
+  var rows=[];
+  for(var c=CMIN;c<=CMAX;c++){
+    var ev=computeEvent(sizes,c,mode);
+    if(ev) rows.push({courts:c, ev:ev});
+  }
+  return rows;
+}
+function pickCourts(rows,nCat){
+  for(var i=0;i<rows.length-1;i++){
+    var gain=rows[i].ev.totalMinutes-rows[i+1].ev.totalMinutes;
+    if(rows[i].courts>=nCat && gain<20) return rows[i].courts;
+  }
+  return CMAX;
+}
+function fmtLabel(id){ for(var i=0;i<FORMATS.length;i++) if(FORMATS[i].id===id) return FORMATS[i].t; return id; }
+
+/* ---------- komponen hasil ---------- */
+function runSheet(ev){
+  var total=ev.playDur||1;
+  var h='<div class="runsheet"><div class="rs-scale"><span>'+el(R.mOpen)+'</span><span>'+el(R.mOpen+ev.playDur)+'</span></div>';
+  for(var k=1;k<=ev.courts;k++){
+    h+='<div class="rs-row"><div class="rs-lab">Court<b>'+k+'</b></div><div class="rs-bar">';
+    ev.blocks.forEach(function(b){
+      if(b.brk>0) h+='<div class="seg brk" style="flex:'+(b.brk/total)+'"></div>';
+      if(b.courts>=k) h+='<div class="seg '+b.key+'" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.08)?esc(b.short):"")+'</div>';
+      else h+='<div class="seg free" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.13)?"BEBAS":"")+'</div>';
+    });
+    h+='</div></div>';
+  }
+  h+='<div class="rs-peak">'+(ev.finalSeq?'↑ kategori berurutan sampai podium — selesai menit '+el(R.mOpen+ev.playDur):'↑ semua final serempak — puncak acara di menit '+el(R.mOpen+ev.playDur))+'</div>'+
+    '<div class="legend">'+
+    '<span><i style="background:#8A4110"></i>Grup</span>'+
+    '<span><i style="background:#C25100"></i>Playoff</span>'+
+    '<span><i style="background:var(--orange)"></i>Final + Juara 3</span>'+
+    '<span><i style="background:repeating-linear-gradient(45deg,#0F2418,#0F2418 3px,#0C1D13 3px,#0C1D13 6px)"></i>Court bebas</span></div></div>';
+  return h;
+}
+function setupSummary(ev){
+  var h='<div class="sect"><div class="secthead"><h3>Pembagian Kategori</h3><span class="note">format '+esc(fmtLabel(ev.mode))+'</span></div><div class="card"><table class="tbl">'+
+    '<tr><th>Kategori</th><th class="num">Pair</th><th>Grup</th><th class="num">Lolos</th><th class="num">Bracket</th></tr>';
+  ev.info.forEach(function(x){
+    h+='<tr><td>'+esc(x.name)+'</td><td class="num">'+x.pairs+'</td><td>'+sizesLabel(x.conf.sizes)+
+      '</td><td class="num">'+x.conf.Q+'</td><td class="num '+(x.conf.byes?"bad":"ok")+'">'+(x.conf.byes?x.conf.byes+" bye":"penuh")+'</td></tr>';
+  });
+  h+='<tr class="tot"><td>Total</td><td class="num">'+ev.totalPairs+'</td><td>'+ev.totalMatches+' match</td><td class="num">–</td><td class="num">–</td></tr>';
+  return h+'</table></div></div>';
+}
+function costSummary(ev,rate){
+  var save=Math.max(0, ev.fullCourtHours-ev.actualCourtHours)*rate;
+  var early=ev.courtsInfo.filter(function(c){ return c.used && c.endMin < R.mOpen+ev.playDur-20; });
+  var h='<div class="sect"><div class="secthead"><h3>Estimasi Sewa Court</h3><span class="note">'+rp(rate)+' / court / jam</span></div><div class="card"><table class="tbl">'+
+    '<tr><td>Sewa flat semua court</td><td class="num">'+ev.fullCourtHours+' court-jam</td><td class="num">'+rp(ev.fullCourtHours*rate)+'</td></tr>'+
+    '<tr class="tot"><td>Sewa optimal</td><td class="num">'+ev.actualCourtHours+' court-jam</td><td class="num">'+rp(ev.actualCourtHours*rate)+'</td></tr></table>';
+  h += save>0
+    ? '<div class="advice good" style="margin:14px 0 0"><b class="h">Potensi hemat '+rp(save)+'</b>'+
+      (early.length ? early.map(function(c){ return "Court "+c.no+" selesai di menit "+el(c.endMin); }).join(" · ")+". " : "")+
+      'Minta venue hitung sewa per court, jangan flat sampai acara bubar.</div>'
+    : '<div class="advice info" style="margin:14px 0 0"><b class="h">Semua court terpakai penuh</b>Tidak ada yang bisa dilepas lebih awal — babak final masih membutuhkan semuanya.</div>';
+  return h+'</div></div>';
+}
+function timeDetail(ev){
+  var t=R.mOpen;
+  var h='<details class="more"><summary>Lihat rincian waktu</summary><div class="body"><table class="tbl">'+
+    '<tr><th>Bagian</th><th class="num">Match</th><th class="num">Durasi</th><th class="num">Mulai</th></tr>'+
+    '<tr><td>Opening</td><td class="num">–</td><td class="num">'+hm(R.mOpen)+'</td><td class="num">0:00</td></tr>';
+  ev.blocks.forEach(function(b){
+    if(b.brk>0){ h+='<tr class="sub"><td>Break</td><td class="num">–</td><td class="num">'+hm(b.brk)+'</td><td class="num">'+el(t)+'</td></tr>'; t+=b.brk; }
+    h+='<tr><td>'+esc(b.label)+'</td><td class="num">'+b.matches+'</td><td class="num">'+hm(b.dur)+'</td><td class="num">'+el(t)+'</td></tr>';
+    t+=b.dur;
+  });
+  h+='<tr><td>Awarding</td><td class="num">–</td><td class="num">'+hm(R.mAward)+'</td><td class="num">'+el(t)+'</td></tr>'+
+     '<tr class="sub"><td>Buffer aman</td><td class="num">–</td><td class="num">'+hm(R.buffer)+'</td><td class="num">–</td></tr>'+
+     '<tr class="tot"><td>Total</td><td class="num">'+ev.totalMatches+'</td><td class="num">'+hm(ev.totalMinutes)+'</td><td class="num">–</td></tr>'+
+     '</table></div></details>';
+  return h;
+}
+function advisor(ev){
+  var out=[];
+  var byeCats=ev.info.filter(function(x){ return x.conf.byes>0; });
+  if(byeCats.length)
+    out.push({t:"warn",h:"Masih ada bye",b:byeCats.map(function(x){ return x.name+" ("+x.pairs+" pair): "+x.conf.byes+" bye"; }).join(" · ")+". Kembali ke pilihan kategori dan ambil rekomendasi jumlah peserta yang bebas bye."});
+  if(ev.tooManyCats)
+    out.push({t:"err",h:"Kategori lebih banyak dari court",b:ev.info.length+" kategori di "+ev.courts+" court — final tidak bisa serempak. Idealnya kategori = court."});
+  if(R.third && !ev.thirdParallel)
+    out.push({t:"warn",h:"Juara 3 belum paralel dengan final",b:"Butuh "+(ev.info.length*2)+" court untuk final + juara 3 serempak, tersedia "+ev.courts+". Sekarang juara 3 digeser ke babak sebelumnya."});
+  var idle=ev.courtsInfo.filter(function(c){ return !c.used; });
+  if(idle.length)
+    out.push({t:"info",h:idle.length+" court tidak terpakai",b:"Peserta belum cukup mengisi semua court — 1 pair tidak bisa main di 2 court sekaligus. Cukup "+(ev.courts-idle.length)+" court."});
+  if(ev.totalMinutes>660)
+    out.push({t:"warn",h:"Acara terlalu panjang",b:"Total "+hm(ev.totalMinutes)+". Di atas 11 jam kualitas main turun dan peserta mulai pulang. Tambah court, kurangi peserta, atau pecah 2 hari."});
+  if(!out.length) out.push({t:"good",h:"Struktur sudah rapi",b:"Tidak ada bye, court terpakai efisien, semua final serempak."});
+  return '<div class="sect"><div class="secthead"><h3>Rekomendasi</h3><span class="note">'+out.length+' catatan</span></div>'+
+    out.map(function(a){ return '<div class="advice '+a.t+'"><b class="h">'+a.h+'</b>'+a.b+'</div>'; }).join("")+'</div>';
+}
+/* ========== RASAKAN (preview) + LANJUT (lead form) ========== */
+function leadBox(){ return previewBlock() + leadFormBlock(); }
+
+function previewBlock(){
+  return '<div class="preview"><div class="eyebrow">Rasakan · seakan-akan sudah berjalan</div>'+
+    '<h3>Coba layar turnamenmu</h3>'+
+    '<p class="s">Kami isi turnamen contoh dari rencana di atas — grup, jadwal jam nyata (mulai '+esc(EVENT.start||"08:00")+'), skor, sampai bracket. Lihat persis yang dilihat pemain di HP dan penonton di layar TV.</p>'+
+    '<div class="prevmeta" id="prevMeta"></div>'+
+    '<button class="cta" id="runPrev" style="margin-top:0">▶ Jalankan simulasi layar</button>'+
+    '<div id="frames"></div>'+
+    '<div class="prevhint">Pratinjau memakai data contoh dari rencanamu. Turnamen aslimu tampil sama persis.</div></div>';
+}
+function leadFormBlock(){
+  var ev=LAST&&LAST.ev; if(!ev) return '';
+  var players=ev.totalPairs*2, cats=ev.info.length;
+  var catLabel=ev.info.map(function(x){ return x.pairs+" pair"; }).join(" · ");
+  return '<div class="leadform"><div class="eyebrow">Lanjut · wujudkan</div>'+
+    '<h3>Mau kami bantu jalankan?</h3>'+
+    '<p class="s">Rencana &amp; simulasi di atas otomatis kami lampirkan. Tinggal lengkapi kontak — tim kami hubungi dalam 1×24 jam. Belum ada pembayaran.</p>'+
+    '<div class="prefill">Dari simulasimu: <b>'+ev.totalPairs+' pair</b> ('+players+' pemain) · <b>'+cats+' kategori</b> ('+esc(catLabel)+') · <b>'+ev.courts+' court</b> · estimasi durasi <b>'+hm(ev.totalMinutes)+'</b> · sewa <b>'+rp(ev.actualCourtHours*((LAST&&LAST.rate)||300000))+'</b></div>'+
+    '<div class="lf2">'+
+      '<label class="f"><span>Nama</span><input type="text" id="lfName" value="'+esc(USER.name||'')+'" placeholder="Nama kamu"></label>'+
+      '<label class="f"><span>WhatsApp <span style="color:var(--orange)">*</span></span><input type="text" id="lfWa" placeholder="08xxxxxxxxxx" inputmode="numeric"></label>'+
+      '<label class="f"><span>Email</span><input type="email" id="lfEmail" value="'+esc(USER.email||'')+'" placeholder="nama@email.com"></label>'+
+      '<label class="f"><span>Tanggal Acara</span><input type="text" id="lfDate" value="'+esc(EVENT.date||'')+'" placeholder="12 Jul 2026"></label>'+
+      '<label class="f"><span>Venue</span><input type="text" id="lfVenue" value="'+esc(EVENT.venue||'')+'" placeholder="La Familia Padel"></label>'+
+      '<label class="f"><span>Kota</span><input type="text" id="lfCity" value="'+esc(EVENT.city||'')+'" placeholder="Jakarta"></label>'+
+    '</div>'+
+    '<div class="flabel" style="margin-bottom:8px">Paket</div>'+
+    '<div class="pkgs2" id="lfPkgs">'+
+      '<label class="pkg2 on"><input type="radio" name="lfpkg" value="License Engine" checked><span class="tg">Self-service</span><h4>Lisensi Engine</h4><p>Jalankan sendiri dengan toolkit lengkap: bracket, live score, layar HP pemain &amp; TV.</p></label>'+
+      '<label class="pkg2"><input type="radio" name="lfpkg" value="Full Management"><span class="tg">Done for you</span><h4>Full Management</h4><p>Kami jalankan end-to-end: seeding, jadwal, scoring on-site, hasil.</p></label>'+
+    '</div>'+
+    '<label class="f"><span>Catatan (opsional)</span><textarea id="lfNotes" placeholder="Sponsor, format khusus, tanggal alternatif, dll."></textarea></label>'+
+    '<button class="cta" id="lfSubmit">Kirim permintaan</button>'+
+    '<div class="lfmsg" id="lfMsg">Dengan mengirim, brief turnamenmu tersimpan dan tim kami akan menghubungi. Belum ada pembayaran.</div>'+
+    '<div class="ruleslink" style="margin-top:14px">Aturan main mengacu pada <a href="https://turnamenpadel.com/rules" target="_blank" rel="noopener">dokumen acuan PBPI</a>.</div></div>';
+}
+function updatePrevMeta(){
+  var m=$("prevMeta"); if(!m||!LAST) return; var ev=LAST.ev;
+  m.innerHTML='<span class="chip"><b>'+ev.totalPairs+'</b> pair</span>'+
+    '<span class="chip"><b>'+ev.info.length+'</b> kategori</span>'+
+    '<span class="chip"><b>'+ev.courts+'</b> court</span>'+
+    '<span class="chip">mulai <b>'+esc(EVENT.start||"08:00")+'</b></span>';
+}
+function bindLead(){
+  updatePrevMeta();
+  var rp2=$("runPrev"); if(rp2) rp2.onclick=runPreview;
+  var pk=$("lfPkgs");
+  if(pk) pk.addEventListener("change",function(){
+    Array.prototype.forEach.call(pk.querySelectorAll(".pkg2"),function(l){ l.classList.toggle("on", l.querySelector("input").checked); });
+  });
+  var sb=$("lfSubmit"); if(sb) sb.onclick=submitLeadForm;
+}
+function runPreview(){
+  var data=buildDemoFromPlan();
+  if(!data){ alert("Jalankan rencana dulu."); return; }
+  try{ localStorage.setItem("tp_demo_data", JSON.stringify(data)); }catch(e){}
+  var bust="?t="+Date.now();
+  $("frames").innerHTML=
+    '<div class="frames">'+
+      '<div class="device phone"><div class="cap"><b>Layar Pemain (HP)</b><a href="/mobile-demo.html" target="_blank" rel="noopener">buka penuh ↗</a></div>'+
+        '<iframe title="Player mobile view" src="/mobile-demo.html'+bust+'"></iframe></div>'+
+      '<div class="device tv"><div class="cap"><b>Layar TV / LED Venue</b><a href="/tv-demo.html" target="_blank" rel="noopener">buka penuh ↗</a></div>'+
+        '<iframe title="TV display" src="/tv-demo.html'+bust+'"></iframe></div>'+
+    '</div>';
+  var b=$("runPrev"); if(b) b.textContent="↻ Acak ulang simulasi";
+  $("frames").scrollIntoView({behavior:"smooth",block:"nearest"});
+}
+
+/* ---- simulasi data dari rencana (untuk layar mobile & TV) ---- */
+var TPNAMES=['Andi','Budi','Citra','Dewi','Eka','Fajar','Gita','Hadi','Indra','Joko','Kira','Lina','Maya','Nanda','Oka','Putri','Rama','Sari','Tari','Umar','Vino','Wira','Yoga','Zaki','Bayu','Cinta','Doni','Esa','Fika','Galih','Hana','Iqbal','Jihan','Kemal','Laras','Miko','Nadia','Owen','Pita','Rizki','Sena','Tio','Ubai','Vera','Wina','Xena','Yudha','Zahra','Arya','Bella','Cakra','Dinda','Elang','Fira','Gala','Hesti','Ilham','Jasmine'];
+function _ri(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
+function _shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t; } return a; }
+function _pnorm(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
+function _tmin(s){ var p=String(s||'08:00').split(':'); return (parseInt(p[0],10)||8)*60+(parseInt(p[1],10)||0); }
+function _tstr(m){ m=((Math.round(m)%1440)+1440)%1440; var h=Math.floor(m/60),mm=m%60; return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm; }
+function _seedPos(n){ if(n===1)return[0]; var prev=_seedPos(n/2),res=[]; prev.forEach(function(p){ res.push(p); res.push(n-1-p); }); return res; }
+function _grank(teams){ return teams.slice().sort(function(a,b){ return b.W-a.W || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf; }); }
+function buildDemoFromPlan(){
+  var ev=LAST&&LAST.ev; if(!ev) return null;
+  var courts=Math.max(1,ev.courts), startM=_tmin(EVENT.start), slotLen=R.mGroup+R.mChange;
+  var CATNAMES=["Men's Doubles","Women's Doubles","Mixed Doubles","Open","Kategori 5","Kategori 6"];
+  var players={}, cats=[], allGroupMatches=[], pool=_shuffle(TPNAMES.slice()), pc=0;
+
+  ev.info.forEach(function(catInfo,ci){
+    var sizes=catInfo.conf.sizes, groups=[], teams=[], entrants={};
+    for(var gi=0; gi<sizes.length; gi++){
+      var letter=String.fromCharCode(65+gi), gt=[];
+      for(var si=0; si<sizes[gi]; si++){
+        var p1=pool[pc%pool.length]; pc++; var p2=pool[pc%pool.length]; pc++;
+        var eid="C"+ci+"_"+letter+(si+1);
+        [p1,p2].forEach(function(nm){ if(nm && !players[_pnorm(nm)]) players[_pnorm(nm)]={name:nm,display:nm,photo:''}; });
+        entrants[eid]={player1:p1,player2:p2,seedElo:1500};
+        var t={eid:eid,p1:p1,p2:p2,team:p1+" + "+p2,group:gi,P:0,W:0,gf:0,ga:0};
+        gt.push(t); teams.push(t);
+      }
+      groups.push({letter:letter,teams:gt});
+    }
+    var gm=[];
+    groups.forEach(function(g){ for(var i=0;i<g.teams.length;i++)for(var j=i+1;j<g.teams.length;j++) gm.push({cat:ci,gl:g.letter,a:g.teams[i],b:g.teams[j],sa:null,sb:null}); });
+    gm.forEach(function(m){ allGroupMatches.push(m); });
+    cats.push({ci:ci,name:CATNAMES[ci]||("Kategori "+(ci+1)),groups:groups,teams:teams,entrants:entrants,gm:gm,conf:catInfo.conf});
+  });
+
+  /* jadwal grup: interleave antar-grup, sebar ke court, jam nyata dari EVENT.start */
+  var byKey={}, order=[];
+  allGroupMatches.forEach(function(m){ var k=m.cat+'-'+m.gl; if(!byKey[k]){byKey[k]=[];order.push(k);} byKey[k].push(m); });
+  var inter=[], more=true;
+  while(more){ more=false; order.forEach(function(k){ if(byKey[k].length){ inter.push(byKey[k].shift()); more=true; } }); }
+  var lastSlot=0;
+  inter.forEach(function(m,i){ m.court=(i%courts)+1; m.slot=Math.floor(i/courts)+1; m.time=_tstr(startM+(m.slot-1)*slotLen); lastSlot=Math.max(lastSlot,m.slot); });
+  /* simulate skor grup */
+  inter.forEach(function(m){ var w=6,l=_ri(0,5); if(Math.random()<0.5){m.sa=w;m.sb=l;}else{m.sa=l;m.sb=w;} m.a.P++;m.b.P++;m.a.gf+=+m.sa;m.a.ga+=+m.sb;m.b.gf+=+m.sb;m.b.ga+=+m.sa; if(+m.sa>+m.sb)m.a.W++; else m.b.W++; });
+
+  var poClock=startM+lastSlot*slotLen+R.mBreak;
+  var outCats=cats.map(function(C){
+    var adv=qualOf(Math.max.apply(null,C.conf.sizes)); /* top-N seragam untuk preview */
+    var groupsOut=C.groups.map(function(g){
+      var ord=_grank(g.teams);
+      return { label:g.letter, standings:ord.map(function(t,idx){
+        return { rank:idx+1, entrantId:t.eid, team:t.team, played:t.P, wins:t.W, losses:Math.max(0,t.P-t.W), gf:t.gf, ga:t.ga, gd:t.gf-t.ga };
+      }) };
+    });
+    var sched=C.gm.map(function(m){
+      return { matchId:'C'+C.ci+'_'+m.gl+'_'+m.a.eid+'_'+m.b.eid, court:m.court, slot:m.slot, time:m.time, groupLabel:m.gl,
+        entrantA:m.a.eid, entrantB:m.b.eid, teamA:m.a.team, teamB:m.b.team,
+        scoreA:+m.sa, scoreB:+m.sb, winner:(+m.sa>+m.sb?m.a.eid:m.b.eid), status:'DONE', updatedAt:'' };
+    });
+    /* seed bracket: top-adv tiap grup, urut rank lalu grup */
+    var seeds=[]; C.groups.forEach(function(g,ggi){ var r=_grank(g.teams); for(var kk=0;kk<adv;kk++) if(r[kk]) seeds.push({t:r[kk],rank:kk,grp:ggi}); });
+    seeds.sort(function(x,y){ return x.rank-y.rank || x.grp-y.grp; });
+    var Q=seeds.length, N=1; while(N<Q)N*=2; if(N<2)N=2;
+    var pos=_seedPos(N), slots=[]; for(var i2=0;i2<N;i2++){ var s=pos[i2]; slots.push(s<Q?seeds[s].t:null); }
+    var round0=[]; for(var mm=0;mm<N/2;mm++) round0.push({a:slots[2*mm],b:slots[2*mm+1],sa:null,sb:null,w:null,l:null});
+    var rounds=[round0], sz=round0.length, rr=1;
+    while(sz>1){ var nx=[]; for(var z=0;z<sz/2;z++) nx.push({a:null,b:null,sa:null,sb:null,w:null,l:null}); rounds.push(nx); sz/=2; rr++; }
+    var third={a:null,b:null,sa:null,sb:null,w:null};
+    function propagate(){
+      for(var r=0;r<rounds.length;r++){ rounds[r].forEach(function(m,mi){
+        if(r===0 && m.a && !m.b){ m.w=m.a; m.l=null; }
+        else if(r===0 && !m.a && m.b){ m.w=m.b; m.l=null; }
+        else if(m.a&&m.b&&m.sa!=null&&m.sb!=null){ m.w=(+m.sa>+m.sb)?m.a:m.b; m.l=(+m.sa>+m.sb)?m.b:m.a; }
+        else { m.w=null; m.l=null; }
+        if(r+1<rounds.length){ var nm=rounds[r+1][Math.floor(mi/2)]; if(mi%2===0)nm.a=m.w; else nm.b=m.w; }
+      }); }
+      var last=rounds.length-1;
+      if(last>=1){ var sf=rounds[last-1]; third.a=sf[0]?sf[0].l:null; third.b=sf[1]?sf[1].l:null;
+        if(third.a&&third.b&&third.sa!=null&&third.sb!=null) third.w=(+third.sa>+third.sb)?third.a:third.b; }
+    }
+    propagate();
+    for(var r3=0;r3<rounds.length;r3++){ rounds[r3].forEach(function(m){ if(m.a&&m.b){ var w=6,l=_ri(0,5); if(Math.random()<0.5){m.sa=w;m.sb=l;}else{m.sa=l;m.sb=w;} } }); propagate(); }
+    if(third.a&&third.b){ var w4=6,l4=_ri(0,5); if(Math.random()<0.5){third.sa=w4;third.sb=l4;}else{third.sa=l4;third.sb=w4;} }
+    propagate();
+    var L=rounds.length, nQual=0; round0.forEach(function(m){ if(m.a)nQual++; if(m.b)nQual++; });
+    var roundsOut=rounds.map(function(rd,r){
+      return { round:r+1, matches:rd.map(function(m,idx){
+        var bye=r===0 && ((m.a&&!m.b)||(!m.a&&m.b));
+        var d=m.a&&m.b&&m.sa!=null&&m.sb!=null;
+        return { round:r+1, idx:idx, entrantA:m.a?m.a.eid:'', entrantB:m.b?m.b.eid:'',
+          teamA:m.a?m.a.team:'', teamB:m.b?m.b.team:'', scoreA:d?+m.sa:'', scoreB:d?+m.sb:'',
+          winner:m.w?m.w.eid:'', status:bye?'BYE':(d?'DONE':'SCHEDULED'), updatedAt:'' };
+      }) };
+    });
+    var bronze=null;
+    if(third.a||third.b){ var td=third.a&&third.b&&third.sa!=null&&third.sb!=null;
+      bronze={ round:'BRONZE', idx:0, entrantA:third.a?third.a.eid:'', entrantB:third.b?third.b.eid:'',
+        teamA:third.a?third.a.team:'', teamB:third.b?third.b.team:'', scoreA:td?+third.sa:'', scoreB:td?+third.sb:'',
+        winner:third.w?third.w.eid:'', status:td?'DONE':'SCHEDULED', updatedAt:'' }; }
+    var finalM=rounds[L-1][0], champ=finalM.w, runner=finalM.w?(finalM.w===finalM.a?finalM.b:finalM.a):null;
+    var podium={ champion:champ?champ.eid:'', runnerUp:runner?runner.eid:'', third:third.w?third.w.eid:'' };
+    return { tournamentId:'TSIM'+C.ci, category:C.name, level:'bronze', format:'SINGLE', status:'DONE',
+      advancersPerGroup:adv, entrants:C.entrants, groups:groupsOut, schedule:sched,
+      playoff:[{ tier:'MAIN', nQual:nQual, numRounds:L, rounds:roundsOut, bronze:bronze, podium:podium }] };
+  });
+
+  return {
+    event:{ name:(EVENT.venue?EVENT.venue+" Cup":"Padel Sim Cup"), venue:(EVENT.venue||"La Familia")+(EVENT.city?", "+EVENT.city:", Jakarta"), date:(EVENT.date||"2026-07-12"), numCourts:courts, matchMinutes:R.mGroup },
+    players:players, categories:outCats, sponsors:[], mobileBanner:'' };
+}
+
+/* ---- kirim lead dari form Lanjut ---- */
+function submitLeadForm(){
+  var wa=($("lfWa").value||"").trim();
+  var msg=$("lfMsg");
+  if(wa.replace(/\D/g,'').length<8){ msg.style.color="var(--red)"; msg.textContent="Isi nomor WhatsApp yang valid."; return; }
+  var ev=LAST&&LAST.ev, pkgEl=document.querySelector('input[name="lfpkg"]:checked');
+  var nm=($("lfName").value||USER.name||"").trim(), em=($("lfEmail").value||USER.email||"").trim();
+  EVENT.venue=($("lfVenue").value||"").trim(); EVENT.city=($("lfCity").value||"").trim(); EVENT.date=($("lfDate").value||"").trim();
+  USER.name=nm||USER.name; USER.email=em||USER.email;
+  var body={
+    timestamp:new Date().toISOString(), lead_id: LEAD_ID||(LEAD_ID=newLeadId()),
+    name:nm, whatsapp:wa, email:em,
+    date:EVENT.date, participants:ev?ev.totalPairs*2:"", days:1, hours: ev?Math.ceil(ev.totalMinutes/30)/2:"",
+    courts: ev?ev.courts:"", category: ev?ev.info.map(function(x){return x.pairs+" pair";}):[],
+    venue:EVENT.venue, city:EVENT.city, package: pkgEl?pkgEl.value:"License Engine",
+    notes:($("lfNotes").value||"").trim(),
+    source:"turnamenpadel.com/simulasi",
+    plan_pairs: ev?ev.totalPairs:"", plan_categories: ev?ev.info.length:"",
+    plan_duration_min: ev?Math.round(ev.totalMinutes):"", plan_duration_label: ev?hm(ev.totalMinutes):"",
+    plan_final_mode: ev?(ev.finalSeq?"Kategori berurutan":"Final serempak"):"",
+    plan_format: (LAST?fmtLabel(LAST.fmt):"")
+  };
+  postLead("leads", body);
+  /* juga catat di calc/result agar terhubung dengan funnel simulasi */
+  try{ if(LAST){ var p=buildPayload(true); p.lead_id=body.lead_id; p.whatsapp=wa; p.source="turnamenpadel.com/simulasi"; postLead("calc/result", p); } }catch(e){}
+  $("ovBody").innerHTML='<div class="okmark">✓</div><h3 style="text-align:center">Permintaan terkirim</h3>'+
+    '<p class="s" style="text-align:center">Terima kasih '+esc(nm||"")+'! Brief &amp; simulasi turnamenmu sudah kami terima. Tim TurnamenPadel akan menghubungi lewat WhatsApp <b style="color:var(--text)">'+esc(wa)+'</b>, biasanya dalam 1×24 jam.</p>'+
+    '<button class="cta" id="ovClose">Tutup</button>';
+  $("ov").className="overlay show";
+  $("ovClose").onclick=function(){ $("ov").className="overlay"; };
+}
+
+/* ================= MODE A — WIZARD ================= */
+function stepsBar(id, names, cur){
+  var h="";
+  names.forEach(function(nm,i){
+    if(i) h+='<span class="bar"></span>';
+    h+='<span class="s '+(cur===i+1?"on":(cur>i+1?"done":""))+'"><span class="dot">'+(i+1)+'</span><span class="nm">'+nm+'</span></span>';
+  });
+  $(id).innerHTML=h;
+}
+function showA(step){
+  A.step=step;
+  ["A1","A2","A3","A4"].forEach(function(id,i){ $(id).style.display = (i+1===step)?"":"none"; });
+  stepsBar("stepsA",["Peserta","Kategori","Court","Hasil"],step);
+  if(step===1) $("advSlotA").appendChild($("advPanel"));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function totalPairs(){ var v=Math.max(0,Math.round(n("pTotal"))); return UNIT==="player"?Math.floor(v/2):v; }
+
+function renderA2(){
+  syncR();
+  A.total=totalPairs(); A.rate=n("rate");
+  if(A.total<GMIN){ alert("Minimal "+GMIN+" pair."); return; }
+  var lock=R.lockInput;
+  var h='<button class="back" id="backA1">← Ubah target peserta</button>'+
+    '<div class="card"><h2>Pilih Jumlah Kategori</h2>'+
+    '<div class="hint">Target kamu <b style="color:var(--text)">'+A.total+' pair</b>. '+
+      (lock?'Mode <b style="color:var(--orange)">kunci input</b> aktif — jumlah dipertahankan persis, walau ada bye.':'Tiap opsi kami sesuaikan sedikit supaya bracket penuh tanpa bye.')+'</div>';
+  var recos=[], k;
+  for(k=1;k<=KMAX;k++){
+    var r=lock ? exactForK(A.total,k,A.fmt) : recommendForK(A.total,k,A.fmt);
+    if(r) recos.push(r);
+  }
+  if(!recos.length){
+    h+='<div class="advice err"><b class="h">'+(lock?'Jumlah belum bisa dibagi':'Belum ada format bebas bye')+'</b>Coba ubah jumlah peserta atau format turnamen.</div></div>';
+    $("A2").innerHTML=h; $("backA1").onclick=function(){ showA(1); }; return;
+  }
+  var closest=recos.slice().sort(function(a,b){
+    return (Math.abs(a.delta)-Math.abs(b.delta)) || ((a.byes||0)-(b.byes||0)) || (Math.abs(2.5-a.k)-Math.abs(2.5-b.k));
+  })[0];
+  h+='</div>';
+  recos.forEach(function(r){
+    var conf=bestConfig(r.sizes[0],A.fmt);
+    var tm=0, rbyes=0; r.sizes.forEach(function(p){ var c=bestConfig(p,A.fmt); tm+=c.groupMatches+c.Q; rbyes+=c.byes; });
+    var byeTag = rbyes===0 ? '<span class="tag g">Tanpa bye</span>'
+      : '<span class="tag" style="color:var(--amber);border-color:var(--amber)">'+rbyes+' bye</span>';
+    var headTag = lock ? (rbyes===0?'<span class="tag">Bracket penuh</span>':'')
+                       : (r===closest?'<span class="tag">Paling dekat target</span>':'');
+    var tags=headTag+byeTag;
+    h+='<button class="pickcard '+(r===closest?"reco":"")+'" data-k="'+r.k+'"><div class="ph"><div>'+
+      '<div class="pt">'+r.k+' Kategori'+tags+'</div>'+
+      '<div class="pd">'+r.sizes.join(" + ")+' pair per kategori · '+sizesLabel(conf.sizes)+' → '+conf.Q+' lolos · ± '+tm+' match</div></div>'+
+      '<div class="pv">'+r.total+'<small>PAIR</small></div></div>'+
+      '<div class="pd" style="margin-top:6px">'+(r.locked?"Sesuai jumlah input kamu":(r.delta===0?"Pas dengan target kamu":(r.delta>0?"+"+r.delta:r.delta)+" pair dari target"))+'</div></button>';
+  });
+  $("A2").innerHTML=h;
+  $("backA1").onclick=function(){ showA(1); };
+  Array.prototype.forEach.call($("A2").querySelectorAll("[data-k]"), function(b){
+    b.onclick=function(){
+      var kk=parseInt(b.getAttribute("data-k"),10);
+      var r=recos.filter(function(x){ return x.k===kk; })[0];
+      A.k=r.k; A.sizes=r.sizes; A.adjTotal=r.total;
+      renderA3(); showA(3);
+    };
+  });
+  showA(2);
+}
+function renderA3(){
+  var rows=courtOptions(A.sizes,A.fmt);
+  var reco=pickCourts(rows,A.k);
+  var h='<button class="back" id="backA2">← Ubah jumlah kategori</button>'+
+    '<div class="card"><h2>Pilih Jumlah Court</h2>'+
+    '<div class="hint"><b style="color:var(--text)">'+A.adjTotal+' pair · '+A.k+' kategori</b>. Nambah court memangkas waktu sampai titik tertentu saja.</div></div>';
+  rows.forEach(function(r){
+    var tags=(r.courts===reco?'<span class="tag">Paling efisien</span>':'')+
+             (r.courts>=A.k*2?'<span class="tag g">Final + juara 3 serempak</span>':'');
+    h+='<button class="pickcard '+(r.courts===reco?"reco":"")+'" data-c="'+r.courts+'"><div class="ph"><div>'+
+      '<div class="pt">'+r.courts+' Court'+tags+'</div>'+
+      '<div class="pd">'+r.ev.actualCourtHours+' court-jam · sewa '+rp(r.ev.actualCourtHours*A.rate)+'</div></div>'+
+      '<div class="pv" style="font-size:24px">'+hm(r.ev.totalMinutes).replace(" jam","j").replace(" menit","m")+'<small>DURASI</small></div></div></button>';
+  });
+  $("A3").innerHTML=h;
+  $("backA2").onclick=function(){ renderA2(); };
+  Array.prototype.forEach.call($("A3").querySelectorAll("[data-c]"), function(b){
+    b.onclick=function(){ A.courts=parseInt(b.getAttribute("data-c"),10); renderA4(); showA(4); };
+  });
+}
+function renderA4(){
+  var ev=computeEvent(A.sizes,A.courts,A.fmt);
+  LAST={ mode:"A", ev:ev, rate:A.rate, courts:A.courts, unit:UNIT, fmt:A.fmt, target:A.total };
+  var h='<button class="back" id="backA3">← Ubah jumlah court</button>'+
+    '<div class="hero"><div class="eyebrow">Estimasi Total Durasi</div><div class="big">'+bigTime(ev.totalMinutes)+'</div>'+
+    '<div class="clock">'+ev.totalPairs+' pair · '+A.k+' kategori · '+A.courts+' court</div><div class="meta">'+
+    '<span class="chip">format <b>'+esc(fmtLabel(A.fmt))+'</b></span>'+
+    '<span class="chip"><b>'+ev.totalMatches+'</b> match</span>'+
+    '<span class="chip">sewa <b>'+ev.actualCourtHours+'</b> court-jam</span>'+
+    '<span class="chip">estimasi <b>'+rp(ev.actualCourtHours*A.rate)+'</b></span></div></div>';
+  h+=setupSummary(ev);
+  h+='<div class="sect"><div class="secthead"><h3>Run Sheet per Court</h3><span class="note">court dipakai bersama saat grup</span></div>'+runSheet(ev)+'</div>';
+  h+=costSummary(ev,A.rate)+advisor(ev)+timeDetail(ev)+leadBox();
+  $("A4").innerHTML=h;
+  $("backA3").onclick=function(){ showA(3); };
+  bindLead();
+}
+
+/* ================= MODE B — WIZARD ================= */
+function showB(step){
+  B.step=step;
+  ["B1","B2","B3"].forEach(function(id,i){ $(id).style.display=(i+1===step)?"":"none"; });
+  stepsBar("stepsB",["Court & Jam","Format","Hasil"],step);
+  if(step===1) $("advSlotB").appendChild($("advPanel"));
+  window.scrollTo({top:0,behavior:"smooth"});
+}
+function findCapacity(hours,courts,mode){
+  var budget=hours*60, res=[], k, p;
+  for(k=1;k<=KMAX;k++){
+    var best=null;
+    for(p=GMIN;p<=48;p++){
+      var sizes=[]; for(var i=0;i<k;i++) sizes.push(p);
+      var ev=computeEvent(sizes,courts,mode);
+      if(!ev) continue;
+      if(ev.totalMinutes<=budget) best={k:k,p:p,ev:ev}; else break;
+    }
+    if(best) res.push(best);
+  }
+  res.forEach(function(r){
+    var conf=bestConfig(r.p,mode);
+    r.total=r.k*r.p; r.conf=conf; r.clean=conf.byes===0;
+    r.score=r.total*10+(r.clean?30:0)+(r.k===courts?25:0)+((r.k>=2&&r.k<=4)?15:0)-Math.abs(courts-r.k)*4;
+  });
+  res.sort(function(a,b){ return b.score-a.score; });
+  return res;
+}
+function renderB2(){
+  syncR();
+  B.courts=Math.min(CMAX,Math.max(CMIN,Math.round(n("courtsB"))));
+  B.hours=n("hours"); B.rate=n("rateB");
+  var h='<button class="back" id="backB1">← Ubah court &amp; jam</button>'+
+    '<div class="card"><h2>Pilih Format Turnamen</h2>'+
+    '<div class="hint"><b style="color:var(--text)">'+B.courts+' court · '+B.hours+' jam</b>. Tiap format menghasilkan kapasitas berbeda.</div></div>';
+  var any=false;
+  FORMATS.forEach(function(f){
+    var opts=findCapacity(B.hours,B.courts,f.id);
+    if(!opts.length){
+      h+='<button class="pickcard" disabled style="opacity:.45"><div class="ph"><div><div class="pt">'+f.t+'</div>'+
+         '<div class="pd">Tidak muat dengan durasi ini</div></div></div></button>';
+      return;
+    }
+    any=true;
+    var top=opts[0];
+    h+='<button class="pickcard '+(f.id===B.fmt?"reco":"")+'" data-f="'+f.id+'"><div class="ph"><div>'+
+      '<div class="pt">'+f.t+(top.clean?'<span class="tag g">Tanpa bye</span>':'')+'</div>'+
+      '<div class="pd">'+f.d+'</div>'+
+      '<div class="pd" style="margin-top:5px;color:var(--text)">'+top.k+' kategori × '+top.p+' pair · '+sizesLabel(top.conf.sizes)+' · '+hm(top.ev.totalMinutes)+'</div></div>'+
+      '<div class="pv">'+top.total+'<small>PAIR</small></div></div></button>';
+  });
+  if(!any) h+='<div class="advice err"><b class="h">Belum muat</b>Dengan '+B.hours+' jam dan '+B.courts+' court, format group stage + playoff belum bisa jalan. Tambah jam atau court.</div>';
+  $("B2").innerHTML=h;
+  $("backB1").onclick=function(){ showB(1); };
+  Array.prototype.forEach.call($("B2").querySelectorAll("[data-f]"), function(b){
+    b.onclick=function(){ B.fmt=b.getAttribute("data-f"); renderB3(); showB(3); };
+  });
+  showB(2);
+}
+function renderB3(){
+  var opts=findCapacity(B.hours,B.courts,B.fmt);
+  var top=opts[0]; B.pick=top;
+  var ev=top.ev;
+  LAST={ mode:"B", ev:ev, rate:B.rate, courts:B.courts, hours:B.hours, fmt:B.fmt,
+         options:opts.slice(0,4).map(function(o){ return o.k+" kategori x "+o.p+" pair = "+o.total; }) };
+  var h='<button class="back" id="backB2">← Ubah format</button>'+
+    '<div class="hero"><div class="eyebrow">Kapasitas Maksimal</div><div class="big">'+top.total+'<small> pair</small></div>'+
+    '<div class="clock">'+B.courts+' court · '+B.hours+' jam · terpakai '+hm(ev.totalMinutes)+'</div><div class="meta">'+
+    '<span class="chip">format <b>'+esc(fmtLabel(B.fmt))+'</b></span>'+
+    '<span class="chip"><b>'+top.k+'</b> kategori × <b>'+top.p+'</b> pair</span>'+
+    '<span class="chip">sisa <b>'+hm(Math.max(0,B.hours*60-ev.totalMinutes))+'</b></span>'+
+    '<span class="chip">estimasi <b>'+rp(ev.actualCourtHours*B.rate)+'</b></span></div></div>';
+  h+=setupSummary(ev);
+  h+='<div class="sect"><div class="secthead"><h3>Run Sheet per Court</h3><span class="note">court dipakai bersama saat grup</span></div>'+runSheet(ev)+'</div>';
+  h+=costSummary(ev,B.rate)+advisor(ev)+timeDetail(ev)+leadBox();
+  $("B3").innerHTML=h;
+  $("backB2").onclick=function(){ renderB2(); };
+  bindLead();
+}
+
+/* ---------- lead ---------- */
+function buildPayload(interested){
+  var L=LAST, ev=L.ev;
+  return {
+    timestamp:new Date().toISOString(), name:USER.name, email:USER.email,
+    mode: L.mode==="A"?"Target Peserta":"Court & Jam",
+    format_priority: fmtLabel(L.fmt),
+    input_unit: L.unit||"pair",
+    target_pairs: L.target||null,
+    hours_available: L.hours||null,
+    courts: L.courts, court_rate_per_hour: L.rate,
+    total_pairs: ev.totalPairs, total_players: ev.totalPairs*2,
+    categories_count: ev.info.length,
+    categories_detail: ev.info.map(function(x){ return x.pairs+" pair ("+sizesLabel(x.conf.sizes)+", "+x.conf.Q+" lolos)"; }).join(" | "),
+    total_matches: ev.totalMatches,
+    total_duration_min: Math.round(ev.totalMinutes),
+    total_duration_label: hm(ev.totalMinutes),
+    court_hours_optimal: ev.actualCourtHours, court_hours_full: ev.fullCourtHours,
+    estimated_court_cost: Math.round(ev.actualCourtHours*L.rate),
+    potential_saving: Math.round(Math.max(0,ev.fullCourtHours-ev.actualCourtHours)*L.rate),
+    has_bye: ev.info.some(function(x){ return x.conf.byes>0; }),
+    options_considered: L.options?L.options.join(" | "):"",
+    services_requested: interested ? "Wasit, Score desk, Tournament director, Aplikasi end-to-end" : "",
+    rules_ref:"https://turnamenpadel.com/rules",
+    interested_in_management: interested,
+    status: interested?"HOT":"NEW"
+  };
+}
+function sendLead(interested){
+  var p=buildPayload(interested);
+  p.lead_id = LEAD_ID || (LEAD_ID = newLeadId());
+  postLead("calc/result", p);
+  $("ovBody").innerHTML=
+    (interested
+      ? '<div class="okmark">✓</div><h3 style="text-align:center">Terkirim</h3><p class="s" style="text-align:center">Tim TurnamenPadel akan menghubungi <b style="color:var(--text)">'+esc(USER.email)+'</b> dalam 1×24 jam.</p>'
+      : '<h3>Oke, tidak masalah</h3><p class="s">Hasil perhitungan tetap kami simpan supaya bisa dilanjutkan nanti. Tidak ada yang menghubungi kecuali kamu minta.</p>')+
+    '<button class="cta" id="ovClose">Tutup</button>';
+  $("ov").className="overlay show";
+  $("ovClose").onclick=function(){ $("ov").className="overlay"; };
+}
+
+/* ---------- UI dasar ---------- */
+function updateHelp(){
+  var raw=Math.max(0,Math.round(n("pTotal"))), p=totalPairs();
+  $("pHelp").innerHTML = UNIT==="player"
+    ? raw+" pemain = <b>"+p+" pair</b>"+(raw%2?" (1 pemain belum punya partner)":"")
+    : p+" pair = <b>"+(p*2)+" pemain</b>";
+}
+function buildFmtA(){
+  $("fmtCtrlA").innerHTML=FORMATS.map(function(f){
+    return '<button type="button" data-fmt="'+f.id+'" aria-pressed="'+(A.fmt===f.id)+'"><strong>'+f.t+'</strong><span>'+f.d+'</span></button>';
+  }).join("");
+  Array.prototype.forEach.call($("fmtCtrlA").querySelectorAll("button"), function(b){
+    b.onclick=function(){ A.fmt=b.getAttribute("data-fmt"); buildFmtA(); };
+  });
+}
+function setTab(m){
+  $("tabA").setAttribute("aria-selected", m==="A"?"true":"false");
+  $("tabB").setAttribute("aria-selected", m==="B"?"true":"false");
+  $("modeA").style.display=m==="A"?"":"none";
+  $("modeB").style.display=m==="B"?"":"none";
+  if(m==="A") showA(A.step); else showB(B.step);
+}
+$("gBtn").onclick=function(){
+  var nm=$("gName").value.trim(), em=$("gEmail").value.trim();
+  if(nm.length<2){ $("gErr").textContent="Masukkan nama kamu."; $("gErr").style.display="block"; return; }
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){ $("gErr").textContent="Format email belum benar."; $("gErr").style.display="block"; return; }
+  USER.name=nm; USER.email=em;
+  LEAD_ID = newLeadId();
+  postLead("calc/gate", { lead_id:LEAD_ID, name:nm, email:em, source:"turnamenpadel.com/simulasi", user_agent:navigator.userAgent });
+  $("gate").style.display="none"; $("app").style.display="";
+  $("whoami").innerHTML=esc(nm)+"<br>"+esc(em);
+};
+$("gEmail").onkeydown=function(e){ if(e.key==="Enter") $("gBtn").click(); };
+$("pMinus").onclick=function(){ $("pTotal").value=Math.max(4,(parseInt($("pTotal").value,10)||0)-(UNIT==="player"?2:1)); updateHelp(); };
+$("pPlus").onclick =function(){ $("pTotal").value=Math.min(400,(parseInt($("pTotal").value,10)||0)+(UNIT==="player"?2:1)); updateHelp(); };
+$("pTotal").oninput=updateHelp;
+Array.prototype.forEach.call(document.querySelectorAll("[data-unit]"), function(b){
+  b.onclick=function(){
+    var was=UNIT; UNIT=b.getAttribute("data-unit");
+    if(was!==UNIT){ var v=parseInt($("pTotal").value,10)||0; $("pTotal").value=UNIT==="player"?v*2:Math.floor(v/2); }
+    Array.prototype.forEach.call(document.querySelectorAll("[data-unit]"), function(x){
+      x.setAttribute("aria-pressed", x.getAttribute("data-unit")===UNIT?"true":"false");
+    });
+    updateHelp();
+  };
+});
+Array.prototype.forEach.call(document.querySelectorAll("[data-step]"), function(e2){
+  e2.onclick=function(){
+    var t=$(e2.getAttribute("data-step")), d=+e2.getAttribute("data-d"), st=parseFloat(t.step)||1;
+    var v=(parseFloat(t.value)||0)+d*st;
+    t.value=Math.min(parseFloat(t.max), Math.max(parseFloat(t.min), v));
+  };
+});
+$("rate").oninput =function(){ $("rateVal").textContent=rp(n("rate")); };
+$("rateB").oninput=function(){ $("rateValB").textContent=rp(n("rateB")); };
+$("tabA").onclick=function(){ setTab("A"); };
+$("tabB").onclick=function(){ setTab("B"); };
+$("calcA").onclick=renderA2;
+$("calcB").onclick=renderB2;
+$("ov").onclick=function(e){ if(e.target===$("ov")) $("ov").className="overlay"; };
+
+buildFmtA();
+updateHelp();
+showA(1);
+stepsBar("stepsB",["Court & Jam","Format","Hasil"],1);
+</script>
+</body>
+</html>

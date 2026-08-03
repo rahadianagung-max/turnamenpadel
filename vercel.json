@@ -1,5 +1,13 @@
 {
   "version": 2,
+  "redirects": [
+    { "source": "/calculator", "destination": "/simulasi", "permanent": false },
+    { "source": "/calculator.html", "destination": "/simulasi", "permanent": false },
+    { "source": "/contact", "destination": "/simulasi", "permanent": false },
+    { "source": "/contact.html", "destination": "/simulasi", "permanent": false },
+    { "source": "/demo", "destination": "/simulasi", "permanent": false },
+    { "source": "/demo.html", "destination": "/simulasi", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/sheet.js" },
     { "source": "/score", "destination": "/score.html" },
@@ -8,8 +16,7 @@
     { "source": "/mobile/:slug", "destination": "/mobile.html" },
     { "source": "/tv/:slug", "destination": "/tv.html" },
     { "source": "/checkin/:slug", "destination": "/checkin.html" },
-    { "source": "/contact", "destination": "/contact.html" },
-    { "source": "/calculator", "destination": "/calculator.html" },
+    { "source": "/simulasi", "destination": "/simulasi.html" },
     { "source": "/draw", "destination": "/draw.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
