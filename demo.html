@@ -558,6 +558,73 @@
     S=null; document.getElementById('sim').style.display='none'; document.getElementById('setup').style.display='block';
     window.scrollTo({top:0,behavior:'smooth'});
   });
+
+  // ---- Feed the mobile & TV demo views the SAME simulated tournament ----
+  // Convert the current sim state (S) into the public data shape those pages
+  // consume, and hand it over via localStorage so they show exactly what was
+  // picked here (players, groups, schedule, bracket) instead of a fixed dataset.
+  function pnorm(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
+  function pairParts(nm){ var p=String(nm||'').split(/\s*\/\s*/); return [p[0]||'', p[1]||'']; }
+  function buildPublicData(){
+    if(!S || !S.groups || !S.groups.length) return null;
+    var scored = S.matches.some(function(m){ return m.sa!=null&&m.sa!==''; });
+    if(scored) recomputeGroups();
+    var players={}, entrants={};
+    function teamStr(t){ var pp=pairParts(t.name); return pp[0]+(pp[1]?' + '+pp[1]:''); }
+    S.groups.forEach(function(g){ g.teams.forEach(function(t,i){
+      t._eid='E_'+g.letter+(i+1);
+      var pp=pairParts(t.name);
+      [pp[0],pp[1]].forEach(function(nm){ if(nm && !players[pnorm(nm)]) players[pnorm(nm)]={name:nm,display:nm,photo:''}; });
+      entrants[t._eid]={player1:pp[0],player2:pp[1],seedElo:1500};
+    }); });
+    var groups=S.groups.map(function(g){
+      var ord=scored?groupRank(g):g.teams;
+      return { label:g.letter, standings:ord.map(function(t,idx){
+        return { rank:idx+1, entrantId:t._eid, team:teamStr(t), played:t.P, wins:t.W, losses:Math.max(0,t.P-t.W), gf:t.gf, ga:t.ga, gd:t.gf-t.ga };
+      }) };
+    });
+    function done(m){ return m.a&&m.b&&m.sa!=null&&m.sa!==''&&m.sb!=null&&m.sb!==''; }
+    var schedule=S.matches.map(function(m){
+      var d=done(m); var win=d?(+m.sa>+m.sb?m.a._eid:(+m.sb>+m.sa?m.b._eid:'')):'';
+      return { matchId:m.id, court:m.court, slot:m.slot, time:'', groupLabel:m.gl,
+        entrantA:m.a._eid, entrantB:m.b._eid, teamA:teamStr(m.a), teamB:teamStr(m.b),
+        scoreA:d?+m.sa:'', scoreB:d?+m.sb:'', winner:win, status:d?'DONE':'SCHEDULED', updatedAt:'' };
+    });
+    var playoff=[];
+    if(S.bracket && S.bracket.length){
+      var L=S.bracket.length, nQual=0;
+      S.bracket[0].forEach(function(m){ if(m.a)nQual++; if(m.b)nQual++; });
+      var rounds=S.bracket.map(function(rd,r){
+        return { round:r+1, matches:rd.map(function(m,idx){
+          var bye=r===0 && ((m.a&&!m.b)||(!m.a&&m.b));
+          var d=m.a&&m.b&&m.sa!=null&&m.sa!==''&&m.sb!=null&&m.sb!=='';
+          return { round:r+1, idx:idx, entrantA:m.a?m.a._eid:'', entrantB:m.b?m.b._eid:'',
+            teamA:m.a?teamStr(m.a):'', teamB:m.b?teamStr(m.b):'',
+            scoreA:d?+m.sa:'', scoreB:d?+m.sb:'', winner:m.w?m.w._eid:'',
+            status: bye?'BYE':(d?'DONE':'SCHEDULED'), updatedAt:'' };
+        }) };
+      });
+      var bronze=null;
+      if(S.third && (S.third.a||S.third.b)){
+        var td=S.third.a&&S.third.b&&S.third.sa!=null&&S.third.sa!==''&&S.third.sb!=null&&S.third.sb!=='';
+        bronze={ round:'BRONZE', idx:0, entrantA:S.third.a?S.third.a._eid:'', entrantB:S.third.b?S.third.b._eid:'',
+          teamA:S.third.a?teamStr(S.third.a):'', teamB:S.third.b?teamStr(S.third.b):'',
+          scoreA:td?+S.third.sa:'', scoreB:td?+S.third.sb:'', winner:S.third.w?S.third.w._eid:'',
+          status:td?'DONE':'SCHEDULED', updatedAt:'' };
+      }
+      playoff=[{ tier:'MAIN', nQual:nQual, numRounds:L, rounds:rounds, bronze:bronze, podium:{champion:'',runnerUp:'',third:''} }];
+    }
+    return {
+      event:{ name:'Padel Demo Cup', venue:'La Familia, Jakarta', date:'2026-07-12', numCourts:S.courts||3, matchMinutes:15 },
+      players:players,
+      categories:[{ tournamentId:'TDEMO', category:"Men's Doubles", level:'bronze', format:'SINGLE', status:'RUNNING',
+        advancersPerGroup:S.adv, entrants:entrants, groups:groups, schedule:schedule, playoff:playoff }],
+      sponsors:[], mobileBanner:'' };
+  }
+  function saveDemoForViews(){
+    try{ var d=buildPublicData(); if(d) localStorage.setItem('tp_demo_data', JSON.stringify(d)); else localStorage.removeItem('tp_demo_data'); }catch(e){}
+  }
+  document.querySelectorAll('a[href="/mobile-demo.html"], a[href="/tv-demo.html"]').forEach(function(a){ a.addEventListener('click', saveDemoForViews); });
 })();
 </script>
 </body>
