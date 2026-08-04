@@ -342,16 +342,12 @@ textarea#lfNotes:focus{border-color:var(--orange)}
   <!-- STEP 1: SETUP -->
   <div id="S1">
     <div class="card">
-      <h2>Number of pairs</h2>
-      <div class="hint" id="pairsHint">How many pairs (teams) are you planning for?</div>
-      <div id="pairsBody"></div>
-      <div class="seghelp" id="pHelp"></div>
-    </div>
-
-    <div class="card">
-      <h2>Tournament format</h2>
-      <div class="hint">Your priority — this drives how groups are split.</div>
-      <div class="fmtctrl" id="fmtCtrl"></div>
+      <h2>What do you know?</h2>
+      <div class="unit" id="modeSeg" style="grid-template-columns:1fr 1fr">
+        <button type="button" data-mode="players" aria-pressed="true">My participants</button>
+        <button type="button" data-mode="capacity" aria-pressed="false">My courts &amp; time</button>
+      </div>
+      <div class="seghelp" id="modeHelp">You know how many pairs will play — we plan the schedule and courts.</div>
     </div>
 
     <div class="card">
@@ -363,6 +359,33 @@ textarea#lfNotes:focus{border-color:var(--orange)}
         <button type="button" data-step="catCount" data-d="1">+</button>
       </div>
       <div class="seghelp" id="catHelp"></div>
+    </div>
+
+    <div class="card" id="cardPairs">
+      <h2>Pairs per category</h2>
+      <div class="hint" id="pairsHint">How many pairs (teams) are you planning for?</div>
+      <div id="pairsBody"></div>
+      <div class="seghelp" id="pHelp"></div>
+    </div>
+
+    <div class="card" id="cardCap" style="display:none">
+      <h2>Courts &amp; time available</h2>
+      <div class="hint">We recommend the most pairs that fit in your window.</div>
+      <div class="grid2">
+        <label class="f"><span>Courts</span>
+          <div class="stepper"><button type="button" data-step="capCourts" data-d="-1">−</button><input type="number" id="capCourts" value="6" min="1" max="12"><button type="button" data-step="capCourts" data-d="1">+</button></div>
+        </label>
+        <label class="f"><span>Hours available</span>
+          <div class="stepper"><button type="button" data-step="capHours" data-d="-1">−</button><input type="number" id="capHours" value="12" min="2" max="24" step="0.5"><button type="button" data-step="capHours" data-d="1">+</button></div>
+        </label>
+      </div>
+      <div class="seghelp" id="capHelp"></div>
+    </div>
+
+    <div class="card" id="cardFmt">
+      <h2>Tournament format</h2>
+      <div class="hint">Your priority — this drives how groups are split.</div>
+      <div class="fmtctrl" id="fmtCtrl"></div>
     </div>
 
     <div class="card">
@@ -399,6 +422,7 @@ textarea#lfNotes:focus{border-color:var(--orange)}
     </details>
 
     <button class="cta" id="toCourts">Next — Courts</button>
+    <button class="cta" id="toResultCap" style="display:none">See recommendation</button>
   </div>
 
   <!-- STEP 2: COURTS -->
@@ -668,7 +692,7 @@ function runSheet(ev){
   return h;
 }
 /* ===== new flow state ===== */
-var ST={ step:1, pairs:32, K:1, courts:3, fmt:"balanced", catPairs:[32], catNames:[""], chosen:null, rec1:null, rec2:null };
+var ST={ step:1, mode:"players", pairs:32, K:1, courts:3, capCourts:6, capHours:12, fmt:"balanced", catPairs:[32], catNames:[""], chosen:null, rec1:null, rec2:null };
 
 /* ---------- schedule timing helpers ---------- */
 function annotateTimes(ev){
@@ -794,26 +818,45 @@ function recCard(rec, isAlt, diff){
       '<span class="chip">start <b>'+nr.startS+'</b></span><span class="chip">finish <b>'+nr.finishS+'</b></span>'+tag+'</div>'+
     '<div class="recpick">Choose this &amp; simulate <span>→</span></div></button>';
 }
-function renderResult(){
-  syncSetup();
-  ST.courts=Math.max(1,Math.min(12,Math.round(n("courts"))));
+function renderResult(capInfo){
+  if(!capInfo){ syncSetup(); ST.courts=Math.max(1,Math.min(12,Math.round(n("courts")))); }
+  var backStep = (ST.mode==="capacity") ? 1 : 2;
+  var backLbl = (ST.mode==="capacity") ? "Edit setup" : "Edit courts";
   var recs=buildRecommendations();
   ST.rec1=recs.rec1; ST.rec2=recs.rec2;
-  var h='<button class="back" id="bkS2">← Edit courts</button>';
+  var h='<button class="back" id="bkR">← '+backLbl+'</button>';
   if(!recs.rec1){
     h+='<div class="advice err"><b class="h">Can’t build this format</b>Try adjusting the number of pairs, categories, or courts.</div>';
-    $("S3").innerHTML=h; $("bkS2").onclick=function(){ showStep(2); }; showStep(3); return;
+    $("S3").innerHTML=h; $("bkR").onclick=function(){ showStep(backStep); }; showStep(3); return;
+  }
+  if(capInfo){
+    h+='<div class="advice good" style="margin-bottom:12px"><b class="h">Most that fits your window</b>On <b>'+ST.capCourts+' courts</b> in <b>'+ST.capHours+'h</b> for <b>'+ST.K+' categor'+(ST.K>1?"ies":"y")+'</b>, the optimal is <b>'+capInfo.p+' pairs per category</b> ('+capInfo.tot+' total) — finishing in '+hm(capInfo.min)+' of your '+ST.capHours+'h. You can still edit it as a normal plan.</div>';
   }
   h+='<div class="secthead" style="margin-bottom:10px"><h3>Your result</h3><span class="note">'+(recs.rec2?"2 options":"1 option")+'</span></div>';
   h+=recCard(recs.rec1, false, null);
   if(recs.rec2) h+=recCard(recs.rec2, true, recDiff(recs.rec1,recs.rec2));
   else h+='<div class="advice info" style="margin-top:4px"><b class="h">No faster combination</b>At '+ST.pairs+' pairs on '+ST.courts+' courts, this is already the most efficient setup.</div>';
   $("S3").innerHTML=h;
-  $("bkS2").onclick=function(){ showStep(2); };
+  $("bkR").onclick=function(){ showStep(backStep); };
   Array.prototype.forEach.call($("S3").querySelectorAll("[data-pick]"), function(b){
     b.onclick=function(){ pickRec(b.getAttribute("data-pick")); };
   });
   showStep(3);
+}
+function findCapacityRec(){
+  var K=ST.K, C=ST.capCourts, budget=ST.capHours*60, best=null;
+  ["fast","balanced","fair"].forEach(function(F){
+    for(var p=GMIN; p<=80; p++){
+      var sizes=[]; for(var i=0;i<K;i++) sizes.push(p);
+      var ev=computeEvent(sizes,C,F);
+      if(!ev) continue;
+      if(ev.totalMinutes<=budget){
+        var tot=p*K;
+        if(!best || tot>best.tot || (tot===best.tot && ev.totalMinutes<best.min)) best={p:p,F:F,tot:tot,min:ev.totalMinutes};
+      } else break;
+    }
+  });
+  return best;
 }
 function pickRec(which){
   var rec = which==="2" ? ST.rec2 : ST.rec1;
@@ -1014,12 +1057,31 @@ function buildDemoFromPlan(){
 
 /* ================= STEP NAV + UI ================= */
 function stepsBar(cur){
-  var names=["Setup","Courts","Result","Simulate"], h="";
+  var cap=ST.mode==="capacity";
+  var names = cap ? ["Setup","Result","Simulate"] : ["Setup","Courts","Result","Simulate"];
+  var disp = cap ? ({1:1,3:2,4:3}[cur]||1) : cur;
+  var h="";
   names.forEach(function(nm,i){
     if(i) h+='<span class="bar"></span>';
-    h+='<span class="s '+(cur===i+1?"on":(cur>i+1?"done":""))+'"><span class="dot">'+(i+1)+'</span><span class="nm">'+nm+'</span></span>';
+    h+='<span class="s '+(disp===i+1?"on":(disp>i+1?"done":""))+'"><span class="dot">'+(i+1)+'</span><span class="nm">'+nm+'</span></span>';
   });
   $("steps").innerHTML=h;
+}
+function setMode(m){
+  ST.mode=m;
+  var cap=m==="capacity";
+  Array.prototype.forEach.call($("modeSeg").querySelectorAll("button"), function(b){
+    b.setAttribute("aria-pressed", b.getAttribute("data-mode")===m ? "true":"false");
+  });
+  $("cardPairs").style.display=cap?"none":"";
+  $("cardCap").style.display=cap?"":"none";
+  $("cardFmt").style.display=cap?"none":"";
+  $("toCourts").style.display=cap?"none":"";
+  $("toResultCap").style.display=cap?"":"none";
+  $("modeHelp").textContent = cap
+    ? "You know your courts and hours — we recommend the most pairs that fit."
+    : "You know how many pairs will play — we plan the schedule and courts.";
+  stepsBar(1);
 }
 function showStep(step){
   ST.step=step;
@@ -1032,6 +1094,8 @@ function syncSetup(){
   ST.K=Math.max(1,Math.min(KMAX,Math.round(n("catCount"))));
   ensureCats(ST.K);
   recomputeTotal();
+  ST.capCourts=Math.max(1,Math.min(12,Math.round(n("capCourts"))));
+  ST.capHours=Math.max(2,Math.min(24,n("capHours")||12));
 }
 function buildFmt(){
   $("fmtCtrl").innerHTML=FORMATS.map(function(f){
@@ -1123,6 +1187,9 @@ $("gBtn").onclick=function(){
 $("gEmail").onkeydown=function(e){ if(e.key==="Enter") $("gBtn").click(); };
 
 /* ---------- setup handlers ---------- */
+Array.prototype.forEach.call($("modeSeg").querySelectorAll("button"), function(b){
+  b.onclick=function(){ setMode(b.getAttribute("data-mode")); };
+});
 $("catCount").oninput=onCatChange;
 Array.prototype.forEach.call(document.querySelectorAll("[data-step]"), function(e2){
   e2.onclick=function(){
@@ -1140,7 +1207,19 @@ $("toCourts").onclick=function(){
   showStep(2);
 };
 $("backS1").onclick=function(){ showStep(1); };
-$("toResult").onclick=renderResult;
+$("toResult").onclick=function(){ renderResult(); };
+$("toResultCap").onclick=function(){
+  syncSetup();
+  var cap=findCapacityRec();
+  if(!cap){
+    ST.rec1=null; ST.rec2=null;
+    $("S3").innerHTML='<button class="back" id="bkR">← Edit setup</button><div class="advice err"><b class="h">Doesn’t fit</b>Even the smallest bracket for '+ST.K+' categor'+(ST.K>1?"ies":"y")+' won’t fit in '+ST.capHours+'h on '+ST.capCourts+' courts. Add hours or courts.</div>';
+    $("bkR").onclick=function(){ showStep(1); }; showStep(3); return;
+  }
+  ST.catPairs=[]; for(var i=0;i<ST.K;i++) ST.catPairs.push(cap.p);
+  ST.fmt=cap.F; ST.courts=ST.capCourts;
+  renderResult(cap);
+};
 
 /* ---------- viewer + overlay ---------- */
 $("vBack").onclick=function(){ $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){} };
@@ -1150,6 +1229,7 @@ $("ov").onclick=function(e){ if(e.target===$("ov")) $("ov").className="overlay";
 buildFmt();
 ensureCats(1);
 renderPairs();
+setMode("players");
 showStep(1);
 </script>
 </body>
