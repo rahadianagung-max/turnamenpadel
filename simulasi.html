@@ -876,12 +876,12 @@ function renderSim(){
   var h='<button class="back" id="bkS3">← Back to result</button>'+
     '<div class="simhero"><div class="eyebrow">Tournament simulation · '+esc(nr.startS)+'–'+esc(nr.finishS)+'</div>'+
     '<h2>Feel your tournament</h2>'+
-    '<p>'+(rec.adjTotal||rec.P)+' pairs · '+rec.K+' categor'+(rec.K>1?"ies":"y")+' · '+rec.courts+' courts. The screens below are filled from your plan — real groups, real times, scores, bracket and podium.</p>'+
+    '<p>'+(rec.adjTotal||rec.P)+' pairs · '+rec.K+' categor'+(rec.K>1?"ies":"y")+' · '+rec.courts+' courts. The screens below are filled from your plan — real groups, real times, live scores and standings, as if the tournament is mid-run.</p>'+
     '<div class="devnote">These screens are built for a TV or computer display. On a phone they will look cramped — open them on a big screen for the full effect.</div>'+
     '<div class="simbtns">'+
       '<button class="simbtn" data-view="mobile"><span class="ic">📱</span><b>Player page</b><small>Each player’s schedule, court &amp; next match.</small></button>'+
       '<button class="simbtn" data-view="scorer"><span class="ic">🖊️</span><b>Scorer page</b><small>Court-by-court score entry desk.</small></button>'+
-      '<button class="simbtn" data-view="tv"><span class="ic">📺</span><b>TV LED page</b><small>Live scores &amp; bracket for venue screens.</small></button>'+
+      '<button class="simbtn" data-view="tv"><span class="ic">📺</span><b>TV LED page</b><small>Live scores &amp; group standings for venue screens.</small></button>'+
     '</div></div>'+
     interestedBlock();
   $("S4").innerHTML=h;
@@ -986,10 +986,14 @@ function buildDemoFromPlan(){
   while(more){ more=false; order.forEach(function(k){ if(byKey[k].length){ inter.push(byKey[k].shift()); more=true; } }); }
   var lastSlot=0;
   inter.forEach(function(m,i){ m.court=(i%courts)+1; m.slot=Math.floor(i/courts)+1; m.time=_tstr(startM+(m.slot-1)*slotLen); lastSlot=Math.max(lastSlot,m.slot); });
-  /* simulate skor grup */
-  inter.forEach(function(m){ var w=6,l=_ri(0,5); if(Math.random()<0.5){m.sa=w;m.sb=l;}else{m.sa=l;m.sb=w;} m.a.P++;m.b.P++;m.a.gf+=+m.sa;m.a.ga+=+m.sb;m.b.gf+=+m.sb;m.b.ga+=+m.sa; if(+m.sa>+m.sb)m.a.W++; else m.b.W++; });
+  /* Live mid-group-stage: play ~2/3 of the slots and leave the rest upcoming, so the
+     screens look like a tournament in progress and the TV shows the GROUP STAGE. */
+  var cutoff = lastSlot<=2 ? 1 : Math.max(1, Math.round(lastSlot*0.66));
+  inter.forEach(function(m){
+    if(m.slot<=cutoff){ var w=6,l=_ri(0,5); if(Math.random()<0.5){m.sa=w;m.sb=l;}else{m.sa=l;m.sb=w;}
+      m.a.P++;m.b.P++;m.a.gf+=+m.sa;m.a.ga+=+m.sb;m.b.gf+=+m.sb;m.b.ga+=+m.sa; if(+m.sa>+m.sb)m.a.W++; else m.b.W++; }
+  });
 
-  var poClock=startM+lastSlot*slotLen+R.mBreak;
   var outCats=cats.map(function(C){
     var adv=qualOf(Math.max.apply(null,C.conf.sizes)); /* top-N seragam untuk preview */
     var groupsOut=C.groups.map(function(g){
@@ -999,55 +1003,14 @@ function buildDemoFromPlan(){
       }) };
     });
     var sched=C.gm.map(function(m){
+      var d=(m.sa!=null&&m.sb!=null);
       return { matchId:'C'+C.ci+'_'+m.gl+'_'+m.a.eid+'_'+m.b.eid, court:m.court, slot:m.slot, time:m.time, groupLabel:m.gl,
         entrantA:m.a.eid, entrantB:m.b.eid, teamA:m.a.team, teamB:m.b.team,
-        scoreA:+m.sa, scoreB:+m.sb, winner:(+m.sa>+m.sb?m.a.eid:m.b.eid), status:'DONE', updatedAt:'' };
+        scoreA:d?+m.sa:'', scoreB:d?+m.sb:'', winner:d?(+m.sa>+m.sb?m.a.eid:m.b.eid):'', status:d?'DONE':'SCHEDULED', updatedAt:'' };
     });
-    /* seed bracket: top-adv tiap grup, urut rank lalu grup */
-    var seeds=[]; C.groups.forEach(function(g,ggi){ var r=_grank(g.teams); for(var kk=0;kk<adv;kk++) if(r[kk]) seeds.push({t:r[kk],rank:kk,grp:ggi}); });
-    seeds.sort(function(x,y){ return x.rank-y.rank || x.grp-y.grp; });
-    var Q=seeds.length, N=1; while(N<Q)N*=2; if(N<2)N=2;
-    var pos=_seedPos(N), slots=[]; for(var i2=0;i2<N;i2++){ var s=pos[i2]; slots.push(s<Q?seeds[s].t:null); }
-    var round0=[]; for(var mm=0;mm<N/2;mm++) round0.push({a:slots[2*mm],b:slots[2*mm+1],sa:null,sb:null,w:null,l:null});
-    var rounds=[round0], sz=round0.length, rr=1;
-    while(sz>1){ var nx=[]; for(var z=0;z<sz/2;z++) nx.push({a:null,b:null,sa:null,sb:null,w:null,l:null}); rounds.push(nx); sz/=2; rr++; }
-    var third={a:null,b:null,sa:null,sb:null,w:null};
-    function propagate(){
-      for(var r=0;r<rounds.length;r++){ rounds[r].forEach(function(m,mi){
-        if(r===0 && m.a && !m.b){ m.w=m.a; m.l=null; }
-        else if(r===0 && !m.a && m.b){ m.w=m.b; m.l=null; }
-        else if(m.a&&m.b&&m.sa!=null&&m.sb!=null){ m.w=(+m.sa>+m.sb)?m.a:m.b; m.l=(+m.sa>+m.sb)?m.b:m.a; }
-        else { m.w=null; m.l=null; }
-        if(r+1<rounds.length){ var nm=rounds[r+1][Math.floor(mi/2)]; if(mi%2===0)nm.a=m.w; else nm.b=m.w; }
-      }); }
-      var last=rounds.length-1;
-      if(last>=1){ var sf=rounds[last-1]; third.a=sf[0]?sf[0].l:null; third.b=sf[1]?sf[1].l:null;
-        if(third.a&&third.b&&third.sa!=null&&third.sb!=null) third.w=(+third.sa>+third.sb)?third.a:third.b; }
-    }
-    propagate();
-    for(var r3=0;r3<rounds.length;r3++){ rounds[r3].forEach(function(m){ if(m.a&&m.b){ var w=6,l=_ri(0,5); if(Math.random()<0.5){m.sa=w;m.sb=l;}else{m.sa=l;m.sb=w;} } }); propagate(); }
-    if(third.a&&third.b){ var w4=6,l4=_ri(0,5); if(Math.random()<0.5){third.sa=w4;third.sb=l4;}else{third.sa=l4;third.sb=w4;} }
-    propagate();
-    var L=rounds.length, nQual=0; round0.forEach(function(m){ if(m.a)nQual++; if(m.b)nQual++; });
-    var roundsOut=rounds.map(function(rd,r){
-      return { round:r+1, matches:rd.map(function(m,idx){
-        var bye=r===0 && ((m.a&&!m.b)||(!m.a&&m.b));
-        var d=m.a&&m.b&&m.sa!=null&&m.sb!=null;
-        return { round:r+1, idx:idx, entrantA:m.a?m.a.eid:'', entrantB:m.b?m.b.eid:'',
-          teamA:m.a?m.a.team:'', teamB:m.b?m.b.team:'', scoreA:d?+m.sa:'', scoreB:d?+m.sb:'',
-          winner:m.w?m.w.eid:'', status:bye?'BYE':(d?'DONE':'SCHEDULED'), updatedAt:'' };
-      }) };
-    });
-    var bronze=null;
-    if(third.a||third.b){ var td=third.a&&third.b&&third.sa!=null&&third.sb!=null;
-      bronze={ round:'BRONZE', idx:0, entrantA:third.a?third.a.eid:'', entrantB:third.b?third.b.eid:'',
-        teamA:third.a?third.a.team:'', teamB:third.b?third.b.team:'', scoreA:td?+third.sa:'', scoreB:td?+third.sb:'',
-        winner:third.w?third.w.eid:'', status:td?'DONE':'SCHEDULED', updatedAt:'' }; }
-    var finalM=rounds[L-1][0], champ=finalM.w, runner=finalM.w?(finalM.w===finalM.a?finalM.b:finalM.a):null;
-    var podium={ champion:champ?champ.eid:'', runnerUp:runner?runner.eid:'', third:third.w?third.w.eid:'' };
-    return { tournamentId:'TSIM'+C.ci, category:C.name, level:'bronze', format:'SINGLE', status:'DONE',
-      advancersPerGroup:adv, entrants:C.entrants, groups:groupsOut, schedule:sched,
-      playoff:[{ tier:'MAIN', nQual:nQual, numRounds:L, rounds:roundsOut, bronze:bronze, podium:podium }] };
+    /* Live mid-group-stage: no playoff generated yet, so the TV shows group standings. */
+    return { tournamentId:'TSIM'+C.ci, category:C.name, level:'bronze', format:'SINGLE', status:'RUNNING',
+      advancersPerGroup:adv, entrants:C.entrants, groups:groupsOut, schedule:sched, playoff:[] };
   });
 
   return {
