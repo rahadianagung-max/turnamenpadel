@@ -471,7 +471,7 @@ function c2(x){ return x*(x-1)/2; }
 function syncR(){
   R.mGroup=n("mGroup"); R.mPlayoff=n("mPlayoff"); R.mFinal=n("mFinal"); R.mChange=n("mChange");
   R.mBreak=n("mBreak"); R.mOpen=n("mOpen"); R.mAward=n("mAward"); R.buffer=n("mBuffer"); R.third=$("opt3rd").checked;
-  R.lockInput=$("optLock").checked; R.finalSeq=$("optFinalSeq").checked;
+  R.lockInput=$("optLock").checked; R.finalSeq=!$("optFinalSeq").checked; /* toggle = "finals simultaneous"; finalSeq means sequential */
   EVENT.start=($("evStart").value||"08:00").trim(); EVENT.date=($("evDate").value||"").trim();
   EVENT.city=($("evCity").value||"").trim();
 }
@@ -752,7 +752,7 @@ function narrative(rec){
   var txt="Tournament with "+P+" pairs across "+catWord+" on "+C+" courts. Format: "+fmtLabel(rec.fmt)+
     ". Finals: "+(seq?"one category at a time to podium":"simultaneous")+
     ". Estimated start "+startS+", finish by "+finishS+" (~"+hm(ev.totalMinutes)+"). Run-down: "+
-    lines.map(function(l){ return l.label.replace(/<[^>]+>/g,"")+" "+l.tm; }).join("; ")+".";
+    lines.map(function(l){ return l.tm+" "+l.label.replace(/<[^>]+>/g,""); }).join("; ")+".";
   return { html:html, text:txt, startS:startS, finishS:finishS };
 }
 
