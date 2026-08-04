@@ -310,6 +310,13 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 .catrowtot b{color:var(--text)}
 .mini-btn{background:var(--panel2);border:1px solid var(--line);color:var(--orange);border-radius:8px;padding:8px 12px;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:12px;cursor:pointer}
 .mini-btn:hover{border-color:var(--orange)}
+.gi{margin:0 16px 14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.gi-h{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px}
+.gi-row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-top:1px solid #1E2128;font-size:12.5px}
+.gi-row:first-of-type{border-top:0}
+.gi-cat{color:var(--text);font-weight:600}
+.gi-d{color:#C6CBD3;text-align:right;font-variant-numeric:tabular-nums}
+.gi-d .free{color:var(--green)}
 </style>
 </head>
 <body>
@@ -795,6 +802,24 @@ function narrative(rec){
 }
 
 /* ---------- result rendering ---------- */
+function groupsInfo(rec){
+  var rows=rec.ev.info.map(function(x){
+    var nm=x.title||x.name;
+    return '<div class="gi-row"><span class="gi-cat">'+esc(nm)+'</span><span class="gi-d">'+
+      x.pairs+' pairs · '+sizesLabel(x.conf.sizes)+' · '+x.conf.Q+' advance'+
+      (x.conf.byes?' · '+x.conf.byes+' bye'+(x.conf.byes>1?'s':''):'')+'</span></div>';
+  }).join("");
+  return '<div class="gi"><div class="gi-h">Groups per category</div>'+rows+'</div>';
+}
+function courtAlloc(rec){
+  var ev=rec.ev, C=ev.courts;
+  var rows=ev.blocks.map(function(b){
+    var used=Math.max(1,Math.min(b.courts,C)), free=C-used;
+    return '<div class="gi-row"><span class="gi-cat">'+esc(b.label)+'</span><span class="gi-d">'+
+      used+' / '+C+' court'+(C>1?'s':'')+(free>0?' · <span class="free">'+free+' free</span>':'')+'</span></div>';
+  }).join("");
+  return '<div class="gi"><div class="gi-h">Court allocation by stage</div>'+rows+'</div>';
+}
 function recCard(rec, isAlt, diff){
   var ev=rec.ev, nr=narrative(rec);
   var adjNote = rec.adjusted ? " · adjusted to "+rec.adjTotal+" pairs for a bye-free bracket"
@@ -813,6 +838,7 @@ function recCard(rec, isAlt, diff){
       '<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc(sub)+'</div></div>'+
       '<div class="recbig">'+hm(ev.totalMinutes).replace(" hr","h").replace(" min","m")+'<small>DURATION</small></div></div>'+
     '<div class="recnarr">'+prose+'</div>'+
+    groupsInfo(rec)+courtAlloc(rec)+
     nr.html+
     '<div class="recmeta"><span class="chip"><b>'+ev.totalMatches+'</b> matches</span>'+
       '<span class="chip">start <b>'+nr.startS+'</b></span><span class="chip">finish <b>'+nr.finishS+'</b></span>'+tag+'</div>'+
