@@ -303,6 +303,13 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 .svcbtn span{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
 .svcmsg{font-size:12.5px;text-align:center;margin-top:12px;color:var(--muted)}
 .resetrow{margin-top:14px;text-align:center}
+.catrow{display:grid;grid-template-columns:1fr minmax(150px,auto);gap:10px;align-items:center;margin-bottom:9px}
+.catrow .catname{background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:11px 12px;font:inherit;font-size:14px;outline:none}
+.catrow .catname:focus{border-color:var(--orange)}
+.catrowtot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding-top:11px;border-top:1px dashed var(--line);font-size:13px;color:var(--muted)}
+.catrowtot b{color:var(--text)}
+.mini-btn{background:var(--panel2);border:1px solid var(--line);color:var(--orange);border-radius:8px;padding:8px 12px;font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.05em;font-weight:700;font-size:12px;cursor:pointer}
+.mini-btn:hover{border-color:var(--orange)}
 </style>
 </head>
 <body>
@@ -336,12 +343,8 @@ textarea#lfNotes:focus{border-color:var(--orange)}
   <div id="S1">
     <div class="card">
       <h2>Number of pairs</h2>
-      <div class="hint">How many pairs (teams) are you planning for?</div>
-      <div class="stepper">
-        <button type="button" id="pMinus">−</button>
-        <input type="number" id="pTotal" value="32" min="4" max="200">
-        <button type="button" id="pPlus">+</button>
-      </div>
+      <div class="hint" id="pairsHint">How many pairs (teams) are you planning for?</div>
+      <div id="pairsBody"></div>
       <div class="seghelp" id="pHelp"></div>
     </div>
 
@@ -665,7 +668,7 @@ function runSheet(ev){
   return h;
 }
 /* ===== new flow state ===== */
-var ST={ step:1, pairs:32, K:1, courts:3, fmt:"balanced", chosen:null, rec1:null, rec2:null };
+var ST={ step:1, pairs:32, K:1, courts:3, fmt:"balanced", catPairs:[32], catNames:[""], chosen:null, rec1:null, rec2:null };
 
 /* ---------- schedule timing helpers ---------- */
 function annotateTimes(ev){
@@ -682,33 +685,44 @@ function annotateTimes(ev){
 }
 
 /* ---------- category split for fixed K ---------- */
-function sizesFor(P,K,F,lock){
-  if(lock){ var e=exactForK(P,K,F); return e?{sizes:e.sizes,total:P,adjusted:false,byes:e.byes}:null; }
-  var r=recommendForK(P,K,F);
+/* Per-category sizes: 2+ categories use the exact numbers the user typed (each may
+   differ); a single category uses the auto/adjusted split from lock state. */
+function sizesForPlan(F,lock){
+  var K=ST.K;
+  if(K>=2){
+    var s=ST.catPairs.slice(0,K), byes=0;
+    for(var i=0;i<s.length;i++){ var c=bestConfig(s[i],F); if(!c) return null; byes+=c.byes; }
+    return { sizes:s, total:s.reduce(function(a,b){return a+b;},0), adjusted:false, byes:byes };
+  }
+  var P=ST.catPairs[0]||ST.pairs;
+  if(lock){ var e=exactForK(P,1,F); return e?{sizes:e.sizes,total:P,adjusted:false,byes:e.byes}:null; }
+  var r=recommendForK(P,1,F);
   if(r) return {sizes:r.sizes,total:r.total,adjusted:r.total!==P,byes:0};
-  var e2=exactForK(P,K,F); return e2?{sizes:e2.sizes,total:P,adjusted:false,byes:e2.byes}:null;
+  var e2=exactForK(P,1,F); return e2?{sizes:e2.sizes,total:P,adjusted:false,byes:e2.byes}:null;
 }
-function makeRec(P,K,courts,F,seq,lock){
+function makeRec(courts,F,seq,lock){
   var savedClean=R.preferClean; R.preferClean=!!lock;
-  var sz=sizesFor(P,K,F,lock);
+  var sz=sizesForPlan(F,lock);
   if(!sz){ R.preferClean=savedClean; return null; }
   var savedSeq=R.finalSeq; R.finalSeq=seq;
   var ev=computeEvent(sz.sizes,courts,F);
   R.finalSeq=savedSeq; R.preferClean=savedClean;
   if(!ev) return null;
   annotateTimes(ev);
-  return { P:P, K:K, courts:courts, fmt:F, seq:seq, lock:lock, sizes:sz.sizes,
-           adjTotal:sz.total, adjusted:sz.adjusted, byes:sz.byes||0, ev:ev, totalMinutes:ev.totalMinutes };
+  ev.info.forEach(function(x,i){ x.title=(ST.catNames[i]&&ST.catNames[i].trim())||x.name; });
+  return { P:sz.total, K:ST.K, courts:courts, fmt:F, seq:seq, lock:lock, sizes:sz.sizes,
+           adjTotal:sz.total, adjusted:sz.adjusted, byes:sz.byes||0, ev:ev, totalMinutes:ev.totalMinutes,
+           names:ST.catNames.slice(0,ST.K) };
 }
 function buildRecommendations(){
-  var P=ST.pairs, K=ST.K, C=ST.courts, F=ST.fmt, seq=R.finalSeq, lock=R.lockInput;
-  var rec1=makeRec(P,K,C,F,seq,lock);
+  var C=ST.courts, F=ST.fmt, seq=R.finalSeq, lock=R.lockInput;
+  var rec1=makeRec(C,F,seq,lock);
   if(!rec1) return { rec1:null, rec2:null };
   var best=null;
   ["fast","balanced","fair"].forEach(function(f2){
     [false,true].forEach(function(s2){
       if(f2===F && s2===seq) return;
-      var r=makeRec(P,K,C,f2,s2,lock);
+      var r=makeRec(C,f2,s2,lock);
       if(!r) return;
       if(!best || r.totalMinutes<best.totalMinutes) best=r;
     });
@@ -764,8 +778,12 @@ function recCard(rec, isAlt, diff){
   var title = isAlt ? "Alternative — faster" : "Recommended";
   var sub = isAlt ? ("Change: "+esc(diff.changes)) : (fmtLabel(rec.fmt)+" · "+((rec.seq&&rec.K>1)?"sequential finals":"simultaneous finals"));
   var tag = isAlt ? ('<span class="rectag">Saves '+hm(diff.save)+'</span>') : '<span class="rectag">Your setup</span>';
+  var breakdown="";
+  if(rec.K>1){
+    breakdown=" ("+rec.sizes.map(function(s,i){ var nm=rec.names&&rec.names[i]&&rec.names[i].trim(); return (nm?esc(nm)+" ":"")+s; }).join(" + ")+" pairs)";
+  }
   var prose = "A tournament with <b>"+(rec.adjTotal||rec.P)+" pairs</b> across <b>"+rec.K+" categor"+(rec.K>1?"ies":"y")+
-    "</b> on <b>"+rec.courts+" courts</b>"+adjNote+", estimated to start at <b>"+nr.startS+"</b> and finish by <b>"+nr.finishS+"</b>.";
+    "</b>"+breakdown+" on <b>"+rec.courts+" courts</b>"+adjNote+", estimated to start at <b>"+nr.startS+"</b> and finish by <b>"+nr.finishS+"</b>.";
   return '<button class="rec '+(isAlt?"alt":"reco")+'" data-pick="'+(isAlt?"2":"1")+'">'+
     '<div class="rechead"><div><div class="rectitle">'+title+'</div>'+
       '<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc(sub)+'</div></div>'+
@@ -877,7 +895,7 @@ function submitService(service){
   $("ovClose").onclick=function(){ $("ov").className="overlay"; };
 }
 function resetAll(){
-  ST={ step:1, pairs:Math.max(4,Math.round(n("pTotal"))), K:Math.max(1,Math.round(n("catCount"))), courts:3, fmt:ST.fmt, chosen:null, rec1:null, rec2:null };
+  ST.chosen=null; ST.rec1=null; ST.rec2=null;
   $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){}
   $("S3").innerHTML=""; $("S4").innerHTML="";
   showStep(1);
@@ -914,7 +932,8 @@ function buildDemoFromPlan(){
     var gm=[];
     groups.forEach(function(g){ for(var i=0;i<g.teams.length;i++)for(var j=i+1;j<g.teams.length;j++) gm.push({cat:ci,gl:g.letter,a:g.teams[i],b:g.teams[j],sa:null,sb:null}); });
     gm.forEach(function(m){ allGroupMatches.push(m); });
-    cats.push({ci:ci,name:CATNAMES[ci]||("Category "+(ci+1)),groups:groups,teams:teams,entrants:entrants,gm:gm,conf:catInfo.conf});
+    var catNm=(ST.catNames[ci]&&ST.catNames[ci].trim())||CATNAMES[ci]||("Category "+(ci+1));
+    cats.push({ci:ci,name:catNm,groups:groups,teams:teams,entrants:entrants,gm:gm,conf:catInfo.conf});
   });
 
   /* jadwal grup: interleave antar-grup, sebar ke court, jam nyata dari EVENT.start */
@@ -1010,8 +1029,9 @@ function showStep(step){
 }
 function syncSetup(){
   syncR();
-  ST.pairs=Math.max(GMIN,Math.round(n("pTotal")));
   ST.K=Math.max(1,Math.min(KMAX,Math.round(n("catCount"))));
+  ensureCats(ST.K);
+  recomputeTotal();
 }
 function buildFmt(){
   $("fmtCtrl").innerHTML=FORMATS.map(function(f){
@@ -1021,14 +1041,71 @@ function buildFmt(){
     b.onclick=function(){ ST.fmt=b.getAttribute("data-fmt"); buildFmt(); };
   });
 }
+/* ---- dynamic per-category pair inputs ---- */
+function pairMinMax(){ return ST.K>=2 ? {min:GMIN,max:80} : {min:GMIN,max:200}; }
+function ensureCats(K){
+  ST.K=Math.max(1,Math.min(KMAX,K));
+  var arr=ST.catPairs.slice();
+  while(arr.length<ST.K) arr.push(arr.length?arr[arr.length-1]:24);
+  arr=arr.slice(0,ST.K).map(function(v){ return Math.max(GMIN,Math.round(v)||24); });
+  ST.catPairs=arr;
+  var nm=ST.catNames.slice(); while(nm.length<ST.K) nm.push(""); ST.catNames=nm.slice(0,ST.K);
+}
+function recomputeTotal(){ ST.pairs=ST.catPairs.slice(0,ST.K).reduce(function(a,b){return a+(Math.round(b)||0);},0); }
+function refreshTot(){ var el=$("catTot"); if(el) el.textContent=ST.pairs; }
+function stepperHtml(i,val,mm){
+  return '<div class="stepper"><button type="button" data-pc="minus" data-i="'+i+'">−</button>'+
+    '<input type="number" class="pcin" data-i="'+i+'" value="'+val+'" min="'+mm.min+'" max="'+mm.max+'">'+
+    '<button type="button" data-pc="plus" data-i="'+i+'">+</button></div>';
+}
+function renderPairs(){
+  var mm=pairMinMax(), body=$("pairsBody"), h="";
+  if(ST.K<=1){
+    $("pairsHint").textContent="How many pairs (teams) are you planning for?";
+    h=stepperHtml(0, ST.catPairs[0]||32, mm);
+  } else {
+    $("pairsHint").textContent="Pairs per category — each can differ. Name is optional.";
+    for(var i=0;i<ST.K;i++){
+      h+='<div class="catrow"><input type="text" class="catname" data-i="'+i+'" placeholder="Category '+(i+1)+' (optional)" value="'+esc(ST.catNames[i]||"")+'">'+stepperHtml(i, ST.catPairs[i]||24, mm)+'</div>';
+    }
+    recomputeTotal();
+    h+='<div class="catrowtot"><span>Total: <b id="catTot">'+ST.pairs+'</b> pairs</span><button type="button" class="mini-btn" id="splitEven">Split evenly</button></div>';
+  }
+  body.innerHTML=h;
+  bindPairs();
+  updateHelp();
+}
+function bindPairs(){
+  var body=$("pairsBody");
+  Array.prototype.forEach.call(body.querySelectorAll(".pcin"), function(inp){
+    inp.oninput=function(){ ST.catPairs[+inp.getAttribute("data-i")]=Math.max(0,Math.round(parseFloat(inp.value)||0)); recomputeTotal(); refreshTot(); updateHelp(); };
+  });
+  Array.prototype.forEach.call(body.querySelectorAll(".catname"), function(inp){
+    inp.oninput=function(){ ST.catNames[+inp.getAttribute("data-i")]=inp.value; };
+  });
+  Array.prototype.forEach.call(body.querySelectorAll("[data-pc]"), function(b){
+    b.onclick=function(){
+      var i=+b.getAttribute("data-i"), d=b.getAttribute("data-pc")==="plus"?1:-1, mm=pairMinMax();
+      var v=Math.min(mm.max, Math.max(mm.min, (Math.round(ST.catPairs[i])||0)+d));
+      ST.catPairs[i]=v; var inp=body.querySelector('.pcin[data-i="'+i+'"]'); if(inp) inp.value=v;
+      recomputeTotal(); refreshTot(); updateHelp();
+    };
+  });
+  var se=$("splitEven"); if(se) se.onclick=function(){ ST.catPairs=evenSplit(ST.pairs||(24*ST.K), ST.K); renderPairs(); };
+}
+function onCatChange(){ ensureCats(Math.max(1,Math.round(n("catCount")))); renderPairs(); }
 function updateCatHelp(){
-  var p=Math.max(0,Math.round(n("pTotal"))), K=Math.max(1,Math.round(n("catCount")));
-  var per=Math.floor(p/K), rem=p%K, s=rem? (per+1)+"–"+per : (""+per);
-  $("catHelp").innerHTML = K+" categor"+(K>1?"ies":"y")+" → ~<b>"+s+" pairs</b> each.";
+  if(ST.K<=1){ $("catHelp").innerHTML="Single category."; return; }
+  $("catHelp").innerHTML = ST.K+" categories: <b>"+ST.catPairs.slice(0,ST.K).join(" + ")+"</b> = "+ST.pairs+" pairs.";
 }
 function updateHelp(){
-  var p=Math.max(0,Math.round(n("pTotal")));
-  $("pHelp").innerHTML = p+" pairs = <b>"+(p*2)+" players</b>. Recommended: even counts and their multiples (16, 24, 32, 48…) give clean, bye-free brackets — but any number works.";
+  recomputeTotal();
+  if(ST.K<=1){
+    var p=ST.catPairs[0]||0;
+    $("pHelp").innerHTML = p+" pairs = <b>"+(p*2)+" players</b>. Recommended: even counts and their multiples (16, 24, 32, 48…) give clean, bye-free brackets — any number works.";
+  } else {
+    $("pHelp").innerHTML = "<b>"+ST.pairs+"</b> pairs total = <b>"+(ST.pairs*2)+"</b> players across "+ST.K+" categories.";
+  }
   updateCatHelp();
 }
 
@@ -1046,21 +1123,19 @@ $("gBtn").onclick=function(){
 $("gEmail").onkeydown=function(e){ if(e.key==="Enter") $("gBtn").click(); };
 
 /* ---------- setup handlers ---------- */
-$("pMinus").onclick=function(){ $("pTotal").value=Math.max(4,(parseInt($("pTotal").value,10)||0)-1); updateHelp(); };
-$("pPlus").onclick =function(){ $("pTotal").value=Math.min(200,(parseInt($("pTotal").value,10)||0)+1); updateHelp(); };
-$("pTotal").oninput=updateHelp;
-$("catCount").oninput=updateCatHelp;
+$("catCount").oninput=onCatChange;
 Array.prototype.forEach.call(document.querySelectorAll("[data-step]"), function(e2){
   e2.onclick=function(){
     var t=$(e2.getAttribute("data-step")), d=+e2.getAttribute("data-d"), st=parseFloat(t.step)||1;
     var v=(parseFloat(t.value)||0)+d*st;
     t.value=Math.min(parseFloat(t.max), Math.max(parseFloat(t.min), v));
-    if(t.id==="catCount") updateCatHelp();
+    if(t.id==="catCount") onCatChange();
   };
 });
 $("toCourts").onclick=function(){
   syncSetup();
-  if(ST.pairs < GMIN*ST.K){ alert("You need at least "+(GMIN*ST.K)+" pairs for "+ST.K+" categories."); return; }
+  var tooSmall=ST.catPairs.slice(0,ST.K).some(function(v){ return v<GMIN; });
+  if(tooSmall){ alert("Each category needs at least "+GMIN+" pairs."); return; }
   $("courtsHint").innerHTML="For <b>"+ST.pairs+" pairs</b> across <b>"+ST.K+"</b> categor"+(ST.K>1?"ies":"y")+" — how many courts do you have?";
   showStep(2);
 };
@@ -1073,7 +1148,8 @@ $("ov").onclick=function(e){ if(e.target===$("ov")) $("ov").className="overlay";
 
 /* ---------- init ---------- */
 buildFmt();
-updateHelp();
+ensureCats(1);
+renderPairs();
 showStep(1);
 </script>
 </body>
