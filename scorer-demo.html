@@ -95,34 +95,17 @@ function renderTabs(){
     b.onclick=function(){ CAT=+b.getAttribute("data-i"); renderTabs(); renderBody(); };
   });
 }
+/* A scorer is assigned to a single court — this demo desk shows Court 1 only. */
 function renderBody(){
   var c=(DATA.categories||[])[CAT]; var el=document.getElementById("body");
   if(!c){ el.innerHTML='<div class="empty">No simulation loaded. Run a simulation first.</div>'; return; }
-  var courts={};
-  (c.schedule||[]).forEach(function(m){ (courts[m.court]=courts[m.court]||[]).push(m); });
-  var courtNos=Object.keys(courts).sort(function(a,b){return a-b;});
-  var h='<div class="sec">Group stage — order of play</div><div class="courts">';
-  h+=courtNos.map(function(no){
-    var list=courts[no].slice().sort(function(a,b){return (a.slot||0)-(b.slot||0);});
-    return '<div class="court"><div class="ch"><b>Court '+esc(no)+'</b><span>'+list.length+' matches</span></div>'+
-      list.map(function(m){ return matchCard(m, "Group "+m.groupLabel); }).join("")+'</div>';
-  }).join("");
-  h+='</div>';
-  // playoff
-  var po=(c.playoff||[])[0];
-  if(po && po.rounds){
-    h+='<div class="sec">Playoff bracket</div><div class="courts">';
-    h+=po.rounds.map(function(rd){
-      var mm=(rd.matches||[]).filter(function(m){ return m.teamA||m.teamB; });
-      if(!mm.length) return "";
-      return '<div class="court"><div class="ch"><b>'+esc(roundLabel(rd.round,po.numRounds))+'</b><span>'+mm.length+'</span></div>'+
-        mm.map(function(m){ return matchCard(m, ""); }).join("")+'</div>';
-    }).join("");
-    if(po.bronze && (po.bronze.teamA||po.bronze.teamB)){
-      h+='<div class="court"><div class="ch"><b>3rd place</b><span>1</span></div>'+matchCard(po.bronze,"")+'</div>';
-    }
-    h+='</div>';
-  }
+  var list=(c.schedule||[]).filter(function(m){ return String(m.court)==="1"; }).sort(function(a,b){ return (a.slot||0)-(b.slot||0); });
+  var h='<div class="sec">Court 1 — order of play</div>';
+  if(!list.length){ el.innerHTML=h+'<div class="empty">No matches on Court 1 for this category.</div>'; return; }
+  h+='<div class="courts" style="grid-template-columns:1fr;max-width:560px">'+
+    '<div class="court"><div class="ch"><b>Court 1</b><span>'+list.length+' matches</span></div>'+
+    list.map(function(m){ return matchCard(m, "Group "+m.groupLabel); }).join("")+
+    '</div></div>';
   el.innerHTML=h;
 }
 (function boot(){
