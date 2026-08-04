@@ -812,13 +812,14 @@ function groupsInfo(rec){
   return '<div class="gi"><div class="gi-h">Groups per category</div>'+rows+'</div>';
 }
 function courtAlloc(rec){
-  var ev=rec.ev, C=ev.courts;
-  var rows=ev.blocks.map(function(b){
-    var used=Math.max(1,Math.min(b.courts,C)), free=C-used;
-    return '<div class="gi-row"><span class="gi-cat">'+esc(b.label)+'</span><span class="gi-d">'+
-      used+' / '+C+' court'+(C>1?'s':'')+(free>0?' · <span class="free">'+free+' free</span>':'')+'</span></div>';
+  var ev=rec.ev, s=_tmin(EVENT.start), end=0;
+  ev.courtsInfo.forEach(function(c){ if(c.endMin>end) end=c.endMin; });
+  var rows=ev.courtsInfo.map(function(c){
+    if(!c.used) return '<div class="gi-row"><span class="gi-cat">Court '+c.no+'</span><span class="gi-d">not needed</span></div>';
+    var free = c.endMin<end ? ' · <span class="free">free after '+_tstr(s+c.endMin)+'</span>' : '';
+    return '<div class="gi-row"><span class="gi-cat">Court '+c.no+'</span><span class="gi-d">'+c.hours+' hr'+free+'</span></div>';
   }).join("");
-  return '<div class="gi"><div class="gi-h">Court allocation by stage</div>'+rows+'</div>';
+  return '<div class="gi"><div class="gi-h">Court hours needed</div>'+rows+'</div>';
 }
 function recCard(rec, isAlt, diff){
   var ev=rec.ev, nr=narrative(rec);
