@@ -456,6 +456,7 @@
       <div class="f"><label>Break 4 mulai (opsional)</label><input id="schBreak4Start" type="time" /></div>
       <div class="f"><label>Break 4 selesai</label><input id="schBreak4End" type="time" /></div>
     </div>
+    <div id="catStartsWrap" style="margin-top:8px"></div>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: hingga 4 jeda, isi jam mulai &amp; selesai tiap break (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break (kumulatif untuk beberapa break). Kosongkan pasangan yang tak dipakai.</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
@@ -693,7 +694,25 @@ async function loadTournaments(){
     sel.innerHTML = '<option value="">— pilih kategori —</option>' +
       state.tournaments.map(t=>`<option value="${t.tournamentId}">${esc(t.category)} · ${LEVEL_LABEL[t.level]||t.level} · ${t.format}</option>`).join("");
     if(state.tournament) sel.value = state.tournament.tournamentId;
+    renderCatStarts();
   }catch(e){ toast(e.message, true); }
+}
+function renderCatStarts(){
+  const wrap = document.getElementById("catStartsWrap"); if(!wrap) return;
+  const ts = state.tournaments || [];
+  if(ts.length <= 1){ wrap.innerHTML = ""; return; }
+  const evStart = val("schStart") || (state.event && state.event.startTime) || "09:00";
+  wrap.innerHTML =
+    '<div style="text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:var(--muted);margin:2px 0 6px"><b>Jam mulai per kategori (batch)</b></div>'
+    + '<div class="grid">' + ts.map(t =>
+        '<div class="f"><label>'+esc(t.category)+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+esc(evStart)+'"></div>'
+      ).join("") + '</div>'
+    + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">Kosong = ikut jam mulai event ('+esc(evStart)+'). Isi berbeda untuk main dua batch — mis. Women 09:00, Men 14:00 (harus ≥ jam mulai event). Kategori berjam-mulai sama tetap berbagi court.</p>';
+}
+function collectCatStarts(){
+  const out = {};
+  document.querySelectorAll('#catStartsWrap input[data-tid]').forEach(i => { const v=(i.value||"").trim(); if(v) out[i.getAttribute('data-tid')] = v; });
+  return out;
 }
 async function createTournament(){
   if(!state.event) return toast("Pilih event dulu", true);
@@ -874,6 +893,7 @@ function fillScheduleParams(){
   const cn = document.getElementById("schCourtNums");
   if(cn) cn.value = e.courtNumbers || "";
   fillBreaks(e.breaks || (e.breakStart||e.breakEnd ? [{start:e.breakStart,end:e.breakEnd}] : []));
+  renderCatStarts();
 }
 // Prefill the 4 break input pairs from a breaks array.
 function fillBreaks(breaks){
@@ -942,8 +962,9 @@ async function generateSchedule(){
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
-      breaks: collectBreaks()
+      breaks: collectBreaks(), categoryStarts: collectCatStarts()
     }});
+    if(r && r.courtCollisionCount){ toast("⚠ "+r.courtCollisionCount+" slot court bentrok antar-batch — ada kategori yang meleber ke jam batch lain di court sama. Lebarkan jeda atau kurangi match.", true); }
     // backend persists overrides — reflect them locally so labels/context stay in sync
     state.event.startTime = val("schStart") || state.event.startTime;
     state.event.courtNumbers = val("schCourtNums") || "";
