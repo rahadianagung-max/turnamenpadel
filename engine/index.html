@@ -529,6 +529,7 @@
     <div class="elo-warn">Replay seluruh match (grup + playoff) secara kronologis dari ELO seed, pakai rumus Ranked Match. Hasil ditulis ke ELO_Log sebagai satu sesi turnamen. ELO peserta baru ikut terbentuk dari sini.</div>
     <div class="actions" style="margin-top:12px;">
       <button type="button" class="btn btn-primary" onclick="finalizeElo(false)">Hitung ELO akhir</button>
+      <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Salin baris event ini ke Tournament_Archive lalu bersihkan data operasionalnya">Arsipkan &amp; bersihkan event</button>
     </div>
     <div id="eloWrap" style="margin-top:16px;"></div>
   </section>
@@ -1332,6 +1333,29 @@ async function finalizeElo(force){
     if(e.status===409 || (e.data && e.data.alreadyDone)){
       wrap.innerHTML = `<div class="elo-note">ELO event ini sudah pernah dihitung. Menghitung ulang akan menghapus hasil sebelumnya lalu menghitung lagi dari ELO seed (aman, tidak dobel).
         <br><button type="button" class="btn btn-primary btn-sm" onclick="finalizeElo(true)">Hitung ulang dari seed</button></div>`;
+    } else {
+      wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
+    }
+  }
+}
+async function archiveEvent(force){
+  if(!state.event) return toast("Pilih event dulu", true);
+  const msg = force
+    ? "PAKSA arsipkan? ELO event ini belum difinalisasi — hasil match akan dihapus (tetap tersalin ke Tournament_Archive). Lanjut?"
+    : "Arsipkan lalu bersihkan data operasional event ini (grup, jadwal, skor)? Semua baris disalin dulu ke tab Tournament_Archive. ELO_Log, Players & Sessions tetap aman.";
+  if(!confirm(msg)) return;
+  const wrap = document.getElementById("eloWrap");
+  wrap.innerHTML = '<p class="muted">Mengarsipkan…</p>';
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/archive", { method:"POST", body:{ confirm:true, force: !!force }});
+    if(r.alreadyArchived){ wrap.innerHTML = `<div class="elo-note">Tidak ada data operasional untuk event ini — mungkin sudah diarsipkan.</div>`; return; }
+    const per = Object.keys(r.removed||{}).map(k=>`${k}: ${r.removed[k]}`).join(" · ");
+    wrap.innerHTML = `<div class="elo-note">✓ Diarsipkan. ${r.archivedRows||0} baris → ${esc(r.archivedTo||'Tournament_Archive')}.<br>Dihapus — ${esc(per||'tidak ada')}.<br><span class="muted">${esc(r.note||'')}</span></div>`;
+    toast("Event diarsipkan & dibersihkan");
+  }catch(e){
+    if(e.status===409 || (e.data && e.data.eloFinalized===false)){
+      wrap.innerHTML = `<div class="elo-note">ELO event ini belum difinalisasi. Sebaiknya hitung ELO akhir dulu (agar rating tersimpan) sebelum mengarsipkan.
+        <br><button type="button" class="btn btn-ghost btn-sm" onclick="archiveEvent(true)">Arsipkan tanpa ELO (paksa)</button></div>`;
     } else {
       wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
     }
