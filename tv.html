@@ -707,7 +707,7 @@ function render(){
 
 async function load(){
   try{
-    const d=await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public?live=1&_="+Date.now());
+    const d=await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public?live=1");
     state.data=d;
     CAT_LABEL="";
     // Dedicated single-category screen (?cat=…): keep only the matching category so
