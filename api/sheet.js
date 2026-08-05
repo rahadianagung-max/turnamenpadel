@@ -1723,13 +1723,13 @@ async function tListTournaments(params) {
     const ev = (er.data.values || []).find((x) => x[0] === params.eventId);
     if (!ev || (ev[13] || "") !== gAdmin) return respond(403, { error: "Not your tournament" });
   }
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
   let rows = r.data.values || [];
   if (params.eventId) rows = rows.filter((x) => x[1] === params.eventId);
   const tournaments = rows.map((x) => ({
     tournamentId: x[0], eventId: x[1], category: x[2], level: x[3], format: x[4],
     groupSizeTarget: parseInt(x[5]) || 4, advancersPerGroup: parseInt(x[6]) || 2,
-    status: x[7], adminUsername: x[8], createdAt: x[9],
+    status: x[7], adminUsername: x[8], createdAt: x[9], startTime: normClock(x[10]) || "",
   }));
   return respond(200, { tournaments });
 }
@@ -2392,8 +2392,9 @@ async function tScheduleEvent(eventId, body) {
   }
   const breaksOut = breaks.filter((x) => x.start || x.end);
 
-  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
-  const tournaments = (trRes.data.values || []).filter((x) => x[1] === eventId);
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
+  const allTr = trRes.data.values || [];
+  const tournaments = allTr.filter((x) => x[1] === eventId);
   if (!tournaments.length) return respond(400, { error: "Belum ada kategori di event ini" });
   const tids = tournaments.map((x) => x[0]);
 
@@ -2424,20 +2425,62 @@ async function tScheduleEvent(eventId, body) {
     g.length = (g.orderings[0] || []).length;
   }
 
-  const assign = assignGroupsToCourts(groups.map((g) => ({ key: g.key, length: g.length })), numCourts);
-  for (const g of groups) { g.court = courtNums[assign[g.key].court - 1]; g.startSlot = assign[g.key].startSlot; }
+  // ----- Per-category (batch) start times. Stored in Tournaments!K; may be
+  // overridden by body.categoryStarts { tid: "HH:MM" }. Categories that share a
+  // start time share the court grid (= old single-batch behavior). A later start
+  // packs that category into its own window on the same courts. -----
+  const catStartsIn = (b.categoryStarts && typeof b.categoryStarts === "object") ? b.categoryStarts : null;
+  const catStart = {};
+  for (const t of tids) {
+    const stored = normClock((tournaments.find((x) => x[0] === t) || [])[10]) || "";
+    const ov = catStartsIn ? (normClock(catStartsIn[t]) || "") : "";
+    catStart[t] = ov || stored || startTime;
+  }
+  if (catStartsIn) {
+    for (const t of tids) {
+      const ns = normClock(catStartsIn[t]) || "";
+      const idx = allTr.findIndex((x) => x[0] === t);
+      if (idx === -1) continue;
+      if (ns !== (normClock(allTr[idx][10] || "") || "")) {
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!K${idx + 2}`,
+          valueInputOption: "USER_ENTERED", requestBody: { values: [[ns]] },
+        });
+      }
+    }
+  }
+
+  // Assign courts per batch; give each group a GLOBAL startSlot (batch offset +
+  // local slot) so clash detection and ordering stay on one timeline.
+  const batchOf = new Map();
+  for (const g of groups) { const st = catStart[g.tid] || startTime; if (!batchOf.has(st)) batchOf.set(st, []); batchOf.get(st).push(g); }
+  for (const [st, bgroups] of batchOf) {
+    const a = assignGroupsToCourts(bgroups.map((g) => ({ key: g.key, length: g.length })), numCourts);
+    const bMin = hm2min(st); const bStartMin = (bMin == null ? startMin : bMin);
+    const offset = Math.max(0, Math.round((bStartMin - startMin) / matchMinutes));
+    for (const g of bgroups) {
+      g.court = courtNums[a[g.key].court - 1];
+      g.localStartSlot = a[g.key].startSlot;
+      g.startSlot = offset + g.localStartSlot;
+      g.batchStartMin = bStartMin;
+      g.isBase = (bStartMin === startMin);
+    }
+  }
 
   optimizeOrderings(groups, namesMap);
 
   const now = new Date().toISOString();
   const newRows = [];
   let count = 0;
+  // Base batch keeps the exact existing timeline (incl. breaks). Later batches
+  // use their own start time directly (breaks apply to the base/morning batch).
+  const wallTime = (g, j) => g.isBase ? slotTime(g.startSlot + j) : min2hm(g.batchStartMin + (g.localStartSlot + j) * matchMinutes);
   for (const g of groups) {
     const order = g.orderings[g.oi] || [];
     for (let j = 0; j < order.length; j++) {
       const { a, b, round } = order[j];
       const absSlot = g.startSlot + j;
-      const time = slotTime(absSlot);
+      const time = wallTime(g, j);
       newRows.push([g.tid, genId("MT"), "GROUP", g.label, "", round, g.court, absSlot, time, a, b, "", "", "", "SCHEDULED", now]);
       count++;
     }
@@ -2445,11 +2488,17 @@ async function tScheduleEvent(eventId, body) {
 
   const { detail } = totalClashes(groups, namesMap);
   const clashes = detail.map((d) => ({ slot: d.slot, time: slotTime(d.slot), players: d.players }));
+  // Court double-booking (a batch overrunning into a later batch on the same court).
+  const cellUse = new Map();
+  for (const r of newRows) { const k = r[6] + "|" + r[7]; cellUse.set(k, (cellUse.get(k) || 0) + 1); }
+  const courtCollisions = [];
+  for (const [k, c] of cellUse) if (c > 1) { const [ct, sl] = k.split("|"); courtCollisions.push({ court: +ct, slot: +sl, time: slotTime(+sl) }); }
 
   await rewriteEventGroupMatches(sheets, tids, newRows);
   return respond(200, {
     success: true, engine: "block-play-v1", scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
     breaks: breaksOut, breakStart: breaksOut[0] ? breaksOut[0].start : "", breakEnd: breaksOut[0] ? breaksOut[0].end : "", clashes, clashCount: clashes.length,
+    categoryStarts: catStart, courtCollisions, courtCollisionCount: courtCollisions.length,
   });
 }
 // All matches for one tournament (admin per-category view).
