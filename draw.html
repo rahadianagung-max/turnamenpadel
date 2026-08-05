@@ -264,8 +264,8 @@
     </div>
 
     <div class="controls">
-      <button class="btn-spin" id="btnSpin">PUTAR</button>
-      <button class="btn-run" id="btnRunAll">PUTAR SEMUA</button>
+      <button type="button" class="btn-spin" id="btnSpin">PUTAR</button>
+      <button type="button" class="btn-run" id="btnRunAll">PUTAR SEMUA</button>
     </div>
     <div class="runbar"><i id="runbarFill"></i></div>
     <div class="controls">
@@ -597,7 +597,8 @@
   /* ---------- Spin (mekanika mockup — jangan diubah) ---------- */
   function spin(){
     if(S.spinning||S.holding||S.done||!el.blocker.hidden) return;
-    var list=remaining(); if(!list.length) return;
+    if(!S.started||!S.pots||!S.pots.length){ stopAuto(); el.runHint.textContent="Muat pair lalu klik ‘Kunci daftar & susun pot’ dulu."; return; }
+    var list=remaining(); if(!list.length){ stopAuto(); el.runHint.textContent="Tidak ada pair tersisa untuk diputar."; return; }
     var pick=Math.floor(S.rand()*list.length), chosen=list[pick];
     var seg=360/list.length, center=pick*seg+seg/2;
     var jitter=(Math.random()-0.5)*seg*0.5, turns=5+Math.floor(Math.random()*3);
@@ -626,7 +627,7 @@
     setTimeout(function(){
       S.highlight=-1; S.holding=false; S.rotation=0; setWheelRotation(0); renderWheel();
       el.fade.style.opacity="1"; S.spinning=false; renderAll(); broadcast();
-      if(S.auto&&!S.done){ var jeda=parseInt(el.delay.value,10); S.timer=setTimeout(function(){ S.timer=null; if(S.auto) spin(); },jeda); }
+      if(S.auto&&!S.done){ var jeda=parseInt(el.delay&&el.delay.value,10); if(!(jeda>=0)) jeda=2200; S.timer=setTimeout(function(){ S.timer=null; if(S.auto){ try{ spin(); }catch(err){ stopAuto(); el.runHint.textContent="Berhenti: "+(err&&err.message||err); } } },jeda); }
     },fadeMs);
   }
   function land(pair){
@@ -653,7 +654,14 @@
     clearConfetti(); renderAll(); broadcast();
   }
   function stopAuto(){ S.auto=false; if(S.timer){ clearTimeout(S.timer); S.timer=null; } }
-  function runAll(){ if(S.done||!el.blocker.hidden) return; if(S.auto){ stopAuto(); renderAll(); return; } S.auto=true; renderAll(); if(!S.spinning) spin(); }
+  function runAll(){
+    if(S.done){ el.runHint.textContent="Undian sudah selesai."; return; }
+    if(!el.blocker.hidden) return;
+    if(!S.started||!S.pots||!S.pots.length){ el.runHint.textContent="Muat pair lalu klik ‘Kunci daftar & susun pot’ dulu."; return; }
+    if(S.auto){ stopAuto(); renderAll(); return; }
+    S.auto=true; renderAll();
+    if(!S.spinning) spin();
+  }
 
   /* ---------- Confetti ---------- */
   var cctx=null,parts=[],craf=null;
