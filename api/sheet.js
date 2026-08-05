@@ -306,7 +306,9 @@ const TABS = {
   calc_results: "Calculator_Results",
   draw_results: "Draw_Results",
   draw_log: "Draw_Log",
+  t_archive: "Tournament_Archive",
 };
+const T_ARCHIVE_HEADER = ["Archived_At", "Event_ID", "Source_Tab", "Row_JSON"];
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -537,6 +539,9 @@ const netlifyHandler = async (event) => {
     }
     if (path.startsWith("tournament/event/") && path.endsWith("/finalize-elo") && method === "POST") {
       return await tFinalizeElo(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo", "")), body && body.force);
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/archive") && method === "POST") {
+      return await tArchiveEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/archive", "")), body || {});
     }
     if (path.startsWith("tournament/event/") && path.endsWith("/public") && method === "GET") {
       const live = params.live === "1" || params.live === "true";
@@ -3633,6 +3638,95 @@ async function writeTournamentVenueRows(sheets, venueName, rows, sourceTag) {
   } catch (e) { console.error("venue rows write:", e); }
 }
 
+// Archive + purge a finished tournament event. Copies the event's rows to
+// Tournament_Archive, then removes them from the operational tabs ONLY.
+// ELO_Log, Players and Sessions are left intact (ratings + the SES_TRN marker),
+// so rankings and re-finalize protection are preserved. Destructive → requires
+// { confirm:true }; refuses unless ELO was finalized (Sessions has SES_TRN_<id>),
+// unless { force:true } is passed.
+async function tArchiveEvent(eventId, body) {
+  if (!eventId) return respond(400, { error: "eventId required" });
+  if (!body || body.confirm !== true) {
+    return respond(400, { error: "Destructive action. Send { confirm:true } to proceed." });
+  }
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+
+  const [evR, trR, seR] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.sessions}!A2:A` }),
+  ]);
+  const evRows = evR.data.values || [];
+  const evRow = evRows.find((x) => x[0] === eventId);
+  if (!evRow) return respond(404, { error: "Event not found" });
+  const eventName = evRow[1] || "";
+
+  const eloDone = (seR.data.values || []).some((r) => r[0] === "SES_TRN_" + eventId);
+  if (!eloDone && !body.force) {
+    return respond(409, {
+      error: "ELO for this event has not been finalized yet. Finalize ELO first, or send { confirm:true, force:true } to archive anyway.",
+      eloFinalized: false,
+    });
+  }
+
+  const trRows = trR.data.values || [];
+  const tids = trRows.filter((x) => x[1] === eventId).map((x) => x[0]);
+  const tidSet = new Set(tids);
+
+  // Each target: [tab, range, keepPredicate]
+  const targets = [
+    { tab: TABS.t_events,      range: "A2:V", keep: (x) => x[0] !== eventId },
+    { tab: TABS.t_tournaments, range: "A2:J", keep: (x) => x[1] !== eventId },
+    { tab: TABS.t_entrants,    range: "A2:K", keep: (x) => !tidSet.has(x[0]) },
+    { tab: TABS.t_groups,      range: "A2:H", keep: (x) => !tidSet.has(x[0]) },
+    { tab: TABS.t_matches,     range: "A2:Q", keep: (x) => !tidSet.has(x[0]) },
+  ];
+
+  // Phase 1 — read + split, and collect archive rows.
+  const now = new Date().toISOString();
+  const plans = [];
+  const archiveRows = [];
+  for (const t of targets) {
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${t.tab}!${t.range}` });
+    const rows = r.data.values || [];
+    const keep = [], removed = [];
+    for (const x of rows) (t.keep(x) ? keep : removed).push(x);
+    plans.push({ t, keep, removedCount: removed.length });
+    for (const x of removed) archiveRows.push([now, eventId, t.tab, JSON.stringify(x)]);
+  }
+
+  const totalRemoved = plans.reduce((a, p) => a + p.removedCount, 0);
+  if (totalRemoved === 0) {
+    return respond(200, { success: true, eventId, eventName, alreadyArchived: true, removed: {}, message: "No operational rows found for this event — nothing to archive." });
+  }
+
+  // Phase 2 — write archive FIRST (so nothing is deleted before it is safely copied).
+  await ensureTabWithHeader(sheets, TABS.t_archive, T_ARCHIVE_HEADER);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_archive}!A:D`, valueInputOption: "RAW",
+    requestBody: { values: archiveRows },
+  });
+
+  // Phase 3 — rewrite each operational tab keeping the header (row 1) and non-event rows.
+  const removedByTab = {};
+  for (const p of plans) {
+    if (p.removedCount === 0) { removedByTab[p.t.tab] = 0; continue; }
+    await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${p.t.tab}!${p.t.range}` });
+    if (p.keep.length) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: `${p.t.tab}!A2`, valueInputOption: "RAW", requestBody: { values: p.keep },
+      });
+    }
+    removedByTab[p.t.tab] = p.removedCount;
+  }
+
+  return respond(200, {
+    success: true, eventId, eventName, eloFinalized: eloDone,
+    archivedTo: TABS.t_archive, archivedRows: archiveRows.length, removed: removedByTab,
+    note: "ELO_Log, Players and Sessions were left intact. Registration tabs (RegForms/Registrations) and Form_Responses were not touched.",
+  });
+}
 async function tFinalizeElo(eventId, force) {
   const sheets = getSheets();
   await ensureTabs(sheets);
