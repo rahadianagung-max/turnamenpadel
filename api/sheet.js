@@ -15,7 +15,30 @@ function getAuth() {
 }
 
 function getSheets() {
-  return google.sheets({ version: "v4", auth: getAuth() });
+  return wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() }));
+}
+// Wrap every Sheets values.* / spreadsheets.* call in withSheetsRetry so transient
+// 429 (rate limit) / 5xx / dropped-socket errors back off and retry instead of
+// surfacing as a request error. Applies platform-wide (all ~230 call sites) in one
+// place. Idempotent per client; falls back to the raw client if patching fails.
+function wrapSheetsRetry(s) {
+  try {
+    const v = s && s.spreadsheets && s.spreadsheets.values;
+    if (v && !v.__retry) {
+      for (const m of ["get", "batchGet", "update", "append", "clear", "batchUpdate"]) {
+        if (typeof v[m] === "function") { const orig = v[m].bind(v); v[m] = (...a) => withSheetsRetry(() => orig(...a)); }
+      }
+      v.__retry = true;
+    }
+    const sp = s && s.spreadsheets;
+    if (sp && !sp.__retry) {
+      for (const m of ["get", "batchUpdate"]) {
+        if (typeof sp[m] === "function") { const orig = sp[m].bind(sp); sp[m] = (...a) => withSheetsRetry(() => orig(...a)); }
+      }
+      sp.__retry = true;
+    }
+  } catch (e) { /* fall back to the unwrapped client */ }
+  return s;
 }
 
 // Retry a Google Sheets call on transient failures (rate limits / 5xx / dropped
@@ -3530,8 +3553,11 @@ async function tPublicEvent(eventId, opts) {
   const evRows = val(0), trRows = val(1), allGroups = val(2), mRows = val(3), plRows = val(4), enRows = val(5);
   // Spectator board is identical for everyone: cache mobile at the CDN (slight delay OK),
   // keep TV always fresh (?live=1 -> no-store).
+  // Live polling is now edge-cacheable for a few seconds: concurrent viewers of
+  // the same event share ONE cached response instead of each hitting Sheets. 8s is
+  // well under the TV/mobile poll interval, so the board still feels live.
   const cc = (opts && opts.live)
-    ? "no-store, max-age=0"
+    ? "public, s-maxage=8, stale-while-revalidate=25"
     : "public, s-maxage=20, stale-while-revalidate=40";
 
   const evRow = evRows.find((x) => x[0] === eventId);
