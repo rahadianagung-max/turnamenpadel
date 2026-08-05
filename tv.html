@@ -604,9 +604,11 @@ function renderRight(){
   // bracket is intentionally NOT rotated in — the bracket appears only once the
   // real playoff has started (hasPlayoff above).
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
-  ROT_N=cats.length; titleEl.textContent="Group Standings"+catSuffix(cats);
+  // Show every category's standings together (each as its own labelled block)
+  // instead of rotating one at a time — clearer when categories run in separate batches.
+  ROT_N=1; titleEl.textContent="Group Standings";
   if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
-  const blocks=rotateCats(cats).map(c=>{
+  const blocks=cats.map(c=>{
     const cap=capFor(c);
     const groups=c.groups.filter(g=>g.standings.length);
     // Two-row layout: 2 groups -> side by side; else fill top row left→right, then
@@ -790,7 +792,9 @@ async function resolveEventId(){
       const nBracket=cats.filter(c=>(c.playoff||[]).length).length;
       const nProj=cats.filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))).length;
       const nStand=cats.filter(c=>c.groups&&c.groups.some(g=>g.standings.length)).length;
-      if(Math.max(nBracket,nProj,nStand)>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
+      // Standings no longer rotate (all categories are shown together); only the
+      // bracket / projection views cycle between categories.
+      if(Math.max(nBracket,nProj)>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
     }, 60000);
     setInterval(updateRotCountdown, 1000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
