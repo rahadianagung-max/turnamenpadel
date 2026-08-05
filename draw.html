@@ -339,7 +339,7 @@
   };
 
   var el = {};
-  ["rail","groups","eyebrow","headline","progress","log","seedHash","seedPlain","validity","blocker","blockerMsg","blockerFix","sourceline","modeLabel","commitRow","commitMsg","runbar","runHint"].forEach(function(id){ el[id]=document.getElementById(id); });
+  ["rail","groups","eyebrow","headline","progress","log","seedHash","seedPlain","validity","blocker","blockerMsg","blockerFix","sourceline","modeLabel","commitRow","commitMsg","runbarFill","runHint"].forEach(function(id){ el[id]=document.getElementById(id); });
   el.wheel=document.getElementById("wheelspin"); el.labels=document.getElementById("wheellabels");
   el.fade=document.getElementById("wheelfade"); el.pointer=document.querySelector(".pointer");
   el.spin=document.getElementById("btnSpin"); el.skip=document.getElementById("btnSkip");
@@ -507,9 +507,10 @@
     var per=perGroupTotal();
     for(var g=0; g<S.groups; g++){
       var isTarget = !S.done && g===currentGroup();
-      var html='<div class="group'+(isTarget?" target":"")+'"><h3>GRUP '+GROUP_NAMES[g]+'<span>'+S.board[g].length+'/'+per+'</span></h3><div class="slots">';
+      var brow=S.board[g]||[];
+      var html='<div class="group'+(isTarget?" target":"")+'"><h3>GRUP '+GROUP_NAMES[g]+'<span>'+brow.length+'/'+per+'</span></h3><div class="slots">';
       for(var s=0;s<per;s++){
-        var p=S.board[g][s];
+        var p=brow[s];
         if(p){ var land=(landing&&landing.g===g&&landing.s===s)?" landing":"";
           html+='<div class="slot filled'+land+'"><span class="seedno">P'+(s+1)+'</span><span class="pairname">'+esc(p.name)+'</span></div>';
         } else { html+='<div class="slot"><span class="seedno">·</span><span class="empty">Pot '+(s+1)+'</span></div>'; }
@@ -582,7 +583,7 @@
     el.runAll.disabled=S.done||blocked;
     el.runAll.textContent=S.auto?"JEDA":(S.history.length?"LANJUT SEMUA":"PUTAR SEMUA");
     el.runAll.classList.toggle("running",S.auto);
-    el.runbar.style.width=(S.pairs.length?(S.history.length/S.pairs.length)*100:0)+"%";
+    if(el.runbarFill) el.runbarFill.style.width=(S.pairs.length?(S.history.length/S.pairs.length)*100:0)+"%";
     el.commitRow.style.display = S.done ? "flex" : "none";
     if(S.done) el.runHint.textContent="Undian selesai — "+S.pairs.length+" pair masuk "+S.groups+" grup";
     else if(S.auto) el.runHint.textContent="Berjalan otomatis · sisa "+(S.pairs.length-S.history.length)+" pair · tekan JEDA untuk berhenti";
