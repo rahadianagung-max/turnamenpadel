@@ -2767,24 +2767,30 @@ function buildBracket(seeded, tier, groupOf) {
 // this produces exactly:
 //   Left : WA-RUH, WD-RUE, WB-RUG, WC-RUF
 //   Right: WE-RUD, WH-RUA, WF-RUC, WG-RUB
+// For 4 groups the pairing is half-offset (A↔C, B↔D) instead of mirror:
+//   Left : WA-RUC, WB-RUD   Right: WD-RUB, WC-RUA
 function crossSeedRound1(groupsQual) {
   const g = groupsQual.length;
   if (g < 2) return null;
   if ((g & (g - 1)) !== 0) return null;           // group count must be a power of 2
   if (!groupsQual.every((a) => a.length === 2)) return null; // exactly 2 per group
   const W = groupsQual.map((a) => a[0]), R = groupsQual.map((a) => a[1]);
-  const mir = (i) => g - 1 - i;                    // mirror group: A↔H, B↔G, …
+  // Cross-seed partner group. Mirror by default (A↔H, B↔G, …). For EXACTLY 4 groups,
+  // pair by half-offset so Winner A meets Runner-up C and Winner B meets Runner-up D
+  // (A↔C, B↔D) instead of A↔D / B↔C. Both are involutions, so the sibling
+  // construction below still splits a group's winner & runner-up into opposite halves.
+  const partner = (g === 4) ? ((i) => (i + 2) % 4) : ((i) => g - 1 - i);
   // Left half: winners of the low-half groups in standard bracket-seed order,
-  // each vs the runner-up of its mirror group.
+  // each vs the runner-up of its partner group.
   const lowGroups = seedOrder(g / 2).map((s) => s - 1);
-  const left = lowGroups.map((i) => [W[i], R[mir(i)]]);
-  // Right half: the sibling match of each left match ([W(mirror), RU(group)]),
-  // swapped within every quarter so mirror teams land in opposite halves.
+  const left = lowGroups.map((i) => [W[i], R[partner(i)]]);
+  // Right half: the sibling match of each left match ([W(partner), RU(group)]),
+  // swapped within every quarter so partner teams land in opposite halves.
   const right = [];
   for (let k = 0; k < lowGroups.length; k += 2) {
     const a = lowGroups[k], b = lowGroups[k + 1];
-    if (b !== undefined) { right.push([W[mir(b)], R[b]]); right.push([W[mir(a)], R[a]]); }
-    else right.push([W[mir(a)], R[a]]);
+    if (b !== undefined) { right.push([W[partner(b)], R[b]]); right.push([W[partner(a)], R[a]]); }
+    else right.push([W[partner(a)], R[a]]);
   }
   return left.concat(right);
 }
