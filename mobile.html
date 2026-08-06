@@ -260,9 +260,10 @@ function renderBody(){
 function renderSchedule(cat){
   if(!cat.schedule.length) return '<p class="empty">Group stage schedule not available yet.</p>';
   const pred = predictTimes();
-  // A match with an explicit date is pinned (manually edited) — use its stored time
-  // instead of the auto-predicted slot time.
-  const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (pred[m.matchId] || fmtTime(m.time)));
+  // Trust the stored time when set (per-category batch times / manual edits — the
+  // same value admin & sheet show); only fall back to the predicted slot time when
+  // there is no stored time. A pinned match (explicit date) always uses its time.
+  const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || ""));
 
   // Player picker — lets a player see only their own matches.
   const players = playersInCat(cat);
@@ -277,7 +278,7 @@ function renderSchedule(cat){
   // Chronological order: earliest date first, then the displayed time (pinned or
   // predicted), then court. The SAME order drives both the list and the LIVE badge.
   const dkey = m => String(m.date || (state.data.event && state.data.event.date) || "");
-  const tmin = m => { const s = m.date ? fmtTime(m.time) : (pred[m.matchId] || fmtTime(m.time)); if(!s) return (m.slot||0)*1; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
+  const tmin = m => { const s = m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId]); if(!s) return (m.slot||0)*1; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
   const cmp = (a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0));
 
   // "currently playing" = earliest non-DONE match per court, by that same time order
