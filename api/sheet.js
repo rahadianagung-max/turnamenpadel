@@ -2145,7 +2145,11 @@ function spreadStats(order, ids) {
 }
 function spreadCost(order, ids) {
   const f = spreadStats(order, ids);
-  return f.over3 * 1e9 + f.singles * 1e5 + f.maxGap * 1e3 + f.worstStay;
+  // Player-wait objective: never >3 in a row [hard, fatigue], then minimise the
+  // LONGEST idle gap between a team's matches (the "waiting too long" complaint),
+  // then keep total time-at-venue tight. Playing single matches with short rests
+  // is fine, so singles are only a final tie-breaker.
+  return f.over3 * 1e9 + f.maxGap * 1e6 + f.worstStay * 1e3 + f.singles * 1;
 }
 function spreadTotal(groups) { let s = 0; for (const g of groups) s += spreadCost(g.orderings[g.oi] || [], g.entrantIds); return s; }
 // ---- Block-play objective: each team plays in consecutive blocks of `target`
@@ -2194,7 +2198,7 @@ function evenSpreadOrderings(rounds, ids) {
 }
 // Choose orderings to (1) avoid cross-court player clashes, then (2) keep good play patterns.
 function optimizeOrderings(groups, namesMap) {
-  const cost = () => totalClashes(groups, namesMap).clashes * 1e12 + blockTotal(groups);
+  const cost = () => totalClashes(groups, namesMap).clashes * 1e12 + spreadTotal(groups);
   let best = cost();
   for (let pass = 0; pass < 5; pass++) {
     let improved = false;
@@ -2443,7 +2447,7 @@ async function tScheduleEvent(eventId, body) {
     for (const o of blk.concat(spr)) { const sig = o.map((m) => m.a + "-" + m.b).join("|"); if (!seen.has(sig)) { seen.add(sig); g.orderings.push(o); } }
     if (!g.orderings.length) g.orderings = [g.rounds.reduce((acc, r, ri) => acc.concat(r.map(([a, b]) => ({ a, b, round: ri + 1 }))), [])];
     let bo = 0, bp = Infinity;
-    g.orderings.forEach((o, i) => { const p = blockCost(o, g.entrantIds, g.target); if (p < bp) { bp = p; bo = i; } });
+    g.orderings.forEach((o, i) => { const p = spreadCost(o, g.entrantIds); if (p < bp) { bp = p; bo = i; } });
     g.oi = bo;
     g.length = (g.orderings[0] || []).length;
   }
