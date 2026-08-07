@@ -85,6 +85,11 @@
   .teamrow{display:flex; align-items:center; gap:12px; padding:7px 0;}
   .teamrow .nm{flex:1; font-size:15.5px; font-weight:600; word-break:break-word;}
   .teamrow.win .nm{color:var(--accent);}
+  /* Custom team name (mis. "Anomali Erdogan") shown above the player pair, like mobile/TV. */
+  .teamrow .nm .tname{display:block; font-weight:800; letter-spacing:.01em; line-height:1.15;}
+  .teamrow.win .nm .tname{color:var(--accent);}
+  .teamrow .nm .tsub{display:block; font-size:12.5px; font-weight:500; color:var(--muted); margin-top:2px;}
+  .teamrow.win .nm .tsub{color:var(--muted);}
   .teamrow .sin{
     width:78px; text-align:center; font-family:'Space Mono',monospace; font-size:24px; font-weight:700;
     background:#111114; border:1.5px solid var(--line); color:var(--text); border-radius:12px; padding:10px 6px; outline:none;
@@ -259,10 +264,13 @@ function flatten(payload, court){
   const out=[];
   (payload.categories||[]).forEach(cat=>{
     const clabel = catLabel(cat.category) + (cat.level?(" "+(LEVEL[cat.level]||cat.level)):"");
+    // Optional custom team name (mis. "Anomali Erdogan"), resolved from the entrant.
+    const teamNameOf=(eid)=>{ const e=cat.entrants&&cat.entrants[eid]; return (e&&e.teamName?String(e.teamName).trim():"")||""; };
     (cat.schedule||[]).forEach(m=>{
       if(String(m.court)!==String(court)) return;
       out.push({ kind:"group", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:m.court, slot:m.slot||0, time:m.time,
         label:"Grup "+(m.groupLabel||""), nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB,
+        teamNameA:teamNameOf(m.entrantA), teamNameB:teamNameOf(m.entrantB),
         scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status });
     });
     (cat.playoff||[]).forEach(b=>{
@@ -271,6 +279,7 @@ function flatten(payload, court){
         if(String(m.court)!==String(court)) return;
         out.push({ kind:"playoff", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:m.court, slot:slot, time:m.time,
           label:label, nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB,
+          teamNameA:teamNameOf(m.entrantA), teamNameB:teamNameOf(m.entrantB),
           scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status });
       };
       (b.rounds||[]).forEach(r=> (r.matches||[]).forEach(m=> push(m, (parseInt(m.round)||0)*100+(m.idx||0), roundLabel(m.round,b.numRounds)) ));
@@ -308,16 +317,18 @@ function scoreCard(m){
   const done=m.status==="DONE";
   const aw=done && String(m.winner)===String(m.entrantA), bw=done && String(m.winner)===String(m.entrantB);
   const meta=`<span class="cat">${esc(m.cat)}</span><span class="gl">${esc(m.label)}${m.time?" · "+esc(fmtTime(m.time)):""}</span>`;
+  // When a pair has a custom team name, show it as the title with the players as a smaller subline.
+  const nmHtml=(name,teamName)=> teamName ? `<span class="tname">${esc(teamName)}</span><span class="tsub">${esc(name)}</span>` : esc(name);
   return `<div class="scard ${done?'st-done is-scored':''}" id="card-${cid}" data-mid="${esc(m.matchId)}">
     <div class="scard-top">${meta}<span class="badge" id="badge-${cid}"></span></div>
     <div class="teamrow ${aw?'win':''}" id="row-a-${cid}">
-      <span class="nm">${esc(m.nameA)}</span>
+      <span class="nm">${nmHtml(m.nameA,m.teamNameA)}</span>
       <input class="sin" id="a-${cid}" type="number" inputmode="numeric" min="0" value="${sa}"
         onkeydown="if(event.key==='Enter'){document.getElementById('b-'+this.dataset.cid).focus();}" data-cid="${cid}" />
     </div>
     <div class="teamsep"></div>
     <div class="teamrow ${bw?'win':''}" id="row-b-${cid}">
-      <span class="nm">${esc(m.nameB)}</span>
+      <span class="nm">${nmHtml(m.nameB,m.teamNameB)}</span>
       <input class="sin" id="b-${cid}" type="number" inputmode="numeric" min="0" value="${sb}"
         onkeydown="if(event.key==='Enter'){saveScore('${cid}');}" data-cid="${cid}" />
     </div>
@@ -347,7 +358,7 @@ function saveScore(cid){
   if(rowA) rowA.classList.toggle("win",aw); if(rowB) rowB.classList.toggle("win",bw);
   enqueue({ id:uid(), kind:m.kind, matchId:m.matchId, tournamentId:m.tid, scoreA:a, scoreB:b, ts:Date.now(), attempts:0 });
   setUiStatus(m.matchId,"pending");
-  toast(na===nb?"Skor seri disimpan — mengirim…":`Skor disimpan — ${aw?m.nameA:m.nameB}`);
+  toast(na===nb?"Skor seri disimpan — mengirim…":`Skor disimpan — ${aw?(m.teamNameA||m.nameA):(m.teamNameB||m.nameB)}`);
   flushQueue();
 }
 function applyFilter(){
