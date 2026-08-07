@@ -714,21 +714,32 @@ async function loadTournaments(){
     renderCatStarts();
   }catch(e){ toast(e.message, true); }
 }
+function catCourtKey(){ return "tp_catcourts_" + ((state.event && state.event.eventId) || ""); }
+function loadCatCourts(){ try{ return JSON.parse(localStorage.getItem(catCourtKey()) || "{}"); }catch(e){ return {}; } }
+function saveCatCourts(obj){ try{ localStorage.setItem(catCourtKey(), JSON.stringify(obj)); }catch(e){} }
 function renderCatStarts(){
   const wrap = document.getElementById("catStartsWrap"); if(!wrap) return;
   const ts = state.tournaments || [];
   if(ts.length <= 1){ wrap.innerHTML = ""; return; }
   const evStart = val("schStart") || (state.event && state.event.startTime) || "09:00";
+  const savedCourts = loadCatCourts();
   wrap.innerHTML =
-    '<div style="text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:var(--muted);margin:2px 0 6px"><b>Jam mulai per kategori (batch)</b></div>'
+    '<div style="text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:var(--muted);margin:2px 0 6px"><b>Pengaturan per kategori — jam mulai &amp; court</b></div>'
     + '<div class="grid">' + ts.map(t =>
-        '<div class="f"><label>'+esc(t.category)+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+esc(evStart)+'"></div>'
+        '<div class="f"><label>'+esc(t.category)+' — jam mulai</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+esc(evStart)+'"></div>'
+        + '<div class="f"><label>'+esc(t.category)+' — court</label><input type="text" data-court-tid="'+esc(t.tournamentId)+'" value="'+esc(savedCourts[t.tournamentId]||"")+'" placeholder="mis. 1,2,3,4"></div>'
       ).join("") + '</div>'
-    + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">Kosong = ikut jam mulai event ('+esc(evStart)+'). Isi berbeda untuk main dua batch — mis. Women 09:00, Men 14:00 (harus ≥ jam mulai event). Kategori berjam-mulai sama tetap berbagi court.</p>';
+    + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">Jam kosong = ikut jam mulai event ('+esc(evStart)+'). <b>Court</b> kosong = boleh pakai semua court. Isi court berbeda per kategori agar tidak tercampur — mis. Women <code>1,2,3,4</code> dan Fixed Mixed <code>5,6,7</code>. (Court hanya dari daftar court event; disimpan otomatis per event di browser ini.)</p>';
 }
 function collectCatStarts(){
   const out = {};
   document.querySelectorAll('#catStartsWrap input[data-tid]').forEach(i => { const v=(i.value||"").trim(); if(v) out[i.getAttribute('data-tid')] = v; });
+  return out;
+}
+function collectCatCourts(){
+  const out = {};
+  document.querySelectorAll('#catStartsWrap input[data-court-tid]').forEach(i => { const v=(i.value||"").trim(); if(v) out[i.getAttribute('data-court-tid')] = v; });
+  saveCatCourts(out);
   return out;
 }
 // Show the free-text name + custom ELO inputs only for the "Other" category.
@@ -999,7 +1010,7 @@ async function generateSchedule(){
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
-      breaks: collectBreaks(), categoryStarts: collectCatStarts(), mode: state.schedMode || "normal"
+      breaks: collectBreaks(), categoryStarts: collectCatStarts(), categoryCourts: collectCatCourts(), mode: state.schedMode || "normal"
     }});
     if(r && r.courtCollisionCount){ toast("⚠ "+r.courtCollisionCount+" slot court bentrok antar-batch — ada kategori yang meleber ke jam batch lain di court sama. Lebarkan jeda atau kurangi match.", true); }
     // backend persists overrides — reflect them locally so labels/context stay in sync
@@ -1013,7 +1024,7 @@ async function generateSchedule(){
       toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (mode paralel belum aktif).", true);
     } else {
       const modeLbl = (r.mode==="intense") ? "Intense (3× berturut-turut)" : "Normal (menyebar)";
-      const layoutLbl = (r.courtLayout==="locked") ? "1 grup = 1 court" : "paralel (grup dibagi antar-court)";
+      const layoutLbl = (r.courtLayout==="locked") ? "1 grup = 1 court" : (r.courtLayout==="mixed") ? "campuran (per kategori)" : "paralel (grup dibagi antar-court)";
       toast(`Jadwal dibuat · ${modeLbl} · ${layoutLbl} · ${r.scheduledMatches} match dalam ${r.slotsUsed} sesi`);
     }
     renderClashes(r.clashes||[]);

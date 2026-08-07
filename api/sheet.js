@@ -2399,11 +2399,10 @@ function schedTokens(m, namesMap) {
 function placeMatchesGrid(matches, numCourts, mode, opts) {
   opts = opts || {};
   const C = Math.max(1, numCourts);
-  // Locked mode: pin each group to one home court (courtOf[gi]) so a group never
-  // hops courts. Used when splitting a group across courts would not save time
-  // (e.g. courts == groups). Falls back to the free grid otherwise.
-  const lock = !!opts.lockCourts;
-  const courtOf = opts.homeCourt || {};
+  const ALL = Array.from({ length: C }, (_, i) => i + 1);
+  // Each match may carry: m.courts (allowed court positions, default all), m.locked
+  // (pin the group to m.home court, no hopping), m.home (that home court position).
+  const courtsOf = (m) => (m.courts && m.courts.length) ? m.courts : ALL;
   const TARGET = 3; // never more than 3 consecutive matches for a team (fatigue cap)
   const N = matches.length;
   const placed = new Array(N).fill(null);
@@ -2416,7 +2415,7 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
   const HARDCAP = N * 4 + 20;
   while (done < N && slot < HARDCAP) {
     const cand = [];
-    for (let i = 0; i < N; i++) { if (placed[i]) continue; const m = matches[i]; if (m.offset > slot) continue; cand.push(i); }
+    for (let i = 0; i < N; i++) { if (placed[i]) continue; const m = matches[i]; if ((m.offset || 0) > slot) continue; cand.push(i); }
     const scoreOf = (i) => {
       const m = matches[i], ta = "E:" + m.a, tb = "E:" + m.b;
       const ra = contigRun(ta, slot), rb = contigRun(tb, slot);
@@ -2437,35 +2436,26 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
       return s;
     };
     cand.sort((i, j) => scoreOf(j) - scoreOf(i));
-    const used = new Set(), chosen = [];
-    const courtTaken = new Set(); // slots where a specific court is already used (lock mode)
+    const usedTokens = new Set(), slotCourtUsed = new Set(), chosen = [];
     for (const i of cand) {
       if (chosen.length >= C) break;
       const m = matches[i];
-      let ok = true; for (const tk of m.tokens) if (used.has(tk)) { ok = false; break; }
+      let ok = true; for (const tk of m.tokens) if (usedTokens.has(tk)) { ok = false; break; }
       if (!ok) continue;
-      if (lock && courtTaken.has(courtOf[m.gi])) continue; // group's home court already busy this slot
       if (contigRun("E:" + m.a, slot) >= TARGET || contigRun("E:" + m.b, slot) >= TARGET) continue; // force a rest
-      chosen.push(i); for (const tk of m.tokens) used.add(tk);
-      if (lock) courtTaken.add(courtOf[m.gi]);
-    }
-    // Court assignment.
-    const courtFor = {};
-    if (lock) {
-      for (const i of chosen) courtFor[i] = courtOf[matches[i].gi];
-    } else {
-      // Free grid: a team continuing its block keeps last court when possible.
-      const freeCourts = new Set(); for (let c = 1; c <= C; c++) freeCourts.add(c);
-      for (const i of chosen) {
-        const m = matches[i];
-        for (const t of ["E:" + m.a, "E:" + m.b]) {
-          if (last.get(t) === slot - 1 && courtFor[i] == null) { const c = lastCourt.get(t); if (c && freeCourts.has(c)) { courtFor[i] = c; freeCourts.delete(c); } }
-        }
+      // Pick a court: locked -> its home court; else keep a continuing team's court, then any free allowed court.
+      let court = 0;
+      if (m.locked && m.home) { if (!slotCourtUsed.has(m.home)) court = m.home; }
+      else {
+        const allowed = courtsOf(m);
+        for (const t of ["E:" + m.a, "E:" + m.b]) { if (last.get(t) === slot - 1) { const c = lastCourt.get(t); if (c && allowed.includes(c) && !slotCourtUsed.has(c)) { court = c; break; } } }
+        if (!court) { for (const c of allowed) if (!slotCourtUsed.has(c)) { court = c; break; } }
       }
-      for (const i of chosen) { if (courtFor[i] == null) { const c = freeCourts.values().next().value; courtFor[i] = c; freeCourts.delete(c); } }
+      if (!court) continue; // no allowed court free this slot
+      chosen.push({ i, court }); slotCourtUsed.add(court); for (const tk of m.tokens) usedTokens.add(tk);
     }
-    for (const i of chosen) {
-      const m = matches[i], court = courtFor[i];
+    for (const { i, court } of chosen) {
+      const m = matches[i];
       placed[i] = { slot, court }; done++;
       for (const t of ["E:" + m.a, "E:" + m.b]) { const r = contigRun(t, slot); runLen.set(t, r + 1); last.set(t, slot); lastCourt.set(t, court); }
       remainInGroup.set(m.gi, (remainInGroup.get(m.gi) || 1) - 1);
@@ -2473,7 +2463,7 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
     slot++;
   }
   // Safety: never leave a match unplaced (shouldn't happen with HARDCAP headroom).
-  for (let i = 0; i < N; i++) if (!placed[i]) { placed[i] = { slot, court: 1 }; slot++; }
+  for (let i = 0; i < N; i++) if (!placed[i]) { placed[i] = { slot, court: courtsOf(matches[i])[0] || 1 }; slot++; }
   return placed;
 }
 
@@ -2583,31 +2573,64 @@ async function tScheduleEvent(eventId, body) {
   const mode = (String(b.mode || "").toLowerCase() === "intense") ? "intense" : "normal";
   const gapCap = Math.max(2, Math.round(60 / matchMinutes)); // ~1 hour, in slots
 
-  // Flatten every group's round-robin matches, then place them on the global grid.
+  // ----- Optional per-category court assignment. body.categoryCourts { tid: "1,2,3,4" }
+  // confines a category to a fixed set of courts so categories don't intermix
+  // (e.g. Women on 1-4, Fixed Mixed on 5-7). Blank => that category may use all
+  // courts. Court numbers are matched against the event's court list. -----
+  const allPositions = Array.from({ length: numCourts }, (_, i) => i + 1);
+  const catCourtsIn = (b.categoryCourts && typeof b.categoryCourts === "object") ? b.categoryCourts : null;
+  const specToPositions = (spec) => {
+    const nums = String(spec == null ? "" : spec).split(/[^0-9]+/).map((x) => parseInt(x)).filter((x) => !isNaN(x) && x > 0);
+    const pos = [];
+    for (const n of nums) { const idx = courtNums.indexOf(n); if (idx >= 0 && !pos.includes(idx + 1)) pos.push(idx + 1); }
+    return pos;
+  };
+  for (const g of groups) {
+    const pos = catCourtsIn ? specToPositions(catCourtsIn[g.tid]) : [];
+    g.allowed = pos.length ? pos : allPositions;
+  }
+
+  // Flatten every group's round-robin matches (each match carries its allowed courts).
+  groups.forEach((g, gi) => { g._gi = gi; });
   const allMatches = [];
-  groups.forEach((g, gi) => {
+  groups.forEach((g) => {
     g.rounds.forEach((r, ri) => {
       for (const [a, bId] of r) {
-        const m = { gi, a, b: bId, round: ri + 1, offset: g.offset };
+        const m = { gi: g._gi, a, b: bId, round: ri + 1, offset: g.offset, courts: g.allowed };
         m.tokens = schedTokens(m, namesMap);
         allMatches.push(m);
       }
     });
   });
-  // Two candidate layouts: free grid (split groups across courts) vs locked
-  // (1 group = 1 home court, no court-hopping). Splitting only helps when it
-  // finishes sooner, so pick the shorter makespan; on a tie prefer locked so a
-  // team never changes court when parallelising buys nothing (e.g. courts==groups).
-  const homeCourt = {};
-  groups.map((g, gi) => ({ gi, key: g.key }))
-    .sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }))
-    .forEach((o, i) => { homeCourt[o.gi] = (i % numCourts) + 1; });
-  const placedFree = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
-  const placedLock = placeMatchesGrid(allMatches, numCourts, mode, { gapCap, lockCourts: true, homeCourt });
+
+  // Split groups into court-pools (groups sharing the same allowed-court set).
+  // Categories on disjoint courts run in parallel; within a pool we pick the
+  // better layout: "locked" (1 group = 1 home court, no hopping) vs "parallel"
+  // (split groups across the pool's courts). Splitting only helps when it finishes
+  // sooner, so shorter makespan wins; on a tie prefer locked (no needless hopping).
   const spanOf = (pl) => pl.reduce((mx, p) => Math.max(mx, p.slot), 0);
-  const useLock = spanOf(placedLock) <= spanOf(placedFree);
-  const placed = useLock ? placedLock : placedFree;
-  const courtLayout = useLock ? "locked" : "parallel";
+  const pools = new Map();
+  for (const g of groups) {
+    const sig = g.allowed.slice().sort((a, c) => a - c).join(",");
+    if (!pools.has(sig)) pools.set(sig, { allowed: g.allowed.slice().sort((a, c) => a - c), groups: [] });
+    pools.get(sig).groups.push(g);
+  }
+  let anyLocked = false, anyParallel = false;
+  for (const pool of pools.values()) {
+    // home court per pool-group, cycling through the pool's courts
+    pool.groups.slice().sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }))
+      .forEach((g, i) => { g.home = pool.allowed[i % pool.allowed.length]; });
+    const sub = allMatches.filter((m) => pool.groups.includes(groups[m.gi]));
+    for (const m of sub) m.home = groups[m.gi].home;
+    const setLock = (v) => sub.forEach((m) => { m.locked = v; });
+    setLock(true); const spanLock = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
+    setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
+    const useLock = spanLock <= spanFree;
+    setLock(useLock);
+    if (useLock) anyLocked = true; else anyParallel = true;
+  }
+  const placed = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
+  const courtLayout = (anyLocked && anyParallel) ? "mixed" : anyParallel ? "parallel" : "locked";
 
   const now = new Date().toISOString();
   const newRows = [];
