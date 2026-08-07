@@ -3789,13 +3789,27 @@ async function tPublicEvent(eventId, opts) {
   // Sponsor logos. "Sponsors" tab:
   //   column A = TV reel logos (multiple, one per row)
   //   column B (first non-empty) = single static mobile banner (different image)
+  //   column C = event scope (OPTIONAL). Empty => the row applies to EVERY event
+  //     (global, backward compatible). Non-empty => the row shows ONLY on the event
+  //     it names — matched against the event id, the event name, or its slug
+  //     (case-insensitive). This lets a banner be pinned to one tournament instead
+  //     of the whole platform.
   // Separate read wrapped in try/catch so a missing tab never breaks the board.
   let sponsors = [], mobileBanner = "";
   try {
-    const sp = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Sponsors!A2:B" });
+    const sp = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Sponsors!A2:C" });
     const rows = sp.data.values || [];
-    sponsors = rows.map((r) => String(r[0] || "").trim()).filter((u) => /^https?:\/\//i.test(u));
-    mobileBanner = rows.map((r) => String(r[1] || "").trim()).find((u) => /^https?:\/\//i.test(u)) || "";
+    const slug = (s) => String(s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const evKeys = new Set([String(eventId).toLowerCase().trim(), String(event.name || "").toLowerCase().trim(), slug(event.name)].filter(Boolean));
+    // A row's scope matches this event when the scope cell equals the event id, name, or slug.
+    const scopeMatches = (raw) => { const s = String(raw || "").trim(); return s && (evKeys.has(s.toLowerCase()) || evKeys.has(slug(s))); };
+    const isGlobal = (r) => !String(r[2] || "").trim();
+    // TV reel: global logos + this event's own logos; another event's scoped logo is skipped.
+    sponsors = rows.filter((r) => isGlobal(r) || scopeMatches(r[2]))
+      .map((r) => String(r[0] || "").trim()).filter((u) => /^https?:\/\//i.test(u));
+    // Mobile banner (single slot): an event-specific banner wins; otherwise fall back to a global one.
+    const bannerOf = (pred) => rows.filter(pred).map((r) => String(r[1] || "").trim()).find((u) => /^https?:\/\//i.test(u)) || "";
+    mobileBanner = bannerOf((r) => scopeMatches(r[2])) || bannerOf(isGlobal);
   } catch (e) { /* no Sponsors tab */ }
 
   return respond(200, { event, categories, players, sponsors, mobileBanner }, { "Cache-Control": cc });
