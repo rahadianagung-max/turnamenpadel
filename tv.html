@@ -49,33 +49,28 @@
     background:linear-gradient(135deg,#3a241b,#1c120c); border:1px solid var(--line);}
   .av img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   .av i{ font-style:normal; font-family:'Saira Condensed',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
-  /* now playing cards — dominant, fill column height */
-  #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:1vh;}
-  .np-card{flex:1 1 0; min-height:clamp(40px,4.5vh,90px); overflow:hidden; display:flex; flex-direction:column; justify-content:center;
-    border:1.5px solid rgba(255,122,26,.7); border-radius:16px;
-    background:linear-gradient(180deg,rgba(255,122,26,.12),rgba(255,122,26,.04)); padding:1.2vh 1.4vw;}
-  .np-head{display:flex; align-items:center; gap:.7vw; margin-bottom:.7vh; flex:0 0 auto;}
-  .np-court{font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--accent);
-    border-radius:5px; padding:.2vh .55vw; font-size:clamp(9px,.78vw,14px); letter-spacing:.03em;}
-  .np-meta{font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(9px,.8vw,13px);}
-  .np-dot{margin-left:auto; flex:0 0 auto; width:clamp(10px,.9vw,16px); height:clamp(10px,.9vw,16px);
+  /* now playing cards — one readable row per court (scales to many simultaneous matches) */
+  #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:.8vh;}
+  .np-card{flex:1 1 0; min-height:0; overflow:hidden; display:flex; flex-direction:row; align-items:center; gap:1vw;
+    border:1.5px solid rgba(255,122,26,.7); border-radius:14px;
+    background:linear-gradient(180deg,rgba(255,122,26,.12),rgba(255,122,26,.04)); padding:.5vh 1.2vw;}
+  .np-court{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--accent);
+    border-radius:6px; padding:.45vh .7vw; font-size:clamp(10px,.95vw,17px); letter-spacing:.03em; white-space:nowrap;}
+  .np-team{flex:1 1 0; min-width:0; display:flex; align-items:center; overflow:hidden;}
+  .np-team.a{justify-content:flex-end;}
+  .np-team.b{justify-content:flex-start;}
+  .np-team .plnm{font-weight:800; font-size:clamp(15px,1.55vw,32px); line-height:1.1;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+  .np-team.a .plnm{text-align:right;}
+  .np-team.b .plnm{text-align:left;}
+  .np-team .amp{color:var(--faint); font-weight:600; padding:0 .25em;}
+  .np-meta{flex:0 1 auto; max-width:24%; font-family:'Space Mono',monospace; color:var(--muted);
+    font-size:clamp(9px,.8vw,14px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;}
+  .np-dot{flex:0 0 auto; width:clamp(9px,.8vw,15px); height:clamp(9px,.8vw,15px);
     border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent);
     animation:liveblink 1.4s steps(1,end) infinite;}
-  .np-teams{display:flex; align-items:center; gap:.8vw; flex:1 1 auto; min-height:0;}
-  /* Stack the two players of a team vertically so each name gets ~half the card
-     width and can wrap instead of being truncated. */
-  .tmblk{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7vh;}
-  .tmpair{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.7vh; min-width:0; max-width:100%;}
-  .tmblk .pl{display:flex; align-items:center; gap:.55vw; min-width:0; max-width:100%;}
-  .tmblk .plnm{font-weight:700; font-size:var(--nmf,clamp(14px,1.3vw,26px)); line-height:1.12;
-    white-space:normal; overflow-wrap:anywhere; word-break:break-word;}
-  /* Opsi D: big custom team name; players demoted to a smaller support line. */
-  .tmblk .tmname{font-weight:900; letter-spacing:.01em; line-height:1.05; text-align:center; color:var(--text);
-    font-size:calc(var(--nmf,clamp(14px,1.3vw,26px)) * 1.35); white-space:normal; overflow-wrap:anywhere; word-break:break-word;}
-  .tmblk.has-tn .tmpair{flex-direction:row; gap:1vw; flex-wrap:wrap;}
-  .tmblk.has-tn .plnm{font-size:calc(var(--nmf,clamp(14px,1.3vw,26px)) * .72); font-weight:600; color:var(--muted);}
-  .np-vs{flex:0 0 auto; align-self:center; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
-    font-size:clamp(12px,1.1vw,20px); letter-spacing:.12em;}
+  .np-vs{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
+    font-size:clamp(12px,1.1vw,22px); letter-spacing:.1em; padding:0 .3vw;}
   .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
   /* upcoming — compact single-line queue, ordered by time; capped so Now Playing stays bigger */
   #nextWrap{flex:0 0 auto; min-height:clamp(80px,11vh,170px); display:flex; flex-direction:column; gap:.6vh;}
@@ -262,16 +257,22 @@ function teamBlock(c, eid, sz){
   const chip=(n)=>`<div class="pl">${avatar(n,sz)}<span class="plnm">${esc(shortName(n))||"TBD"}</span></div>`;
   return `<div class="tmblk"><div class="tmpair">${chip(p1)}${p2?chip(p2):""}</div></div>`;
 }
-function nowCard(f, sz, nmf){
-  return `<div class="np-card" style="--nmf:${nmf}">
-    <div class="np-head"><span class="np-court">COURT ${esc(f.court)}</span>
-      <span class="np-meta">${esc(f.label)}${f.time?` · ${fmtTime(f.time)}`:""}</span>
-      <span class="np-dot" aria-label="live"></span></div>
-    <div class="np-teams">
-      ${teamBlock(f.c,f.eA,sz)}
-      <div class="np-vs">VS</div>
-      ${teamBlock(f.c,f.eB,sz)}
-    </div></div>`;
+// One readable line per court: COURT | teamA VS teamB | meta | live-dot.
+// Uses the team name when set, else first names of the pair (compact).
+function nowTeamInline(c, eid){
+  const tn = teamNameOf(c, eid);
+  if(tn) return esc(tn);
+  const [p1,p2] = pairPlayers(c, eid);
+  return (esc(shortName(p1)) + (p2 ? ` <span class="amp">&amp;</span> ${esc(shortName(p2))}` : "")) || "TBD";
+}
+function nowCard(f){
+  return `<div class="np-card">
+    <span class="np-court">COURT ${esc(f.court)}</span>
+    <div class="np-team a"><span class="plnm">${nowTeamInline(f.c,f.eA)}</span></div>
+    <div class="np-vs">VS</div>
+    <div class="np-team b"><span class="plnm">${nowTeamInline(f.c,f.eB)}</span></div>
+    <span class="np-meta">${esc(f.label)}${f.time?` · ${fmtTime(f.time)}`:""}</span>
+    <span class="np-dot" aria-label="live"></span></div>`;
 }
 function upRow(f){
   const [a1,a2]=pairPlayers(f.c,f.eA), [b1,b2]=pairPlayers(f.c,f.eB);
@@ -702,7 +703,7 @@ function render(){
     leftTitle.textContent = "Now Playing"; leftTitle.classList.add("live");
     upTitle.style.display = "";
     nextWrap.style.display = "";
-    nowWrap.innerHTML = playing.length ? playing.map(f=>nowCard(f,sz,nmf)).join("") : '<div class="np-empty">No match in progress.</div>';
+    nowWrap.innerHTML = playing.length ? playing.map(f=>nowCard(f)).join("") : '<div class="np-empty">No match in progress.</div>';
     nextWrap.innerHTML = upcoming.length ? upcoming.map(upRow).join("") : '<div class="up-empty">No upcoming match.</div>';
   }
 
