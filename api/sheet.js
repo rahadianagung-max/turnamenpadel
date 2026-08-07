@@ -2399,6 +2399,11 @@ function schedTokens(m, namesMap) {
 function placeMatchesGrid(matches, numCourts, mode, opts) {
   opts = opts || {};
   const C = Math.max(1, numCourts);
+  // Locked mode: pin each group to one home court (courtOf[gi]) so a group never
+  // hops courts. Used when splitting a group across courts would not save time
+  // (e.g. courts == groups). Falls back to the free grid otherwise.
+  const lock = !!opts.lockCourts;
+  const courtOf = opts.homeCourt || {};
   const TARGET = 3; // never more than 3 consecutive matches for a team (fatigue cap)
   const N = matches.length;
   const placed = new Array(N).fill(null);
@@ -2433,24 +2438,32 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
     };
     cand.sort((i, j) => scoreOf(j) - scoreOf(i));
     const used = new Set(), chosen = [];
+    const courtTaken = new Set(); // slots where a specific court is already used (lock mode)
     for (const i of cand) {
       if (chosen.length >= C) break;
       const m = matches[i];
       let ok = true; for (const tk of m.tokens) if (used.has(tk)) { ok = false; break; }
       if (!ok) continue;
+      if (lock && courtTaken.has(courtOf[m.gi])) continue; // group's home court already busy this slot
       if (contigRun("E:" + m.a, slot) >= TARGET || contigRun("E:" + m.b, slot) >= TARGET) continue; // force a rest
       chosen.push(i); for (const tk of m.tokens) used.add(tk);
+      if (lock) courtTaken.add(courtOf[m.gi]);
     }
-    // Court assignment: a team continuing its block keeps last court when free.
-    const freeCourts = new Set(); for (let c = 1; c <= C; c++) freeCourts.add(c);
+    // Court assignment.
     const courtFor = {};
-    for (const i of chosen) {
-      const m = matches[i];
-      for (const t of ["E:" + m.a, "E:" + m.b]) {
-        if (last.get(t) === slot - 1 && courtFor[i] == null) { const c = lastCourt.get(t); if (c && freeCourts.has(c)) { courtFor[i] = c; freeCourts.delete(c); } }
+    if (lock) {
+      for (const i of chosen) courtFor[i] = courtOf[matches[i].gi];
+    } else {
+      // Free grid: a team continuing its block keeps last court when possible.
+      const freeCourts = new Set(); for (let c = 1; c <= C; c++) freeCourts.add(c);
+      for (const i of chosen) {
+        const m = matches[i];
+        for (const t of ["E:" + m.a, "E:" + m.b]) {
+          if (last.get(t) === slot - 1 && courtFor[i] == null) { const c = lastCourt.get(t); if (c && freeCourts.has(c)) { courtFor[i] = c; freeCourts.delete(c); } }
+        }
       }
+      for (const i of chosen) { if (courtFor[i] == null) { const c = freeCourts.values().next().value; courtFor[i] = c; freeCourts.delete(c); } }
     }
-    for (const i of chosen) { if (courtFor[i] == null) { const c = freeCourts.values().next().value; courtFor[i] = c; freeCourts.delete(c); } }
     for (const i of chosen) {
       const m = matches[i], court = courtFor[i];
       placed[i] = { slot, court }; done++;
@@ -2581,7 +2594,20 @@ async function tScheduleEvent(eventId, body) {
       }
     });
   });
-  const placed = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
+  // Two candidate layouts: free grid (split groups across courts) vs locked
+  // (1 group = 1 home court, no court-hopping). Splitting only helps when it
+  // finishes sooner, so pick the shorter makespan; on a tie prefer locked so a
+  // team never changes court when parallelising buys nothing (e.g. courts==groups).
+  const homeCourt = {};
+  groups.map((g, gi) => ({ gi, key: g.key }))
+    .sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }))
+    .forEach((o, i) => { homeCourt[o.gi] = (i % numCourts) + 1; });
+  const placedFree = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
+  const placedLock = placeMatchesGrid(allMatches, numCourts, mode, { gapCap, lockCourts: true, homeCourt });
+  const spanOf = (pl) => pl.reduce((mx, p) => Math.max(mx, p.slot), 0);
+  const useLock = spanOf(placedLock) <= spanOf(placedFree);
+  const placed = useLock ? placedLock : placedFree;
+  const courtLayout = useLock ? "locked" : "parallel";
 
   const now = new Date().toISOString();
   const newRows = [];
@@ -2618,7 +2644,7 @@ async function tScheduleEvent(eventId, body) {
 
   await rewriteEventGroupMatches(sheets, tids, newRows);
   return respond(200, {
-    success: true, engine: "grid-parallel-v1", mode, scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
+    success: true, engine: "grid-parallel-v1", mode, courtLayout, scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
     slotsUsed, breaks: breaksOut, breakStart: breaksOut[0] ? breaksOut[0].start : "", breakEnd: breaksOut[0] ? breaksOut[0].end : "", clashes, clashCount: clashes.length,
     categoryStarts: catStart, courtCollisions, courtCollisionCount: courtCollisions.length,
   });
