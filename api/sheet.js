@@ -2379,6 +2379,91 @@ async function rewriteEventGroupMatches(sheets, tids, newRows) {
     });
   }
 }
+// ---- Grid-parallel scheduler (engine "grid-parallel-v1") ----------------------
+// Places EVERY group match on a global court x slot grid so all courts are used
+// (a group's matches run in parallel across courts, one round's matches never
+// share a player). Constraints kept hard: a player/team never appears twice in
+// one slot (incl. across categories), never more than `numCourts` matches/slot,
+// and a match never starts before its category's batch offset. `mode` shapes each
+// team's pattern:
+//   • "intense" — blocks of up to 3 consecutive matches, then a rest, repeat.
+//   • "normal"  — spread out; prioritise the most-overdue team so nobody idles
+//                 long (keeps the worst wait well under an hour).
+function schedTokens(m, namesMap) {
+  const set = new Set();
+  set.add("E:" + m.a); set.add("E:" + m.b);
+  for (const nm of (namesMap[m.a] || [])) if (nm) set.add("P:" + normName(nm));
+  for (const nm of (namesMap[m.b] || [])) if (nm) set.add("P:" + normName(nm));
+  return set;
+}
+function placeMatchesGrid(matches, numCourts, mode, opts) {
+  opts = opts || {};
+  const C = Math.max(1, numCourts);
+  const TARGET = 3; // never more than 3 consecutive matches for a team (fatigue cap)
+  const N = matches.length;
+  const placed = new Array(N).fill(null);
+  const last = new Map(), runLen = new Map(), lastCourt = new Map();
+  const remainInGroup = new Map();
+  matches.forEach((m) => remainInGroup.set(m.gi, (remainInGroup.get(m.gi) || 0) + 1));
+  const contigRun = (tok, slot) => (last.get(tok) === slot - 1) ? (runLen.get(tok) || 0) : 0;
+  const gapOf = (tok, slot) => last.has(tok) ? (slot - last.get(tok) - 1) : slot;
+  let done = 0, slot = 0;
+  const HARDCAP = N * 4 + 20;
+  while (done < N && slot < HARDCAP) {
+    const cand = [];
+    for (let i = 0; i < N; i++) { if (placed[i]) continue; const m = matches[i]; if (m.offset > slot) continue; cand.push(i); }
+    const scoreOf = (i) => {
+      const m = matches[i], ta = "E:" + m.a, tb = "E:" + m.b;
+      const ra = contigRun(ta, slot), rb = contigRun(tb, slot);
+      const ga = gapOf(ta, slot), gb = gapOf(tb, slot);
+      const rem = remainInGroup.get(m.gi) || 0;
+      if (mode === "intense") {
+        let s = 0;
+        s += (ra === 1 ? 90 : ra === 2 ? 140 : 0) + (rb === 1 ? 90 : rb === 2 ? 140 : 0);
+        const startedA = last.has(ta), startedB = last.has(tb);
+        s += (startedA ? ga * ga * 6 : ga * 3) + (startedB ? gb * gb * 6 : gb * 3);
+        s += rem * 0.5;
+        return s;
+      }
+      let s = 0; // normal: spread, most-overdue first
+      s += ga * ga * 10 + gb * gb * 10;
+      s -= (ra > 0 ? ra * 25 : 0) + (rb > 0 ? rb * 25 : 0);
+      s += rem * 0.5;
+      return s;
+    };
+    cand.sort((i, j) => scoreOf(j) - scoreOf(i));
+    const used = new Set(), chosen = [];
+    for (const i of cand) {
+      if (chosen.length >= C) break;
+      const m = matches[i];
+      let ok = true; for (const tk of m.tokens) if (used.has(tk)) { ok = false; break; }
+      if (!ok) continue;
+      if (contigRun("E:" + m.a, slot) >= TARGET || contigRun("E:" + m.b, slot) >= TARGET) continue; // force a rest
+      chosen.push(i); for (const tk of m.tokens) used.add(tk);
+    }
+    // Court assignment: a team continuing its block keeps last court when free.
+    const freeCourts = new Set(); for (let c = 1; c <= C; c++) freeCourts.add(c);
+    const courtFor = {};
+    for (const i of chosen) {
+      const m = matches[i];
+      for (const t of ["E:" + m.a, "E:" + m.b]) {
+        if (last.get(t) === slot - 1 && courtFor[i] == null) { const c = lastCourt.get(t); if (c && freeCourts.has(c)) { courtFor[i] = c; freeCourts.delete(c); } }
+      }
+    }
+    for (const i of chosen) { if (courtFor[i] == null) { const c = freeCourts.values().next().value; courtFor[i] = c; freeCourts.delete(c); } }
+    for (const i of chosen) {
+      const m = matches[i], court = courtFor[i];
+      placed[i] = { slot, court }; done++;
+      for (const t of ["E:" + m.a, "E:" + m.b]) { const r = contigRun(t, slot); runLen.set(t, r + 1); last.set(t, slot); lastCourt.set(t, court); }
+      remainInGroup.set(m.gi, (remainInGroup.get(m.gi) || 1) - 1);
+    }
+    slot++;
+  }
+  // Safety: never leave a match unplaced (shouldn't happen with HARDCAP headroom).
+  for (let i = 0; i < N; i++) if (!placed[i]) { placed[i] = { slot, court: 1 }; slot++; }
+  return placed;
+}
+
 // Generate the full group-stage schedule for an event (all categories share the court pool).
 async function tScheduleEvent(eventId, body) {
   const sheets = getSheets();
@@ -2444,19 +2529,7 @@ async function tScheduleEvent(eventId, body) {
     namesMap[x[3]] = [x[4] || "", x[5] || ""];
   }
   const groups = [...gmap.values()];
-  for (const g of groups) {
-    g.rounds = roundRobinRounds(g.entrantIds);
-    g.target = blockTargetFor(g.entrantIds.length); // 2 for groups <=5, 3 for groups >=6
-    const blk = buildClusteredOrderings(g.rounds, g.entrantIds, g.target);
-    const spr = evenSpreadOrderings(g.rounds, g.entrantIds).slice(0, 4);
-    const seen = new Set(); g.orderings = [];
-    for (const o of blk.concat(spr)) { const sig = o.map((m) => m.a + "-" + m.b).join("|"); if (!seen.has(sig)) { seen.add(sig); g.orderings.push(o); } }
-    if (!g.orderings.length) g.orderings = [g.rounds.reduce((acc, r, ri) => acc.concat(r.map(([a, b]) => ({ a, b, round: ri + 1 }))), [])];
-    let bo = 0, bp = Infinity;
-    g.orderings.forEach((o, i) => { const p = spreadCost(o, g.entrantIds); if (p < bp) { bp = p; bo = i; } });
-    g.oi = bo;
-    g.length = (g.orderings[0] || []).length;
-  }
+  for (const g of groups) g.rounds = roundRobinRounds(g.entrantIds); // matches are placed on the global grid below
 
   // ----- Per-category (batch) start times. Stored in Tournaments!K; may be
   // overridden by body.categoryStarts { tid: "HH:MM" }. Categories that share a
@@ -2483,54 +2556,70 @@ async function tScheduleEvent(eventId, body) {
     }
   }
 
-  // Assign courts per batch; give each group a GLOBAL startSlot (batch offset +
-  // local slot) so clash detection and ordering stay on one timeline.
-  const batchOf = new Map();
-  for (const g of groups) { const st = catStart[g.tid] || startTime; if (!batchOf.has(st)) batchOf.set(st, []); batchOf.get(st).push(g); }
-  for (const [st, bgroups] of batchOf) {
-    const a = assignGroupsToCourts(bgroups.map((g) => ({ key: g.key, length: g.length })), numCourts);
+  // Per-group batch offset (in slots from the event start). Categories with a
+  // later start time only get scheduled from their offset onward.
+  for (const g of groups) {
+    const st = catStart[g.tid] || startTime;
     const bMin = hm2min(st); const bStartMin = (bMin == null ? startMin : bMin);
-    const offset = Math.max(0, Math.round((bStartMin - startMin) / matchMinutes));
-    for (const g of bgroups) {
-      g.court = courtNums[a[g.key].court - 1];
-      g.localStartSlot = a[g.key].startSlot;
-      g.startSlot = offset + g.localStartSlot;
-      g.batchStartMin = bStartMin;
-      g.isBase = (bStartMin === startMin);
-    }
+    g.offset = Math.max(0, Math.round((bStartMin - startMin) / matchMinutes));
+    g.batchStartMin = bStartMin;
+    g.isBase = (bStartMin === startMin);
   }
 
-  optimizeOrderings(groups, namesMap);
+  // Play-pattern mode: "intense" (blocks of 3) or "normal" (spread, default).
+  const mode = (String(b.mode || "").toLowerCase() === "intense") ? "intense" : "normal";
+  const gapCap = Math.max(2, Math.round(60 / matchMinutes)); // ~1 hour, in slots
+
+  // Flatten every group's round-robin matches, then place them on the global grid.
+  const allMatches = [];
+  groups.forEach((g, gi) => {
+    g.rounds.forEach((r, ri) => {
+      for (const [a, bId] of r) {
+        const m = { gi, a, b: bId, round: ri + 1, offset: g.offset };
+        m.tokens = schedTokens(m, namesMap);
+        allMatches.push(m);
+      }
+    });
+  });
+  const placed = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
 
   const now = new Date().toISOString();
   const newRows = [];
   let count = 0;
-  // Base batch keeps the exact existing timeline (incl. breaks). Later batches
-  // use their own start time directly (breaks apply to the base/morning batch).
-  const wallTime = (g, j) => g.isBase ? slotTime(g.startSlot + j) : min2hm(g.batchStartMin + (g.localStartSlot + j) * matchMinutes);
-  for (const g of groups) {
-    const order = g.orderings[g.oi] || [];
-    for (let j = 0; j < order.length; j++) {
-      const { a, b, round } = order[j];
-      const absSlot = g.startSlot + j;
-      const time = wallTime(g, j);
-      newRows.push([g.tid, genId("MT"), "GROUP", g.label, "", round, g.court, absSlot, time, a, b, "", "", "", "SCHEDULED", now]);
-      count++;
-    }
+  // Base groups follow the event timeline incl. breaks (slotTime). Later batches
+  // count from their own start (breaks apply to the base/morning window).
+  for (let i = 0; i < allMatches.length; i++) {
+    const m = allMatches[i], g = groups[m.gi], pos = placed[i];
+    const absSlot = pos.slot;
+    const court = courtNums[pos.court - 1];
+    const time = g.isBase ? slotTime(absSlot) : min2hm(g.batchStartMin + (absSlot - g.offset) * matchMinutes);
+    newRows.push([g.tid, genId("MT"), "GROUP", g.label, "", m.round, court, absSlot, time, m.a, m.b, "", "", "", "SCHEDULED", now]);
+    count++;
   }
 
-  const { detail } = totalClashes(groups, namesMap);
-  const clashes = detail.map((d) => ({ slot: d.slot, time: slotTime(d.slot), players: d.players }));
-  // Court double-booking (a batch overrunning into a later batch on the same court).
+  // Player clashes at the same slot (should be empty — the grid keeps every
+  // player/team to one match per slot, including across categories).
+  const slotMap = new Map();
+  for (let i = 0; i < allMatches.length; i++) {
+    const m = allMatches[i], s = placed[i].slot;
+    if (!slotMap.has(s)) slotMap.set(s, {});
+    const cnt = slotMap.get(s);
+    for (const nm of [...(namesMap[m.a] || []), ...(namesMap[m.b] || [])].filter(Boolean)) cnt[normName(nm)] = (cnt[normName(nm)] || 0) + 1;
+  }
+  const clashes = [];
+  for (const [s, cnt] of slotMap) { const who = Object.keys(cnt).filter((p) => cnt[p] > 1); if (who.length) clashes.push({ slot: s, time: slotTime(s), players: who }); }
+  clashes.sort((a, b2) => a.slot - b2.slot);
+  // Court double-booking (never expected on the single grid, but verify).
   const cellUse = new Map();
   for (const r of newRows) { const k = r[6] + "|" + r[7]; cellUse.set(k, (cellUse.get(k) || 0) + 1); }
   const courtCollisions = [];
   for (const [k, c] of cellUse) if (c > 1) { const [ct, sl] = k.split("|"); courtCollisions.push({ court: +ct, slot: +sl, time: slotTime(+sl) }); }
+  const slotsUsed = new Set(newRows.map((r) => r[7])).size;
 
   await rewriteEventGroupMatches(sheets, tids, newRows);
   return respond(200, {
-    success: true, engine: "block-play-v1", scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
-    breaks: breaksOut, breakStart: breaksOut[0] ? breaksOut[0].start : "", breakEnd: breaksOut[0] ? breaksOut[0].end : "", clashes, clashCount: clashes.length,
+    success: true, engine: "grid-parallel-v1", mode, scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
+    slotsUsed, breaks: breaksOut, breakStart: breaksOut[0] ? breaksOut[0].start : "", breakEnd: breaksOut[0] ? breaksOut[0].end : "", clashes, clashCount: clashes.length,
     categoryStarts: catStart, courtCollisions, courtCollisionCount: courtCollisions.length,
   });
 }

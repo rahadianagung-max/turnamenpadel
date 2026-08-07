@@ -461,6 +461,13 @@
       <div class="f"><label>Break 4 selesai</label><input id="schBreak4End" type="time" /></div>
     </div>
     <div id="catStartsWrap" style="margin-top:8px"></div>
+    <div style="margin-top:12px" class="pick"><label>Mode main (semua court dipakai · match grup jalan paralel)</label>
+      <div class="seg" id="schMode">
+        <button type="button" class="active" data-v="normal" onclick="pickSchedMode(this)">Normal · menyebar (tanpa jeda ≥1 jam)</button>
+        <button type="button" data-v="intense" onclick="pickSchedMode(this)">Intense · main 3× berturut-turut</button>
+      </div>
+    </div>
+    <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: pertandingan tiap tim disebar merata, jeda diusahakan tak pernah sampai 1 jam. <b>Intense</b>: tiap tim diusahakan main 3 match berturut-turut lalu istirahat singkat, lalu 3 lagi. Keduanya memakai <b>semua court</b> — pertandingan dalam satu grup dibagi ke beberapa court agar event selesai lebih cepat (satu tim bisa berpindah court antar match).</p>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: hingga 4 jeda, isi jam mulai &amp; selesai tiap break (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break (kumulatif untuk beberapa break). Kosongkan pasangan yang tak dipakai.</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
@@ -689,6 +696,10 @@ function selectEvent(id){
 function pickFormat(btn){
   state.format = btn.dataset.v;
   [...document.querySelectorAll("#tFormat button")].forEach(b=>b.classList.toggle("active", b===btn));
+}
+function pickSchedMode(btn){
+  state.schedMode = btn.dataset.v;
+  [...document.querySelectorAll("#schMode button")].forEach(b=>b.classList.toggle("active", b===btn));
 }
 async function loadTournaments(){
   try{
@@ -988,7 +999,7 @@ async function generateSchedule(){
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
-      breaks: collectBreaks(), categoryStarts: collectCatStarts()
+      breaks: collectBreaks(), categoryStarts: collectCatStarts(), mode: state.schedMode || "normal"
     }});
     if(r && r.courtCollisionCount){ toast("⚠ "+r.courtCollisionCount+" slot court bentrok antar-batch — ada kategori yang meleber ke jam batch lain di court sama. Lebarkan jeda atau kurangi match.", true); }
     // backend persists overrides — reflect them locally so labels/context stay in sync
@@ -998,10 +1009,11 @@ async function generateSchedule(){
     state.event.matchMinutes = parseInt(val("schMin")) || state.event.matchMinutes;
     state.event.breaks = (r && r.breaks) ? r.breaks : collectBreaks();
     renderContext();
-    if(r.engine!=="clustered-2to3"){
-      toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (pola 2–3 belum aktif).", true);
+    if(r.engine!=="grid-parallel-v1"){
+      toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (mode paralel belum aktif).", true);
     } else {
-      toast(`Jadwal dibuat · pola 2–3 berurutan AKTIF · mulai ${r.startTime} · ${r.scheduledMatches} match`);
+      const modeLbl = (r.mode==="intense") ? "Intense (3× berturut-turut)" : "Normal (menyebar)";
+      toast(`Jadwal dibuat · ${modeLbl} · ${r.numCourts} court dipakai · ${r.scheduledMatches} match dalam ${r.slotsUsed} sesi`);
     }
     renderClashes(r.clashes||[]);
     loadMatches();
