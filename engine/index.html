@@ -372,8 +372,10 @@
     <div class="sec-head"><div class="num">2</div><h2>Kategori</h2><span class="sub">satu turnamen per kategori, pasangan tetap</span></div>
     <div class="grid">
       <div class="f"><label>Kategori</label>
-        <select id="tCat"><option>Men's Doubles</option><option>Women's Doubles</option><option>Fixed Mixed</option></select></div>
-      <div class="f"><label>Level (ELO awal pemain baru)</label>
+        <select id="tCat" onchange="onCatChange()"><option>Men's Doubles</option><option>Women's Doubles</option><option>Fixed Mixed</option><option value="Other">Other (nama bebas)</option></select></div>
+      <div class="f" id="fCatOther" style="display:none"><label>Nama kategori</label>
+        <input id="tCatOther" type="text" placeholder="mis. Tarkam Cup, Beginner Fun" maxlength="40" /></div>
+      <div class="f" id="fLevel"><label>Level (ELO awal pemain baru)</label>
         <select id="tLevel">
           <option value="upper_beginner">Upper Beginner · 900</option>
           <option value="lower_bronze" selected>Lower Bronze · 1200</option>
@@ -383,6 +385,8 @@
           <option value="gold">Gold · 2500</option>
           <option value="platinum">Platinum · 3000</option>
         </select></div>
+      <div class="f" id="fOtherElo" style="display:none"><label>ELO awal pemain baru</label>
+        <input id="tOtherElo" type="number" min="100" max="4000" step="10" value="1200" /></div>
       <div class="f"><label>Target ukuran grup (≥3)</label><input id="tSize" type="number" min="3" value="4" /></div>
       <div class="f"><label>Lolos / grup</label><input id="tAdv" type="number" min="1" value="2" /></div>
     </div>
@@ -404,7 +408,7 @@
   <!-- 3. IMPORT -->
   <section id="sec3" class="locked">
     <div class="sec-head"><div class="num">3</div><h2>Import peserta</h2><span class="sub">dari tab Form_Responses</span></div>
-    <p class="muted">Membaca baris di <code>Form_Responses</code> yang kategorinya cocok, mencocokkan ke database Trekkr (pakai ELO terakhir), dan otomatis membuat pemain baru pada ELO level kategori. Kolom <code>Category</code>: tulis <code>Men's Doubles</code> / <code>Women's Doubles</code> / <code>Fixed Mixed</code>. Jika ada 2 kategori gender sama beda level, tambahkan levelnya, mis. <code>Women's Doubles Lower Bronze</code> dan <code>Women's Doubles Upper Beginner</code>, agar tidak tercampur.</p>
+    <p class="muted">Membaca baris di <code>Form_Responses</code> yang kategorinya cocok, mencocokkan ke database Trekkr (pakai ELO terakhir), dan otomatis membuat pemain baru pada ELO level kategori. Kolom <code>Category</code>: tulis <code>Men's Doubles</code> / <code>Women's Doubles</code> / <code>Fixed Mixed</code>. Jika ada 2 kategori gender sama beda level, tambahkan levelnya, mis. <code>Women's Doubles Lower Bronze</code> dan <code>Women's Doubles Upper Beginner</code>, agar tidak tercampur. Untuk kategori <b>Other</b>, tulis di kolom <code>Category</code> nama yang sama persis dengan nama kategori yang Anda buat (mis. <code>Tarkam Cup</code>).</p>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="runImport()">Import dari Form</button>
       <span class="muted" id="importHint"></span>
@@ -592,6 +596,8 @@ function toast(msg, isErr){
 }
 const val = id => document.getElementById(id).value.trim();
 const LEVEL_LABEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+// A tournament's level is either a known tier or, for the "Other" category, a raw ELO number.
+function levelLabel(l){ if(LEVEL_LABEL[l]) return LEVEL_LABEL[l]; return /^\d+$/.test(String(l||"")) ? "ELO "+l : (l||""); }
 
 function shareSlug(){
   return String(state.event && state.event.name || "").toLowerCase().trim()
@@ -633,7 +639,7 @@ function renderContext(){
   document.getElementById("ctxEvent").innerHTML = "Event: <b>" + (state.event ? esc(state.event.name) : "—") + "</b>";
   document.getElementById("ctxEvent").classList.toggle("on", !!state.event);
   const t = state.tournament;
-  document.getElementById("ctxTour").innerHTML = "Kategori: <b>" + (t ? `${esc(t.category)} · ${LEVEL_LABEL[t.level]||t.level} · ${t.format}` : "—") + "</b>";
+  document.getElementById("ctxTour").innerHTML = "Kategori: <b>" + (t ? `${esc(t.category)} · ${esc(levelLabel(t.level))} · ${t.format}` : "—") + "</b>";
   document.getElementById("ctxTour").classList.toggle("on", !!t);
 }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -692,7 +698,7 @@ async function loadTournaments(){
     state.tournaments = tournaments || [];
     const sel = document.getElementById("tourSelect");
     sel.innerHTML = '<option value="">— pilih kategori —</option>' +
-      state.tournaments.map(t=>`<option value="${t.tournamentId}">${esc(t.category)} · ${LEVEL_LABEL[t.level]||t.level} · ${t.format}</option>`).join("");
+      state.tournaments.map(t=>`<option value="${t.tournamentId}">${esc(t.category)} · ${esc(levelLabel(t.level))} · ${t.format}</option>`).join("");
     if(state.tournament) sel.value = state.tournament.tournamentId;
     renderCatStarts();
   }catch(e){ toast(e.message, true); }
@@ -714,14 +720,34 @@ function collectCatStarts(){
   document.querySelectorAll('#catStartsWrap input[data-tid]').forEach(i => { const v=(i.value||"").trim(); if(v) out[i.getAttribute('data-tid')] = v; });
   return out;
 }
+// Show the free-text name + custom ELO inputs only for the "Other" category.
+function onCatChange(){
+  const other = document.getElementById("tCat").value === "Other";
+  document.getElementById("fCatOther").style.display = other ? "" : "none";
+  document.getElementById("fOtherElo").style.display = other ? "" : "none";
+  document.getElementById("fLevel").style.display = other ? "none" : "";
+}
 async function createTournament(){
   if(!state.event) return toast("Pilih event dulu", true);
   const size = parseInt(val("tSize"))||4;
   if(size < 3) return toast("Ukuran grup minimal 3", true);
+  // "Other" = free category name + admin-chosen starting ELO (stored in the Level column).
+  const isOther = document.getElementById("tCat").value === "Other";
+  let category, level;
+  if(isOther){
+    category = val("tCatOther").trim();
+    if(!category) return toast("Isi nama kategori dulu", true);
+    const elo = parseInt(val("tOtherElo"));
+    if(!elo || elo < 100 || elo > 4000) return toast("ELO awal harus 100–4000", true);
+    level = String(elo);
+  }else{
+    category = document.getElementById("tCat").value;
+    level = document.getElementById("tLevel").value;
+  }
   try{
     const { tournamentId } = await api("tournament", { method:"POST", body:{
-      eventId: state.event.eventId, category: document.getElementById("tCat").value,
-      level: document.getElementById("tLevel").value, format: state.format,
+      eventId: state.event.eventId, category: category,
+      level: level, format: state.format,
       groupSizeTarget: size, advancersPerGroup: val("tAdv"), adminUsername: (state.session && state.session.username) || "",
     }});
     toast("Kategori dibuat");

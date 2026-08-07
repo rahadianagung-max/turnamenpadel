@@ -356,7 +356,13 @@ const LEVEL_ELO = {
   upper_bronze: 1800, silver: 2100, gold: 2500, platinum: 3000,
 };
 function levelToElo(level) {
-  return LEVEL_ELO[String(level || "").toLowerCase().trim().replace(/\s+/g, "_")] || 1200;
+  const s = String(level || "").toLowerCase().trim().replace(/\s+/g, "_");
+  if (LEVEL_ELO[s] != null) return LEVEL_ELO[s];
+  // Custom "Other" category: the Level column may hold a raw ELO number chosen
+  // by the admin (mis. "1350"). Use it directly; fall back to 1200 otherwise.
+  const n = parseInt(s, 10);
+  if (!isNaN(n) && n > 0) return n;
+  return 1200;
 }
 function normName(s) {
   return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
