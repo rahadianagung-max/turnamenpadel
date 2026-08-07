@@ -56,21 +56,19 @@
     background:linear-gradient(180deg,rgba(255,122,26,.12),rgba(255,122,26,.04)); padding:.5vh 1.2vw;}
   .np-court{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--accent);
     border-radius:6px; padding:.45vh .7vw; font-size:clamp(10px,.95vw,17px); letter-spacing:.03em; white-space:nowrap;}
-  .np-team{flex:1 1 0; min-width:0; display:flex; align-items:center; overflow:hidden;}
-  .np-team.a{justify-content:flex-end;}
-  .np-team.b{justify-content:flex-start;}
-  .np-team .plnm{font-weight:800; font-size:clamp(15px,1.55vw,32px); line-height:1.1;
-    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
-  .np-team.a .plnm{text-align:right;}
-  .np-team.b .plnm{text-align:left;}
-  .np-team .amp{color:var(--faint); font-weight:600; padding:0 .25em;}
-  .np-meta{flex:0 1 auto; max-width:24%; font-family:'Space Mono',monospace; color:var(--muted);
+  /* Teams flow left on one line (same as UPCOMING) so full names show; names get
+     the width first and only ellipsis when the line truly overflows. Bigger font. */
+  .np-teams{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:.7vw; overflow:hidden; white-space:nowrap;
+    font-size:clamp(15px,1.5vw,28px);}
+  .np-teams .npt{font-weight:800; min-width:0; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;}
+  .np-teams .amp{color:var(--faint); font-weight:600; padding:0 .18em;}
+  .np-x{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
+    font-size:.68em; letter-spacing:.1em;}
+  .np-meta{flex:0 1 auto; max-width:26%; font-family:'Space Mono',monospace; color:var(--muted);
     font-size:clamp(9px,.8vw,14px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;}
   .np-dot{flex:0 0 auto; width:clamp(9px,.8vw,15px); height:clamp(9px,.8vw,15px);
     border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent);
     animation:liveblink 1.4s steps(1,end) infinite;}
-  .np-vs{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
-    font-size:clamp(12px,1.1vw,22px); letter-spacing:.1em; padding:0 .3vw;}
   .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
   /* upcoming — compact single-line queue, ordered by time; capped so Now Playing stays bigger */
   #nextWrap{flex:0 0 auto; min-height:clamp(80px,11vh,170px); display:flex; flex-direction:column; gap:.6vh;}
@@ -268,9 +266,11 @@ function nowTeamInline(c, eid){
 function nowCard(f){
   return `<div class="np-card">
     <span class="np-court">COURT ${esc(f.court)}</span>
-    <div class="np-team a"><span class="plnm">${nowTeamInline(f.c,f.eA)}</span></div>
-    <div class="np-vs">VS</div>
-    <div class="np-team b"><span class="plnm">${nowTeamInline(f.c,f.eB)}</span></div>
+    <div class="np-teams">
+      <b class="npt">${nowTeamInline(f.c,f.eA)}</b>
+      <span class="np-x">VS</span>
+      <b class="npt">${nowTeamInline(f.c,f.eB)}</b>
+    </div>
     <span class="np-meta">${esc(f.label)}${f.time?` · ${fmtTime(f.time)}`:""}</span>
     <span class="np-dot" aria-label="live"></span></div>`;
 }
