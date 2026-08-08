@@ -413,8 +413,18 @@ function render(matches, brackets){
   let html = "";
 
   // ----- GROUP -----
+  // Order by the actual scheduled time (the same clock the players/TV see), not the
+  // raw slot index: admins can edit match times in the sheet, so slot order can drift
+  // from clock order. Matches without a time fall back to slot, then court.
+  const tmin = m => { const t = fmtTime(m.time); if(!t) return null; return parseInt(t.slice(0,2),10)*60 + parseInt(t.slice(3,5),10); };
   const group = (matches||[]).filter(m=>m.stage==="GROUP")
-    .sort((a,b)=> (a.slot-b.slot) || (a.court-b.court));
+    .sort((a,b)=>{
+      const da=String(a.date||""), db=String(b.date||""); if(da!==db) return da<db?-1:1;
+      const ma=tmin(a), mb=tmin(b);
+      if(ma!=null && mb!=null && ma!==mb) return ma-mb;
+      if((ma==null)!==(mb==null)) return ma==null?1:-1;   // timed matches before untimed
+      return (a.slot-b.slot) || (a.court-b.court);
+    });
   html += `<h3 class="sect">Babak Grup <span class="cnt">${group.length} match</span></h3>`;
   if(!group.length){
     html += '<p class="empty">Belum ada jadwal grup untuk kategori ini.</p>';
