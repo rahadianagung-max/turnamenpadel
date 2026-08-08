@@ -223,6 +223,7 @@ let CAT_ROT = 0;
 const ROT_MS = 60000;      // 60s per category
 let nextRotAt = 0;         // timestamp of the next category switch (for the countdown)
 let ROT_N = 0;             // categories in the currently shown rotating view (>1 => rotating)
+let STAND_PAGES = 1;       // group-standings pages (>1 => split per category & rotating)
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
 // Full category names (avoid codes like MD/WD/MIXED on the LED board).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
@@ -602,6 +603,7 @@ function fitStandings(){
   fit.style.setProperty("--sfz", best+"px");
   let g=best;
   while(!fits() && g>8){ g-=0.5; fit.style.setProperty("--sfz", g+"px"); }
+  return g;   // the font size it settled on (px) — used to decide if paging is needed
 }
 function renderRight(){
   const hasPlayoff=(state.data.categories||[]).some(c=>(c.playoff||[]).length);
@@ -618,21 +620,36 @@ function renderRight(){
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
   // Show every category's standings together (each as its own labelled block)
   // instead of rotating one at a time — clearer when categories run in separate batches.
-  ROT_N=1; titleEl.textContent="Group Standings";
+  STAND_PAGES=1; ROT_N=1; titleEl.textContent="Group Standings";
   if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
-  const blocks=cats.map(c=>{
-    const cap=capFor(c);
-    const groups=c.groups.filter(g=>g.standings.length);
-    // Two-row layout: 2 groups -> side by side; else fill top row left→right, then
-    // the rest below. 4 -> 2x2, 6 -> 3x3(top)+3(bottom), 8 -> 4x2, and so on.
-    const ng=groups.length;
-    const cols = ng<=2 ? ng : Math.ceil(ng/2);
-    const cards=groups.map(g=>cardHtml(c,g)).join("");
-    return `<div class="cat-block">${cap?`<div class="cat-cap" style="margin-bottom:calc(var(--sfz)*.55)">${cap}</div>`:""}
-      <div class="grp-grid" style="grid-template-columns:repeat(${cols},1fr)">${cards}</div></div>`;
-  }).join("");
-  wrap.innerHTML=`<div class="fit">${blocks}</div>`;
-  fitStandings();
+  // Build the standings HTML for a set of categories and shrink-to-fit; returns the font px it settled on.
+  const renderCats=(list)=>{
+    const blocks=list.map(c=>{
+      const cap=capFor(c);
+      const groups=c.groups.filter(g=>g.standings.length);
+      // Two-row layout: 2 groups -> side by side; else fill top row left→right, then
+      // the rest below. 4 -> 2x2, 6 -> 3x3(top)+3(bottom), 8 -> 4x2, and so on.
+      const ng=groups.length;
+      const cols = ng<=2 ? ng : Math.ceil(ng/2);
+      const cards=groups.map(g=>cardHtml(c,g)).join("");
+      return `<div class="cat-block">${cap?`<div class="cat-cap" style="margin-bottom:calc(var(--sfz)*.55)">${cap}</div>`:""}
+        <div class="grp-grid" style="grid-template-columns:repeat(${cols},1fr)">${cards}</div></div>`;
+    }).join("");
+    wrap.innerHTML=`<div class="fit">${blocks}</div>`;
+    return fitStandings();
+  };
+  // Show every category together WHEN it fits at a legible size. If several
+  // categories would shrink below readability (bottom groups get clipped), split
+  // into one-category-per-screen pages that rotate every 60s — each group stays
+  // full and legible instead of being cut off.
+  const MIN_LEGIBLE=11;
+  const bestAll=renderCats(cats);
+  if(cats.length>1 && bestAll<MIN_LEGIBLE){
+    STAND_PAGES=cats.length; ROT_N=cats.length;
+    const cur=cats[CAT_ROT % cats.length];
+    titleEl.textContent="Group Standings · "+catLabel(cur.category);
+    renderCats([cur]);
+  }
   updateRotCountdown();
 }
 // Countdown to the next category switch, shown under the panel title.
@@ -812,10 +829,10 @@ async function resolveEventId(){
       const cats=state.data.categories||[];
       const nBracket=cats.filter(c=>(c.playoff||[]).length).length;
       const nProj=cats.filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))).length;
-      const nStand=cats.filter(c=>c.groups&&c.groups.some(g=>g.standings.length)).length;
-      // Standings no longer rotate (all categories are shown together); only the
-      // bracket / projection views cycle between categories.
-      if(Math.max(nBracket,nProj)>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
+      // Rotate between categories when: a bracket/projection view spans several
+      // categories, OR group standings were split into per-category pages because
+      // they didn't all fit legibly on one screen (STAND_PAGES>1).
+      if(Math.max(nBracket,nProj)>1 || STAND_PAGES>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
     }, 60000);
     setInterval(updateRotCountdown, 1000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
