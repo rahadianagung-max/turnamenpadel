@@ -108,29 +108,31 @@
   .footer .pwr{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); color:var(--faint); letter-spacing:.1em; text-transform:uppercase;}
   .footer .logo-sm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  /* playoff bracket */
+  /* playoff bracket — mobile-style cards, laid out as left→right round columns for TV */
   .bracket-block{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
   .bracket-block + .bracket-block{margin-top:1.4vh;}
-  .bt{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.6vh;}
-  .bpodium{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,17px); color:var(--accent); margin-bottom:1vh;}
-  .bpodium .posub{color:var(--muted);}
-  .bracket{position:relative; flex:1 1 auto; min-height:0; display:flex; gap:1vw; overflow:hidden;}
+  .bt{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.8vh;}
+  /* podium row: Champion / Runner-up / 3rd — same as mobile */
+  .bpodium{flex:0 0 auto; display:flex; gap:.9vw; margin-bottom:1.4vh;}
+  .bpod{flex:1; min-width:0; border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:1vh 1vw;}
+  .bpod .bpk{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); letter-spacing:.05em; text-transform:uppercase; color:var(--muted);}
+  .bpod .bpw{font-weight:700; font-size:clamp(13px,1.25vw,22px); margin-top:.5vh; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bpod.g{border-color:rgba(255,122,26,.5); background:rgba(255,122,26,.09);} .bpod.g .bpk{color:var(--accent);}
+  .bpod.b .bpk{color:var(--accent2);}
+  /* round columns */
+  .bracket{flex:1 1 auto; min-height:0; display:flex; gap:1vw; align-items:stretch; overflow:hidden;}
   .bround{flex:1 1 0; min-width:0; display:flex; flex-direction:column;}
-  .bround.bronze{flex:0 0 auto; min-width:clamp(140px,12vw,240px);}
-  .bround.center{flex:0 0 auto; min-width:clamp(150px,13vw,260px); justify-content:center; gap:1.2vh;}
-  .bround.center .third-h{margin-top:1.2vh;}
+  .bround.narrow{flex:0 0 auto; width:clamp(150px,15vw,240px);}
   .brh{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(9px,.78vw,13px); color:var(--faint);
-    text-transform:uppercase; letter-spacing:.06em; margin-bottom:.6vh; text-align:center;}
-  .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:.6vh;}
-  .bmatch{position:relative; z-index:1; border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.6vh .6vw; display:flex; flex-direction:column; gap:.3vh;}
-  .bround{position:relative; z-index:1;}
+    text-transform:uppercase; letter-spacing:.06em; margin-bottom:.8vh; padding-bottom:.6vh; border-bottom:1px solid var(--line); text-align:left;}
+  .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:1vh;}
+  .bmatch{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.85vh .8vw; display:flex; flex-direction:column; gap:.3vh;}
   .bmatch.bye{opacity:.45;}
+  .bmeta{font-family:'Space Mono',monospace; font-size:clamp(8px,.72vw,12px); color:var(--faint); letter-spacing:.02em; margin-bottom:.2vh;}
   .bteam{display:flex; align-items:center; gap:.4vw; min-width:0;}
   .bteam.win{color:var(--accent); font-weight:700;}
   .bteam.tbd{color:var(--faint); font-style:italic;}
-  .bteam .bavs{display:flex; flex:0 0 auto;}
-  .bteam .bavs .av{margin-left:-4px; box-shadow:0 0 0 2px var(--panel);} .bteam .bavs .av:first-child{margin-left:0;}
-  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.95vw,17px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.98vw,18px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); margin-left:auto; padding-left:.4vw;}
   /* projected (simulated) bracket */
   .bracket-block.proj .bt{color:var(--accent);}
@@ -373,24 +375,22 @@ function bteam(c, eid, score, win){
   if(!eid) return `<div class="bteam tbd"><span class="bnm">TBD</span></div>`;
   const [p1,p2]=pairPlayers(c,eid);
   const tn=teamNameOf(c,eid);
-  // TV: team name only when set (no player names/avatars); players otherwise.
+  // TV playoff mirrors mobile: names only (team name when set), no avatars.
   const label = tn ? esc(tn) : `${esc(shortName(p1))}${p2?" & "+esc(shortName(p2)):""}`;
-  const avs = tn ? "" : `<span class="bavs">${avatar(p1,"clamp(16px,1.3vw,26px)")}${p2?avatar(p2,"clamp(16px,1.3vw,26px)"):""}</span>`;
   return `<div class="bteam ${win?'win':''}">
-    ${avs}
     <span class="bnm">${label}</span>
     <span class="bsc">${(score!==''&&score!=null)?esc(String(score)):''}</span></div>`;
 }
-// data-key/data-parent so the SVG overlay can draw connector lines to the final.
-// Parent of (round r, slot i) is (round r+1, slot floor(i/2)); the final's parent
-// simply won't exist in the DOM, and BRONZE has no tree link.
-function brKeyAttrs(m){ return /^\d+$/.test(String(m.round)) ? `data-key="${m.round}-${m.idx}" data-parent="${parseInt(m.round)+1}-${Math.floor((m.idx||0)/2)}"` : ""; }
 function bcell(c,m){
   const done=m.status==="DONE", bye=m.status==="BYE";
   const aw=done&&String(m.winner)===String(m.entrantA);
   const bw=done&&String(m.winner)===String(m.entrantB);
-  return `<div class="bmatch ${bye?'bye':''} ${done?'done':''}" ${brKeyAttrs(m)}>
-    ${bteam(c,m.entrantA, done?m.scoreA:'', aw)}
+  // Meta line (Court · time), same as the mobile playoff card.
+  const parts=[];
+  if(!bye){ if(m.date) parts.push(esc(String(m.date))); if(m.time) parts.push(esc(fmtTime(m.time))); if(m.court) parts.push("Court "+esc(String(m.court))); }
+  const meta = parts.length ? `<div class="bmeta">${parts.join(" · ")}</div>` : "";
+  return `<div class="bmatch ${bye?'bye':''} ${done?'done':''}">${meta}
+    ${bteam(c,m.entrantA, bye?'BYE':(done?m.scoreA:''), aw)}
     ${bteam(c,m.entrantB, bye?'':(done?m.scoreB:''), bw)}</div>`;
 }
 // Compute podium from bracket results (final + bronze). Backend podium field had a bug,
@@ -413,66 +413,23 @@ function oneBracket(c, b, cell){
   const proj = b.projected;
   const p = derivePodium(b);
   const tnm = (eid, fallback) => { const t = eid ? teamNameOf(c, eid) : ""; return t ? esc(t) : (esc(firstNames(fallback))||"—"); };
+  // Podium row (Champion / Runner-up / 3rd) — same three cards as the mobile view.
   const pod = (!proj && (p.champion||p.runnerUp||p.third))
-    ? `<div class="bpodium">🏆 <b>${tnm(p.champE,p.champion)}</b><span class="posub"> · RU ${tnm(p.ruE,p.runnerUp)} · 3rd ${tnm(p.thirdE,p.third)}</span></div>` : "";
-  // Prune fully-decided leading rounds (real bracket only): once e.g. the Round of
-  // 16 is complete the board shows Quarterfinal → Final only, then SF → Final, etc.
-  // Always keep at least the final round; the simulation shows every round.
-  const allRounds = b.rounds||[];
-  const roundDone = (rd) => (rd.matches||[]).length>0 && (rd.matches||[]).every(m=> m.status==="DONE" || m.status==="BYE");
-  let startR = 0;
-  if(!proj){ while(startR < allRounds.length-1 && roundDone(allRounds[startR])) startR++; }
-  const rs = allRounds.slice(startR);
-  const last = rs.length-1;
-  const roundCol = (r, half)=>{
-    const ms = rs[r].matches||[];
-    const h = Math.ceil(ms.length/2);
-    const part = half==="L" ? ms.slice(0,h) : ms.slice(h);
-    return `<div class="bround"><div class="brh">${roundLabel(rs[r].round,b.numRounds)}</div><div class="brcol">${part.map(m=>cell(c,m)).join("")}</div></div>`;
-  };
-  let leftCols="", rightCols="";
-  for(let r=0;r<last;r++) leftCols += roundCol(r,"L");
-  for(let r=last-1;r>=0;r--) rightCols += roundCol(r,"R");
-  const finalCell = (last>=0 && rs[last] && rs[last].matches[0]) ? cell(c, rs[last].matches[0]) : "";
-  const bronze = b.bronze ? `<div class="brh third-h">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div>` : "";
-  const center = `<div class="bround center"><div class="brh">${last>=0?roundLabel(rs[last].round,b.numRounds):"Final"}</div><div class="brcol">${finalCell}</div>${bronze}</div>`;
+    ? `<div class="bpodium">
+        <div class="bpod g"><div class="bpk">🏆 Champion</div><div class="bpw">${tnm(p.champE,p.champion)}</div></div>
+        <div class="bpod s"><div class="bpk">Runner-up</div><div class="bpw">${tnm(p.ruE,p.runnerUp)}</div></div>
+        <div class="bpod b"><div class="bpk">3rd Place</div><div class="bpw">${tnm(p.thirdE,p.third)}</div></div>
+      </div>` : "";
+  // Every round as its own left→right column (Quarterfinal → Semifinal → Final),
+  // mirroring the mobile list but arranged horizontally for the landscape screen.
+  const cols = (b.rounds||[]).map((r) =>
+    `<div class="bround"><div class="brh">${roundLabel(r.round,b.numRounds)}</div><div class="brcol">${(r.matches||[]).map((m)=>cell(c,m)).join("")}</div></div>`
+  ).join("");
+  const bronze = b.bronze
+    ? `<div class="bround narrow"><div class="brh">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div></div>` : "";
   return `<div class="bracket-block${proj?' proj':''}">
     <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
-    <div class="bracket">${leftCols}${center}${rightCols}</div></div>`;
-}
-// Draw broadcast-style elbow connectors from each match to its parent, measured
-// from the laid-out DOM so the lines flow correctly across the two-sided layout.
-function drawBracketConnectors(){
-  const NS="http://www.w3.org/2000/svg";
-  document.querySelectorAll(".bracket").forEach(br=>{
-    const old=br.querySelector("svg.br-links"); if(old) old.remove();
-    const brRect=br.getBoundingClientRect();
-    if(!brRect.width) return;
-    const byKey={}; br.querySelectorAll(".bmatch[data-key]").forEach(m=>{ byKey[m.getAttribute("data-key")]=m; });
-    const svg=document.createElementNS(NS,"svg");
-    svg.setAttribute("class","br-links");
-    svg.style.cssText="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:visible";
-    const rel=(el)=>{ const r=el.getBoundingClientRect(); return {x:r.left-brRect.left,y:r.top-brRect.top,w:r.width,h:r.height}; };
-    br.querySelectorAll(".bmatch[data-parent]").forEach(m=>{
-      const pel=byKey[m.getAttribute("data-parent")]; if(!pel) return;
-      const c=rel(m), p=rel(pel);
-      const cCy=c.y+c.h/2, pCy=p.y+p.h/2, cCx=c.x+c.w/2, pCx=p.x+p.w/2;
-      let x1,x2;
-      if(cCx<pCx){ x1=c.x+c.w; x2=p.x; } else { x1=c.x; x2=p.x+p.w; }
-      const midX=(x1+x2)/2;
-      const path=document.createElementNS(NS,"path");
-      const won=m.classList.contains("done");
-      path.setAttribute("d",`M ${x1} ${cCy} H ${midX} V ${pCy} H ${x2}`);
-      path.setAttribute("fill","none");
-      path.setAttribute("stroke-width", won?"2.5":"2");
-      path.setAttribute("stroke-linejoin","round");
-      path.setAttribute("stroke-linecap","round");
-      path.style.stroke = won ? "var(--accent)" : "#4d4038";
-      if(won) path.style.opacity="0.9";
-      svg.appendChild(path);
-    });
-    br.insertBefore(svg, br.firstChild);
-  });
+    <div class="bracket">${cols}${bronze}</div></div>`;
 }
 function bracketHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoff||[]).length);
@@ -488,7 +445,7 @@ function bteamProj(label){
 }
 function bcellProj(c,m){
   const bye=m.status==="BYE";
-  return `<div class="bmatch proj ${bye?'bye':''}" ${brKeyAttrs(m)}>${bteamProj(m.teamA)}${bye?bteamProj(''):bteamProj(m.teamB)}</div>`;
+  return `<div class="bmatch proj ${bye?'bye':''}">${bteamProj(m.teamA)}${bye?bteamProj(''):bteamProj(m.teamB)}</div>`;
 }
 function hasProjection(){
   return (state.data.categories||[]).some(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
@@ -612,7 +569,7 @@ function renderRight(){
   const catSuffix=(list)=> list.length>1 ? " · "+catLabel(list[CAT_ROT % list.length].category) : "";
   if(hasPlayoff){
     const bcats=(state.data.categories||[]).filter(c=>(c.playoff||[]).length);
-    ROT_N=bcats.length; titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); updateRotCountdown(); requestAnimationFrame(drawBracketConnectors); return;
+    ROT_N=bcats.length; titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); updateRotCountdown(); return;
   }
   // Group stage: show Group Standings only. The simulated/projected playoff
   // bracket is intentionally NOT rotated in — the bracket appears only once the
