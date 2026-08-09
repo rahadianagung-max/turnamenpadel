@@ -2980,13 +2980,14 @@ const seedSort = (a, b) => a.rank - b.rank || b.wins - a.wins || b.gd - a.gd || 
 // preview (buildPlayoffProjection), so both seed identically (cross-seed when
 // every group has exactly N qualifiers and the group count is a power of 2).
 // Returns { built:[{tier,b}], summary, champCount, prospCount }.
-function buildPlayoffTiers(groups, format, N) {
+function buildPlayoffTiers(groups, format, N, crossOn) {
+  crossOn = crossOn !== false; // default ON — World Cup cross-seed (Winner A vs Runner-up C, …)
   const champCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank <= N).length, 0);
   const prospCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank > N).length, 0);
   const built = [], summary = [];
   const emitTier = (tier, predicate) => {
     const groupsQual = groups.map((g) => g.standings.filter(predicate).sort((a, b) => a.rank - b.rank).map((s) => s.entrantId));
-    const cross = crossSeedRound1(groupsQual);
+    const cross = crossOn ? crossSeedRound1(groupsQual) : null;
     let b, method;
     if (cross) { b = bracketFromRound1(cross, tier); method = "cross"; }
     else {
@@ -3276,7 +3277,10 @@ async function tGeneratePlayoff(id, body) {
     if (!r.built.length || r.qualified < 2) return respond(400, { error: "Perlu minimal 2 tim untuk playoff." });
     built = r.built; summary = r.summary;
   } else {
-    const r = buildPlayoffTiers(groups, format, N);
+    // crossSeed toggle (default ON): ON = World Cup cross (Winner A vs Runner-up C, …);
+    // OFF = plain rank seeding. Sent per generate from the engine.
+    const crossOn = b0.crossSeed !== false;
+    const r = buildPlayoffTiers(groups, format, N, crossOn);
     if (r.champCount < 2) {
       return respond(400, { error: format === "SPLIT" ? "Champion tier perlu minimal 2 tim." : `Perlu minimal 2 tim lolos (top ${N}/grup).` });
     }
