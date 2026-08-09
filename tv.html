@@ -411,6 +411,15 @@ function oneBracket(c, b, cell){
   cell = cell || bcell;
   const tierName = (TIER[b.tier]||b.tier);
   const proj = b.projected;
+  const p = derivePodium(b);
+  const tnm = (eid, fallback) => { const t = eid ? teamNameOf(c, eid) : ""; return t ? esc(t) : (esc(firstNames(fallback))||"—"); };
+  // Podium row (Champion / Runner-up / 3rd) — same three cards as the mobile view.
+  const pod = (!proj && (p.champion||p.runnerUp||p.third))
+    ? `<div class="bpodium">
+        <div class="bpod g"><div class="bpk">🏆 Champion</div><div class="bpw">${tnm(p.champE,p.champion)}</div></div>
+        <div class="bpod s"><div class="bpk">Runner-up</div><div class="bpw">${tnm(p.ruE,p.runnerUp)}</div></div>
+        <div class="bpod b"><div class="bpk">3rd Place</div><div class="bpw">${tnm(p.thirdE,p.third)}</div></div>
+      </div>` : "";
   // Each round as its own left→right column, mirroring the mobile list but arranged
   // horizontally for the landscape screen. The 3rd-place (bronze) match is placed
   // BEFORE the Final so the board reads … → Semifinal → 3rd Place → Final.
@@ -427,7 +436,7 @@ function oneBracket(c, b, cell){
     cols = bronzeCol;
   }
   return `<div class="bracket-block${proj?' proj':''}">
-    <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>
+    <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
     <div class="bracket">${cols}</div></div>`;
 }
 function bracketHtml(){
@@ -654,9 +663,6 @@ function render(){
   else { sz="clamp(42px,3.5vw,80px)"; nmf="clamp(10px,1vw,20px)"; }
 
   const hasPlayoff = (state.data.categories||[]).some(c => (c.playoff||[]).length);
-  const fin = finishedPodium();
-  const allDone = playing.length===0 && upcoming.length===0;
-  const showWinners = !!fin && allDone;
 
   const leftCol  = document.getElementById("leftCol");
   const leftTitle= document.getElementById("leftTitle");
@@ -664,16 +670,10 @@ function render(){
   const nextWrap = document.getElementById("nextWrap");
   const nowWrap  = document.getElementById("nowWrap");
 
-  if(hasPlayoff && !showWinners){
-    // PLAYOFF IN PROGRESS — bracket only, hide the whole left column.
+  if(hasPlayoff){
+    // PLAYOFF (in progress or finished) — bracket only, hide the whole left column.
+    // The champions are shown by the podium on top of the bracket itself.
     leftCol.style.display = "none";
-  } else if(showWinners){
-    // FINAL DONE — show champions (1st–3rd) with photos on the left.
-    leftCol.style.display = "";
-    leftTitle.textContent = "Winners"; leftTitle.classList.remove("live");
-    nowWrap.innerHTML = winnersHtml(fin);
-    upTitle.style.display = "none";
-    nextWrap.style.display = "none";
   } else {
     // GROUP STAGE — now playing + upcoming.
     leftCol.style.display = "";
