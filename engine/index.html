@@ -520,6 +520,11 @@
       <div class="f"><label>Break 1 selesai</label><input id="poBreak1End" type="time" /></div>
       <div class="f"><label>Break 2 mulai (opsional)</label><input id="poBreak2Start" type="time" /></div>
       <div class="f"><label>Break 2 selesai</label><input id="poBreak2End" type="time" /></div>
+      <div class="f"><label>Pola crossing playoff</label>
+        <select id="poCross">
+          <option value="1">Silang antar-grup (Juara A vs Runner-up C, dst)</option>
+          <option value="0">Seeding standar (murni peringkat)</option>
+        </select></div>
     </div>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket (per grup)</button>
@@ -1176,7 +1181,7 @@ async function generatePlayoff(topOverall){
     : "Generate bracket akan menimpa bracket playoff kategori ini berdasarkan standing terkini. Lanjut?";
   if(!confirm(msg)) return;
   try{
-    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"), breaks: collectPoBreaks() };
+    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"), breaks: collectPoBreaks(), crossSeed: val("poCross") !== "0" };
     if(overall>=2) body.topOverall = overall;
     const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body });
     const methodLabel = m => m==="cross" ? "cross grup" : m==="overall" ? "peringkat keseluruhan" : m==="custom" ? "seeding manual" : "seeding";
