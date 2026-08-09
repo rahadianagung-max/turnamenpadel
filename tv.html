@@ -411,25 +411,24 @@ function oneBracket(c, b, cell){
   cell = cell || bcell;
   const tierName = (TIER[b.tier]||b.tier);
   const proj = b.projected;
-  const p = derivePodium(b);
-  const tnm = (eid, fallback) => { const t = eid ? teamNameOf(c, eid) : ""; return t ? esc(t) : (esc(firstNames(fallback))||"—"); };
-  // Podium row (Champion / Runner-up / 3rd) — same three cards as the mobile view.
-  const pod = (!proj && (p.champion||p.runnerUp||p.third))
-    ? `<div class="bpodium">
-        <div class="bpod g"><div class="bpk">🏆 Champion</div><div class="bpw">${tnm(p.champE,p.champion)}</div></div>
-        <div class="bpod s"><div class="bpk">Runner-up</div><div class="bpw">${tnm(p.ruE,p.runnerUp)}</div></div>
-        <div class="bpod b"><div class="bpk">3rd Place</div><div class="bpw">${tnm(p.thirdE,p.third)}</div></div>
-      </div>` : "";
-  // Every round as its own left→right column (Quarterfinal → Semifinal → Final),
-  // mirroring the mobile list but arranged horizontally for the landscape screen.
-  const cols = (b.rounds||[]).map((r) =>
-    `<div class="bround"><div class="brh">${roundLabel(r.round,b.numRounds)}</div><div class="brcol">${(r.matches||[]).map((m)=>cell(c,m)).join("")}</div></div>`
-  ).join("");
-  const bronze = b.bronze
-    ? `<div class="bround narrow"><div class="brh">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div></div>` : "";
+  // Each round as its own left→right column, mirroring the mobile list but arranged
+  // horizontally for the landscape screen. The 3rd-place (bronze) match is placed
+  // BEFORE the Final so the board reads … → Semifinal → 3rd Place → Final.
+  const colHtml = (r) => `<div class="bround"><div class="brh">${roundLabel(r.round,b.numRounds)}</div><div class="brcol">${(r.matches||[]).map((m)=>cell(c,m)).join("")}</div></div>`;
+  const bronzeCol = b.bronze ? `<div class="bround narrow"><div class="brh">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div></div>` : "";
+  const rounds = b.rounds||[];
+  let cols = "";
+  if(rounds.length){
+    const fi = rounds.length-1;                 // final = last round
+    for(let i=0;i<fi;i++) cols += colHtml(rounds[i]);
+    cols += bronzeCol;                          // 3rd place first…
+    cols += colHtml(rounds[fi]);                // …then the final (1st place)
+  } else {
+    cols = bronzeCol;
+  }
   return `<div class="bracket-block${proj?' proj':''}">
-    <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
-    <div class="bracket">${cols}${bronze}</div></div>`;
+    <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>
+    <div class="bracket">${cols}</div></div>`;
 }
 function bracketHtml(){
   const cats = (state.data.categories||[]).filter(c => (c.playoff||[]).length);
