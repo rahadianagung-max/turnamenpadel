@@ -2539,15 +2539,40 @@ async function tScheduleEvent(eventId, body) {
   // start time share the court grid (= old single-batch behavior). A later start
   // packs that category into its own window on the same courts. -----
   const catStartsIn = (b.categoryStarts && typeof b.categoryStarts === "object") ? b.categoryStarts : null;
+  // catMode (multi-category events): "parallel" = all categories start together and
+  // share the courts; "sequential" = play categories one after another (each starts
+  // after the previous finishes — estimated, but an explicit override still wins).
+  // Absent => legacy behavior (stored / override per-category start).
+  const catMode = String(b.catMode || "").toLowerCase();
   const catStart = {};
   for (const t of tids) {
     const stored = normClock((tournaments.find((x) => x[0] === t) || [])[10]) || "";
     const ov = catStartsIn ? (normClock(catStartsIn[t]) || "") : "";
     catStart[t] = ov || stored || startTime;
   }
-  if (catStartsIn) {
+  if (catMode === "parallel" && tids.length > 1) {
+    for (const t of tids) catStart[t] = startTime; // all together, share courts
+  } else if (catMode === "sequential" && tids.length > 1) {
+    // Chain categories: category k starts where category k-1 ends. Duration estimated
+    // from its match count spread over the courts (>= the longest group's rounds).
+    let cursorMin = startMin;
     for (const t of tids) {
-      const ns = normClock(catStartsIn[t]) || "";
+      const ov = catStartsIn ? (normClock(catStartsIn[t]) || "") : "";
+      const stMin = ov ? (hm2min(ov) != null ? hm2min(ov) : cursorMin) : cursorMin;
+      catStart[t] = min2hm(stMin);
+      const cg = groups.filter((g) => g.tid === t);
+      const matchCount = cg.reduce((s, g) => s + (g.rounds || []).reduce((a, r) => a + r.length, 0), 0);
+      const maxRounds = cg.reduce((m, g) => Math.max(m, (g.rounds || []).length), 0);
+      const spanSlots = Math.max(maxRounds, Math.ceil(matchCount / Math.max(1, numCourts)));
+      cursorMin = stMin + spanSlots * matchMinutes;
+    }
+  }
+  // Persist resolved per-category starts to Tournaments!K (blank when == event start,
+  // so shared/parallel categories stay blank). Only when a mode or override is given.
+  if (catMode === "parallel" || catMode === "sequential" || catStartsIn) {
+    for (const t of tids) {
+      const rc = normClock(catStart[t]) || "";
+      const ns = (catMode === "parallel" || rc === (normClock(startTime) || "")) ? "" : rc;
       const idx = allTr.findIndex((x) => x[0] === t);
       if (idx === -1) continue;
       if (ns !== (normClock(allTr[idx][10] || "") || "")) {
