@@ -603,17 +603,28 @@ async function loadTournaments(){
     renderCatStarts();
   }catch(e){ toast(e.message, true); }
 }
+function setCatMode(v){ window._catMode = v; renderCatStarts(); }
+function getCatMode(){ return window._catMode || "parallel"; }
 function renderCatStarts(){
   const wrap = document.getElementById("catStartsWrap"); if(!wrap) return;
   const ts = state.tournaments || [];
   if(ts.length <= 1){ wrap.innerHTML = ""; return; }
   const evStart = val("schStart") || (state.event && state.event.startTime) || "09:00";
+  const mode = getCatMode();
+  const optStyle = 'flex:1;min-width:180px;display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;font-size:12.5px;line-height:1.4';
+  const onStyle = ';border-color:var(--orange);background:rgba(255,106,0,.08)';
   wrap.innerHTML =
-    '<div style="text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:var(--muted);margin:2px 0 6px"><b>Jam mulai per kategori (batch)</b></div>'
-    + '<div class="grid">' + ts.map(t =>
-        '<div class="f"><label>'+esc(t.category)+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+esc(evStart)+'"></div>'
-      ).join("") + '</div>'
-    + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">Kosong = ikut jam mulai event ('+esc(evStart)+'). Isi berbeda untuk main dua batch — mis. Women 09:00, Men 14:00 (harus ≥ jam mulai event). Kategori berjam-mulai sama tetap berbagi court.</p>';
+    '<div style="text-transform:uppercase;letter-spacing:.06em;font-size:12px;color:var(--muted);margin:2px 0 6px"><b>Ada '+ts.length+' kategori — dimainkan bagaimana?</b></div>'
+    + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">'
+    +   '<label style="'+optStyle+(mode==="parallel"?onStyle:"")+'"><input type="radio" name="catmode" value="parallel" '+(mode==="parallel"?"checked":"")+' onchange="setCatMode(this.value)"><span><b>Bersamaan</b> — berbagi lapangan, mulai serentak</span></label>'
+    +   '<label style="'+optStyle+(mode==="sequential"?onStyle:"")+'"><input type="radio" name="catmode" value="sequential" '+(mode==="sequential"?"checked":"")+' onchange="setCatMode(this.value)"><span><b>Terpisah</b> — bergiliran, kategori berikut mulai setelah yang sebelumnya selesai</span></label>'
+    + '</div>'
+    + (mode==="sequential"
+        ? '<div class="grid">' + ts.map(t =>
+            '<div class="f"><label>'+esc(t.category)+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="auto"></div>'
+          ).join("") + '</div>'
+          + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">Kosong = <b>dihitung otomatis</b> (kategori berikut mulai setelah yang sebelumnya selesai). Isi untuk override jam mulai kategori tertentu. Setelah generate, jam hasil hitungan tampil di sini.</p>'
+        : '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">Semua kategori mulai jam <b>'+esc(evStart)+'</b> dan berbagi court secara bergantian.</p>');
 }
 function collectCatStarts(){
   const out = {};
@@ -839,9 +850,11 @@ async function generateSchedule(){
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
-      breaks: collectBreaks(), categoryStarts: collectCatStarts()
+      breaks: collectBreaks(), categoryStarts: collectCatStarts(), catMode: ((state.tournaments||[]).length>1 ? getCatMode() : undefined)
     }});
     if(r && r.courtCollisionCount){ toast("⚠ "+r.courtCollisionCount+" slot court bentrok antar-batch — ada kategori yang meleber ke jam batch lain di court sama. Lebarkan jeda atau kurangi match.", true); }
+    // Reflect the resolved per-category start times (esp. auto-computed for "Terpisah").
+    if(r && r.categoryStarts){ (state.tournaments||[]).forEach(t=>{ if(t) t.startTime = r.categoryStarts[t.tournamentId] || ""; }); renderCatStarts(); }
     // backend persists overrides — reflect them locally so labels/context stay in sync
     state.event.startTime = val("schStart") || state.event.startTime;
     state.event.courtNumbers = val("schCourtNums") || "";
