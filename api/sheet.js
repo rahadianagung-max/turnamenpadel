@@ -2933,26 +2933,23 @@ function buildBracket(seeded, tier, groupOf) {
 // order (index 0 = group A, 1 = B, …). Applies only when every group has exactly
 // 2 qualifiers and the group count is a power of 2 (2, 4, 8…).
 //
-// Groups are paired by MIRROR (A↔H, B↔G, C↔F, D↔E for 8 groups). Each mirror pair
-// yields two round-1 matches — Winner(i) vs Runner-up(mirror) and Winner(mirror)
-// vs Runner-up(i) — split into OPPOSITE bracket halves, so a group's winner &
-// runner-up (and the two mirror winners) can only meet in the final. For 8 groups
-// this produces exactly:
-//   Left : WA-RUH, WD-RUE, WB-RUG, WC-RUF
-//   Right: WE-RUD, WH-RUA, WF-RUC, WG-RUB
-// For 4 groups the pairing is half-offset (A↔C, B↔D) instead of mirror:
-//   Left : WA-RUC, WB-RUD   Right: WD-RUB, WC-RUA
+// Groups are paired by HALF-OFFSET: partner(i) = (i + g/2) % g. So Winner(i) meets
+// Runner-up(partner) and vice-versa, split into OPPOSITE bracket halves, so a group's
+// winner & runner-up can only meet in the final. This gives:
+//   2 groups → WA-RUB, WB-RUA
+//   4 groups → WA-RUC, WB-RUD (partner A↔C, B↔D)
+//   8 groups → WA-RUE, WB-RUF, WC-RUG, WD-RUH (partner A↔E, B↔F, C↔G, D↔H)
 function crossSeedRound1(groupsQual) {
   const g = groupsQual.length;
   if (g < 2) return null;
   if ((g & (g - 1)) !== 0) return null;           // group count must be a power of 2
   if (!groupsQual.every((a) => a.length === 2)) return null; // exactly 2 per group
   const W = groupsQual.map((a) => a[0]), R = groupsQual.map((a) => a[1]);
-  // Cross-seed partner group. Mirror by default (A↔H, B↔G, …). For EXACTLY 4 groups,
-  // pair by half-offset so Winner A meets Runner-up C and Winner B meets Runner-up D
-  // (A↔C, B↔D) instead of A↔D / B↔C. Both are involutions, so the sibling
-  // construction below still splits a group's winner & runner-up into opposite halves.
-  const partner = (g === 4) ? ((i) => (i + 2) % 4) : ((i) => g - 1 - i);
+  // Half-offset partner group: Winner A vs Runner-up E (8 groups), Winner A vs
+  // Runner-up C (4 groups), Winner A vs Runner-up B (2 groups). It's an involution
+  // (partner(partner(i))==i), so the sibling construction below still splits a group's
+  // winner & runner-up into opposite bracket halves.
+  const partner = (i) => (i + g / 2) % g;
   // Left half: winners of the low-half groups in standard bracket-seed order,
   // each vs the runner-up of its partner group.
   const lowGroups = seedOrder(g / 2).map((s) => s - 1);
