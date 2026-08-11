@@ -3113,18 +3113,22 @@ function buildOverallProjection(totalTeams, topN, groupLabels) {
   const lab = (id) => (id ? (labelOf[id] || "") : "");
   return [projectionTierView("MAIN", b, lab)];
 }
-// Simulation that mirrors an already-generated real bracket: same tiers and
-// team count, but with nameless "Unggulan 1 … Unggulan N" seed placeholders.
-// Used while the group stage is still running so the public board shows the
-// right size (e.g. 8 besar) without revealing player names yet.
-function projectionFromBrackets(brackets, groupLabels) {
+// Nameless mirror of an already-generated real bracket: keeps the bracket's EXACT
+// structure and pairings, only replacing each entrant with its group-position label
+// ("Winner Grup A" vs "Runner-up Grup E") so player names stay hidden until the group
+// stage is complete. entrantLabel maps entrantId -> placeholder. (Previously this
+// re-derived a standard seed, which mis-showed cross-seeded pairings as Winner A vs
+// Runner-up H.)
+function projectionFromBrackets(brackets, entrantLabel) {
+  const lab = (eid) => (eid ? (entrantLabel[eid] || "") : "");
   return (brackets || []).filter((t) => (t.nQual || 0) >= 2).map((t) => {
-    const labelOf = {}, seeded = [];
-    const names = seedGroupLabels(t.nQual, groupLabels);
-    for (let i = 1; i <= t.nQual; i++) { const id = `S${i}`; labelOf[id] = names[i - 1]; seeded.push(id); }
-    const bb = buildBracket(seeded, t.tier, null);
-    const lab = (id) => (id ? (labelOf[id] || "") : "");
-    return projectionTierView(t.tier, bb, lab);
+    const conv = (m) => ({
+      matchId: "", round: m.round, idx: m.idx, court: "", time: "", date: "",
+      teamA: lab(m.entrantA), teamB: lab(m.entrantB), entrantA: null, entrantB: null,
+      scoreA: "", scoreB: "", winner: "", status: "SCHEDULED", projected: true,
+    });
+    const rounds = (t.rounds || []).map((r) => ({ round: r.round, matches: (r.matches || []).map(conv) }));
+    return { tier: t.tier, numRounds: t.numRounds, nQual: t.nQual, rounds, bronze: t.bronze ? conv(t.bronze) : null, podium: { champion: "", runnerUp: "", third: "" }, projected: true };
   });
 }
 // Provisional "N besar" qualification panel shown above the bracket while the
@@ -3792,7 +3796,12 @@ async function tPublicEvent(eventId, opts) {
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
-    const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, groups.map((g) => g.label)) : planProjection;
+    // Label each entrant by its current group position ("Winner Grup A", "Runner-up
+    // Grup E", …) so the nameless projection of a real bracket shows the ACTUAL
+    // cross-seeded pairings instead of a re-derived standard seed.
+    const entrantLabelMap = {};
+    for (const g of groups) for (const s of g.standings) entrantLabelMap[s.entrantId] = playoffProjectionRankLabel(s.rank, g.label);
+    const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, entrantLabelMap) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     // Provisional qualification panel while groups run: "N besar" overall when a
     // top-N plan is set, otherwise per-group (top advancersPerGroup of each group).
