@@ -311,6 +311,25 @@
     <div class="pick"><label>Pilih event yang sudah ada</label>
       <select id="eventSelect" onchange="selectEvent(this.value)"><option value="">Memuat…</option></select>
     </div>
+    <div id="tvThemeBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Tema warna TV LED <span style="color:var(--muted);font-weight:400">— untuk papan /tv event ini</span></div>
+      <div id="tvPresets" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px"></div>
+      <div class="grid">
+        <div class="f"><label>Background</label><input type="color" id="tv-bg" value="#000000"></div>
+        <div class="f"><label>Box / panel</label><input type="color" id="tv-panel" value="#121110"></div>
+        <div class="f"><label>Garis / border</label><input type="color" id="tv-line" value="#332a24"></div>
+        <div class="f"><label>Teks utama</label><input type="color" id="tv-text" value="#fdf4ee"></div>
+        <div class="f"><label>Teks sekunder</label><input type="color" id="tv-muted" value="#bfa091"></div>
+        <div class="f"><label>Aksen (skor/judul)</label><input type="color" id="tv-accent" value="#FF6A00"></div>
+        <div class="f"><label>Aksen 2 (zebra)</label><input type="color" id="tv-accent2" value="#FFB000"></div>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn btn-primary" onclick="saveTvTheme()">Simpan tema TV</button>
+        <button type="button" class="btn btn-ghost" onclick="resetTvTheme()">Reset ke default</button>
+        <a class="btn btn-ghost" id="tvOpenLink" target="_blank" rel="noopener" href="#">Buka papan TV ↗</a>
+      </div>
+      <p style="font-size:11.5px;color:var(--muted);margin:6px 2px 0">Warna disimpan per event & langsung dipakai papan TV. Field kosong/Reset = kembali ke tema default.</p>
+    </div>
   </section>
 
   <!-- 2. KATEGORI -->
@@ -575,10 +594,42 @@ async function submitEvent(){
     selectEvent(eventId);
   }catch(e){ toast(e.message, true); }
 }
+// ── TV LED per-event color theme ──
+const TV_TOKENS=['bg','panel','line','text','muted','accent','accent2'];
+const TV_DEFAULT={bg:'#000000',panel:'#121110',line:'#332a24',text:'#fdf4ee',muted:'#bfa091',accent:'#FF6A00',accent2:'#FFB000'};
+const TV_PRESETS={
+  'Classic':TV_DEFAULT,
+  'Midnight Blue':{bg:'#05080f',panel:'#0e1626',line:'#1e2c44',text:'#eaf2ff',muted:'#8ea6c8',accent:'#3B82F6',accent2:'#22D3EE'},
+  'Emerald':{bg:'#02120c',panel:'#0a1f17',line:'#1c3a2c',text:'#eafff5',muted:'#8fc9ac',accent:'#10B981',accent2:'#A3E635'},
+  'Royal Purple':{bg:'#0b0616',panel:'#170f28',line:'#2f2147',text:'#f3ecff',muted:'#b6a3d6',accent:'#A855F7',accent2:'#F472B6'},
+  'Clean Light':{bg:'#f4f2f0',panel:'#ffffff',line:'#e2ddd8',text:'#1a1a1e',muted:'#6b6b72',accent:'#FF6A00',accent2:'#E0820B'},
+};
+function renderTvPresets(){ const el=document.getElementById('tvPresets'); if(!el||el._done)return; el._done=1; el.innerHTML=Object.keys(TV_PRESETS).map(n=>'<button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="applyTvPreset(\''+n+'\')">'+n+'</button>').join(''); }
+function applyTvPreset(n){ const p=TV_PRESETS[n]; if(!p)return; TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i&&p[k]) i.value=p[k]; }); }
+function tvSlug(name){ return String(name||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function fillTvTheme(){
+  const box=document.getElementById('tvThemeBox'); if(!box)return;
+  if(!state.event){ box.style.display='none'; return; }
+  box.style.display=''; renderTvPresets();
+  const t=state.event.tvTheme||{};
+  TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i) i.value=(t[k]||TV_DEFAULT[k]); });
+  const link=document.getElementById('tvOpenLink'); if(link) link.href='https://turnamenpadel.com/tv/'+encodeURIComponent(tvSlug(state.event.name));
+}
+async function saveTvTheme(){
+  if(!state.event) return;
+  const theme={}; TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i&&i.value) theme[k]=i.value; });
+  try{ const r=await api('tournament/event/'+encodeURIComponent(state.event.eventId)+'/tv-theme',{method:'POST',body:{theme}}); state.event.tvTheme=(r&&r.theme)||null; toast('Tema TV disimpan — papan TV akan memakainya.'); }
+  catch(e){ toast('Gagal simpan tema: '+e.message,true); }
+}
+async function resetTvTheme(){
+  if(!state.event) return;
+  try{ await api('tournament/event/'+encodeURIComponent(state.event.eventId)+'/tv-theme',{method:'POST',body:{theme:{}}}); state.event.tvTheme=null; TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i) i.value=TV_DEFAULT[k]; }); toast('Tema TV direset ke default.'); }
+  catch(e){ toast('Gagal reset: '+e.message,true); }
+}
 function selectEvent(id){
   state.event = state.events.find(e=>e.eventId===id) || null;
   state.tournament = null;
-  renderContext(); setLocks(); fillScheduleParams();
+  renderContext(); setLocks(); fillScheduleParams(); fillTvTheme();
   document.getElementById("tourSelect").innerHTML = '<option value="">—</option>';
   document.getElementById("entrantsWrap").innerHTML = '<p class="empty">Belum ada peserta.</p>';
   document.getElementById("importResult").classList.remove("show");

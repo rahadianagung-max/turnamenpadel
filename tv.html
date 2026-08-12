@@ -687,6 +687,27 @@ function render(){
   renderRight();
 }
 
+// Apply a per-event color theme (from event.theme) onto the root CSS tokens.
+// Only hex values are honored; missing keys keep the default. panel2 & the gradient
+// are derived so boxes and the header wordmark stay consistent.
+let _themed=false;
+function applyTvTheme(t){
+  const root=document.documentElement;
+  const map={bg:'--bg',panel:'--panel',line:'--line',text:'--text',muted:'--muted',accent:'--accent',accent2:'--accent2'};
+  if(!t || typeof t!=='object'){
+    if(_themed){ Object.values(map).forEach(v=>root.style.removeProperty(v)); root.style.removeProperty('--panel2'); root.style.removeProperty('--grad'); _themed=false; }
+    return;
+  }
+  const hex=v=>typeof v==='string'&&/^#[0-9a-fA-F]{3,8}$/.test(v);
+  for(const k in map){ if(hex(t[k])) root.style.setProperty(map[k], t[k]); }
+  if(hex(t.panel)) root.style.setProperty('--panel2', t.panel);
+  if(hex(t.accent)||hex(t.accent2)){
+    const a=hex(t.accent)?t.accent:(getComputedStyle(root).getPropertyValue('--accent').trim()||'#FF6A00');
+    const b=hex(t.accent2)?t.accent2:(getComputedStyle(root).getPropertyValue('--accent2').trim()||'#FFB000');
+    root.style.setProperty('--grad','linear-gradient(90deg,'+a+','+b+')');
+  }
+  _themed=true;
+}
 async function load(){
   try{
     const d=await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public?live=1");
@@ -698,6 +719,7 @@ async function load(){
       const only=d.categories.filter(catAllowed);
       if(only.length){ d.categories=only; CAT_LABEL=only.map(c=>catLabel(c.category)).join("  ·  "); }
     }
+    applyTvTheme(d.event && d.event.theme);
     preloadSponsors(d.sponsors);
     document.getElementById("evnm").textContent=d.event.name||"Tournament";
     document.getElementById("evmt").textContent=[d.event.venue,d.event.date].filter(Boolean).join("  ·  ")+(CAT_LABEL?"  ·  "+CAT_LABEL:"");

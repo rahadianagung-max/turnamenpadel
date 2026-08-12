@@ -563,6 +563,9 @@ const netlifyHandler = async (event) => {
     // --- TOURNAMENT ROUTES (Phase 1) ---
     if (path === "tournament/event" && method === "POST") return await tCreateEvent(body);
     if (path === "tournament/events" && method === "GET") return await tListEvents(params);
+    if (path.startsWith("tournament/event/") && path.endsWith("/tv-theme") && method === "POST") {
+      return await tSetTvTheme(decodeURIComponent(path.replace("tournament/event/", "").replace("/tv-theme", "")), body);
+    }
     if (path.startsWith("tournament/event/") && path.endsWith("/schedule") && method === "POST") {
       return await tScheduleEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")), body);
     }
@@ -1699,6 +1702,37 @@ async function getPublicFeed() {
   return respond(200, { activePlayrank, events, highlight });
 }
 
+// Per-event TV LED theme: a small JSON of color overrides stored in event col I
+// (index 8). Only known keys with hex values are honored. Empty => default theme.
+function parseTvTheme(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  let o; try { o = JSON.parse(s); } catch (e) { return null; }
+  if (!o || typeof o !== "object") return null;
+  const allow = ["bg", "panel", "line", "text", "muted", "accent", "accent2"];
+  const out = {};
+  for (const k of allow) { const v = String(o[k] || "").trim(); if (/^#[0-9a-fA-F]{3,8}$/.test(v)) out[k] = v; }
+  return Object.keys(out).length ? out : null;
+}
+// Save (or clear) an event's TV LED color theme to event col I. Sanitizes to known
+// keys with hex values; an empty/invalid theme clears the cell (back to default).
+async function tSetTvTheme(id, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:A` });
+  const idx = (r.data.values || []).findIndex((x) => x[0] === id);
+  if (idx === -1) return respond(404, { error: "Event not found" });
+  const allow = ["bg", "panel", "line", "text", "muted", "accent", "accent2"];
+  const t = (body && body.theme && typeof body.theme === "object") ? body.theme : {};
+  const clean = {};
+  for (const k of allow) { const v = String(t[k] || "").trim(); if (/^#[0-9a-fA-F]{3,8}$/.test(v)) clean[k] = v; }
+  const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!I${idx + 2}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [[json]] },
+  });
+  return respond(200, { success: true, theme: Object.keys(clean).length ? clean : null });
+}
 async function tListEvents(params = {}) {
   const sheets = getSheets();
   await ensureTabs(sheets);
@@ -1706,6 +1740,7 @@ async function tListEvents(params = {}) {
   let events = (r.data.values || []).map((x) => ({
     eventId: x[0], name: x[1], venue: x[2], date: x[3], startTime: x[4],
     numCourts: parseInt(x[5]) || 0, matchMinutes: parseInt(x[6]) || 15, createdAt: x[7],
+    tvTheme: parseTvTheme(x[8]),   // col I — TV LED color theme
     adminUsername: x[13] || "",   // col N — owning admin
     // cols O:V — up to 4 optional break windows
     breaks: [0, 1, 2, 3].map((i) => ({ start: x[14 + i * 2] || "", end: x[15 + i * 2] || "" })).filter((b) => b.start || b.end),
@@ -3747,6 +3782,7 @@ async function tPublicEvent(eventId, opts) {
   const evRow = evRows.find((x) => x[0] === eventId);
   if (!evRow) return respond(404, { error: "Event not found" }, { "Cache-Control": "no-store" });
   const event = { eventId: evRow[0], name: evRow[1], venue: evRow[2], date: evRow[3], startTime: evRow[4], numCourts: parseInt(evRow[5]) || 1, matchMinutes: parseInt(evRow[6]) || 15,
+    theme: parseTvTheme(evRow[8]),   // per-event TV LED color theme
     breaks: [0, 1, 2, 3].map((i) => ({ start: evRow[14 + i * 2] || "", end: evRow[15 + i * 2] || "" })).filter((b) => b.start || b.end),
     breakStart: evRow[14] || "", breakEnd: evRow[15] || "" };
 
