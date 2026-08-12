@@ -17,6 +17,7 @@
     { "source": "/tv/:slug", "destination": "/tv.html" },
     { "source": "/checkin/:slug", "destination": "/checkin.html" },
     { "source": "/simulasi", "destination": "/simulasi.html" },
+    { "source": "/mexicano", "destination": "/mexicano.html" },
     { "source": "/draw", "destination": "/draw.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
