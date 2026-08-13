@@ -483,8 +483,10 @@
     <div class="elo-warn">Replay seluruh match (grup + playoff) secara kronologis dari ELO seed, pakai rumus Ranked Match. Hasil ditulis ke ELO_Log sebagai satu sesi turnamen. ELO peserta baru ikut terbentuk dari sini.</div>
     <div class="actions" style="margin-top:12px;">
       <button type="button" class="btn btn-primary" onclick="finalizeElo(false)">Hitung ELO akhir</button>
+      <button type="button" class="btn btn-ghost" onclick="publishVenue()" title="Daftarkan turnamen ini agar pemenangnya tampil di venue.trekkr.online">Tampilkan di Venue</button>
       <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Salin baris event ini ke Tournament_Archive lalu bersihkan data operasionalnya">Arsipkan &amp; bersihkan event</button>
     </div>
+    <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Tampilkan di Venue</b> mendaftarkan turnamen ini ke halaman publik <code>venue.trekkr.online</code> (podium &amp; klasemen). Aman diklik kapan saja — sebelum atau sesudah diarsipkan.</p>
     <div id="eloWrap" style="margin-top:16px;"></div>
   </section>
 </div>
@@ -1202,6 +1204,18 @@ async function finalizeElo(force){
     } else {
       wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
     }
+  }
+}
+async function publishVenue(){
+  if(!state.event) return toast("Pilih event dulu", true);
+  const wrap = document.getElementById("eloWrap");
+  wrap.innerHTML = '<p class="muted">Mendaftarkan ke venue…</p>';
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/publish-venue", { method:"POST", body:{} });
+    wrap.innerHTML = `<div class="elo-note">✓ ${r.updated?'Diperbarui':'Terdaftar'} di venue.<br>Halaman publik: <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></div>`;
+    toast(r.updated?"Venue diperbarui":"Terdaftar di venue");
+  }catch(e){
+    wrap.innerHTML = `<p class="empty">${esc(e.message||'Gagal mendaftarkan ke venue')}</p>`;
   }
 }
 async function archiveEvent(force){

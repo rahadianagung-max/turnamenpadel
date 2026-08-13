@@ -575,6 +575,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/archive") && method === "POST") {
       return await tArchiveEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/archive", "")), body || {});
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/publish-venue") && method === "POST") {
+      return await tPublishVenue(decodeURIComponent(path.replace("tournament/event/", "").replace("/publish-venue", "")), body || {});
+    }
     if (path.startsWith("tournament/event/") && path.endsWith("/public") && method === "GET") {
       const live = params.live === "1" || params.live === "true";
       return await tPublicEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/public", "")), { live });
@@ -4041,6 +4044,45 @@ async function tArchiveEvent(eventId, body) {
     note: "ELO_Log, Players and Sessions were left intact. Registration tabs (RegForms/Registrations) and Form_Responses were not touched.",
   });
 }
+
+// Register (or update) this event as a public tournament on venue.trekkr.online.
+// Writes one row into the shared `Competitions` tab that the venue site reads.
+// Source_Venue = the engine Event_ID (starts with "EV_"), so the venue page
+// builds the podium from the engine — and, after archiving, from Tournament_Archive.
+// Tab name + column order MUST match trekkr's COMPETITIONS_HEADER exactly.
+const COMPETITIONS_TAB = "Competitions";
+const COMPETITIONS_HEADER = ["Slug", "Type", "Source_Venue", "Name", "Location", "Logo_URL", "Status"];
+function compSlug(name) { return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, ""); }
+async function tPublishVenue(eventId, body) {
+  if (!eventId) return respond(400, { error: "eventId required" });
+  const b = body || {};
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const evR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` });
+  const evRow = (evR.data.values || []).find((x) => x[0] === eventId);
+  if (!evRow) return respond(404, { error: "Event not found" });
+
+  const name = (b.name != null && String(b.name).trim()) || (evRow[1] || "").trim() || eventId;
+  const location = (b.location != null ? String(b.location) : (evRow[2] || "")).trim();
+  const status = String(b.status || "").trim();
+  const logoUrl = String(b.logoUrl || "").trim();
+  const slug = (b.slug ? compSlug(b.slug) : compSlug(name)) || compSlug(eventId);
+  if (!slug) return respond(400, { error: "Tidak bisa membuat slug dari nama event." });
+
+  await ensureTabWithHeader(sheets, COMPETITIONS_TAB, COMPETITIONS_HEADER);
+  const cr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A2:G` }).catch(() => ({ data: { values: [] } }));
+  const rows = cr.data.values || [];
+  const idx = rows.findIndex((x) => String(x[0] || "").trim().toLowerCase() === slug.toLowerCase());
+  const row = [slug, "tournament", eventId, name, location, logoUrl, status];
+  if (idx >= 0) {
+    // Idempotent: refresh the existing competition row (keep the same slug/URL).
+    await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A${idx + 2}:G${idx + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
+  } else {
+    await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
+  }
+  return respond(200, { success: true, slug, name, updated: idx >= 0, url: "https://venue.trekkr.online/tournament/" + slug });
+}
+
 async function tFinalizeElo(eventId, force) {
   const sheets = getSheets();
   await ensureTabs(sheets);
