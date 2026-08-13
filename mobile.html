@@ -183,6 +183,10 @@ const qs = new URLSearchParams(location.search);
 // Event can be given as ?event=<id> (old links) or as a friendly slug path
 // /mobile/<slug> (resolved from the event name at load time — see boot()).
 let EVENT_ID = qs.get("event");
+// Team-only board (?teams=1 / ?teamsonly=1): show custom team names without the
+// player-name line — same as the TV leaderboard. Falls back to the pair's names
+// only when a team has no custom name set.
+const TEAMS_ONLY = qs.get("teams")==="1" || qs.has("teamsonly");
 const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
@@ -209,12 +213,18 @@ function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPOR
 function teamNames(cat, entrantId, withAv){
   const e = cat.entrants[entrantId];
   if(!e) return entrantId ? esc(entrantId) : '<span class="tbd">TBD</span>';
+  const tn = (e.teamName||"").trim();
+  // Team-only mode: show the team name alone (no player line). When a pair has no
+  // custom name, fall back to its display names as the label — like the TV board.
+  if(TEAMS_ONLY){
+    const label = tn || [e.player1,e.player2].map(dispName).filter(Boolean).join(" + ");
+    return `<span class="tname">${esc(label)}</span>`;
+  }
   const a = (withAv?avatar(e.player1):"")+plink(e.player1);
   const b = (withAv?avatar(e.player2):"")+plink(e.player2);
   const players = `${a} <span style="color:var(--faint)">+</span> ${b}`;
   // Opsi D: when a pair has a custom team name, show it as the title with the
   // players on a smaller second line (still clickable). Empty => players only.
-  const tn = (e.teamName||"").trim();
   if(tn) return `<span class="tname">${esc(tn)}</span><span class="tplayers">${players}</span>`;
   return players;
 }
@@ -265,10 +275,11 @@ function renderSchedule(cat){
   // there is no stored time. A pinned match (explicit date) always uses its time.
   const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || ""));
 
-  // Player picker — lets a player see only their own matches.
+  // Player picker — lets a player see only their own matches. Hidden on the
+  // team-only board so no player names are shown at all.
   const players = playersInCat(cat);
   const sel = (state.player && players.some(p=>norm(p)===norm(state.player))) ? state.player : "";
-  const ctl = `<p class="sched-hint">To see only your schedule, select your name in the dropdown below.</p>
+  const ctl = TEAMS_ONLY ? "" : `<p class="sched-hint">To see only your schedule, select your name in the dropdown below.</p>
     <div class="schedctl"><label>Player</label>
     <select onchange="setPlayer(this.value)">
       <option value="">All matches</option>
