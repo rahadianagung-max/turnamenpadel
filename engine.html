@@ -487,6 +487,14 @@
       <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Salin baris event ini ke Tournament_Archive lalu bersihkan data operasionalnya">Arsipkan &amp; bersihkan event</button>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Tampilkan di Venue</b> mendaftarkan turnamen ini ke halaman publik <code>venue.trekkr.online</code> (podium &amp; klasemen). Aman diklik kapan saja — sebelum atau sesudah diarsipkan.</p>
+    <div class="pick" style="margin-top:12px">
+      <label>…atau tampilkan event yang sudah <b>diarsipkan</b> di venue</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
+        <select id="archEventSelect" style="flex:1;min-width:200px"><option value="">Memuat arsip…</option></select>
+        <button type="button" class="btn btn-ghost" onclick="publishArchived()">Tampilkan di Venue</button>
+        <button type="button" class="btn btn-ghost" onclick="loadArchivedEvents()" title="Muat ulang daftar arsip">↻</button>
+      </div>
+    </div>
     <div id="eloWrap" style="margin-top:16px;"></div>
   </section>
 </div>
@@ -1208,15 +1216,35 @@ async function finalizeElo(force){
 }
 async function publishVenue(){
   if(!state.event) return toast("Pilih event dulu", true);
+  return doPublish(state.event.eventId);
+}
+async function publishArchived(){
+  const sel = document.getElementById("archEventSelect");
+  const eventId = sel && sel.value;
+  if(!eventId) return toast("Pilih event terarsip dulu", true);
+  return doPublish(eventId);
+}
+async function doPublish(eventId){
   const wrap = document.getElementById("eloWrap");
   wrap.innerHTML = '<p class="muted">Mendaftarkan ke venue…</p>';
   try{
-    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/publish-venue", { method:"POST", body:{} });
+    const r = await api("tournament/event/"+encodeURIComponent(eventId)+"/publish-venue", { method:"POST", body:{} });
     wrap.innerHTML = `<div class="elo-note">✓ ${r.updated?'Diperbarui':'Terdaftar'} di venue.<br>Halaman publik: <a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></div>`;
     toast(r.updated?"Venue diperbarui":"Terdaftar di venue");
   }catch(e){
     wrap.innerHTML = `<p class="empty">${esc(e.message||'Gagal mendaftarkan ke venue')}</p>`;
   }
+}
+async function loadArchivedEvents(){
+  const sel = document.getElementById("archEventSelect");
+  if(!sel) return;
+  sel.innerHTML = '<option value="">Memuat arsip…</option>';
+  try{
+    const { events } = await api("tournament/archived-events");
+    if(!events || !events.length){ sel.innerHTML = '<option value="">— tidak ada event terarsip —</option>'; return; }
+    sel.innerHTML = '<option value="">— pilih event terarsip —</option>' +
+      events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.venue?" · "+esc(e.venue):""}${e.date?" · "+esc(e.date):""}</option>`).join("");
+  }catch(e){ sel.innerHTML = '<option value="">Gagal memuat arsip</option>'; }
 }
 async function archiveEvent(force){
   if(!state.event) return toast("Pilih event dulu", true);
@@ -1301,6 +1329,7 @@ async function addNewAdmin(){
 /* init */
 applySession(state.session);
 loadEvents();
+loadArchivedEvents();
 renderContext();
 </script>
 </body>

@@ -578,6 +578,7 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/publish-venue") && method === "POST") {
       return await tPublishVenue(decodeURIComponent(path.replace("tournament/event/", "").replace("/publish-venue", "")), body || {});
     }
+    if (path === "tournament/archived-events" && method === "GET") return await tListArchivedEvents();
     if (path.startsWith("tournament/event/") && path.endsWith("/public") && method === "GET") {
       const live = params.live === "1" || params.live === "true";
       return await tPublicEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/public", "")), { live });
@@ -4053,14 +4054,52 @@ async function tArchiveEvent(eventId, body) {
 const COMPETITIONS_TAB = "Competitions";
 const COMPETITIONS_HEADER = ["Slug", "Type", "Source_Venue", "Name", "Location", "Logo_URL", "Status"];
 function compSlug(name) { return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, ""); }
+
+// Recover an event's Tournament_Events row from the Tournament_Archive backup
+// (stored as JSON per row) when the event has already been archived/cleared.
+async function findArchivedEventRow(sheets, eventId) {
+  const res = await sheets.spreadsheets.values
+    .get({ spreadsheetId: SHEET_ID, range: `${TABS.t_archive}!A2:D` })
+    .catch(() => ({ data: { values: [] } }));
+  for (const r of (res.data.values || [])) {
+    if (r[1] !== eventId || r[2] !== TABS.t_events) continue; // col B=Event_ID, col C=Source_Tab
+    try { const row = JSON.parse(r[3]); if (Array.isArray(row)) return row; } catch (e) { /* skip */ }
+  }
+  return null;
+}
+
+// List distinct archived events (from their Tournament_Events rows) so the
+// engine UI can publish a tournament to the venue even after it's archived.
+async function tListArchivedEvents() {
+  const sheets = getSheets();
+  const res = await sheets.spreadsheets.values
+    .get({ spreadsheetId: SHEET_ID, range: `${TABS.t_archive}!A2:D` })
+    .catch(() => ({ data: { values: [] } }));
+  const seen = {};
+  const events = [];
+  for (const r of (res.data.values || [])) {
+    if (r[2] !== TABS.t_events) continue;
+    const eventId = r[1];
+    if (!eventId || seen[eventId]) continue;
+    let row; try { row = JSON.parse(r[3]); } catch (e) { continue; }
+    if (!Array.isArray(row)) continue;
+    seen[eventId] = true;
+    events.push({ eventId, name: row[1] || eventId, venue: row[2] || "", date: row[3] || "", archivedAt: r[0] || "" });
+  }
+  events.sort((a, b) => String(b.archivedAt).localeCompare(String(a.archivedAt)));
+  return respond(200, { events });
+}
+
 async function tPublishVenue(eventId, body) {
   if (!eventId) return respond(400, { error: "eventId required" });
   const b = body || {};
   const sheets = getSheets();
   await ensureTabs(sheets);
   const evR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` });
-  const evRow = (evR.data.values || []).find((x) => x[0] === eventId);
-  if (!evRow) return respond(404, { error: "Event not found" });
+  // Fall back to Tournament_Archive when the live event row is gone (archived).
+  let evRow = (evR.data.values || []).find((x) => x[0] === eventId);
+  if (!evRow) evRow = await findArchivedEventRow(sheets, eventId);
+  if (!evRow) return respond(404, { error: "Event tidak ditemukan (live maupun arsip)." });
 
   const name = (b.name != null && String(b.name).trim()) || (evRow[1] || "").trim() || eventId;
   const location = (b.location != null ? String(b.location) : (evRow[2] || "")).trim();
