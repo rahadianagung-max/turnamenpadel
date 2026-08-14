@@ -702,6 +702,8 @@ const netlifyHandler = async (event) => {
     if (path === "mexicano" && method === "POST") return await mexCreate(body);
     if (/^mexicano\/[^/]+\/court$/.test(path) && method === "PUT")
       return await mexSetScore(decodeURIComponent(path.split("/")[1]), body);
+    if (/^mexicano\/[^/]+\/team$/.test(path) && method === "PUT")
+      return await mexSetTeam(decodeURIComponent(path.split("/")[1]), body);
     if (/^mexicano\/[^/]+\/next-round$/.test(path) && method === "POST")
       return await mexNextRound(decodeURIComponent(path.split("/")[1]));
     if (/^mexicano\/[^/]+$/.test(path) && method === "GET")
@@ -4360,6 +4362,23 @@ async function mexSetScore(key, body) {
   const clamp = (v) => { v = parseInt(v, 10); if (isNaN(v)) return null; if (v < 0) v = 0; if (v > data.raceTo) v = data.raceTo; return v; };
   rd.courts[ci].sa = clamp(b.sa);
   rd.courts[ci].sb = clamp(b.sb);
+  await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
+  return respond(200, { success: true, data });
+}
+// Rename a team's players and/or its team name. Names are display-only — team
+// indices, pairings, scores and standings are untouched.
+async function mexSetTeam(key, body) {
+  const b = body || {};
+  const sheets = getSheets();
+  const s = await mexFind(sheets, key);
+  if (!s) return respond(404, { error: "Sesi tidak ditemukan" });
+  const data = s.data;
+  const ti = parseInt(b.team, 10);
+  const t = (data.teams || [])[ti];
+  if (!t) return respond(400, { error: "Tim tidak valid" });
+  if (b.p1Name != null) { const v = String(b.p1Name).trim(); if (v) t.p1.name = v; }
+  if (b.p2Name != null) { const v = String(b.p2Name).trim(); if (v) t.p2.name = v; }
+  if (b.name != null) { const v = String(b.name).trim(); t.name = v || (t.p1.name + " & " + t.p2.name); }
   await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
   return respond(200, { success: true, data });
 }

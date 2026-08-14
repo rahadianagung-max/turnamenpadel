@@ -288,11 +288,12 @@ function nextRound(){
 }
 
 // ---------- RENDER ----------
-function render(){ if(!S){ renderSetup(); return; } if(view==='stand') renderStandings(); else if(view==='links') renderLinks(); else renderRound(); }
+function render(){ if(!S){ renderSetup(); return; } if(view==='stand') renderStandings(); else if(view==='links') renderLinks(); else if(view==='teams') renderTeams(); else renderRound(); }
 function tabs(){
   return '<div class="tabs">'
     +'<button class="'+(view==='round'?'on':'')+'" onclick="view=\'round\';render()">Ronde</button>'
     +'<button class="'+(view==='stand'?'on':'')+'" onclick="view=\'stand\';render()">Klasemen</button>'
+    +'<button class="'+(view==='teams'?'on':'')+'" onclick="view=\'teams\';render()">Tim</button>'
     +(S.online?'<button class="'+(view==='links'?'on':'')+'" onclick="view=\'links\';render()">Link</button>':'')
     +'<button onclick="menu()" style="margin-left:auto;color:var(--muted)">⋯</button>'
     +'</div>';
@@ -333,6 +334,36 @@ function renderStandings(){
               +'<td style="color:var(--faint);font-family:ui-monospace,monospace">'+s.elo+'</td><td>'+s.played+'</td><td>'+s.byes+'</td><td>'+(s.diff>0?'+':'')+s.diff+'</td><td class="pts">'+s.games+'</td></tr>'; }).join('')
         + '</tbody></table>' : '<div class="empty">Belum ada skor.</div>')
     + '</div>';
+}
+function renderTeams(){
+  var app=document.getElementById('app'); view='teams';
+  var rows=S.teams.map(function(t,i){
+    return '<div class="court" style="margin-bottom:10px"><div class="ct"><span>Tim '+(i+1)+'</span><span>ELO '+t.eloSum+'</span></div>'
+      + '<div class="row2" style="margin-bottom:8px">'
+      +   '<div><label class="lbl" style="margin-top:0">Pemain 1</label><input class="in" id="t'+i+'p1" value="'+esc(t.p1.name)+'"></div>'
+      +   '<div><label class="lbl" style="margin-top:0">Pemain 2</label><input class="in" id="t'+i+'p2" value="'+esc(t.p2.name)+'"></div>'
+      + '</div>'
+      + '<label class="lbl" style="margin-top:0">Nama tim <span style="color:var(--faint);font-weight:600;text-transform:none;letter-spacing:0">(kosong = pakai nama pemain)</span></label>'
+      + '<input class="in" id="t'+i+'nm" value="'+esc(t.name!==(t.p1.name+' & '+t.p2.name)?t.name:'')+'" placeholder="'+esc(t.p1.name+' & '+t.p2.name)+'">'
+      + '<button class="btn sm" style="margin-top:10px" onclick="saveTeam('+i+')">Simpan tim '+(i+1)+'</button>'
+      + '</div>';
+  }).join('');
+  app.innerHTML= tabs()
+    + '<div class="card"><div class="h">Edit nama pemain / tim</div>'
+    + '<p class="hint" style="margin-top:0">Ubah nama pemain atau nama tim kapan saja — hanya tampilan yang berubah; skor, seeding &amp; klasemen tetap.</p>'
+    + rows + '</div>';
+}
+function saveTeam(i){
+  var p1=(document.getElementById('t'+i+'p1').value||'').trim();
+  var p2=(document.getElementById('t'+i+'p2').value||'').trim();
+  var nm=(document.getElementById('t'+i+'nm').value||'').trim();
+  if(!p1||!p2){ toast('Nama pemain tidak boleh kosong.'); return; }
+  var t=S.teams[i]; t.p1.name=p1; t.p2.name=p2; t.name=nm||(p1+' & '+p2); save();
+  if(S.online&&S.slug){
+    lastPush=Date.now();
+    mexApi('/'+encodeURIComponent(S.slug)+'/team', { method:'PUT', body:JSON.stringify({ team:i, p1Name:p1, p2Name:p2, name:nm }) })
+      .then(function(){ toast('Tim '+(i+1)+' diperbarui.'); }).catch(function(e){ toast(e.message, true); });
+  } else { toast('Tim '+(i+1)+' diperbarui.'); renderTeams(); }
 }
 function copyLink(id){ var el=document.getElementById(id); var t=el?el.getAttribute('data-u'):''; if(!t) return;
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ toast('Link disalin.'); }).catch(function(){ toast('Salin manual: '+t); }); }
