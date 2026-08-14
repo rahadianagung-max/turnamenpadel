@@ -370,13 +370,14 @@ function copyLink(id){ var el=document.getElementById(id); var t=el?el.getAttrib
 function renderLinks(){
   var app=document.getElementById('app'); view='links';
   var origin=location.origin, nC=Math.max(1, S.courts||Math.floor(S.teams.length/2)||1);
-  var tv=origin+'/mexicano/tv/'+S.slug;
-  var rows='<div class="lrow"><span class="lb">TV</span><a class="lu" href="'+esc(tv)+'" target="_blank" rel="noopener">'+esc(tv)+'</a><button class="cbtn" id="lk_tv" data-u="'+esc(tv)+'" onclick="copyLink(\'lk_tv\')">Salin</button></div>';
+  var tv=origin+'/mexicano/tv/'+S.slug, pl=origin+'/mexicano/p/'+S.slug;
+  var rows='<div class="lrow"><span class="lb">TV</span><a class="lu" href="'+esc(tv)+'" target="_blank" rel="noopener">'+esc(tv)+'</a><button class="cbtn" id="lk_tv" data-u="'+esc(tv)+'" onclick="copyLink(\'lk_tv\')">Salin</button></div>'
+    + '<div class="lrow"><span class="lb">Peserta</span><a class="lu" href="'+esc(pl)+'" target="_blank" rel="noopener">'+esc(pl)+'</a><button class="cbtn" id="lk_pl" data-u="'+esc(pl)+'" onclick="copyLink(\'lk_pl\')">Salin</button></div>';
   for(var c=1;c<=nC;c++){ var u=origin+'/mexicano/score/'+S.slug+'/'+c;
     rows+='<div class="lrow"><span class="lb">Court '+c+'</span><a class="lu" href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a><button class="cbtn" id="lk_c'+c+'" data-u="'+esc(u)+'" onclick="copyLink(\'lk_c'+c+'\')">Salin</button></div>'; }
   app.innerHTML= tabs()
     + '<div class="card"><div class="h">Link sesi <span class="pill">'+esc(S.slug)+'</span></div>'
-    +   '<p class="hint" style="margin-top:0">Bagikan <b>link Court</b> ke wasit tiap lapangan untuk input skor, dan <b>link TV</b> untuk papan klasemen di layar LED. Skor tersinkron otomatis.</p>'
+    +   '<p class="hint" style="margin-top:0">Bagikan <b>link Court</b> ke wasit tiap lapangan (input skor), <b>link TV</b> untuk layar LED, dan <b>link Peserta</b> ke pemain (lihat court, lawan &amp; klasemen). Semua tersinkron otomatis.</p>'
     +   rows
     + '</div>';
 }

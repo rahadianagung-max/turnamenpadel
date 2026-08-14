@@ -20,6 +20,7 @@
     { "source": "/mexicano", "destination": "/mexicano.html" },
     { "source": "/mexicano/score/:slug/:court", "destination": "/mexicano-score.html" },
     { "source": "/mexicano/tv/:slug", "destination": "/mexicano-tv.html" },
+    { "source": "/mexicano/p/:slug", "destination": "/mexicano-player.html" },
     { "source": "/draw", "destination": "/draw.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
