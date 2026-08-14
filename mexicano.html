@@ -31,7 +31,6 @@
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .seg button{border:none;background:var(--card2);color:var(--muted);font:inherit;font-weight:700;font-size:13px;padding:9px 16px;cursor:pointer}
   .seg button.on{background:var(--orange);color:#160b04}
-  /* pair builder */
   .pairbuild{border:1px solid var(--line);border-radius:12px;background:var(--card2);padding:12px;margin-top:8px}
   .slot{display:flex;gap:8px;align-items:center;margin-bottom:9px}
   .slot .tag{font-family:ui-monospace,monospace;font-size:11px;color:var(--faint);width:20px;flex:0 0 auto;text-align:center}
@@ -41,7 +40,6 @@
   .eloin:focus{border-color:var(--orange)}
   .elo{font-family:ui-monospace,monospace;font-size:12px;font-weight:800;color:var(--accent2);background:rgba(255,176,0,.12);border-radius:6px;padding:5px 9px;white-space:nowrap}
   .elo.na{color:var(--faint);background:rgba(120,110,130,.12);font-weight:600}
-  /* team list */
   .plist{margin-top:10px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
   .prow{display:flex;align-items:center;gap:9px;padding:9px 11px;border-bottom:1px solid rgba(120,110,130,.14)}
   .prow:last-child{border-bottom:none}
@@ -49,7 +47,6 @@
   .prow .pn{flex:1;min-width:0;font-weight:700;font-size:14px;line-height:1.25}
   .prow .pn .sub{font-size:11px;color:var(--faint);font-weight:600}
   .prow .x{cursor:pointer;color:var(--faint);font-weight:800;font-size:16px;line-height:1;flex:0 0 auto;padding:2px 4px}.prow .x:hover{color:var(--danger)}
-  /* rounds */
   .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .tabs button{font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--muted);padding:8px 13px;border-radius:9px}
   .tabs button.on{background:var(--orange);border-color:var(--orange);color:#160b04}
@@ -79,6 +76,13 @@
   tr:last-child td{border-bottom:none}
   .empty{color:var(--muted);font-size:13px;text-align:center;padding:20px 8px}
   .hint{font-size:11.5px;color:var(--muted);line-height:1.5;margin-top:8px}
+  /* live links */
+  .lrow{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;background:var(--card2);padding:9px 11px;margin-bottom:8px}
+  .lrow .lb{font-weight:700;font-size:13px;flex:0 0 auto}
+  .lrow .lu{flex:1;min-width:0;font-family:ui-monospace,monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lrow a.lu:hover{color:var(--text)}
+  .cbtn{flex:0 0 auto;border:1px solid var(--line);background:#111015;color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+  .cbtn:hover{border-color:var(--orange)}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#241a12;border:1px solid var(--line);border-left:3px solid var(--orange);color:var(--text);padding:11px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;max-width:90%;z-index:50}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
@@ -94,25 +98,29 @@
 <div id="toast"></div>
 
 <script>
-var KEY='tp_mexicano_v2';
-var S=null;
+var KEY='tp_mexicano_v3';
+var S=null;            // { id, slug, online, name, raceTo, courts, startTime, teams, rounds, cur }
+var view='round', pollTimer=null, lastPush=0;
 function load(){ try{ S=JSON.parse(localStorage.getItem(KEY)); }catch(e){ S=null; } }
-function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
 function toast(t){ var el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(function(){el.classList.remove('show');},2200); }
 
-// ---------- ROSTER (Google Sheet via API) — used for autocomplete + auto ELO ----------
 var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
-var ROSTER_KEY='tp_mex_roster_v1';
-var roster=null, rosterTried=false;
+function mexApi(path, opts){
+  return fetch(API+'/mexicano'+path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}))
+    .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.error)||('HTTP '+r.status)); return j; }); });
+}
+
+// ---------- ROSTER (autocomplete + auto ELO) ----------
+var ROSTER_KEY='tp_mex_roster_v1', roster=null, rosterTried=false;
 function cachedRoster(){ try{ var c=JSON.parse(localStorage.getItem(ROSTER_KEY)); if(c&&c.at&&(Date.now()-c.at<6*3600e3)) return c.roster; }catch(e){} return null; }
 function loadRoster(){
   var c=cachedRoster(); if(c){ roster=c; return Promise.resolve(c); }
   var j=function(u){ return fetch(API+u,{headers:{'Content-Type':'application/json'}}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}); };
   return Promise.all([j('/players'),j('/elo/latest')]).then(function(res){
     var players=(res[0]&&res[0].players)||[], eloMap=(res[1]&&res[1].players)||{};
-    var r=players.map(function(p){ var rec=eloMap[p.name]; return { name:(p.displayName||p.name), key:p.name, region:p.region||'', elo:(rec&&rec.elo!=null)?Math.round(rec.elo):null }; })
-      .filter(function(x){return x.name;});
+    var r=players.map(function(p){ var rec=eloMap[p.name]; return { name:(p.displayName||p.name), key:p.name, region:p.region||'', elo:(rec&&rec.elo!=null)?Math.round(rec.elo):null }; }).filter(function(x){return x.name;});
     r.sort(function(a,b){ return (b.elo||0)-(a.elo||0) || a.name.localeCompare(b.name); });
     roster=r; try{localStorage.setItem(ROSTER_KEY,JSON.stringify({at:Date.now(),roster:r}));}catch(e){}
     return r;
@@ -122,22 +130,23 @@ function ensureRoster(){ if(rosterTried) return; rosterTried=true; loadRoster().
 function rosterFind(name){ var q=(name||'').trim().toLowerCase(); if(!q||!roster) return null; return roster.find(function(x){return x.name.toLowerCase()===q;})||null; }
 
 // ---------- SETUP ----------
-// draft.teams: [{ name, p1:{name,elo}, p2:{name,elo}, eloSum }]
-// draft.b: current pair being built { p1:{name,elo,fromRoster}, p2:{...}, tname }
-var draft={ name:'Mexicano', raceTo:4, teams:[], b:{p1:{},p2:{},tname:''} };
-
+var draft={ name:'Mexicano', raceTo:4, courts:2, startTime:'', teams:[], b:{p1:{},p2:{},tname:''} };
 function renderSetup(){
   ensureRoster();
   var app=document.getElementById('app');
   var teamRows=draft.teams.map(function(t,i){
     var players=t.p1.name+' & '+t.p2.name;
-    var sub = (t.name!==players)?'<div class="sub">'+esc(players)+'</div>':'';
+    var sub=(t.name!==players)?'<div class="sub">'+esc(players)+'</div>':'';
     return '<div class="prow"><span class="rk">'+(i+1)+'</span><span class="pn">'+esc(t.name)+sub+'</span><span class="elo">'+t.eloSum+'</span><span class="x" onclick="delTeam('+i+')">×</span></div>';
   }).join('');
-  var b=draft.b;
+  var b=draft.b, sug=Math.max(1,Math.floor(draft.teams.length/2));
   app.innerHTML=
     '<div class="card"><div class="h">Buat sesi Mexicano <span class="pill">FIXED PARTNER</span></div>'
     + '<label class="lbl">Nama sesi</label><input class="in" id="sName" value="'+esc(draft.name)+'">'
+    + '<div class="row2" style="margin-top:12px">'
+    +   '<div><label class="lbl" style="margin-top:0">Jumlah lapangan</label><input class="in" id="sCourts" type="number" min="1" value="'+(draft.courts||sug)+'"></div>'
+    +   '<div><label class="lbl" style="margin-top:0">Waktu mulai</label><input class="in" id="sStart" type="time" value="'+esc(draft.startTime||'')+'"></div>'
+    + '</div>'
     + '<label class="lbl">Race to (game per match)</label>'
     + '<div class="seg" id="raceSeg"><button data-r="3" class="'+(draft.raceTo===3?'on':'')+'">Race to 3</button><button data-r="4" class="'+(draft.raceTo===4?'on':'')+'">Race to 4</button></div>'
     + '<label class="lbl">Tambah pasangan <span style="color:var(--faint);font-weight:600;text-transform:none;letter-spacing:0">('+draft.teams.length+' tim)</span></label>'
@@ -148,23 +157,24 @@ function renderSetup(){
     +     '<div style="flex:1"><button class="btn" style="width:100%" onclick="addPair()">+ Tambah</button></div></div>'
     + '</div>'
     + (draft.teams.length?'<div class="plist">'+teamRows+'</div>':'')
-    + '<p class="hint">Ketik nama pemain — jika terdaftar, <b>ELO otomatis</b> dari sistem; jika tidak, isi ELO manual (kosong = 1350). ELO gabungan pasangan dipakai untuk seeding <b>Ronde 1</b>. Tiap court = 2 tim; jumlah tim ganjil → 1 tim <b>bye</b> bergilir. Minimal 2 tim.</p>'
-    + '<button class="btn block" onclick="startSession()" '+(draft.teams.length<2?'disabled':'')+'>Mulai Mexicano →</button>'
+    + '<p class="hint">ELO gabungan pasangan menyeed <b>Ronde 1</b>. Tiap court = 2 tim; jumlah tim ganjil → 1 tim <b>bye</b> bergilir. <b>Jumlah lapangan</b> menentukan berapa link wasit. Minimal 2 tim.</p>'
+    + '<button class="btn block" id="startBtn" onclick="startSession()" '+(draft.teams.length<2?'disabled':'')+'>Mulai Mexicano →</button>'
     + '</div>'
     + rosterDatalist()
     + (localStorage.getItem(KEY)?'<div class="card"><div class="h">Sesi tersimpan</div><p class="hint" style="margin-top:0">Ada sesi Mexicano tersimpan di perangkat ini.</p><button class="btn block" onclick="resumeSession()">Lanjutkan sesi terakhir</button></div>':'');
   var seg=document.getElementById('raceSeg');
-  seg.querySelectorAll('button').forEach(function(bt){ bt.onclick=function(){ draft.raceTo=parseInt(bt.dataset.r); renderSetup(); }; });
+  seg.querySelectorAll('button').forEach(function(bt){ bt.onclick=function(){ draft.raceTo=parseInt(bt.dataset.r); syncSetup(); renderSetup(); }; });
   document.getElementById('sName').oninput=function(e){ draft.name=e.target.value; };
+  document.getElementById('sCourts').oninput=function(e){ draft.courts=parseInt(e.target.value)||1; };
+  document.getElementById('sStart').oninput=function(e){ draft.startTime=e.target.value; };
   document.getElementById('tname').oninput=function(e){ draft.b.tname=e.target.value; };
   document.getElementById('p1').oninput=function(){ onSlot('p1'); };
   document.getElementById('p2').oninput=function(){ onSlot('p2'); };
 }
+function syncSetup(){ var n=document.getElementById('sName'),c=document.getElementById('sCourts'),t=document.getElementById('sStart'); if(n)draft.name=n.value; if(c)draft.courts=parseInt(c.value)||1; if(t)draft.startTime=t.value; }
 function rosterDatalist(){
   if(!(roster&&roster.length)) return '<datalist id="rosterDL"></datalist>';
-  return '<datalist id="rosterDL">'+roster.slice(0,600).map(function(p){
-    return '<option value="'+esc(p.name)+'">'+(p.elo!=null?'ELO '+p.elo:'no ELO')+(p.region?' · '+esc(p.region):'')+'</option>';
-  }).join('')+'</datalist>';
+  return '<datalist id="rosterDL">'+roster.slice(0,600).map(function(p){ return '<option value="'+esc(p.name)+'">'+(p.elo!=null?'ELO '+p.elo:'no ELO')+(p.region?' · '+esc(p.region):'')+'</option>'; }).join('')+'</datalist>';
 }
 function slotHint(which){
   var p=draft.b[which]; if(!p||!p.name) return '';
@@ -172,72 +182,93 @@ function slotHint(which){
   return '<input class="eloin" placeholder="ELO?" value="'+(p.elo!=null?p.elo:'')+'" oninput="onManualElo(\''+which+'\',this.value)" title="ELO manual (kosong = 1350)">';
 }
 function onSlot(which){
-  var el=document.getElementById(which); var v=el.value.trim();
-  var m=rosterFind(v), prev=draft.b[which]||{};
+  var el=document.getElementById(which), v=el.value.trim(), m=rosterFind(v), prev=draft.b[which]||{};
   if(m){ draft.b[which]={name:m.name,key:m.key,elo:m.elo,fromRoster:true}; }
   else { draft.b[which]={name:v,key:null,fromRoster:false,elo:prev.fromRoster?null:(prev.elo!=null?prev.elo:null)}; }
   document.getElementById(which==='p1'?'h1':'h2').innerHTML=slotHint(which);
 }
-function onManualElo(which,v){ v=String(v).trim(); draft.b[which].elo = v===''?null:(parseInt(v,10)||null); }
+function onManualElo(which,v){ v=String(v).trim(); draft.b[which].elo=v===''?null:(parseInt(v,10)||null); }
 function addPair(){
   var b=draft.b, n1=(b.p1&&b.p1.name||'').trim(), n2=(b.p2&&b.p2.name||'').trim();
   if(!n1||!n2){ toast('Isi dua pemain dulu.'); return; }
   if(n1.toLowerCase()===n2.toLowerCase()){ toast('Dua pemain harus berbeda.'); return; }
   var used={}; draft.teams.forEach(function(t){ used[t.p1.name.toLowerCase()]=1; used[t.p2.name.toLowerCase()]=1; });
   if(used[n1.toLowerCase()]||used[n2.toLowerCase()]){ toast('Pemain sudah ada di tim lain.'); return; }
+  syncSetup();
   var e1=(b.p1.elo==null?null:b.p1.elo), e2=(b.p2.elo==null?null:b.p2.elo);
-  draft.teams.push({ p1:{name:n1,elo:e1}, p2:{name:n2,elo:e2},
-    name:(b.tname||'').trim()||(n1+' & '+n2),
-    eloSum:(e1==null?1350:e1)+(e2==null?1350:e2) });
+  draft.teams.push({ p1:{name:n1,elo:e1}, p2:{name:n2,elo:e2}, name:(b.tname||'').trim()||(n1+' & '+n2), eloSum:(e1==null?1350:e1)+(e2==null?1350:e2) });
   draft.b={p1:{},p2:{},tname:''}; renderSetup(); document.getElementById('p1').focus();
 }
-function delTeam(i){ draft.teams.splice(i,1); renderSetup(); }
-function resumeSession(){ load(); if(S){ view='round'; render(); } }
+function delTeam(i){ syncSetup(); draft.teams.splice(i,1); renderSetup(); }
+function resumeSession(){ load(); if(S){ if(S.online&&S.slug){ loadLive(S.slug); } else { view='round'; render(); } } }
+
 function startSession(){
+  syncSetup();
   if(draft.teams.length<2){ toast('Minimal 2 tim.'); return; }
-  S={ name:draft.name.trim()||'Mexicano', raceTo:draft.raceTo,
-      teams:draft.teams.map(function(t){ var e1=t.p1.elo, e2=t.p2.elo;
-        return { name:t.name, p1:{name:t.p1.name,elo:e1==null?null:e1}, p2:{name:t.p2.name,elo:e2==null?null:e2},
-                 eloSum:(e1==null?1350:e1)+(e2==null?1350:e2) }; }),
-      rounds:[], cur:0 };
-  genRound(); view='round'; save(); render();
+  var btn=document.getElementById('startBtn'); if(btn){ btn.disabled=true; btn.textContent='Membuat sesi…'; }
+  var payload={ name:draft.name.trim()||'Mexicano', raceTo:draft.raceTo, courts:draft.courts, startTime:draft.startTime,
+    teams:draft.teams.map(function(t){ return {name:t.name,p1:t.p1,p2:t.p2}; }) };
+  mexApi('', { method:'POST', body:JSON.stringify(payload) }).then(function(r){
+    S=Object.assign({id:r.id, slug:r.slug, online:true}, r.data);
+    history.replaceState(null,'','/mexicano?s='+encodeURIComponent(r.slug));
+    view='links'; save(); startPoll(); render(); toast('Sesi live dibuat.');
+  }).catch(function(e){
+    // Offline fallback: run locally without referee/TV links.
+    S={ online:false, name:payload.name, raceTo:payload.raceTo, courts:payload.courts, startTime:payload.startTime,
+        teams:draft.teams.map(function(t){ var e1=t.p1.elo,e2=t.p2.elo; return {name:t.name,p1:{name:t.p1.name,elo:e1==null?null:e1},p2:{name:t.p2.name,elo:e2==null?null:e2},eloSum:(e1==null?1350:e1)+(e2==null?1350:e2)}; }),
+        rounds:[], cur:0 };
+    genRound(); view='round'; save(); render(); toast('Offline: sesi lokal (tanpa link wasit/TV).');
+  });
 }
 
-// ---------- STANDINGS (per team) ----------
+// ---------- LIVE SYNC ----------
+function loadLive(slug){
+  mexApi('/'+encodeURIComponent(slug)).then(function(r){
+    S=Object.assign({id:r.id, slug:r.slug, online:true}, r.data);
+    if(view==='setup') view='round';
+    save(); startPoll(); render();
+  }).catch(function(e){ toast('Gagal memuat sesi: '+e.message, true); S=null; renderSetup(); });
+}
+function startPoll(){ if(pollTimer) clearInterval(pollTimer); if(!(S&&S.online&&S.slug)) return;
+  pollTimer=setInterval(function(){
+    if(!(S&&S.online&&S.slug)) return;
+    if(Date.now()-lastPush<1500) return; // don't stomp a just-made local edit
+    mexApi('/'+encodeURIComponent(S.slug)).then(function(r){
+      var changed=JSON.stringify(r.data.rounds)!==JSON.stringify(S.rounds) || r.data.cur!==S.cur;
+      Object.assign(S, r.data); save();
+      if(changed && (view==='round'||view==='stand'||view==='links')) render();
+    }).catch(function(){});
+  }, 4000);
+}
+function pushScore(ci){
+  if(!(S&&S.online&&S.slug)) return;
+  var c=S.rounds[S.cur].courts[ci]; lastPush=Date.now();
+  mexApi('/'+encodeURIComponent(S.slug)+'/court', { method:'PUT', body:JSON.stringify({ round:S.cur, court:ci, sa:c.sa, sb:c.sb }) }).catch(function(){});
+}
+
+// ---------- STANDINGS + LOCAL GENERATION (fallback) ----------
 function standings(){
   var st=S.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0};});
   S.rounds.forEach(function(rd){
-    rd.courts.forEach(function(c){
-      if(c.sa==null||c.sb==null) return;
+    rd.courts.forEach(function(c){ if(c.sa==null||c.sb==null) return;
       st[c.a].games+=c.sa; st[c.a].diff+=(c.sa-c.sb); st[c.a].played++;
-      st[c.b].games+=c.sb; st[c.b].diff+=(c.sb-c.sa); st[c.b].played++;
-    });
+      st[c.b].games+=c.sb; st[c.b].diff+=(c.sb-c.sa); st[c.b].played++; });
     (rd.byes||[]).forEach(function(b){ st[b].byes++; });
   });
   st.sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
   return st;
 }
-
-// ---------- ROUND GENERATION (team Mexicano: #1 vs #2, #3 vs #4 … + fair bye) ----------
 function genRound(){
-  var n=S.teams.length, courts=Math.floor(n/2), byeCount=n-courts*2;
-  var order;
-  if(S.rounds.length===0){
-    // Round 1: seed by combined ELO (desc); random tiebreak.
-    order=S.teams.map(function(t,i){return {i:i,e:t.eloSum,r:Math.random()};})
-      .sort(function(a,b){ return b.e-a.e || a.r-b.r; }).map(function(x){return x.i;});
-  } else { order=standings().map(function(s){return s.i;}); }
+  var n=S.teams.length, courts=Math.floor(n/2), byeCount=n-courts*2, order;
+  if(S.rounds.length===0){ order=S.teams.map(function(t,i){return {i:i,e:t.eloSum,r:Math.random()};}).sort(function(a,b){ return b.e-a.e || a.r-b.r; }).map(function(x){return x.i;}); }
+  else { order=standings().map(function(s){return s.i;}); }
   var pos={}; order.forEach(function(id,idx){ pos[id]=idx; });
-  var byeCnt={}; S.teams.forEach(function(_,i){byeCnt[i]=0;});
-  S.rounds.forEach(function(rd){ (rd.byes||[]).forEach(function(b){ byeCnt[b]++; }); });
+  var byeCnt={}; S.teams.forEach(function(_,i){byeCnt[i]=0;}); S.rounds.forEach(function(rd){ (rd.byes||[]).forEach(function(b){ byeCnt[b]++; }); });
   var cand=order.slice().sort(function(a,b){ return (byeCnt[a]-byeCnt[b]) || (pos[b]-pos[a]); });
-  var byes=cand.slice(0,byeCount);
-  var byeSet={}; byes.forEach(function(b){byeSet[b]=1;});
-  var playing=order.filter(function(i){return !byeSet[i];}); // rank order
-  var crts=[];
+  var byes=cand.slice(0,byeCount), byeSet={}; byes.forEach(function(b){byeSet[b]=1;});
+  var playing=order.filter(function(i){return !byeSet[i];}), crts=[];
   for(var c=0;c<courts;c++){ crts.push({ a:playing[2*c], b:playing[2*c+1], sa:null, sb:null }); }
-  S.rounds.push({ courts:crts, byes:byes });
-  S.cur=S.rounds.length-1;
+  S.rounds.push({ courts:crts, byes:byes }); S.cur=S.rounds.length-1;
 }
 
 // ---------- SCORE ----------
@@ -245,22 +276,24 @@ function bump(ci, side, d){
   var c=S.rounds[S.cur].courts[ci], key=side==='a'?'sa':'sb';
   var v=(c[key]==null?0:c[key])+d; if(v<0)v=0; if(v>S.raceTo)v=S.raceTo; c[key]=v;
   var other=side==='a'?'sb':'sa'; if(c[other]==null) c[other]=0;
-  save(); renderRound();
+  save(); renderRound(); pushScore(ci);
 }
 function courtDone(c){ return c.sa!=null && c.sb!=null && (c.sa===S.raceTo || c.sb===S.raceTo) && c.sa!==c.sb; }
 function roundComplete(){ return S.rounds[S.cur].courts.every(courtDone); }
 function nextRound(){
   if(!roundComplete()){ toast('Lengkapi semua skor court dulu (harus ada yang mencapai '+S.raceTo+').'); return; }
-  genRound(); save(); renderRound(); toast('Ronde '+(S.cur+1)+' dibuat.');
+  if(S.online&&S.slug){
+    mexApi('/'+encodeURIComponent(S.slug)+'/next-round', { method:'POST' }).then(function(r){ Object.assign(S,r.data); save(); renderRound(); toast('Ronde '+(S.cur+1)+' dibuat.'); }).catch(function(e){ toast(e.message, true); });
+  } else { genRound(); save(); renderRound(); toast('Ronde '+(S.cur+1)+' dibuat.'); }
 }
 
 // ---------- RENDER ----------
-var view='round';
-function render(){ if(!S){ renderSetup(); return; } if(view==='stand') renderStandings(); else renderRound(); }
+function render(){ if(!S){ renderSetup(); return; } if(view==='stand') renderStandings(); else if(view==='links') renderLinks(); else renderRound(); }
 function tabs(){
   return '<div class="tabs">'
     +'<button class="'+(view==='round'?'on':'')+'" onclick="view=\'round\';render()">Ronde</button>'
     +'<button class="'+(view==='stand'?'on':'')+'" onclick="view=\'stand\';render()">Klasemen</button>'
+    +(S.online?'<button class="'+(view==='links'?'on':'')+'" onclick="view=\'links\';render()">Link</button>':'')
     +'<button onclick="menu()" style="margin-left:auto;color:var(--muted)">⋯</button>'
     +'</div>';
 }
@@ -270,21 +303,17 @@ function renderRound(){
   var rd=S.rounds[S.cur], isLast=S.cur===S.rounds.length-1;
   var st=standings(), rank={}; st.forEach(function(s,idx){ rank[s.i]=idx+1; });
   var stepFor=function(ci,side){ var c=rd.courts[ci], v=c[side==='a'?'sa':'sb']; return '<div class="step"><button onclick="bump('+ci+',\''+side+'\',-1)">−</button><div class="val">'+(v==null?'·':v)+'</div><button onclick="bump('+ci+',\''+side+'\',1)">+</button></div>'; };
-  var teamBlk=function(ti,win,ci,side){ var t=S.teams[ti]; var custom=t.name!==teamPlayers(t);
-    return '<div class="team '+(win?'win':'')+'"><div class="names"><div class="pn">'+esc(t.name)+'</div>'
-      +'<div class="seed">'+(custom?esc(teamPlayers(t))+' · ':'')+'Seed #'+rank[ti]+' · ELO '+t.eloSum+'</div></div>'+stepFor(ci,side)+'</div>'; };
+  var teamBlk=function(ti,win,ci,side){ var t=S.teams[ti], custom=t.name!==teamPlayers(t);
+    return '<div class="team '+(win?'win':'')+'"><div class="names"><div class="pn">'+esc(t.name)+'</div><div class="seed">'+(custom?esc(teamPlayers(t))+' · ':'')+'Seed #'+rank[ti]+' · ELO '+t.eloSum+'</div></div>'+stepFor(ci,side)+'</div>'; };
   var courtsHtml=rd.courts.map(function(c,ci){
     var aw=courtDone(c)&&c.sa>c.sb, bw=courtDone(c)&&c.sb>c.sa;
-    return '<div class="court"><div class="ct"><span>Court '+(ci+1)+'</span><span>race to '+S.raceTo+'</span></div>'
-      + teamBlk(c.a,aw,ci,'a') + '<div class="vs">VS</div>' + teamBlk(c.b,bw,ci,'b') + '</div>';
+    return '<div class="court"><div class="ct"><span>Court '+(ci+1)+'</span><span>race to '+S.raceTo+'</span></div>'+teamBlk(c.a,aw,ci,'a')+'<div class="vs">VS</div>'+teamBlk(c.b,bw,ci,'b')+'</div>';
   }).join('');
   var byesHtml=(rd.byes&&rd.byes.length)? '<div class="byes">Bye (istirahat ronde ini): <b>'+rd.byes.map(function(i){return esc(S.teams[i].name);}).join(', ')+'</b></div>' : '';
   app.innerHTML= tabs()
-    + '<div class="rnav">'
-    +   '<button class="btn ghost sm" onclick="goRound('+(S.cur-1)+')" '+(S.cur<=0?'disabled':'')+'>‹ Prev</button>'
-    +   '<span class="who">Ronde '+(S.cur+1)+' / '+S.rounds.length+'</span>'
-    +   '<button class="btn ghost sm" onclick="goRound('+(S.cur+1)+')" '+(S.cur>=S.rounds.length-1?'disabled':'')+'>Next ›</button>'
-    + '</div>'
+    + '<div class="rnav"><button class="btn ghost sm" onclick="goRound('+(S.cur-1)+')" '+(S.cur<=0?'disabled':'')+'>‹ Prev</button>'
+    +   '<span class="who">Ronde '+(S.cur+1)+' / '+S.rounds.length+(S.startTime?(' · '+esc(S.startTime)):'')+(S.online?' · LIVE':'')+'</span>'
+    +   '<button class="btn ghost sm" onclick="goRound('+(S.cur+1)+')" '+(S.cur>=S.rounds.length-1?'disabled':'')+'>Next ›</button></div>'
     + '<div class="card"><div class="h">'+esc(S.name)+' <span class="pill">Ronde '+(S.cur+1)+'</span></div>'
     +   courtsHtml + byesHtml
     +   (isLast? '<button class="btn block" onclick="nextRound()" '+(roundComplete()?'':'disabled')+'>Simpan skor → buat Ronde '+(S.rounds.length+1)+'</button>'
@@ -302,21 +331,38 @@ function renderStandings(){
         + st.map(function(s,i){ var custom=s.name!==(s.p1.name+' & '+s.p2.name);
             return '<tr><td class="rk">'+(i+1)+'</td><td class="nm">'+medal(i)+esc(s.name)+(custom?'<div class="sub">'+esc(s.p1.name+' & '+s.p2.name)+'</div>':'')+'</td>'
               +'<td style="color:var(--faint);font-family:ui-monospace,monospace">'+s.elo+'</td><td>'+s.played+'</td><td>'+s.byes+'</td><td>'+(s.diff>0?'+':'')+s.diff+'</td><td class="pts">'+s.games+'</td></tr>'; }).join('')
-        + '</tbody></table>' : '<div class="empty">Belum ada skor. Input skor di tab Ronde dulu.</div>')
-    + '</div>'
-    + '<p class="hint">Peringkat berdasar total <b>game</b> yang dimenangkan tim; seri → selisih game (+/–). ELO = gabungan dua pemain (seeding Ronde 1).</p>';
+        + '</tbody></table>' : '<div class="empty">Belum ada skor.</div>')
+    + '</div>';
+}
+function copyLink(id){ var el=document.getElementById(id); var t=el?el.getAttribute('data-u'):''; if(!t) return;
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ toast('Link disalin.'); }).catch(function(){ toast('Salin manual: '+t); }); }
+function renderLinks(){
+  var app=document.getElementById('app'); view='links';
+  var origin=location.origin, nC=Math.max(1, S.courts||Math.floor(S.teams.length/2)||1);
+  var tv=origin+'/mexicano/tv/'+S.slug;
+  var rows='<div class="lrow"><span class="lb">TV</span><a class="lu" href="'+esc(tv)+'" target="_blank" rel="noopener">'+esc(tv)+'</a><button class="cbtn" id="lk_tv" data-u="'+esc(tv)+'" onclick="copyLink(\'lk_tv\')">Salin</button></div>';
+  for(var c=1;c<=nC;c++){ var u=origin+'/mexicano/score/'+S.slug+'/'+c;
+    rows+='<div class="lrow"><span class="lb">Court '+c+'</span><a class="lu" href="'+esc(u)+'" target="_blank" rel="noopener">'+esc(u)+'</a><button class="cbtn" id="lk_c'+c+'" data-u="'+esc(u)+'" onclick="copyLink(\'lk_c'+c+'\')">Salin</button></div>'; }
+  app.innerHTML= tabs()
+    + '<div class="card"><div class="h">Link sesi <span class="pill">'+esc(S.slug)+'</span></div>'
+    +   '<p class="hint" style="margin-top:0">Bagikan <b>link Court</b> ke wasit tiap lapangan untuk input skor, dan <b>link TV</b> untuk papan klasemen di layar LED. Skor tersinkron otomatis.</p>'
+    +   rows
+    + '</div>';
 }
 function menu(){
   var app=document.getElementById('app');
   app.innerHTML= tabs()
     + '<div class="card"><div class="h">Menu sesi</div>'
-    + '<p class="hint" style="margin-top:0">Sesi: <b>'+esc(S.name)+'</b> · Race to '+S.raceTo+' · '+S.teams.length+' tim · '+S.rounds.length+' ronde.</p>'
+    + '<p class="hint" style="margin-top:0">Sesi: <b>'+esc(S.name)+'</b> · Race to '+S.raceTo+' · '+S.teams.length+' tim · '+(S.courts||'-')+' lapangan · '+S.rounds.length+' ronde'+(S.online?' · <b style="color:var(--green)">LIVE</b>':' · lokal')+'.</p>'
     + '<button class="btn ghost block" onclick="view=\'round\';render()">← Kembali ke ronde</button>'
+    + (S.online?'<button class="btn ghost block" onclick="view=\'links\';render()">Lihat link wasit &amp; TV</button>':'')
     + '<button class="btn ghost block" onclick="exportCsv()">Export klasemen (CSV)</button>'
-    + '<button class="btn block" style="background:var(--danger);color:#fff;margin-top:18px" onclick="newSession()">Sesi baru (hapus yang ini)</button>'
+    + '<button class="btn block" style="background:var(--danger);color:#fff;margin-top:18px" onclick="newSession()">Sesi baru</button>'
     + '</div>';
 }
-function newSession(){ if(!confirm('Hapus sesi ini dan mulai yang baru?')) return; localStorage.removeItem(KEY); S=null; draft={name:'Mexicano',raceTo:4,teams:[],b:{p1:{},p2:{},tname:''}}; renderSetup(); }
+function newSession(){ if(!confirm('Mulai sesi baru? Sesi live tetap ada di server (link masih bisa dibuka), tampilan ini di-reset.')) return;
+  if(pollTimer) clearInterval(pollTimer); localStorage.removeItem(KEY); S=null; history.replaceState(null,'','/mexicano');
+  draft={name:'Mexicano',raceTo:4,courts:2,startTime:'',teams:[],b:{p1:{},p2:{},tname:''}}; view='round'; renderSetup(); }
 function exportCsv(){
   var st=standings(), rows=[['Rank','Tim','Pemain','ELO','Main','Bye','Diff','Game']];
   st.forEach(function(s,i){ rows.push([i+1,s.name,(s.p1.name+' & '+s.p2.name),s.elo,s.played,s.byes,s.diff,s.games]); });
@@ -324,7 +370,14 @@ function exportCsv(){
   var a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv); a.download=(S.name||'mexicano')+'.csv'; a.click();
 }
 
-load(); render();
+// ---------- BOOT ----------
+(function(){
+  var m=/[?&]s=([^&]+)/.exec(location.search); var slug=m?decodeURIComponent(m[1]):'';
+  if(slug){ loadLive(slug); return; }
+  load();
+  if(S && S.online && S.slug){ loadLive(S.slug); return; }
+  render();
+})();
 </script>
 </body>
 </html>

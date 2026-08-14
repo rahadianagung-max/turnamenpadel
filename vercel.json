@@ -18,6 +18,8 @@
     { "source": "/checkin/:slug", "destination": "/checkin.html" },
     { "source": "/simulasi", "destination": "/simulasi.html" },
     { "source": "/mexicano", "destination": "/mexicano.html" },
+    { "source": "/mexicano/score/:slug/:court", "destination": "/mexicano-score.html" },
+    { "source": "/mexicano/tv/:slug", "destination": "/mexicano-tv.html" },
     { "source": "/draw", "destination": "/draw.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
