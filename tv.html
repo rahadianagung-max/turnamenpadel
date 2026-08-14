@@ -215,7 +215,15 @@ const CAT_FILTER = qs.getAll("cat").flatMap(v=>String(v||"").split(",")).map(s=>
 // "lower_bronze" / "lower-bronze" / "lower bronze". Combined with ?cat= it is AND.
 const nrm = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
 const LEVEL_FILTER = qs.getAll("level").flatMap(v=>String(v||"").split(",")).map(nrm).filter(Boolean);
-function levelMatch(c,q){ const lv=nrm(c.level), lb=nrm(levelLabel(c.level)); return q && (lv===q||lb===q||lv.startsWith(q)||lb.startsWith(q)); }
+function levelMatch(c,q){
+  if(!q) return false;
+  const lv=nrm(c.level), lb=nrm(levelLabel(c.level));
+  if(lv===q||lb===q||lv.startsWith(q)||lb.startsWith(q)) return true;
+  // Custom/combined category (level column empty or non-standard, e.g. the level
+  // is baked into the category name): match the level token inside the name.
+  if(!lb){ const cat=nrm(c.category), cl=nrm(catLabel(c.category)); if(cat.includes(q)||cl.includes(q)) return true; }
+  return false;
+}
 function catAllowed(c){
   const catOk = !CAT_FILTER.length || CAT_FILTER.some(q=>catMatch(c,q));
   const lvlOk = !LEVEL_FILTER.length || LEVEL_FILTER.some(q=>levelMatch(c,q));
