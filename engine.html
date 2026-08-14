@@ -473,6 +473,10 @@
         <option value="1">Silang antar-grup — Juara A vs Runner-up C, dst (rekomendasi)</option>
         <option value="0">Seeding standar — murni peringkat</option>
       </select></div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="poAuto" onchange="setPlayoffAuto()" style="width:auto">
+      <span><b>Auto-generate bracket</b> saat semua match grup selesai — memakai jadwal &amp; pola crossing di atas.</span>
+    </label>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket</button>
       <button type="button" class="btn btn-ghost" onclick="openSeedEditor()">🔧 Bracket modifikasi (seeding manual)</button>
@@ -1040,6 +1044,18 @@ function roundLabel(round, numRounds){
   if(fromEnd===3) return "Babak 16 Besar";
   return "Babak "+r;
 }
+async function setPlayoffAuto(){
+  const el = document.getElementById("poAuto");
+  if(!state.tournament){ if(el) el.checked = false; return; }
+  const auto = !!(el && el.checked);
+  try{
+    await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff-auto", { method:"PUT", body:{
+      auto, date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"),
+      breaks: collectPoBreaks(), crossSeed: val("poCross") !== "0"
+    }});
+    toast(auto ? "Auto-generate playoff: AKTIF — bracket dibuat saat grup selesai." : "Auto-generate playoff: nonaktif.");
+  }catch(e){ if(el) el.checked = !auto; toast(e.message, true); }
+}
 async function generatePlayoff(){
   if(!state.tournament) return;
   if(!confirm("Generate bracket akan menimpa bracket playoff kategori ini berdasarkan standing terkini. Lanjut?")) return;
@@ -1131,8 +1147,9 @@ async function loadPlayoff(){
   try{
     const { groups } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/groups");
     buildNames(groups);
-    const { brackets } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff");
+    const { brackets, autoPlayoff } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff");
     renderPlayoff(brackets||[]);
+    const ap = document.getElementById("poAuto"); if(ap) ap.checked = !!(autoPlayoff && autoPlayoff.auto);
     Object.keys(snap).forEach(id=>{ const el=document.getElementById(id); if(el && el.value==="" && snap[id]!=="") el.value=snap[id]; });
   }catch(e){ toast(e.message, true); }
 }

@@ -459,7 +459,7 @@ const T_HEADERS = {
   // public feed showcase (status/format/category/url/highlight). Owner lives at col N.
   // Cols O:V (index 14-21) hold up to 4 optional break windows (HH:MM pairs).
   [TABS.t_events]: ["Event_ID", "Name", "Venue", "Date", "Start_Time", "Num_Courts", "Match_Minutes", "Created_At", "", "", "", "", "", "Admin_Username", "Break1_Start", "Break1_End", "Break2_Start", "Break2_End", "Break3_Start", "Break3_End", "Break4_Start", "Break4_End"],
-  [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At", "Playoff_Top_Overall"],
+  [TABS.t_tournaments]: ["Tournament_ID", "Event_ID", "Category", "Level", "Format", "Group_Size_Target", "Advancers_Per_Group", "Status", "Admin_Username", "Created_At", "Playoff_Top_Overall", "Auto_Playoff"],
   [TABS.t_entrants]: ["Tournament_ID", "Entrant_ID", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Seed_ELO", "Is_New_P1", "Is_New_P2", "Created_At", "Team_Name"],
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO", "Team_Name"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
@@ -608,6 +608,9 @@ const netlifyHandler = async (event) => {
     if (path === "tournament/recap" && method === "POST") return await tRecap(body);
     if (path.startsWith("tournament/") && path.endsWith("/playoff-plan") && method === "PUT") {
       return await tSetPlayoffPlan(decodeURIComponent(path.replace("tournament/", "").replace("/playoff-plan", "")), body);
+    }
+    if (path.startsWith("tournament/") && path.endsWith("/playoff-auto") && method === "PUT") {
+      return await tSetPlayoffAuto(decodeURIComponent(path.replace("tournament/", "").replace("/playoff-auto", "")), body);
     }
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "POST") {
       return await tGeneratePlayoff(decodeURIComponent(path.replace("tournament/", "").replace("/playoff", "")), body);
@@ -2877,7 +2880,15 @@ async function tUpdateMatchScore(body) {
     spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:P${idx + 2}`,
     valueInputOption: "RAW", requestBody: { values: [row] },
   }));
-  return respond(200, { success: true, status: row[14], winner });
+  // Auto playoff: when a group match completes and the tournament opted in, the
+  // bracket is generated automatically the moment the group stage finishes.
+  // Best-effort — never let it fail the score save. (`rows` already reflects this
+  // save because `row` is a reference into it.)
+  let autoPlayoffGenerated = false;
+  if (row[2] === "GROUP" && row[14] === "DONE") {
+    try { autoPlayoffGenerated = await maybeAutoGeneratePlayoff(sheets, row[0]); } catch (e) { /* best-effort */ }
+  }
+  return respond(200, { success: true, status: row[14], winner, autoPlayoffGenerated });
 }
 
 // ==============================================================
@@ -3316,6 +3327,80 @@ async function tSetPlayoffPlan(id, body) {
   });
   return respond(200, { success: true, topOverall: topOverall >= 2 ? topOverall : 0 });
 }
+// Parse the stored Auto_Playoff cell (col L). Returns the plan object when auto
+// generation is enabled, else null.
+function parseAutoPlan(cell) {
+  const s = String(cell || "").trim();
+  if (!s) return null;
+  try { const o = JSON.parse(s); return (o && o.auto) ? o : null; } catch (e) { return s.toUpperCase() === "AUTO" ? { auto: true } : null; }
+}
+// Enable/disable auto playoff generation for a tournament. When enabled the admin's
+// playoff schedule + cross-seed choice are stored (col L) and reused the moment the
+// group stage completes. No bracket is generated here.
+async function tSetPlayoffAuto(id, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` });
+  const rows = r.data.values || [], i = rows.findIndex((x) => x[0] === id);
+  if (i === -1) return respond(404, { error: "Tournament not found" });
+  const b = body || {};
+  let cell = "";
+  if (b.auto) {
+    cell = JSON.stringify({
+      auto: true,
+      startTime: normClock(b.startTime) || "",
+      numCourts: parseInt(b.numCourts) || 0,
+      matchMinutes: parseInt(b.matchMinutes) || 0,
+      date: String(b.date || "").trim(),
+      crossSeed: b.crossSeed !== false,
+      breaks: Array.isArray(b.breaks) ? b.breaks.slice(0, 2) : [],
+    });
+  }
+  while (rows[i].length < 12) rows[i].push("");
+  rows[i][11] = cell;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:L${i + 2}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] },
+  });
+  return respond(200, { success: true, auto: !!b.auto });
+}
+// Best-effort: after a group match is saved, if the tournament has auto playoff
+// enabled, the group stage is fully done, and no bracket exists yet, generate it.
+// matchRows = the freshly-updated Tournament_Matches rows (A2:P) from the caller.
+async function maybeAutoGeneratePlayoff(sheets, id) {
+  if (!id) return false;
+  // Re-read matches fresh so concurrent score saves are reflected (avoids a race
+  // where two clients each hold a stale snapshot missing the other's save).
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
+  const matchRows = mRes.data.values || [];
+  if (matchRows.some((x) => x[0] === id && x[2] === "PLAYOFF")) return false; // already generated
+  const grp = matchRows.filter((x) => x[0] === id && x[2] === "GROUP");
+  const done = (x) => x[14] === "DONE" || (x[11] !== "" && x[12] !== "" && !isNaN(Number(x[11])) && !isNaN(Number(x[12])));
+  if (!grp.length || !grp.every(done)) return false;
+  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` });
+  const tRow = (tRes.data.values || []).find((x) => x[0] === id);
+  if (!tRow) return false;
+  const plan = parseAutoPlan(tRow[11]);
+  if (!plan) return false;
+  // Schedule from the stored plan, falling back to the event's settings.
+  let evStart = "", evMin = 0, evDate = "";
+  try {
+    const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` });
+    const ev = (evRes.data.values || []).find((x) => x[0] === tRow[1]);
+    if (ev) { evStart = ev[4] || ""; evMin = parseInt(ev[6]) || 0; evDate = ev[3] || ""; }
+  } catch (e) { /* ignore */ }
+  const planBody = {
+    startTime: plan.startTime || evStart || "09:00",
+    numCourts: plan.numCourts || 0,           // tGeneratePlayoff reuses the group-stage courts
+    matchMinutes: plan.matchMinutes || evMin || 30,
+    date: plan.date || evDate || "",
+    breaks: Array.isArray(plan.breaks) ? plan.breaks : [],
+    crossSeed: plan.crossSeed !== false,
+    topOverall: parseInt(tRow[10]) || 0,
+  };
+  const res = await tGeneratePlayoff(id, planBody);
+  return !!(res && res.statusCode === 200);
+}
 async function tGeneratePlayoff(id, body) {
   const sheets = getSheets();
   await ensureTabs(sheets);
@@ -3750,8 +3835,9 @@ async function tGetPlayoff(id) {
   const groupList = [...membersByLabel.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     .map(([label, ids]) => ({ label, standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids) }));
   // Projected bracket for previewing the knockout path before it is generated.
-  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
+  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` });
   const tRow = (tRes.data.values || []).find((x) => x[0] === id);
+  const autoPlayoff = parseAutoPlan(tRow && tRow[11]);
   const groupsInfo = Object.keys(groupSize).sort().map((label) => ({ label, size: groupSize[label] }));
   const topOverall = (tRow && parseInt(tRow[10])) || 0;
   const projection = playoffProjectionFor(
@@ -3769,7 +3855,7 @@ async function tGetPlayoff(id) {
       qualifyPanel = buildQualifyPanelPerGroup(groupList, groupMatches, (tRow && parseInt(tRow[6])) || 2, nm);
     }
   }
-  return respond(200, { brackets: playoffBracketsView(all, nm), projection, topOverall, qualifyPanel, groupComplete });
+  return respond(200, { brackets: playoffBracketsView(all, nm), projection, topOverall, qualifyPanel, groupComplete, autoPlayoff });
 }
 
 // ==============================================================
