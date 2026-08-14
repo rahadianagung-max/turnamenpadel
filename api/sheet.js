@@ -566,6 +566,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/tv-theme") && method === "POST") {
       return await tSetTvTheme(decodeURIComponent(path.replace("tournament/event/", "").replace("/tv-theme", "")), body);
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/assign-admin") && method === "POST") {
+      return await tAssignAdmin(decodeURIComponent(path.replace("tournament/event/", "").replace("/assign-admin", "")), body || {});
+    }
     if (path.startsWith("tournament/event/") && path.endsWith("/schedule") && method === "POST") {
       return await tScheduleEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")), body);
     }
@@ -1720,6 +1723,22 @@ function parseTvTheme(raw) {
 }
 // Save (or clear) an event's TV LED color theme to event col I. Sanitizes to known
 // keys with hex values; an empty/invalid theme clears the cell (back to default).
+// Reassign an event's owning admin (col N). This controls who sees the event in
+// the engine's event list (non-superadmins only see events they own). Mirrors the
+// event-scoped update pattern of tSetTvTheme; no auth/token change.
+async function tAssignAdmin(id, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:A` });
+  const idx = (r.data.values || []).findIndex((x) => x[0] === id);
+  if (idx === -1) return respond(404, { error: "Event not found" });
+  const adminUsername = String((body && body.adminUsername) || "").trim();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!N${idx + 2}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [[adminUsername]] },
+  });
+  return respond(200, { success: true, adminUsername });
+}
 async function tSetTvTheme(id, body) {
   const sheets = getSheets();
   await ensureTabs(sheets);

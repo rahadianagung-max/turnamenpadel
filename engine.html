@@ -311,6 +311,14 @@
     <div class="pick"><label>Pilih event yang sudah ada</label>
       <select id="eventSelect" onchange="selectEvent(this.value)"><option value="">Memuat…</option></select>
     </div>
+    <div id="assignAdminBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Assign admin event <span style="color:var(--muted);font-weight:400">— siapa yang bisa mengelola event ini di engine</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Pemilik saat ini: <b id="assignCurrent">—</b></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select id="assignSelect" style="flex:1;min-width:180px"><option value="">— pilih admin —</option></select>
+        <button type="button" class="btn btn-primary" onclick="assignAdmin()">Assign</button>
+      </div>
+    </div>
     <div id="tvThemeBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
       <div style="font-weight:600;font-size:13px;margin-bottom:2px">Tema warna TV LED <span style="color:var(--muted);font-weight:400">— untuk papan /tv event ini</span></div>
       <div id="tvPresets" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px"></div>
@@ -639,7 +647,7 @@ async function resetTvTheme(){
 function selectEvent(id){
   state.event = state.events.find(e=>e.eventId===id) || null;
   state.tournament = null;
-  renderContext(); setLocks(); fillScheduleParams(); fillTvTheme();
+  renderContext(); setLocks(); fillScheduleParams(); fillTvTheme(); fillAssignAdmin();
   document.getElementById("tourSelect").innerHTML = '<option value="">—</option>';
   document.getElementById("entrantsWrap").innerHTML = '<p class="empty">Belum ada peserta.</p>';
   document.getElementById("importResult").classList.remove("show");
@@ -1299,6 +1307,33 @@ function logout(){
   location.replace("/admin.html");
 }
 
+/* ---- ASSIGN EVENT ADMIN (superadmin) ---- */
+let ADMINS = null;
+async function ensureAdmins(){ if(ADMINS) return ADMINS; try{ const r = await api("admins"); ADMINS = (r && r.admins) || []; }catch(e){ ADMINS = []; } return ADMINS; }
+async function fillAssignAdmin(){
+  const box = document.getElementById("assignAdminBox");
+  const isSuper = (state.session && state.session.role) === "superadmin";
+  if(!isSuper || !state.event){ box.style.display = "none"; return; }
+  box.style.display = "";
+  const cur = (state.event.adminUsername || "").trim();
+  document.getElementById("assignCurrent").textContent = cur || "(belum ada)";
+  const admins = await ensureAdmins();
+  const sel = document.getElementById("assignSelect");
+  sel.innerHTML = '<option value="">— pilih admin —</option>' +
+    admins.map(a=>`<option value="${esc(a.username)}"${a.username===cur?" selected":""}>${esc(a.username)} · ${esc(roleLabel(a.role))}</option>`).join("");
+}
+async function assignAdmin(){
+  if(!state.event) return;
+  const u = document.getElementById("assignSelect").value;
+  if(!u) return toast("Pilih admin dulu", true);
+  try{
+    await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/assign-admin", { method:"POST", body:{ adminUsername:u }});
+    state.event.adminUsername = u;
+    const ev = state.events.find(e=>e.eventId===state.event.eventId); if(ev) ev.adminUsername = u;
+    document.getElementById("assignCurrent").textContent = u;
+    toast("Event di-assign ke "+u);
+  }catch(e){ toast(e.message || "Gagal assign admin", true); }
+}
 /* ---- MANAGE ADMINS (superadmin) ---- */
 function openAdmins(){ document.getElementById("adminsOverlay").classList.add("show"); loadAdmins(); }
 function closeAdmins(){ document.getElementById("adminsOverlay").classList.remove("show"); }
