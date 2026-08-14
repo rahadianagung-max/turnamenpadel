@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Peserta · Mexicano</title>
+<style>
+  :root{ --bg:#0a090d; --card:#17151d; --card2:#1e1b26; --line:#2f2a38; --text:#f3eef8; --muted:#a79fb2; --faint:#7a7286;
+    --orange:#FF6A00; --accent2:#FFB000; --green:#38d39f; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Plus Jakarta Sans',sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 46px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+  .brand{font-family:'Saira Condensed',system-ui;font-weight:800;font-style:italic;text-transform:uppercase;font-size:18px;color:var(--orange)}
+  .brand small{color:var(--muted);font-style:normal;font-weight:600;font-size:11px;margin-left:6px;letter-spacing:.05em}
+  .meta{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--muted);text-align:right}
+  .meta b{color:var(--accent2)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px;margin-bottom:12px}
+  .lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  select.in{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px;background:var(--card2);color:var(--text);outline:none}
+  .tabs{display:flex;gap:6px;margin-bottom:12px}
+  .tabs button{flex:1;font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--muted);padding:9px 10px;border-radius:9px}
+  .tabs button.on{background:var(--orange);border-color:var(--orange);color:#160b04}
+  .mine{border:1px solid rgba(255,106,0,.5);background:linear-gradient(180deg,rgba(255,106,0,.12),rgba(255,106,0,.03))}
+  .mc{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent2);margin-bottom:8px;display:flex;justify-content:space-between}
+  .team{display:flex;align-items:center;gap:10px;padding:7px 0}
+  .team .nm{flex:1;min-width:0}
+  .team .tn{font-weight:800;font-size:16px;line-height:1.15;word-break:break-word}
+  .team .pl{font-size:11.5px;color:var(--faint);margin-top:2px;word-break:break-word}
+  .team.win .tn{color:var(--green)}
+  .team .sc{font-family:ui-monospace,monospace;font-size:22px;font-weight:800;flex:0 0 auto}
+  .vs{text-align:center;font-family:ui-monospace,monospace;font-size:10px;color:var(--faint);letter-spacing:.15em;margin:1px 0}
+  .youtag{font-size:10px;font-weight:800;color:#160b04;background:var(--orange);border-radius:5px;padding:2px 6px;margin-left:6px;vertical-align:middle}
+  .court{border:1px solid var(--line);border-radius:12px;background:var(--card2);padding:12px;margin-bottom:10px}
+  .bye{font-size:12.5px;color:var(--muted);margin-top:6px}.bye b{color:var(--accent2)}
+  table{width:100%;border-collapse:collapse}
+  th{font-family:ui-monospace,monospace;font-weight:400;color:var(--faint);text-transform:uppercase;letter-spacing:.03em;font-size:10.5px;text-align:right;padding:7px 6px;border-bottom:1px solid var(--line)}
+  th.nm{text-align:left}
+  td{font-size:13.5px;padding:9px 6px;text-align:right;border-bottom:1px solid rgba(120,110,130,.14)}
+  td.rk{font-family:ui-monospace,monospace;color:var(--faint);width:24px;text-align:left}
+  td.nm{text-align:left;font-weight:700;word-break:break-word}
+  td.nm .sub{font-size:11px;color:var(--faint);font-weight:600}
+  td.pts{font-weight:800;color:var(--accent2);font-family:ui-monospace,monospace}
+  tr.me td{background:rgba(255,106,0,.10)}
+  tr:last-child td{border-bottom:none}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:22px 8px}
+  .hint{font-size:11.5px;color:var(--muted);line-height:1.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="brand" id="brand">Mexicano<small>· PESERTA</small></span><span class="meta" id="meta"></span></div>
+  <div id="app"><div class="card"><div class="empty">Memuat…</div></div></div>
+</div>
+<script>
+var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
+var seg=location.pathname.split('/').filter(Boolean); // mexicano, p, <slug>
+var SLUG=decodeURIComponent(seg[2]||'');
+var MEKEY='tp_mex_me_'+SLUG;
+var S=null, me=null, view='round';
+try{ var mv=localStorage.getItem(MEKEY); me=(mv==null||mv==='')?null:parseInt(mv,10); }catch(e){}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
+function teamPlayers(t){ return t.p1.name+' & '+t.p2.name; }
+function standings(d){
+  var st=d.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0};});
+  d.rounds.forEach(function(rd){ rd.courts.forEach(function(c){ if(c.sa==null||c.sb==null) return;
+      st[c.a].games+=c.sa; st[c.a].diff+=(c.sa-c.sb); st[c.a].played++; st[c.b].games+=c.sb; st[c.b].diff+=(c.sb-c.sa); st[c.b].played++; });
+    (rd.byes||[]).forEach(function(b){ st[b].byes++; }); });
+  st.sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
+  return st;
+}
+function nC(){ var rd=S.rounds[S.cur]||{courts:[]}; return Math.max(1, S.courts||rd.courts.length||1); }
+function courtDone(c){ return c.sa!=null&&c.sb!=null&&(c.sa===S.raceTo||c.sb===S.raceTo)&&c.sa!==c.sb; }
+function pickMe(v){ me=(v===''?null:parseInt(v,10)); try{ if(me==null) localStorage.removeItem(MEKEY); else localStorage.setItem(MEKEY,String(me)); }catch(e){} render(); }
+function setView(v){ view=v; render(); }
+
+function picker(){
+  var opts='<option value="">— pilih tim kamu —</option>'+S.teams.map(function(t,i){ return '<option value="'+i+'"'+(me===i?' selected':'')+'>'+esc(t.name)+(t.name!==teamPlayers(t)?' ('+esc(teamPlayers(t))+')':'')+'</option>'; }).join('');
+  return '<div class="card"><div class="lbl">Tim kamu</div><select class="in" onchange="pickMe(this.value)">'+opts+'</select>'
+    + (me!=null?myMatch():'<p class="hint" style="margin-top:8px">Pilih tim untuk melihat court &amp; lawanmu tiap ronde.</p>') + '</div>';
+}
+function teamBlock(ti, sc, win, youTag){
+  var t=S.teams[ti];
+  return '<div class="team '+(win?'win':'')+'"><div class="nm"><div class="tn">'+esc(t.name)+(youTag?'<span class="youtag">KAMU</span>':'')+'</div><div class="pl">'+esc(teamPlayers(t))+'</div></div>'+(sc!=null?'<div class="sc">'+sc+'</div>':'')+'</div>';
+}
+function myMatch(){
+  var rd=S.rounds[S.cur]; if(!rd) return '';
+  var st=standings(S), rank={}; st.forEach(function(s,idx){ rank[s.i]=idx+1; });
+  if((rd.byes||[]).indexOf(me)>=0){
+    return '<div class="court mine" style="margin-top:10px"><div class="mc"><span>Ronde '+(S.cur+1)+'</span><span>Peringkat #'+rank[me]+'</span></div><div class="empty" style="padding:10px">Bye — istirahat ronde ini 🌴</div></div>';
+  }
+  var ci=-1; for(var i=0;i<rd.courts.length;i++){ if(rd.courts[i].a===me||rd.courts[i].b===me){ ci=i; break; } }
+  if(ci<0) return '';
+  var c=rd.courts[ci], iAmA=c.a===me, myScore=iAmA?c.sa:c.sb, opScore=iAmA?c.sb:c.sa, opp=iAmA?c.b:c.a;
+  var done=courtDone(c), youWin=done&&myScore>opScore, oppWin=done&&opScore>myScore, court=(ci%nC())+1;
+  return '<div class="court mine" style="margin-top:10px"><div class="mc"><span>Court '+court+' · Ronde '+(S.cur+1)+'</span><span>Peringkat #'+rank[me]+' · race to '+S.raceTo+'</span></div>'
+    + teamBlock(me, myScore, youWin, true) + '<div class="vs">VS</div>' + teamBlock(opp, opScore, oppWin, false)
+    + (done?'<div class="bye" style="text-align:center;color:'+(youWin?'var(--green)':'var(--muted)')+'">'+(youWin?'✓ Kamu menang':'Selesai')+'</div>':'') + '</div>';
+}
+function renderRoundTab(){
+  var rd=S.rounds[S.cur]||{courts:[],byes:[]}, n=nC();
+  var courts=rd.courts.map(function(c,i){
+    var done=courtDone(c), aw=done&&c.sa>c.sb, bw=done&&c.sb>c.sa, mine=(c.a===me||c.b===me);
+    return '<div class="court'+(mine?' mine':'')+'"><div class="mc"><span>Court '+((i%n)+1)+'</span><span>race to '+S.raceTo+'</span></div>'
+      + teamBlock(c.a,c.sa,aw,c.a===me) + '<div class="vs">VS</div>' + teamBlock(c.b,c.sb,bw,c.b===me) + '</div>';
+  }).join('');
+  var byes=(rd.byes&&rd.byes.length)?'<div class="bye">Bye: <b>'+rd.byes.map(function(i){return esc(S.teams[i].name);}).join(', ')+'</b></div>':'';
+  return '<div class="card"><div class="mc" style="margin-bottom:10px"><span>Ronde '+(S.cur+1)+' / '+S.rounds.length+'</span></div>'+(courts||'<div class="empty">—</div>')+byes+'</div>';
+}
+function renderStandTab(){
+  var st=standings(S), medal=function(i){ return ['🥇','🥈','🥉'][i]||''; };
+  var any=st.some(function(s){return s.played>0;});
+  if(!any) return '<div class="card"><div class="empty">Belum ada skor.</div></div>';
+  return '<div class="card"><table><thead><tr><th class="rk">#</th><th class="nm">Tim</th><th>Main</th><th>+/–</th><th>Game</th></tr></thead><tbody>'
+    + st.map(function(s,i){ var custom=s.name!==teamPlayers(s);
+        return '<tr'+(s.i===me?' class="me"':'')+'><td class="rk">'+(i+1)+'</td><td class="nm">'+medal(i)+esc(s.name)+(s.i===me?'<span class="youtag">KAMU</span>':'')+'<div class="sub">'+esc(teamPlayers(s))+'</div></td>'
+          +'<td>'+s.played+'</td><td>'+(s.diff>0?'+':'')+s.diff+'</td><td class="pts">'+s.games+'</td></tr>'; }).join('')
+    + '</tbody></table></div>';
+}
+function render(){
+  var app=document.getElementById('app');
+  if(!S){ app.innerHTML='<div class="card"><div class="empty">Sesi tidak ditemukan.</div></div>'; return; }
+  document.getElementById('brand').innerHTML=esc(S.name)+'<small>· PESERTA</small>';
+  document.getElementById('meta').innerHTML='Ronde <b>'+(S.cur+1)+'</b>'+(S.startTime?(' · '+esc(S.startTime)):'');
+  app.innerHTML= picker()
+    + '<div class="tabs"><button class="'+(view==='round'?'on':'')+'" onclick="setView(\'round\')">Ronde ini</button><button class="'+(view==='stand'?'on':'')+'" onclick="setView(\'stand\')">Klasemen</button></div>'
+    + (view==='stand'?renderStandTab():renderRoundTab());
+}
+function mexFetch(){ fetch(API+'/mexicano/'+encodeURIComponent(SLUG),{headers:{'Content-Type':'application/json'}}).then(function(r){return r.ok?r.json():null;}).then(function(j){ if(j&&j.data){ S=j.data; if(me!=null&&me>=S.teams.length) me=null; render(); } else if(!S){ document.getElementById('app').innerHTML='<div class="card"><div class="empty">Sesi tidak ditemukan.</div></div>'; } }).catch(function(){}); }
+mexFetch(); setInterval(mexFetch, 4000);
+</script>
+</body>
+</html>
