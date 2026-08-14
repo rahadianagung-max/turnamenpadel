@@ -211,7 +211,16 @@ let EVENT_ID = qs.get("event");
 // screen; several (comma-separated ?cat=WD,MD or repeated ?cat=WD&cat=MD) = show just
 // those. Empty = all categories. Lets you dedicate one LED to e.g. 2 of 3 categories.
 const CAT_FILTER = qs.getAll("cat").flatMap(v=>String(v||"").split(",")).map(s=>s.trim().toLowerCase()).filter(Boolean);
-function catAllowed(c){ return !CAT_FILTER.length || CAT_FILTER.some(q=>catMatch(c,q)); }
+// ?level= further narrows to a level (e.g. ?cat=women&level=lower_bronze). Accepts
+// "lower_bronze" / "lower-bronze" / "lower bronze". Combined with ?cat= it is AND.
+const nrm = s => String(s||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+const LEVEL_FILTER = qs.getAll("level").flatMap(v=>String(v||"").split(",")).map(nrm).filter(Boolean);
+function levelMatch(c,q){ const lv=nrm(c.level), lb=nrm(levelLabel(c.level)); return q && (lv===q||lb===q||lv.startsWith(q)||lb.startsWith(q)); }
+function catAllowed(c){
+  const catOk = !CAT_FILTER.length || CAT_FILTER.some(q=>catMatch(c,q));
+  const lvlOk = !LEVEL_FILTER.length || LEVEL_FILTER.some(q=>levelMatch(c,q));
+  return catOk && lvlOk;
+}
 let CAT_LABEL = "";
 const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
@@ -229,6 +238,7 @@ let STAND_PAGES = 1;       // group-standings pages (>1 => split per category & 
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
 // Full category names (avoid codes like MD/WD/MIXED on the LED board).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner", upper_beginner:"Upper Beginner", lower_bronze:"Lower Bronze", bronze:"Bronze", upper_bronze:"Upper Bronze", silver:"Silver", gold:"Gold", platinum:"Platinum"}[k] || ""; }
 // Match a category against the ?cat= URL value (code like WD/MD, its label like
 // "women"/"men", or the tournamentId). startsWith avoids "men" also hitting "women".
 function catMatch(c,q){ const code=String(c.category||"").toLowerCase(), label=String(catLabel(c.category)||"").toLowerCase(), tid=String(c.tournamentId||"").toLowerCase(); return code===q||tid===q||label===q||label.startsWith(q)||code.startsWith(q); }
@@ -715,9 +725,9 @@ async function load(){
     CAT_LABEL="";
     // Dedicated single-category screen (?cat=…): keep only the matching category so
     // spectators of one batch never see the other batch's standings/bracket.
-    if(CAT_FILTER.length && Array.isArray(d.categories)){
+    if((CAT_FILTER.length||LEVEL_FILTER.length) && Array.isArray(d.categories)){
       const only=d.categories.filter(catAllowed);
-      if(only.length){ d.categories=only; CAT_LABEL=only.map(c=>catLabel(c.category)).join("  ·  "); }
+      if(only.length){ d.categories=only; CAT_LABEL=only.map(c=>catLabel(c.category)+(levelLabel(c.level)?" · "+levelLabel(c.level):"")).join("  ·  "); }
     }
     applyTvTheme(d.event && d.event.theme);
     preloadSponsors(d.sponsors);
