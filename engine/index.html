@@ -553,6 +553,10 @@
           <option value="0">Seeding standar (murni peringkat)</option>
         </select></div>
     </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="poAuto" onchange="setPlayoffAuto()" style="width:auto">
+      <span><b>Auto-generate bracket</b> saat semua match grup selesai — memakai jadwal, pola crossing, &amp; mode simulasi yang tersimpan.</span>
+    </label>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket (per grup)</button>
       <button type="button" class="btn btn-primary" onclick="generatePlayoffOverall()">Generate N besar (ranking)</button>
@@ -1257,6 +1261,18 @@ async function savePlayoffPlan(){
     loadPlayoff();
   }catch(e){ toast(e.message, true); }
 }
+async function setPlayoffAuto(){
+  const el = document.getElementById("poAuto");
+  if(!state.tournament){ if(el) el.checked = false; return; }
+  const auto = !!(el && el.checked);
+  try{
+    await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff-auto", { method:"PUT", body:{
+      auto, date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"),
+      breaks: collectPoBreaks(), crossSeed: val("poCross") !== "0"
+    }});
+    toast(auto ? "Auto-generate playoff: AKTIF — bracket dibuat saat grup selesai." : "Auto-generate playoff: nonaktif.");
+  }catch(e){ if(el) el.checked = !auto; toast(e.message, true); }
+}
 async function generatePlayoff(topOverall){
   if(!state.tournament) return;
   const overall = parseInt(topOverall) || 0;
@@ -1360,6 +1376,7 @@ async function loadPlayoff(){
     const to = parseInt(res.topOverall)||0;
     const mEl=document.getElementById("poSimMode"); if(mEl) mEl.value = to>=2 ? "overall" : "group";
     if(to>=2){ const nEl=document.getElementById("poTopOverall"); if(nEl) nEl.value = to; }
+    const ap=document.getElementById("poAuto"); if(ap) ap.checked = !!(res.autoPlayoff && res.autoPlayoff.auto);
   }catch(e){ toast(e.message, true); }
 }
 function podiumHtml(p){
