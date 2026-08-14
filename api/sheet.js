@@ -330,8 +330,10 @@ const TABS = {
   draw_results: "Draw_Results",
   draw_log: "Draw_Log",
   t_archive: "Tournament_Archive",
+  mexicano: "Mexicano",
 };
 const T_ARCHIVE_HEADER = ["Archived_At", "Event_ID", "Source_Tab", "Row_JSON"];
+const MEX_HEADER = ["Mexicano_ID", "Slug", "Data_JSON", "Updated_At"];
 
 const headers = {
   "Access-Control-Allow-Origin": "*",
@@ -695,6 +697,15 @@ const netlifyHandler = async (event) => {
     }
     if (path.startsWith("re/event/") && method === "GET")
       return await reGetEvent(decodeURIComponent(path.replace("re/event/", "")));
+
+    // --- MEXICANO (live: organizer + per-court scorer + TV) ---
+    if (path === "mexicano" && method === "POST") return await mexCreate(body);
+    if (/^mexicano\/[^/]+\/court$/.test(path) && method === "PUT")
+      return await mexSetScore(decodeURIComponent(path.split("/")[1]), body);
+    if (/^mexicano\/[^/]+\/next-round$/.test(path) && method === "POST")
+      return await mexNextRound(decodeURIComponent(path.split("/")[1]));
+    if (/^mexicano\/[^/]+$/.test(path) && method === "GET")
+      return await mexGet(decodeURIComponent(path.split("/")[1]));
 
     return respond(404, { error: "Route not found", route: path });
   } catch (err) {
@@ -4225,6 +4236,146 @@ async function tPublishVenue(eventId, body) {
     await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
   }
   return respond(200, { success: true, slug, name, updated: idx >= 0, url: "https://venue.trekkr.online/tournament/" + slug });
+}
+
+// ==============================================================
+// MEXICANO (fixed-partner) — live session store: organizer + per-court
+// referee scorer + TV standings, synced through a single Mexicano tab.
+// One row per session: [Mexicano_ID, Slug, Data_JSON, Updated_At].
+// data = { name, raceTo, courts, startTime, teams:[{name,p1,p2,eloSum}],
+//          rounds:[{ courts:[{a,b,sa,sb}], byes:[] }], cur }
+// ==============================================================
+async function mexEnsureTab(sheets) {
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+  const existing = (meta.data.sheets || []).map((s) => s.properties.title);
+  if (existing.includes(TABS.mexicano)) return;
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { requests: [{ addSheet: { properties: { title: TABS.mexicano } } }] } });
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.mexicano}!A1`, valueInputOption: "RAW", requestBody: { values: [MEX_HEADER] } });
+}
+// Find a session row by id OR slug (case-insensitive). Returns { rowIndex, id, slug, data }.
+async function mexFind(sheets, key) {
+  await mexEnsureTab(sheets);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.mexicano}!A2:D` }).catch(() => ({ data: { values: [] } }));
+  const rows = res.data.values || [];
+  const k = String(key || "").trim().toLowerCase();
+  const idx = rows.findIndex((x) => String(x[0] || "").toLowerCase() === k || String(x[1] || "").toLowerCase() === k);
+  if (idx === -1) return null;
+  let data = {}; try { data = JSON.parse(rows[idx][2] || "{}"); } catch (e) { data = {}; }
+  return { rowIndex: idx + 2, id: rows[idx][0], slug: rows[idx][1], data };
+}
+async function mexWrite(sheets, rowIndex, id, slug, data) {
+  const now = new Date().toISOString();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.mexicano}!A${rowIndex}:D${rowIndex}`,
+    valueInputOption: "RAW", requestBody: { values: [[id, slug, JSON.stringify(data), now]] },
+  });
+  return now;
+}
+// --- ported generation (kept identical to the mexicano.html client logic) ---
+function mexStandings(data) {
+  const teams = data.teams || [];
+  const st = teams.map((t, i) => ({ i, name: t.name, elo: t.eloSum, games: 0, diff: 0, played: 0, byes: 0 }));
+  (data.rounds || []).forEach((rd) => {
+    (rd.courts || []).forEach((c) => {
+      if (c.sa == null || c.sb == null) return;
+      st[c.a].games += c.sa; st[c.a].diff += (c.sa - c.sb); st[c.a].played++;
+      st[c.b].games += c.sb; st[c.b].diff += (c.sb - c.sa); st[c.b].played++;
+    });
+    (rd.byes || []).forEach((b) => { st[b].byes++; });
+  });
+  st.sort((x, y) => (y.games - x.games) || (y.diff - x.diff) || String(x.name).localeCompare(String(y.name)));
+  return st;
+}
+function mexGenRound(data) {
+  const teams = data.teams || [], n = teams.length, courts = Math.floor(n / 2), byeCount = n - courts * 2;
+  let order;
+  if (!(data.rounds || []).length) {
+    order = teams.map((t, i) => ({ i, e: t.eloSum, r: Math.random() })).sort((a, b) => b.e - a.e || a.r - b.r).map((x) => x.i);
+  } else {
+    order = mexStandings(data).map((s) => s.i);
+  }
+  const pos = {}; order.forEach((id, idx) => { pos[id] = idx; });
+  const byeCnt = {}; teams.forEach((_, i) => { byeCnt[i] = 0; });
+  (data.rounds || []).forEach((rd) => (rd.byes || []).forEach((b) => { byeCnt[b]++; }));
+  const cand = order.slice().sort((a, b) => (byeCnt[a] - byeCnt[b]) || (pos[b] - pos[a]));
+  const byes = cand.slice(0, byeCount);
+  const byeSet = {}; byes.forEach((b) => { byeSet[b] = 1; });
+  const playing = order.filter((i) => !byeSet[i]);
+  const crts = [];
+  for (let c = 0; c < courts; c++) crts.push({ a: playing[2 * c], b: playing[2 * c + 1], sa: null, sb: null });
+  data.rounds = data.rounds || [];
+  data.rounds.push({ courts: crts, byes });
+  data.cur = data.rounds.length - 1;
+}
+function mexCourtDone(c, raceTo) { return c.sa != null && c.sb != null && (c.sa === raceTo || c.sb === raceTo) && c.sa !== c.sb; }
+function mexSanitizeTeams(rawTeams) {
+  return (Array.isArray(rawTeams) ? rawTeams : []).map((t) => {
+    const p1 = (t && t.p1) || {}, p2 = (t && t.p2) || {};
+    const e1 = p1.elo == null ? null : (parseInt(p1.elo, 10) || null);
+    const e2 = p2.elo == null ? null : (parseInt(p2.elo, 10) || null);
+    const n1 = String(p1.name || "").trim(), n2 = String(p2.name || "").trim();
+    return { name: String(t.name || (n1 + " & " + n2)).trim(), p1: { name: n1, elo: e1 }, p2: { name: n2, elo: e2 },
+      eloSum: (e1 == null ? 1350 : e1) + (e2 == null ? 1350 : e2) };
+  }).filter((t) => t.p1.name && t.p2.name);
+}
+async function mexCreate(body) {
+  const b = body || {};
+  const teams = mexSanitizeTeams(b.teams);
+  if (teams.length < 2) return respond(400, { error: "Minimal 2 tim." });
+  const raceTo = (parseInt(b.raceTo, 10) === 3) ? 3 : 4;
+  const data = {
+    name: String(b.name || "Mexicano").trim() || "Mexicano",
+    raceTo,
+    courts: Math.max(1, parseInt(b.courts, 10) || Math.floor(teams.length / 2) || 1),
+    startTime: normClock(b.startTime) || "",
+    teams, rounds: [], cur: 0,
+  };
+  mexGenRound(data); // round 1 (ELO seeded)
+  const sheets = getSheets();
+  await mexEnsureTab(sheets);
+  const id = genId("MX");
+  const base = compSlug(data.name).slice(0, 24) || "mexicano";
+  const slug = base + "-" + id.slice(-4).toLowerCase();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.mexicano}!A:D`, valueInputOption: "RAW",
+    requestBody: { values: [[id, slug, JSON.stringify(data), new Date().toISOString()]] },
+  });
+  return respond(200, { success: true, id, slug, data });
+}
+async function mexGet(key) {
+  const sheets = getSheets();
+  const s = await mexFind(sheets, key);
+  if (!s) return respond(404, { error: "Sesi Mexicano tidak ditemukan" });
+  return respond(200, { id: s.id, slug: s.slug, data: s.data }, { "Cache-Control": "no-store" });
+}
+async function mexSetScore(key, body) {
+  const b = body || {};
+  const sheets = getSheets();
+  const s = await mexFind(sheets, key);
+  if (!s) return respond(404, { error: "Sesi tidak ditemukan" });
+  const data = s.data;
+  const ri = parseInt(b.round, 10), ci = parseInt(b.court, 10);
+  const rd = (data.rounds || [])[ri];
+  if (!rd || !rd.courts[ci]) return respond(400, { error: "Court/ronde tidak valid" });
+  const clamp = (v) => { v = parseInt(v, 10); if (isNaN(v)) return null; if (v < 0) v = 0; if (v > data.raceTo) v = data.raceTo; return v; };
+  rd.courts[ci].sa = clamp(b.sa);
+  rd.courts[ci].sb = clamp(b.sb);
+  await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
+  return respond(200, { success: true, data });
+}
+async function mexNextRound(key) {
+  const sheets = getSheets();
+  const s = await mexFind(sheets, key);
+  if (!s) return respond(404, { error: "Sesi tidak ditemukan" });
+  const data = s.data;
+  const cur = (data.rounds || [])[data.cur];
+  if (!cur) return respond(400, { error: "Ronde tidak ada" });
+  const complete = (cur.courts || []).every((c) => mexCourtDone(c, data.raceTo));
+  if (!complete) return respond(409, { error: "Lengkapi semua skor court dulu (harus ada yang mencapai " + data.raceTo + ")." });
+  // Only generate the next round once (idempotent if the current round is already the last).
+  if (data.cur === data.rounds.length - 1) mexGenRound(data);
+  await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
+  return respond(200, { success: true, data });
 }
 
 async function tFinalizeElo(eventId, force) {

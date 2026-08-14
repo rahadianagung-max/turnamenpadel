@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TV · Mexicano</title>
+<style>
+  :root{ --bg:#0a090d; --card:#17151d; --card2:#1e1b26; --line:#2f2a38; --text:#f3eef8; --muted:#a79fb2; --faint:#7a7286;
+    --orange:#FF6A00; --accent2:#FFB000; --green:#38d39f; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 700px at 70% -10%, #1a1420 0%, var(--bg) 60%);color:var(--text);font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  .wrap{height:100vh;display:flex;flex-direction:column;padding:2.2vh 2.6vw}
+  .hd{display:flex;align-items:baseline;justify-content:space-between;gap:2vw;margin-bottom:1.6vh}
+  .title{font-family:'Saira Condensed',system-ui;font-weight:800;font-style:italic;text-transform:uppercase;font-size:4.2vh;color:var(--orange);letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta{font-family:ui-monospace,monospace;font-size:2vh;color:var(--muted);white-space:nowrap}
+  .meta b{color:var(--accent2)}
+  .grid{flex:1;display:grid;grid-template-columns:1.25fr 1fr;gap:2.4vw;min-height:0}
+  .panel{background:rgba(23,21,29,.72);border:1px solid var(--line);border-radius:1.4vh;padding:1.6vh 1.6vw;min-height:0;display:flex;flex-direction:column}
+  .plabel{font-family:ui-monospace,monospace;text-transform:uppercase;letter-spacing:.12em;font-size:1.7vh;color:var(--faint);margin-bottom:1vh}
+  table{width:100%;border-collapse:collapse}
+  .stbl td{padding:1.05vh 0.6vw;border-bottom:1px solid rgba(120,110,130,.16);font-size:2.5vh}
+  .stbl tr:last-child td{border-bottom:none}
+  .rk{font-family:ui-monospace,monospace;color:var(--faint);width:3vw}
+  .tm{font-weight:800}
+  .tm .sub{font-size:1.5vh;color:var(--faint);font-weight:600}
+  .num{text-align:right;font-family:ui-monospace,monospace}
+  .games{text-align:right;font-family:ui-monospace,monospace;font-weight:800;color:var(--accent2);font-size:2.8vh}
+  tr.top1 .tm{color:#ffd76a}tr.top2 .tm{color:#dfe6ee}tr.top3 .tm{color:#f0a978}
+  .match{border:1px solid var(--line);border-radius:1.1vh;background:var(--card2);padding:1.1vh 1vw;margin-bottom:1vh}
+  .mc{font-family:ui-monospace,monospace;font-size:1.5vh;color:var(--accent2);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.5vh}
+  .mrow{display:flex;align-items:center;justify-content:space-between;gap:1vw;font-size:2.3vh;padding:.35vh 0}
+  .mrow .mt{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mrow.win .mt{color:var(--green)}
+  .mrow .ms{font-family:ui-monospace,monospace;font-weight:800;margin-left:1vw}
+  .bye{font-size:1.7vh;color:var(--muted);margin-top:.6vh}.bye b{color:var(--accent2)}
+  .foot{text-align:center;font-family:ui-monospace,monospace;font-size:1.6vh;color:var(--faint);margin-top:1.2vh}
+  .empty{color:var(--muted);font-size:2.4vh;text-align:center;padding:6vh}
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap"><div class="empty">Memuat…</div></div>
+<script>
+var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
+var seg=location.pathname.split('/').filter(Boolean); // mexicano, tv, <slug>
+var SLUG=decodeURIComponent(seg[2]||'');
+var S=null;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
+function teamPlayers(t){ return t.p1.name+' & '+t.p2.name; }
+function standings(d){
+  var st=d.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0};});
+  d.rounds.forEach(function(rd){ rd.courts.forEach(function(c){ if(c.sa==null||c.sb==null) return;
+      st[c.a].games+=c.sa; st[c.a].diff+=(c.sa-c.sb); st[c.a].played++; st[c.b].games+=c.sb; st[c.b].diff+=(c.sb-c.sa); st[c.b].played++; });
+    (rd.byes||[]).forEach(function(b){ st[b].byes++; }); });
+  st.sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
+  return st;
+}
+function render(){
+  var wrap=document.getElementById('wrap');
+  if(!S){ wrap.innerHTML='<div class="empty">Sesi tidak ditemukan.</div>'; return; }
+  var st=standings(S), rd=S.rounds[S.cur]||{courts:[],byes:[]};
+  var rows=st.map(function(s,i){ var cls=i<3?('top'+(i+1)):''; var custom=s.name!==teamPlayers(s);
+    return '<tr class="'+cls+'"><td class="rk">'+(i+1)+'</td><td class="tm">'+esc(s.name)+(custom?'<div class="sub">'+esc(teamPlayers(s))+'</div>':'')+'</td>'
+      +'<td class="num">'+s.played+'</td><td class="num">'+(s.diff>0?'+':'')+s.diff+'</td><td class="games">'+s.games+'</td></tr>'; }).join('');
+  var nC=Math.max(1, S.courts||rd.courts.length||1);
+  var matches=rd.courts.map(function(c,i){ var ta=S.teams[c.a], tb=S.teams[c.b];
+    var done=c.sa!=null&&c.sb!=null&&(c.sa===S.raceTo||c.sb===S.raceTo)&&c.sa!==c.sb; var aw=done&&c.sa>c.sb, bw=done&&c.sb>c.sa;
+    return '<div class="match"><div class="mc">Court '+(((i%nC))+1)+'</div>'
+      +'<div class="mrow '+(aw?'win':'')+'"><span class="mt">'+esc(ta.name)+'</span><span class="ms">'+(c.sa==null?'·':c.sa)+'</span></div>'
+      +'<div class="mrow '+(bw?'win':'')+'"><span class="mt">'+esc(tb.name)+'</span><span class="ms">'+(c.sb==null?'·':c.sb)+'</span></div></div>'; }).join('');
+  var byes=(rd.byes&&rd.byes.length)?'<div class="bye">Bye: <b>'+rd.byes.map(function(i){return esc(S.teams[i].name);}).join(', ')+'</b></div>':'';
+  wrap.innerHTML=
+    '<div class="hd"><div class="title">'+esc(S.name)+'</div><div class="meta">Ronde <b>'+(S.cur+1)+'</b> · race to '+S.raceTo+(S.startTime?(' · mulai '+esc(S.startTime)):'')+'</div></div>'
+    + '<div class="grid">'
+    +   '<div class="panel"><div class="plabel">Klasemen</div><div style="overflow:hidden;flex:1"><table class="stbl"><tr><td class="rk">#</td><td>Tim</td><td class="num">Main</td><td class="num">+/–</td><td class="games">Game</td></tr>'+rows+'</table></div></div>'
+    +   '<div class="panel"><div class="plabel">Ronde '+(S.cur+1)+' berjalan</div><div style="overflow:hidden;flex:1">'+(matches||'<div class="empty">—</div>')+byes+'</div></div>'
+    + '</div>'
+    + '<div class="foot">turnamenpadel.com/mexicano · '+esc(SLUG)+'</div>';
+}
+function refresh(){ mexFetch(); }
+function mexFetch(){ fetch(API+'/mexicano/'+encodeURIComponent(SLUG),{headers:{'Content-Type':'application/json'}}).then(function(r){return r.ok?r.json():null;}).then(function(j){ if(j&&j.data){ S=j.data; render(); } else if(!S){ document.getElementById('wrap').innerHTML='<div class="empty">Sesi tidak ditemukan.</div>'; } }).catch(function(){}); }
+mexFetch(); setInterval(refresh, 4000);
+</script>
+</body>
+</html>

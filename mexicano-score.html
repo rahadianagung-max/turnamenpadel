@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Wasit Court · Mexicano</title>
+<style>
+  :root{ --bg:#0a090d; --card:#17151d; --card2:#1e1b26; --line:#2f2a38; --text:#f3eef8; --muted:#a79fb2; --faint:#7a7286;
+    --orange:#FF6A00; --accent2:#FFB000; --green:#38d39f; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:520px;margin:0 auto;padding:16px 14px 40px}
+  .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+  .brand{font-family:'Saira Condensed',system-ui;font-weight:800;font-style:italic;text-transform:uppercase;font-size:17px;color:var(--orange)}
+  .ct{font-family:ui-monospace,monospace;font-size:12px;color:var(--accent2);background:rgba(255,176,0,.12);border-radius:6px;padding:4px 10px;font-weight:700}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  .rnd{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between}
+  .team{display:flex;align-items:center;gap:10px;padding:10px 0}
+  .team .nm{flex:1;min-width:0}
+  .team .tn{font-weight:800;font-size:17px;line-height:1.15}
+  .team .pl{font-size:12px;color:var(--faint);margin-top:2px}
+  .team.win .tn{color:var(--green)}
+  .step{display:flex;align-items:center;flex:0 0 auto}
+  .step button{width:42px;height:48px;border:1px solid var(--line);background:#111015;color:var(--text);font-size:24px;font-weight:800;cursor:pointer}
+  .step button:first-child{border-radius:10px 0 0 10px}.step button:last-child{border-radius:0 10px 10px 0}
+  .step .val{width:52px;height:48px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d0c10;font-family:ui-monospace,monospace;font-size:24px;font-weight:800}
+  .vs{text-align:center;font-family:ui-monospace,monospace;font-size:11px;color:var(--faint);letter-spacing:.15em;margin:2px 0}
+  .done{margin-top:12px;text-align:center;font-size:13px;font-weight:700;color:var(--green)}
+  .empty{color:var(--muted);font-size:14px;text-align:center;padding:26px 8px}
+  .foot{font-size:11.5px;color:var(--faint);text-align:center;margin-top:14px;line-height:1.5}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%) translateY(20px);background:#241a12;border:1px solid var(--line);border-left:3px solid var(--orange);color:var(--text);padding:10px 15px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><span class="brand">Mexicano · Wasit</span><span class="ct" id="courtTag">Court</span></div>
+  <div id="app"><div class="card"><div class="empty">Memuat…</div></div></div>
+  <div class="foot" id="foot"></div>
+</div>
+<div id="toast"></div>
+<script>
+var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
+var seg=location.pathname.split('/').filter(Boolean); // mexicano, score, <slug>, <court>
+var SLUG=decodeURIComponent(seg[2]||''), COURT=parseInt(seg[3]||'1')||1;
+var S=null, poll=null, lastPush=0;
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
+function toast(t){ var el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(function(){el.classList.remove('show');},1800); }
+function mexApi(path, opts){ return fetch(API+'/mexicano'+path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{})).then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.error)||('HTTP '+r.status)); return j; }); }); }
+document.getElementById('courtTag').textContent='Court '+COURT;
+
+// Matches on this court in the current round: match index i → court (i % nCourts)+1.
+function myCourts(){
+  if(!S) return [];
+  var rd=S.rounds[S.cur]; if(!rd) return [];
+  var nC=Math.max(1, S.courts||rd.courts.length||1), out=[];
+  rd.courts.forEach(function(c,i){ if(((i%nC)+1)===COURT) out.push({i:i,c:c}); });
+  return out;
+}
+function teamPlayers(t){ return t.p1.name+' & '+t.p2.name; }
+function render(){
+  var app=document.getElementById('app');
+  if(!S){ app.innerHTML='<div class="card"><div class="empty">Sesi tidak ditemukan.</div></div>'; return; }
+  var list=myCourts();
+  document.getElementById('foot').innerHTML='Sesi: <b>'+esc(S.name)+'</b> · race to '+S.raceTo+' · Ronde '+(S.cur+1)+(S.startTime?(' · mulai '+esc(S.startTime)):'');
+  if(!list.length){ app.innerHTML='<div class="card"><div class="empty">Tidak ada match untuk Court '+COURT+' di ronde ini.<br>Menunggu ronde berikutnya…</div></div>'; return; }
+  app.innerHTML=list.map(function(m){
+    var c=m.c, ta=S.teams[c.a], tb=S.teams[c.b];
+    var done=c.sa!=null&&c.sb!=null&&(c.sa===S.raceTo||c.sb===S.raceTo)&&c.sa!==c.sb;
+    var aw=done&&c.sa>c.sb, bw=done&&c.sb>c.sa;
+    var step=function(side){ var v=c[side==='a'?'sa':'sb']; return '<div class="step"><button onclick="bump('+m.i+',\''+side+'\',-1)">−</button><div class="val">'+(v==null?'·':v)+'</div><button onclick="bump('+m.i+',\''+side+'\',1)">+</button></div>'; };
+    var team=function(t,win,side){ return '<div class="team '+(win?'win':'')+'"><div class="nm"><div class="tn">'+esc(t.name)+'</div><div class="pl">'+esc(teamPlayers(t))+'</div></div>'+step(side)+'</div>'; };
+    return '<div class="card"><div class="rnd"><span>Ronde '+(S.cur+1)+' · Court '+COURT+'</span><span>race to '+S.raceTo+'</span></div>'
+      + team(ta,aw,'a') + '<div class="vs">VS</div>' + team(tb,bw,'b')
+      + (done?'<div class="done">✓ Selesai — '+esc((aw?ta:tb).name)+' menang</div>':'') + '</div>';
+  }).join('');
+}
+function bump(ci, side, d){
+  var c=S.rounds[S.cur].courts[ci], key=side==='a'?'sa':'sb';
+  var v=(c[key]==null?0:c[key])+d; if(v<0)v=0; if(v>S.raceTo)v=S.raceTo; c[key]=v;
+  var other=side==='a'?'sb':'sa'; if(c[other]==null) c[other]=0;
+  lastPush=Date.now(); render();
+  mexApi('/'+encodeURIComponent(SLUG)+'/court', { method:'PUT', body:JSON.stringify({ round:S.cur, court:ci, sa:c.sa, sb:c.sb }) })
+    .catch(function(){ toast('Gagal simpan — coba lagi.'); });
+}
+function refresh(){ mexApi('/'+encodeURIComponent(SLUG)).then(function(r){ if(Date.now()-lastPush<1200) return; S=r.data; render(); }).catch(function(){}); }
+mexApi('/'+encodeURIComponent(SLUG)).then(function(r){ S=r.data; render(); poll=setInterval(refresh,4000); }).catch(function(e){ document.getElementById('app').innerHTML='<div class="card"><div class="empty">Sesi tidak ditemukan.<br>'+esc(e.message)+'</div></div>'; });
+</script>
+</body>
+</html>
