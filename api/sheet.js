@@ -2552,6 +2552,10 @@ async function tScheduleEvent(eventId, body) {
   const evRow = evRows[evIdx];
   // Allow caller (step 6) to override the event's schedule params; persist the new values so the whole app stays consistent.
   const b = body || {};
+  // lockGroups: force the "locked" home-court layout (1 group = 1 court, filled in
+  // group order) so groups run in clean waves — A–D in batch 1, E–H in batch 2 —
+  // instead of being split across courts to shave the finish time.
+  const forceLock = b.lockGroups === true || b.lockGroups === "true";
   const startTime = normClock((b.startTime && String(b.startTime).trim()) || evRow[4]) || "09:00";
   const numCourtsRaw = parseInt(b.numCourts) || parseInt(evRow[5]) || 1;
   const courtNums = parseCourtNumbers(b.courtNumbers, numCourtsRaw);
@@ -2723,8 +2727,9 @@ async function tScheduleEvent(eventId, body) {
     for (const m of sub) m.home = groups[m.gi].home;
     const setLock = (v) => sub.forEach((m) => { m.locked = v; });
     setLock(true); const spanLock = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
-    setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
-    const useLock = spanLock <= spanFree;
+    let useLock;
+    if (forceLock) { useLock = true; }
+    else { setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap })); useLock = spanLock <= spanFree; }
     setLock(useLock);
     if (useLock) anyLocked = true; else anyParallel = true;
   }
@@ -2766,7 +2771,7 @@ async function tScheduleEvent(eventId, body) {
 
   await rewriteEventGroupMatches(sheets, tids, newRows);
   return respond(200, {
-    success: true, engine: "grid-parallel-v1", mode, courtLayout, scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
+    success: true, engine: "grid-parallel-v1", mode, courtLayout, lockGroups: forceLock, scheduledMatches: count, groups: groups.length, numCourts, courts: courtNums, startTime, matchMinutes,
     slotsUsed, breaks: breaksOut, breakStart: breaksOut[0] ? breaksOut[0].start : "", breakEnd: breaksOut[0] ? breaksOut[0].end : "", clashes, clashCount: clashes.length,
     categoryStarts: catStart, courtCollisions, courtCollisionCount: courtCollisions.length,
   });
