@@ -365,6 +365,17 @@ function saveTeam(i){
       .then(function(){ toast('Tim '+(i+1)+' diperbarui.'); }).catch(function(e){ toast(e.message, true); });
   } else { toast('Tim '+(i+1)+' diperbarui.'); renderTeams(); }
 }
+function saveConfig(){
+  var courts=parseInt((document.getElementById('cfgCourts').value||'').trim(),10);
+  var start=(document.getElementById('cfgStart').value||'').trim();
+  if(!courts||courts<1){ toast('Jumlah lapangan minimal 1.'); return; }
+  S.courts=courts; S.startTime=start; save();
+  if(S.online&&S.slug){
+    lastPush=Date.now();
+    mexApi('/'+encodeURIComponent(S.slug)+'/config', { method:'PUT', body:JSON.stringify({ courts:courts, startTime:start }) })
+      .then(function(){ toast('Pengaturan disimpan · '+courts+' lapangan.'); menu(); }).catch(function(e){ toast(e.message, true); });
+  } else { toast('Pengaturan disimpan · '+courts+' lapangan.'); menu(); }
+}
 function copyLink(id){ var el=document.getElementById(id); var t=el?el.getAttribute('data-u'):''; if(!t) return;
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ toast('Link disalin.'); }).catch(function(){ toast('Salin manual: '+t); }); }
 function renderLinks(){
@@ -384,6 +395,14 @@ function renderLinks(){
 function menu(){
   var app=document.getElementById('app');
   app.innerHTML= tabs()
+    + '<div class="card"><div class="h">Pengaturan sesi</div>'
+    + '<div class="row2">'
+    +   '<div><label class="lbl" style="margin-top:0">Jumlah lapangan</label><input class="in" id="cfgCourts" type="number" min="1" value="'+(S.courts||Math.max(1,Math.floor(S.teams.length/2)))+'"></div>'
+    +   '<div><label class="lbl" style="margin-top:0">Waktu mulai</label><input class="in" id="cfgStart" type="time" value="'+esc(S.startTime||'')+'"></div>'
+    + '</div>'
+    + '<button class="btn block" onclick="saveConfig()">Simpan pengaturan</button>'
+    + '<p class="hint">Mengubah <b>jumlah lapangan</b> mengatur jumlah link wasit &amp; penomoran court — pairing &amp; skor tidak berubah.</p>'
+    + '</div>'
     + '<div class="card"><div class="h">Menu sesi</div>'
     + '<p class="hint" style="margin-top:0">Sesi: <b>'+esc(S.name)+'</b> · Race to '+S.raceTo+' · '+S.teams.length+' tim · '+(S.courts||'-')+' lapangan · '+S.rounds.length+' ronde'+(S.online?' · <b style="color:var(--green)">LIVE</b>':' · lokal')+'.</p>'
     + '<button class="btn ghost block" onclick="view=\'round\';render()">← Kembali ke ronde</button>'

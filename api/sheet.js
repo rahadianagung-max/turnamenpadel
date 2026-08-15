@@ -704,6 +704,8 @@ const netlifyHandler = async (event) => {
       return await mexSetScore(decodeURIComponent(path.split("/")[1]), body);
     if (/^mexicano\/[^/]+\/team$/.test(path) && method === "PUT")
       return await mexSetTeam(decodeURIComponent(path.split("/")[1]), body);
+    if (/^mexicano\/[^/]+\/config$/.test(path) && method === "PUT")
+      return await mexSetConfig(decodeURIComponent(path.split("/")[1]), body);
     if (/^mexicano\/[^/]+\/next-round$/.test(path) && method === "POST")
       return await mexNextRound(decodeURIComponent(path.split("/")[1]));
     if (/^mexicano\/[^/]+$/.test(path) && method === "GET")
@@ -4417,6 +4419,22 @@ async function mexSetTeam(key, body) {
   if (b.p1Name != null) { const v = String(b.p1Name).trim(); if (v) t.p1.name = v; }
   if (b.p2Name != null) { const v = String(b.p2Name).trim(); if (v) t.p2.name = v; }
   if (b.name != null) { const v = String(b.name).trim(); t.name = v || (t.p1.name + " & " + t.p2.name); }
+  await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
+  return respond(200, { success: true, data });
+}
+// Edit live session settings — number of courts, start time, name, race-to.
+// Courts only affect court numbering + how many referee links; pairings/scores
+// are untouched.
+async function mexSetConfig(key, body) {
+  const b = body || {};
+  const sheets = getSheets();
+  const s = await mexFind(sheets, key);
+  if (!s) return respond(404, { error: "Sesi tidak ditemukan" });
+  const data = s.data;
+  if (b.courts != null) data.courts = Math.max(1, parseInt(b.courts, 10) || data.courts || 1);
+  if (b.startTime != null) data.startTime = normClock(b.startTime) || "";
+  if (b.name != null) { const v = String(b.name).trim(); if (v) data.name = v; }
+  if (b.raceTo != null) { const r = parseInt(b.raceTo, 10); if (r === 3 || r === 4) data.raceTo = r; }
   await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
   return respond(200, { success: true, data });
 }
