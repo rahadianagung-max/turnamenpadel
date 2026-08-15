@@ -62,12 +62,11 @@ try{ var mv=localStorage.getItem(MEKEY); me=(mv==null||mv==='')?null:parseInt(mv
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
 function teamPlayers(t){ return t.p1.name+' & '+t.p2.name; }
 function standings(d){
-  var st=d.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0};});
+  var st=d.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0,withdrawn:!!t.withdrawn};});
   d.rounds.forEach(function(rd){ rd.courts.forEach(function(c){ if(c.sa==null||c.sb==null) return;
       st[c.a].games+=c.sa; st[c.a].diff+=(c.sa-c.sb); st[c.a].played++; st[c.b].games+=c.sb; st[c.b].diff+=(c.sb-c.sa); st[c.b].played++; });
     (rd.byes||[]).forEach(function(b){ st[b].byes++; }); });
-  st.sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
-  return st;
+  return st.filter(function(s){return !s.withdrawn;}).sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
 }
 function nC(){ var rd=S.rounds[S.cur]||{courts:[]}; return Math.max(1, S.courts||rd.courts.length||1); }
 function courtDone(c){ return c.sa!=null&&c.sb!=null&&(c.sa===S.raceTo||c.sb===S.raceTo)&&c.sa!==c.sb; }

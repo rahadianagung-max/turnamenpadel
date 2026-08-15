@@ -248,22 +248,22 @@ function pushScore(ci){
 
 // ---------- STANDINGS + LOCAL GENERATION (fallback) ----------
 function standings(){
-  var st=S.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0};});
+  var st=S.teams.map(function(t,i){return {i:i,name:t.name,p1:t.p1,p2:t.p2,elo:t.eloSum,games:0,diff:0,played:0,byes:0,withdrawn:!!t.withdrawn};});
   S.rounds.forEach(function(rd){
     rd.courts.forEach(function(c){ if(c.sa==null||c.sb==null) return;
       st[c.a].games+=c.sa; st[c.a].diff+=(c.sa-c.sb); st[c.a].played++;
       st[c.b].games+=c.sb; st[c.b].diff+=(c.sb-c.sa); st[c.b].played++; });
     (rd.byes||[]).forEach(function(b){ st[b].byes++; });
   });
-  st.sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
-  return st;
+  return st.filter(function(s){return !s.withdrawn;}).sort(function(x,y){ return (y.games-x.games)||(y.diff-x.diff)||x.name.localeCompare(y.name); });
 }
 function genRound(){
-  var n=S.teams.length, courts=Math.floor(n/2), byeCount=n-courts*2, order;
-  if(S.rounds.length===0){ order=S.teams.map(function(t,i){return {i:i,e:t.eloSum,r:Math.random()};}).sort(function(a,b){ return b.e-a.e || a.r-b.r; }).map(function(x){return x.i;}); }
+  var active=S.teams.map(function(t,i){return i;}).filter(function(i){return !S.teams[i].withdrawn;});
+  var n=active.length, courts=Math.floor(n/2), byeCount=n-courts*2, order;
+  if(S.rounds.length===0){ order=active.map(function(i){return {i:i,e:S.teams[i].eloSum,r:Math.random()};}).sort(function(a,b){ return b.e-a.e || a.r-b.r; }).map(function(x){return x.i;}); }
   else { order=standings().map(function(s){return s.i;}); }
   var pos={}; order.forEach(function(id,idx){ pos[id]=idx; });
-  var byeCnt={}; S.teams.forEach(function(_,i){byeCnt[i]=0;}); S.rounds.forEach(function(rd){ (rd.byes||[]).forEach(function(b){ byeCnt[b]++; }); });
+  var byeCnt={}; active.forEach(function(i){byeCnt[i]=0;}); S.rounds.forEach(function(rd){ (rd.byes||[]).forEach(function(b){ if(byeCnt[b]!=null) byeCnt[b]++; }); });
   var cand=order.slice().sort(function(a,b){ return (byeCnt[a]-byeCnt[b]) || (pos[b]-pos[a]); });
   var byes=cand.slice(0,byeCount), byeSet={}; byes.forEach(function(b){byeSet[b]=1;});
   var playing=order.filter(function(i){return !byeSet[i];}), crts=[];
@@ -338,14 +338,18 @@ function renderStandings(){
 function renderTeams(){
   var app=document.getElementById('app'); view='teams';
   var rows=S.teams.map(function(t,i){
-    return '<div class="court" style="margin-bottom:10px"><div class="ct"><span>Tim '+(i+1)+'</span><span>ELO '+t.eloSum+'</span></div>'
+    var wd=!!t.withdrawn;
+    return '<div class="court" style="margin-bottom:10px'+(wd?';opacity:.55':'')+'"><div class="ct"><span>Tim '+(i+1)+(wd?' · <span style="color:var(--danger)">BATAL MAIN</span>':'')+'</span><span>ELO '+t.eloSum+'</span></div>'
       + '<div class="row2" style="margin-bottom:8px">'
       +   '<div><label class="lbl" style="margin-top:0">Pemain 1</label><input class="in" id="t'+i+'p1" value="'+esc(t.p1.name)+'"></div>'
       +   '<div><label class="lbl" style="margin-top:0">Pemain 2</label><input class="in" id="t'+i+'p2" value="'+esc(t.p2.name)+'"></div>'
       + '</div>'
       + '<label class="lbl" style="margin-top:0">Nama tim <span style="color:var(--faint);font-weight:600;text-transform:none;letter-spacing:0">(kosong = pakai nama pemain)</span></label>'
       + '<input class="in" id="t'+i+'nm" value="'+esc(t.name!==(t.p1.name+' & '+t.p2.name)?t.name:'')+'" placeholder="'+esc(t.p1.name+' & '+t.p2.name)+'">'
-      + '<button class="btn sm" style="margin-top:10px" onclick="saveTeam('+i+')">Simpan tim '+(i+1)+'</button>'
+      + '<div style="display:flex;gap:8px;margin-top:10px">'
+      +   '<button class="btn sm" onclick="saveTeam('+i+')">Simpan</button>'
+      +   '<button class="btn sm ghost" style="'+(wd?'':'color:var(--danger);border-color:var(--danger)')+'" onclick="withdrawTeam('+i+')">'+(wd?'↩ Aktifkan kembali':'✕ Batal main')+'</button>'
+      + '</div>'
       + '</div>';
   }).join('');
   app.innerHTML= tabs()
@@ -375,6 +379,16 @@ function saveConfig(){
     mexApi('/'+encodeURIComponent(S.slug)+'/config', { method:'PUT', body:JSON.stringify({ courts:courts, startTime:start }) })
       .then(function(){ toast('Pengaturan disimpan · '+courts+' lapangan.'); menu(); }).catch(function(e){ toast(e.message, true); });
   } else { toast('Pengaturan disimpan · '+courts+' lapangan.'); menu(); }
+}
+function withdrawTeam(i){
+  var t=S.teams[i], now=!t.withdrawn;
+  if(now && !confirm('Tandai "'+t.name+'" batal main? Tim ini dikeluarkan dari ronde berikutnya & klasemen (riwayat tetap).')) return;
+  t.withdrawn=now; save();
+  if(S.online&&S.slug){
+    lastPush=Date.now();
+    mexApi('/'+encodeURIComponent(S.slug)+'/team', { method:'PUT', body:JSON.stringify({ team:i, withdrawn:now }) })
+      .then(function(){ toast(now?'"'+t.name+'" batal main.':'"'+t.name+'" diaktifkan kembali.'); renderTeams(); }).catch(function(e){ toast(e.message, true); });
+  } else { toast(now?'"'+t.name+'" batal main.':'"'+t.name+'" diaktifkan kembali.'); renderTeams(); }
 }
 function copyLink(id){ var el=document.getElementById(id); var t=el?el.getAttribute('data-u'):''; if(!t) return;
   (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){ toast('Link disalin.'); }).catch(function(){ toast('Salin manual: '+t); }); }
