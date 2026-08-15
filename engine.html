@@ -431,6 +431,10 @@
     </div>
     <div id="catStartsWrap" style="margin-top:8px"></div>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: hingga 4 jeda, isi jam mulai &amp; selesai tiap break (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break (kumulatif untuk beberapa break). Kosongkan pasangan yang tak dipakai.</p>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="schLockGroups" style="width:auto">
+      <span><b>Batch per urutan grup</b> — kunci tiap grup ke satu court (A–D di batch 1, E–H di batch 2), tidak dipecah antar-court walau jadwal bisa sedikit lebih lama.</span>
+    </label>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
       <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Muat match kategori ini</button>
@@ -923,7 +927,8 @@ async function generateSchedule(){
   try{
     const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"POST", body:{
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
-      breaks: collectBreaks(), categoryStarts: collectCatStarts(), catMode: ((state.tournaments||[]).length>1 ? getCatMode() : undefined)
+      breaks: collectBreaks(), categoryStarts: collectCatStarts(), catMode: ((state.tournaments||[]).length>1 ? getCatMode() : undefined),
+      lockGroups: (document.getElementById("schLockGroups")||{}).checked || false
     }});
     if(r && r.courtCollisionCount){ toast("⚠ "+r.courtCollisionCount+" slot court bentrok antar-batch — ada kategori yang meleber ke jam batch lain di court sama. Lebarkan jeda atau kurangi match.", true); }
     // Reflect the resolved per-category start times (esp. auto-computed for "Terpisah").
