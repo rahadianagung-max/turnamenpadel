@@ -4316,7 +4316,9 @@ async function mexWrite(sheets, rowIndex, id, slug, data) {
 // --- ported generation (kept identical to the mexicano.html client logic) ---
 function mexStandings(data) {
   const teams = data.teams || [];
-  const st = teams.map((t, i) => ({ i, name: t.name, elo: t.eloSum, games: 0, diff: 0, played: 0, byes: 0 }));
+  // Accumulate for all teams (index-safe), then drop withdrawn ("batal main") teams
+  // from the ranking — their past matches still counted for their opponents.
+  const st = teams.map((t, i) => ({ i, name: t.name, elo: t.eloSum, games: 0, diff: 0, played: 0, byes: 0, withdrawn: !!t.withdrawn }));
   (data.rounds || []).forEach((rd) => {
     (rd.courts || []).forEach((c) => {
       if (c.sa == null || c.sb == null) return;
@@ -4325,20 +4327,22 @@ function mexStandings(data) {
     });
     (rd.byes || []).forEach((b) => { st[b].byes++; });
   });
-  st.sort((x, y) => (y.games - x.games) || (y.diff - x.diff) || String(x.name).localeCompare(String(y.name)));
-  return st;
+  return st.filter((s) => !s.withdrawn)
+    .sort((x, y) => (y.games - x.games) || (y.diff - x.diff) || String(x.name).localeCompare(String(y.name)));
 }
 function mexGenRound(data) {
-  const teams = data.teams || [], n = teams.length, courts = Math.floor(n / 2), byeCount = n - courts * 2;
+  const teams = data.teams || [];
+  const active = teams.map((t, i) => i).filter((i) => !teams[i].withdrawn); // exclude withdrawn
+  const n = active.length, courts = Math.floor(n / 2), byeCount = n - courts * 2;
   let order;
   if (!(data.rounds || []).length) {
-    order = teams.map((t, i) => ({ i, e: t.eloSum, r: Math.random() })).sort((a, b) => b.e - a.e || a.r - b.r).map((x) => x.i);
+    order = active.map((i) => ({ i, e: teams[i].eloSum, r: Math.random() })).sort((a, b) => b.e - a.e || a.r - b.r).map((x) => x.i);
   } else {
     order = mexStandings(data).map((s) => s.i);
   }
   const pos = {}; order.forEach((id, idx) => { pos[id] = idx; });
-  const byeCnt = {}; teams.forEach((_, i) => { byeCnt[i] = 0; });
-  (data.rounds || []).forEach((rd) => (rd.byes || []).forEach((b) => { byeCnt[b]++; }));
+  const byeCnt = {}; active.forEach((i) => { byeCnt[i] = 0; });
+  (data.rounds || []).forEach((rd) => (rd.byes || []).forEach((b) => { if (byeCnt[b] != null) byeCnt[b]++; }));
   const cand = order.slice().sort((a, b) => (byeCnt[a] - byeCnt[b]) || (pos[b] - pos[a]));
   const byes = cand.slice(0, byeCount);
   const byeSet = {}; byes.forEach((b) => { byeSet[b] = 1; });
@@ -4419,6 +4423,7 @@ async function mexSetTeam(key, body) {
   if (b.p1Name != null) { const v = String(b.p1Name).trim(); if (v) t.p1.name = v; }
   if (b.p2Name != null) { const v = String(b.p2Name).trim(); if (v) t.p2.name = v; }
   if (b.name != null) { const v = String(b.name).trim(); t.name = v || (t.p1.name + " & " + t.p2.name); }
+  if (b.withdrawn != null) t.withdrawn = !!b.withdrawn; // "batal main" — excluded from future rounds & standings
   await mexWrite(sheets, s.rowIndex, s.id, s.slug, data);
   return respond(200, { success: true, data });
 }
