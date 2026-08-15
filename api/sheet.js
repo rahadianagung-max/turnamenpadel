@@ -2720,18 +2720,31 @@ async function tScheduleEvent(eventId, body) {
   }
   let anyLocked = false, anyParallel = false;
   for (const pool of pools.values()) {
-    // home court per pool-group, cycling through the pool's courts
-    pool.groups.slice().sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }))
-      .forEach((g, i) => { g.home = pool.allowed[i % pool.allowed.length]; });
+    const poolC = pool.allowed.length;
+    // home court per pool-group, cycling through the pool's courts: A,B,C,D -> the
+    // courts in wave 1; E,F,G,H -> the same courts in wave 2, and so on.
+    const sortedG = pool.groups.slice().sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }));
+    sortedG.forEach((g, i) => { g.home = pool.allowed[i % poolC]; });
     const sub = allMatches.filter((m) => pool.groups.includes(groups[m.gi]));
     for (const m of sub) m.home = groups[m.gi].home;
     const setLock = (v) => sub.forEach((m) => { m.locked = v; });
-    setLock(true); const spanLock = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
-    let useLock;
-    if (forceLock) { useLock = true; }
-    else { setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap })); useLock = spanLock <= spanFree; }
-    setLock(useLock);
-    if (useLock) anyLocked = true; else anyParallel = true;
+    if (forceLock) {
+      // TRUE batches: wave w = groups[w*poolC .. +poolC). A wave only starts after
+      // the previous wave's LONGEST group finishes (hard barrier) — implemented by
+      // pushing each group's match offset to its wave's cumulative start slot.
+      const mcount = new Map(); sub.forEach((m) => mcount.set(m.gi, (mcount.get(m.gi) || 0) + 1));
+      const waveSpan = []; sortedG.forEach((g, i) => { const w = Math.floor(i / poolC); waveSpan[w] = Math.max(waveSpan[w] || 0, mcount.get(g._gi) || 0); });
+      const waveStart = []; { let acc = 0; for (let w = 0; w < waveSpan.length; w++) { waveStart[w] = acc; acc += waveSpan[w] || 0; } }
+      sortedG.forEach((g, i) => { g._waveStart = waveStart[Math.floor(i / poolC)] || 0; });
+      for (const m of sub) { const g = groups[m.gi]; m.offset = (g.offset || 0) + (g._waveStart || 0); }
+      setLock(true); anyLocked = true;
+    } else {
+      setLock(true); const spanLock = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
+      setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
+      const useLock = spanLock <= spanFree;
+      setLock(useLock);
+      if (useLock) anyLocked = true; else anyParallel = true;
+    }
   }
   const placed = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
   const courtLayout = (anyLocked && anyParallel) ? "mixed" : anyParallel ? "parallel" : "locked";
