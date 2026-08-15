@@ -1067,6 +1067,8 @@ async function generatePlayoff(){
     const methodLabel = m => m==="cross" ? "cross grup" : m==="custom" ? "seeding manual" : "seeding";
     const txt = (r.brackets||[]).map(b=>`${TIER_LABEL[b.tier]||b.tier}: ${b.entrants} tim (${methodLabel(b.method)})`).join(" · ");
     toast("Bracket dibuat · "+txt);
+    const warn=(r.brackets||[]).map(b=>b.note).filter(Boolean)[0];
+    if(warn) setTimeout(()=>toast("⚠ "+warn, true), 1400);
     loadPlayoff();
   }catch(e){ toast(e.message, true); }
 }
