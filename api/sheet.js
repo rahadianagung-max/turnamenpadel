@@ -3084,6 +3084,16 @@ const seedSort = (a, b) => a.rank - b.rank || b.wins - a.wins || b.gd - a.gd || 
 // preview (buildPlayoffProjection), so both seed identically (cross-seed when
 // every group has exactly N qualifiers and the group count is a power of 2).
 // Returns { built:[{tier,b}], summary, champCount, prospCount }.
+// Why crossSeedRound1() returned null (so the engine can tell the admin why the
+// bracket fell back to plain seeding instead of Juara-vs-Runner-up crossing).
+function crossFallbackReason(groupsQual) {
+  const g = groupsQual.length;
+  if (g < 2) return "Crossing perlu minimal 2 grup — pakai seeding biasa.";
+  if ((g & (g - 1)) !== 0) return `Crossing perlu jumlah grup 2/4/8; sekarang ${g} grup — pakai seeding biasa.`;
+  const bad = groupsQual.filter((a) => a.length !== 2).length;
+  if (bad) return `Crossing perlu tepat 2 tim lolos tiap grup; ${bad} grup tidak — pakai seeding biasa.`;
+  return "Crossing tidak dapat diterapkan — pakai seeding biasa.";
+}
 function buildPlayoffTiers(groups, format, N, crossOn) {
   crossOn = crossOn !== false; // default ON — World Cup cross-seed (Winner A vs Runner-up C, …)
   const champCount = groups.reduce((n, g) => n + g.standings.filter((s) => s.rank <= N).length, 0);
@@ -3092,7 +3102,7 @@ function buildPlayoffTiers(groups, format, N, crossOn) {
   const emitTier = (tier, predicate) => {
     const groupsQual = groups.map((g) => g.standings.filter(predicate).sort((a, b) => a.rank - b.rank).map((s) => s.entrantId));
     const cross = crossOn ? crossSeedRound1(groupsQual) : null;
-    let b, method;
+    let b, method, note = "";
     if (cross) { b = bracketFromRound1(cross, tier); method = "cross"; }
     else {
       const flat = [];
@@ -3101,9 +3111,12 @@ function buildPlayoffTiers(groups, format, N, crossOn) {
       flat.sort(seedSort);
       b = buildBracket(flat.map((s) => s.entrantId), tier, groupOf);
       method = "seed";
+      // Explain WHY the requested cross-seed couldn't be applied, so the engine
+      // can warn instead of silently producing a plain-seeded (non-cross) bracket.
+      if (crossOn) note = crossFallbackReason(groupsQual);
     }
     built.push({ tier, b });
-    summary.push({ tier, method, entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length });
+    summary.push({ tier, method, note, entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length });
   };
   if (format === "SPLIT") {
     if (champCount >= 2) emitTier("CHAMPION", (s) => s.rank <= N);
