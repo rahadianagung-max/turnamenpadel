@@ -347,7 +347,7 @@
       <div class="f"><label>Nama event</label><input id="evName" placeholder="Stellar Open 2026" /></div>
       <div class="f"><label>Venue</label><input id="evVenue" placeholder="La Familia, Pejaten" /></div>
       <div class="f"><label>Tanggal</label><input id="evDate" type="date" /></div>
-      <div class="f"><label>Jam mulai</label><input id="evStart" type="time" value="09:00" /></div>
+      <div class="f"><label>Jam mulai <small class="ampm" id="evStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="evStart" type="time" value="09:00" oninput="ampmPrev('evStart')" /></div>
       <div class="f"><label>Jumlah court</label><input id="evCourts" type="number" min="1" value="3" /></div>
       <div class="f"><label>Menit / match</label><input id="evMin" type="number" min="5" value="15" /></div>
     </div>
@@ -474,7 +474,7 @@
     <div class="sec-head"><div class="num">6</div><h2>Jadwal &amp; Skor</h2>
       <span class="sub">generate menjadwalkan semua kategori di event ini sekaligus</span></div>
     <div class="grid">
-      <div class="f"><label>Jam mulai</label><input id="schStart" type="time" /></div>
+      <div class="f"><label>Jam mulai <small class="ampm" id="schStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="schStart" type="time" oninput="ampmPrev('schStart')" /></div>
       <div class="f"><label>Jumlah court</label><input id="schCourts" type="number" min="1" /></div>
       <div class="f"><label>Nomor court (opsional)</label><input id="schCourtNums" type="text" placeholder="mis. 3,4,5,6" /></div>
       <div class="f"><label>Menit / match</label><input id="schMin" type="number" min="5" /></div>
@@ -538,7 +538,7 @@
       <span class="sub">atur jadwal lalu generate bracket dari standing kategori ini</span></div>
     <div class="grid">
       <div class="f"><label>Tanggal playoff</label><input id="poDate" type="date" /></div>
-      <div class="f"><label>Jam mulai</label><input id="poStart" type="time" value="09:00" /></div>
+      <div class="f"><label>Jam mulai <small class="ampm" id="poStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="poStart" type="time" value="09:00" oninput="ampmPrev('poStart')" /></div>
       <div class="f"><label>Jumlah court</label><input id="poCourts" type="number" min="1" value="2" /></div>
       <div class="f"><label>Menit / match</label><input id="poMin" type="number" min="5" value="30" /></div>
       <div class="f"><label>Lolos N besar (peringkat keseluruhan)</label><input id="poTopOverall" type="number" min="2" value="8" /></div>
@@ -702,6 +702,10 @@ function renderContext(){
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 // Normalize a clock string (Sheets may return "8:00" / "8.00" / "8:00 AM") to "HH:MM".
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const p=x.split(/[:.]/); let h=parseInt(p[0],10), m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
+// 12-hour AM/PM display so start time & schedule are unambiguous (13:00 -> 1:00 PM).
+function fmt12(t){ const s=fmtTime(t); if(!s) return ""; const p=s.split(":"); let h=parseInt(p[0],10); const mm=p[1]; const ap=h>=12?"PM":"AM"; let h12=h%12; if(h12===0)h12=12; return h12+":"+mm+" "+ap; }
+function ampmPrev(id){ const el=document.getElementById(id), sp=document.getElementById(id+"_ap"); if(sp) sp.textContent = (el && el.value) ? ("= "+fmt12(el.value)) : ""; }
+function refreshAmpm(){ ["evStart","schStart","poStart"].forEach(ampmPrev); }
 
 /* ---- EVENTS ---- */
 async function loadEvents(){
@@ -1037,6 +1041,7 @@ function fillScheduleParams(){
   if(cn) cn.value = e.courtNumbers || "";
   fillBreaks(e.breaks || (e.breakStart||e.breakEnd ? [{start:e.breakStart,end:e.breakEnd}] : []));
   renderCatStarts();
+  refreshAmpm();
 }
 // Prefill the 4 break input pairs from a breaks array.
 function fillBreaks(breaks){
@@ -1174,7 +1179,7 @@ function matchRow(m, isPlaying){
   return `<div class="mcard">
     <div class="mrow ${done?'done':''} ${playing?'playing':''}">
       <span class="court">LAP ${m.court||"?"}</span>
-      <span class="time">${esc(fmtTime(m.time))}<span class="gl">${playing?'● MAIN · ':''}Grup ${esc(m.groupLabel)}</span></span>
+      <span class="time">${esc(fmt12(m.time))}<span class="gl">${playing?'● MAIN · ':''}Grup ${esc(m.groupLabel)}</span></span>
       <span class="teams"><span class="${aw?'win':''}">${esc(nameOf(m.entrantA))}</span><span class="vs">vs</span><span class="${bw?'win':''}">${esc(nameOf(m.entrantB))}</span></span>
       <span class="score">
         <input id="sa-${m.matchId}" type="number" inputmode="numeric" value="${sa}" />
@@ -1666,6 +1671,7 @@ applySession(state.session);
 loadEvents();
 loadArchivedEvents();
 renderContext();
+refreshAmpm();
 (function(){ try{ var sp=localStorage.getItem("tp_sponsor")||""; var el=document.getElementById("sponsorUrl"); if(el){ el.value=sp; state.sponsorUrl=sp; onSponsor(); } }catch(e){} })();
 </script>
 </body>
