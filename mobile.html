@@ -506,7 +506,9 @@ function setupSponsorBanner(){
 
 async function load(){
   try{
-    const d = await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public");
+    // live=1 → short-cache response so the board tracks the engine within seconds
+    // after a (re)generated schedule, instead of a ~1-min CDN-cached lag.
+    const d = await api("/tournament/event/"+encodeURIComponent(EVENT_ID)+"/public?live=1");
     state.data = d;
     document.getElementById("evhead").innerHTML =
       `<div class="evname">${esc(d.event.name||"Tournament")}</div>
