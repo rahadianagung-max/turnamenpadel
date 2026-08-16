@@ -1,21 +1,30 @@
 const { google } = require("googleapis");
 
+// Cache the JWT auth client + Sheets client at module scope. A warm serverless
+// container reuses these across invocations, so we stop building a new JWT (and
+// re-fetching an OAuth token) on every getSheets() call. The JWT refreshes its own
+// access token internally when it expires, so caching the instance is safe.
+let _authClient = null, _sheetsClient = null;
 function getAuth() {
+  if (_authClient) return _authClient;
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   let key = process.env.GOOGLE_PRIVATE_KEY || "";
-  
+
   // Menghapus tanda kutip ganda di awal/akhir jika Vercel menambahkannya
   key = key.replace(/^"|"$/g, '');
   // Memaksa format baris baru (enter) menjadi benar
   key = key.replace(/\\n/g, "\n");
 
-  return new google.auth.JWT(email, null, key, [
+  _authClient = new google.auth.JWT(email, null, key, [
     "https://www.googleapis.com/auth/spreadsheets",
   ]);
+  return _authClient;
 }
 
 function getSheets() {
-  return wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() }));
+  if (_sheetsClient) return _sheetsClient;
+  _sheetsClient = wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() }));
+  return _sheetsClient;
 }
 // Wrap every Sheets values.* / spreadsheets.* call in withSheetsRetry so transient
 // 429 (rate limit) / 5xx / dropped-socket errors back off and retry instead of
@@ -373,13 +382,18 @@ function normName(s) {
 // (Players col D), not the raw registered name. Editable entrant fields keep the
 // raw name (needed for matching/ELO); only display labels are resolved here.
 // Returns a Map(normName(rawName) -> displayName). Missing player -> raw name kept.
-async function loadDisplayNames(sheets) {
+// Build the normName -> Display_Name map from Players rows (A2:D). Pure, so it can
+// be fed from a batchGet instead of a separate read.
+function buildDisplayMap(rows) {
   const map = new Map();
+  for (const row of (rows || [])) { if (row[0]) map.set(normName(row[0]), String(row[3] || row[0])); }
+  return map;
+}
+async function loadDisplayNames(sheets) {
   try {
     const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:D` });
-    for (const row of (r.data.values || [])) { if (row[0]) map.set(normName(row[0]), String(row[3] || row[0])); }
-  } catch (e) { /* Players tab optional */ }
-  return map;
+    return buildDisplayMap(r.data.values);
+  } catch (e) { return new Map(); /* Players tab optional */ }
 }
 function displayName(map, raw) { if (raw == null || raw === "") return raw || ""; return (map && map.get(normName(raw))) || raw; }
 function displayPair(map, p1, p2) { return `${displayName(map, p1)} + ${displayName(map, p2)}`; }
@@ -469,11 +483,16 @@ const T_HEADERS = {
   [TABS.tracked_events]: ["Name", "URL", "Date", "Venue"],
 };
 // Create any missing tournament tabs (with header row) so the engine is self-bootstrapping.
+let _tabsEnsured = false;
 async function ensureTabs(sheets) {
+  // Metadata read on every call is a big share of the Sheets quota; once we've
+  // confirmed the tabs exist in this warm container, skip the re-check. A cold
+  // start re-verifies, so a newly-added tab is still picked up.
+  if (_tabsEnsured) return;
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
   const existing = (meta.data.sheets || []).map((s) => s.properties.title);
   const toCreate = Object.keys(T_HEADERS).filter((t) => !existing.includes(t));
-  if (!toCreate.length) return;
+  if (!toCreate.length) { _tabsEnsured = true; return; }
   await sheets.spreadsheets.batchUpdate({
     spreadsheetId: SHEET_ID,
     requestBody: { requests: toCreate.map((title) => ({ addSheet: { properties: { title } } })) },
@@ -484,6 +503,7 @@ async function ensureTabs(sheets) {
       requestBody: { values: [T_HEADERS[title]] },
     });
   }
+  _tabsEnsured = true;
 }
 
 // ==============================================================
@@ -2054,16 +2074,15 @@ async function tDrawGroups(id) {
 async function tGetGroups(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const [r, enr] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:H` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
-  ]);
-  const rows = (r.data.values || []).filter((x) => x[0] === id);
+  const br = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:H`, `${TABS.t_entrants}!A2:K`, `${TABS.players}!A2:D`] });
+  const vr = br.data.valueRanges || [];
+  const grpRows = (vr[0] && vr[0].values) || [], enrRows = (vr[1] && vr[1].values) || [], plRows = (vr[2] && vr[2].values) || [];
+  const rows = grpRows.filter((x) => x[0] === id);
   // Entrant_ID -> optional custom team name (entrants col K). Used as a fallback for
   // group rows drawn before the group tab carried its own Team_Name (col H).
   const teamNameById = {};
-  for (const x of (enr.data.values || [])) { if (x[0] === id && x[1]) teamNameById[x[1]] = x[10] || ""; }
-  const dmap = await loadDisplayNames(sheets);
+  for (const x of enrRows) { if (x[0] === id && x[1]) teamNameById[x[1]] = x[10] || ""; }
+  const dmap = buildDisplayMap(plRows);
   const map = new Map();
   for (const x of rows) {
     const label = x[2] || "?";
@@ -2874,10 +2893,11 @@ function computeGroupStandings(matches, entrantIds) {
 async function tGetStandings(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
-  const grRows = (grRes.data.values || []).filter((x) => x[0] === id);
+  const brS = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:G`, `${TABS.t_matches}!A2:P`, `${TABS.players}!A2:D`] });
+  const vrS = brS.data.valueRanges || [];
+  const grRows = ((vrS[0] && vrS[0].values) || []).filter((x) => x[0] === id);
   if (!grRows.length) return respond(200, { groups: [] });
-  const dmap = await loadDisplayNames(sheets);
+  const dmap = buildDisplayMap((vrS[2] && vrS[2].values) || []);
   const names = {}, members = new Map();
   for (const x of grRows) {
     const label = x[2];
@@ -2885,8 +2905,7 @@ async function tGetStandings(id) {
     members.get(label).push(x[3]);
     names[x[3]] = displayPair(dmap, x[4], x[5]);
   }
-  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
-  const matches = (mRes.data.values || []).filter((x) => x[0] === id && x[2] === "GROUP").map(mapMatchRow);
+  const matches = ((vrS[1] && vrS[1].values) || []).filter((x) => x[0] === id && x[2] === "GROUP").map(mapMatchRow);
   const groups = [];
   for (const [label, ids] of [...members.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const gm = matches.filter((m) => m.groupLabel === label);
@@ -3872,23 +3891,24 @@ function playoffBracketsView(all, nm) {
 async function tGetPlayoff(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
-  const dmap = await loadDisplayNames(sheets);
+  const brP = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:G`, `${TABS.t_matches}!A2:Q`, `${TABS.t_tournaments}!A2:L`, `${TABS.players}!A2:D`] });
+  const vrP = brP.data.valueRanges || [];
+  const grVals = (vrP[0] && vrP[0].values) || [], mVals = (vrP[1] && vrP[1].values) || [], tVals = (vrP[2] && vrP[2].values) || [];
+  const dmap = buildDisplayMap((vrP[3] && vrP[3].values) || []);
   const names = {};
   const groupSize = {};
-  for (const x of (grRes.data.values || [])) if (x[0] === id) { names[x[3]] = displayPair(dmap, x[4], x[5]); groupSize[x[2]] = (groupSize[x[2]] || 0) + 1; }
+  for (const x of grVals) if (x[0] === id) { names[x[3]] = displayPair(dmap, x[4], x[5]); groupSize[x[2]] = (groupSize[x[2]] || 0) + 1; }
   const nm = (eid) => (eid ? (names[eid] || eid) : "");
   // Group membership (entrant ids per label) for standings-based clinch math.
   const membersByLabel = new Map();
-  for (const x of (grRes.data.values || [])) if (x[0] === id) { const l = x[2]; if (!membersByLabel.has(l)) membersByLabel.set(l, []); membersByLabel.get(l).push(x[3]); }
-  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
-  const mapped = (mRes.data.values || []).map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }));
+  for (const x of grVals) if (x[0] === id) { const l = x[2]; if (!membersByLabel.has(l)) membersByLabel.set(l, []); membersByLabel.get(l).push(x[3]); }
+  const mapped = mVals.map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }));
   const all = mapped.filter((m) => m.tournamentId === id && m.stage === "PLAYOFF");
   const groupMatches = mapped.filter((m) => m.tournamentId === id && m.stage === "GROUP");
   const groupList = [...membersByLabel.entries()].sort((a, b) => a[0].localeCompare(b[0]))
     .map(([label, ids]) => ({ label, standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids) }));
   // Projected bracket for previewing the knockout path before it is generated.
-  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` });
+  const tRes = { data: { values: tVals } };
   const tRow = (tRes.data.values || []).find((x) => x[0] === id);
   const autoPlayoff = parseAutoPlan(tRow && tRow[11]);
   const groupsInfo = Object.keys(groupSize).sort().map((label) => ({ label, size: groupSize[label] }));
