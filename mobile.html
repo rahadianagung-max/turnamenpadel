@@ -268,34 +268,13 @@ function renderBody(){
 }
 
 function renderSchedule(cat){
-  if(!cat.schedule.length) return '<p class="empty">Group stage schedule not available yet.</p>';
+  const anySchedule = (state.data.categories||[]).some(c=>c.schedule && c.schedule.length);
+  if(!anySchedule) return '<p class="empty">Group stage schedule not available yet.</p>';
   const pred = predictTimes();
   // Trust the stored time when set (per-category batch times / manual edits — the
   // same value admin & sheet show); only fall back to the predicted slot time when
   // there is no stored time. A pinned match (explicit date) always uses its time.
   const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || ""));
-
-  // Player picker — lets a player see only their own matches. Hidden on the
-  // team-only board so no player names are shown at all.
-  const players = playersInCat(cat);
-  const sel = (state.player && players.some(p=>norm(p)===norm(state.player))) ? state.player : "";
-  const playerCtl = TEAMS_ONLY ? "" : `<p class="sched-hint">To see only your schedule, select your name in the dropdown below.</p>
-    <div class="schedctl"><label>Player</label>
-    <select onchange="setPlayer(this.value)">
-      <option value="">All matches</option>
-      ${players.map(p=>`<option value="${esc(p)}" ${norm(p)===norm(sel)?'selected':''}>${esc(p)}</option>`).join("")}
-    </select></div>`;
-
-  // Court picker — lets anyone follow the order of play on one specific court.
-  // Shown whenever there is more than one court in this category's schedule.
-  const courts = courtsInCat(cat);
-  const courtVal = (state.court && courts.some(c=>String(c)===String(state.court))) ? state.court : "";
-  const courtCtl = courts.length>1 ? `<div class="schedctl"><label>Court</label>
-    <select onchange="setCourt(this.value)">
-      <option value="">All courts</option>
-      ${courts.map(c=>`<option value="${esc(String(c))}" ${String(c)===String(courtVal)?'selected':''}>Court ${esc(String(c))}</option>`).join("")}
-    </select></div>` : "";
-  const ctl = playerCtl + courtCtl;
 
   // Chronological order: earliest date first, then the displayed time (pinned or
   // predicted), then court. The SAME order drives both the list and the LIVE badge.
@@ -303,17 +282,69 @@ function renderSchedule(cat){
   const tmin = m => { const s = m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId]); if(!s) return (m.slot||0)*1; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
   const cmp = (a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0));
 
-  // "currently playing" = earliest non-DONE match per court, by that same time order
-  // (previously computed by slot index, which mismatched the displayed order).
+  // Player picker — lets a player see only their own matches (within this
+  // category). Hidden on the team-only board so no player names are shown at all.
+  const players = playersInCat(cat);
+  const sel = (state.player && players.some(p=>norm(p)===norm(state.player))) ? state.player : "";
+  const playerCtl = TEAMS_ONLY ? "" : `<div class="schedctl"><label>Player</label>
+    <select onchange="setPlayer(this.value)">
+      <option value="">All matches</option>
+      ${players.map(p=>`<option value="${esc(p)}" ${norm(p)===norm(sel)?'selected':''}>${esc(p)}</option>`).join("")}
+    </select></div>`;
+
+  // Court picker — lets anyone follow the order of play on one physical court.
+  // Courts are shared across categories, so this is EVENT-WIDE: selecting a court
+  // shows every category's matches on it, in time order. Listed courts are the
+  // union across all categories.
+  const courts = courtsInEvent();
+  const courtVal = (state.court && courts.some(c=>String(c)===String(state.court))) ? state.court : "";
+  const courtCtl = courts.length ? `<div class="schedctl"><label>Court</label>
+    <select onchange="setCourt(this.value)">
+      <option value="">All courts</option>
+      ${courts.map(c=>`<option value="${esc(String(c))}" ${String(c)===String(courtVal)?'selected':''}>Court ${esc(String(c))}</option>`).join("")}
+    </select></div>` : "";
+  const hint = TEAMS_ONLY ? "" : `<p class="sched-hint">Select your name to see only your matches, or pick a court to see its full order of play.</p>`;
+  const ctl = hint + playerCtl + courtCtl;
+
+  // Render one schedule row for match m (belonging to category mc). Optionally tag
+  // it with its category (used in the cross-category court view).
+  const rowOf = (mc, m, playing, mineSel, tagCat)=>{
+    const done = m.status==="DONE";
+    const aw = done && String(m.winner)===String(m.entrantA);
+    const bw = done && String(m.winner)===String(m.entrantB);
+    const liveNow = playing.has(m.matchId) && !done;
+    const mine = mineSel && matchHasPlayer(mc,m,mineSel);
+    const tag = tagCat ? ` · ${esc(catTabLabel(mc))}` : "";
+    return `<div class="mrow ${done?'done':''} ${liveNow?'live-now':''} ${mine?'mine':''}">
+      <div class="top">
+        <span class="when"><span class="time">${matchDateLabel(m)} · ${ptime(m)}</span><span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}${tag}</span></span>
+        ${liveNow?'<span class="badge-now">LIVE</span>':''}</div>
+      <div class="team ${aw?'w':''}"><span class="nm">${teamNames(mc,m.entrantA,true)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>
+      <div class="team ${bw?'w':''}"><span class="nm">${teamNames(mc,m.entrantB,true)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>
+    </div>`;
+  };
+
+  // COURT MODE (event-wide): gather every category's matches on the chosen court.
+  if(courtVal){
+    const items = [];
+    (state.data.categories||[]).forEach(mc=>(mc.schedule||[]).forEach(m=>{ if(String(m.court)===String(courtVal)) items.push({mc,m}); }));
+    if(!items.length) return ctl + `<div class="schedempty">No matches on Court ${esc(String(courtVal))} yet.</div>`;
+    items.sort((x,y)=>cmp(x.m,y.m));
+    // "currently playing" on this court = its earliest non-DONE match, in order.
+    const firstNonDone = items.find(x=>x.m.status!=="DONE");
+    const playing = new Set(firstNonDone ? [firstNonDone.m.matchId] : []);
+    const rows = items.map(x=>rowOf(x.mc, x.m, playing, "", true)).join("");
+    return ctl + rows;
+  }
+
+  // DEFAULT MODE (this category). Player filter narrows to the selected player.
+  if(!cat.schedule.length) return ctl + `<div class="schedempty">No group-stage schedule for this category yet.</div>`;
+  // "currently playing" = earliest non-DONE match per court, by that same time order.
   const firstByCourt = {};
   cat.schedule.slice().sort(cmp).forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
   const playing = new Set(Object.values(firstByCourt));
 
   let list = cat.schedule.slice().sort(cmp);
-  if(courtVal){
-    list = list.filter(m=>String(m.court)===String(courtVal));
-    if(!list.length) return ctl + `<div class="schedempty">No matches on Court ${esc(String(courtVal))} in this category.</div>`;
-  }
   let nextCard = "";
   if(sel){
     list = list.filter(m=>matchHasPlayer(cat,m,sel));
@@ -328,21 +359,7 @@ function renderSchedule(cat){
     }
   }
 
-  const rows = list.map(m=>{
-    const done = m.status==="DONE";
-    const aw = done && String(m.winner)===String(m.entrantA);
-    const bw = done && String(m.winner)===String(m.entrantB);
-    const liveNow = playing.has(m.matchId) && !done;
-    const mine = sel && matchHasPlayer(cat,m,sel);
-    return `<div class="mrow ${done?'done':''} ${liveNow?'live-now':''} ${mine?'mine':''}">
-      <div class="top">
-        <span class="when"><span class="time">${matchDateLabel(m)} · ${ptime(m)}</span><span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}</span></span>
-        ${liveNow?'<span class="badge-now">LIVE</span>':''}</div>
-      <div class="team ${aw?'w':''}"><span class="nm">${teamNames(cat,m.entrantA,true)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>
-      <div class="team ${bw?'w':''}"><span class="nm">${teamNames(cat,m.entrantB,true)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>
-    </div>`;
-  }).join("");
-
+  const rows = list.map(m=>rowOf(cat, m, playing, sel, false)).join("");
   return ctl + nextCard + rows;
 }
 
@@ -503,10 +520,13 @@ function predictTimes(){
 function entrantHasPlayer(cat,eid,p){ const e=cat.entrants[eid]; return !!(e && (norm(e.player1)===norm(p)||norm(e.player2)===norm(p))); }
 function matchHasPlayer(cat,m,p){ return entrantHasPlayer(cat,m.entrantA,p)||entrantHasPlayer(cat,m.entrantB,p); }
 function playersInCat(cat){ const seen=new Map(); Object.values(cat.entrants||{}).forEach(e=>{ [e&&e.player1,e&&e.player2].forEach(p=>{ if(p&&!seen.has(norm(p))) seen.set(norm(p),p); }); }); return [...seen.values()].sort((a,b)=>a.localeCompare(b)); }
-function setPlayer(name){ state.player=name||""; try{ if(state.player) localStorage.setItem("trekkr_player_"+EVENT_ID,state.player); else localStorage.removeItem("trekkr_player_"+EVENT_ID); }catch(e){} renderBody(); }
-// Distinct courts used in this category's schedule, numeric-sorted when possible.
-function courtsInCat(cat){ const seen=new Map(); (cat.schedule||[]).forEach(m=>{ const c=m.court; if(c!=null && String(c).trim()!=="" && !seen.has(String(c))) seen.set(String(c),c); }); return [...seen.values()].sort((a,b)=>{ const na=parseFloat(a), nb=parseFloat(b); if(!isNaN(na)&&!isNaN(nb)) return na-nb; return String(a).localeCompare(String(b)); }); }
-function setCourt(v){ state.court=v||""; renderBody(); }
+function setPlayer(name){ state.player=name||""; if(state.player) state.court=""; try{ if(state.player) localStorage.setItem("trekkr_player_"+EVENT_ID,state.player); else localStorage.removeItem("trekkr_player_"+EVENT_ID); }catch(e){} renderBody(); }
+// Distinct courts used anywhere in the event (across every category's schedule),
+// numeric-sorted when possible. Courts are shared, so the picker is event-wide.
+function courtsInEvent(){ const seen=new Map(); (state.data&&state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{ const ct=m.court; if(ct!=null && String(ct).trim()!=="" && !seen.has(String(ct))) seen.set(String(ct),ct); })); return [...seen.values()].sort((a,b)=>{ const na=parseFloat(a), nb=parseFloat(b); if(!isNaN(na)&&!isNaN(nb)) return na-nb; return String(a).localeCompare(String(b)); }); }
+// Court and player are mutually exclusive filters: choosing a court clears the
+// per-player filter so the court's full order of play is shown.
+function setCourt(v){ state.court=v||""; if(state.court) state.player=""; renderBody(); }
 
 // Sponsor banner: one static image at the bottom of every tab, full width edge-to-edge,
 // from the "Sponsors" tab column B (separate from the TV reel). Set up once, no rotation.
