@@ -191,7 +191,7 @@ const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const state = { data:null, cat:0, view:"standings", player:"" };
+const state = { data:null, cat:0, view:"standings", player:"", court:"" };
 
 async function api(path){ const r = await fetch(BASE+path); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 
@@ -279,12 +279,23 @@ function renderSchedule(cat){
   // team-only board so no player names are shown at all.
   const players = playersInCat(cat);
   const sel = (state.player && players.some(p=>norm(p)===norm(state.player))) ? state.player : "";
-  const ctl = TEAMS_ONLY ? "" : `<p class="sched-hint">To see only your schedule, select your name in the dropdown below.</p>
+  const playerCtl = TEAMS_ONLY ? "" : `<p class="sched-hint">To see only your schedule, select your name in the dropdown below.</p>
     <div class="schedctl"><label>Player</label>
     <select onchange="setPlayer(this.value)">
       <option value="">All matches</option>
       ${players.map(p=>`<option value="${esc(p)}" ${norm(p)===norm(sel)?'selected':''}>${esc(p)}</option>`).join("")}
     </select></div>`;
+
+  // Court picker — lets anyone follow the order of play on one specific court.
+  // Shown whenever there is more than one court in this category's schedule.
+  const courts = courtsInCat(cat);
+  const courtVal = (state.court && courts.some(c=>String(c)===String(state.court))) ? state.court : "";
+  const courtCtl = courts.length>1 ? `<div class="schedctl"><label>Court</label>
+    <select onchange="setCourt(this.value)">
+      <option value="">All courts</option>
+      ${courts.map(c=>`<option value="${esc(String(c))}" ${String(c)===String(courtVal)?'selected':''}>Court ${esc(String(c))}</option>`).join("")}
+    </select></div>` : "";
+  const ctl = playerCtl + courtCtl;
 
   // Chronological order: earliest date first, then the displayed time (pinned or
   // predicted), then court. The SAME order drives both the list and the LIVE badge.
@@ -299,6 +310,10 @@ function renderSchedule(cat){
   const playing = new Set(Object.values(firstByCourt));
 
   let list = cat.schedule.slice().sort(cmp);
+  if(courtVal){
+    list = list.filter(m=>String(m.court)===String(courtVal));
+    if(!list.length) return ctl + `<div class="schedempty">No matches on Court ${esc(String(courtVal))} in this category.</div>`;
+  }
   let nextCard = "";
   if(sel){
     list = list.filter(m=>matchHasPlayer(cat,m,sel));
@@ -489,6 +504,9 @@ function entrantHasPlayer(cat,eid,p){ const e=cat.entrants[eid]; return !!(e && 
 function matchHasPlayer(cat,m,p){ return entrantHasPlayer(cat,m.entrantA,p)||entrantHasPlayer(cat,m.entrantB,p); }
 function playersInCat(cat){ const seen=new Map(); Object.values(cat.entrants||{}).forEach(e=>{ [e&&e.player1,e&&e.player2].forEach(p=>{ if(p&&!seen.has(norm(p))) seen.set(norm(p),p); }); }); return [...seen.values()].sort((a,b)=>a.localeCompare(b)); }
 function setPlayer(name){ state.player=name||""; try{ if(state.player) localStorage.setItem("trekkr_player_"+EVENT_ID,state.player); else localStorage.removeItem("trekkr_player_"+EVENT_ID); }catch(e){} renderBody(); }
+// Distinct courts used in this category's schedule, numeric-sorted when possible.
+function courtsInCat(cat){ const seen=new Map(); (cat.schedule||[]).forEach(m=>{ const c=m.court; if(c!=null && String(c).trim()!=="" && !seen.has(String(c))) seen.set(String(c),c); }); return [...seen.values()].sort((a,b)=>{ const na=parseFloat(a), nb=parseFloat(b); if(!isNaN(na)&&!isNaN(nb)) return na-nb; return String(a).localeCompare(String(b)); }); }
+function setCourt(v){ state.court=v||""; renderBody(); }
 
 // Sponsor banner: one static image at the bottom of every tab, full width edge-to-edge,
 // from the "Sponsors" tab column B (separate from the TV reel). Set up once, no rotation.
