@@ -415,8 +415,8 @@ textarea#lfNotes:focus{border-color:var(--orange)}
       <summary>Advanced timing</summary>
       <div class="advbody">
         <div class="advgrid">
-          <label class="f"><span>Group match (min)</span><input type="number" id="mGroup" value="15" min="5" max="60"></label>
-          <label class="f"><span>Playoff match (min)</span><input type="number" id="mPlayoff" value="20" min="5" max="60"></label>
+          <label class="f"><span>Group match (min)</span><input type="number" id="mGroup" value="20" min="5" max="60"></label>
+          <label class="f"><span>Playoff match (min)</span><input type="number" id="mPlayoff" value="25" min="5" max="60"></label>
           <label class="f"><span>Final (min)</span><input type="number" id="mFinal" value="25" min="5" max="90"></label>
           <label class="f"><span>Court change (min)</span><input type="number" id="mChange" value="1" min="0" max="10"></label>
           <label class="f"><span>Break between rounds (min)</span><input type="number" id="mBreak" value="3" min="0" max="30"></label>
@@ -466,7 +466,7 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 <script>
 "use strict";
 
-var R = { mGroup:15, mPlayoff:20, mFinal:25, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false, preferClean:false };
+var R = { mGroup:20, mPlayoff:25, mFinal:25, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false, preferClean:false };
 var EVENT = { start:"08:00", date:"", venue:"", city:"" };
 var GMIN=4, GMAX=7, CMIN=2, CMAX=8, KMAX=6;
 
