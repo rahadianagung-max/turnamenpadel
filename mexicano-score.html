@@ -40,7 +40,7 @@
 </div>
 <div id="toast"></div>
 <script>
-var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
+var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$|\.vercel\.app$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
 var seg=location.pathname.split('/').filter(Boolean); // mexicano, score, <slug>, <court>
 var SLUG=decodeURIComponent(seg[2]||''), COURT=parseInt(seg[3]||'1')||1;
 var S=null, poll=null, lastPush=0;

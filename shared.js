@@ -19,7 +19,7 @@
    (CORS is open on the API). No proxy/Apps Script needed.
    ============================================================ */
 const TREKKR = {
-  base: (typeof location !== 'undefined' && /(^|\.)trekkr\.online|(^|\.)turnamenpadel\.com$/i.test(location.hostname))
+  base: (typeof location !== 'undefined' && /(^|\.)trekkr\.online|(^|\.)turnamenpadel\.com$|\.vercel\.app$/i.test(location.hostname))
     ? '/api' : 'https://trekkr.online/api',
   elo: { base: 1350, k: 32, scale: 400, marginBonus: true },
 };

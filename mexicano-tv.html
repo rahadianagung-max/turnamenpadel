@@ -44,7 +44,7 @@
 <body>
 <div class="wrap" id="wrap"><div class="empty">Memuat…</div></div>
 <script>
-var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
+var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$|\.vercel\.app$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
 var seg=location.pathname.split('/').filter(Boolean); // mexicano, tv, <slug>
 var SLUG=decodeURIComponent(seg[2]||'');
 var S=null;

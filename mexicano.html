@@ -106,7 +106,7 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
 function toast(t){ var el=document.getElementById('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(function(){el.classList.remove('show');},2200); }
 
-var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
+var API=(/(^|\.)turnamenpadel\.com$|(^|\.)trekkr\.online$|\.vercel\.app$/i.test(location.hostname))?'/api':'https://trekkr.online/api';
 function mexApi(path, opts){
   return fetch(API+'/mexicano'+path, Object.assign({headers:{'Content-Type':'application/json'}}, opts||{}))
     .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error((j&&j.error)||('HTTP '+r.status)); return j; }); });
