@@ -629,6 +629,7 @@ const netlifyHandler = async (event) => {
     if (path === "tournament/list" && method === "GET") return await tListTournaments(params);
     if (path === "tournament" && method === "POST") return await tCreateTournament(body);
     if (path === "tournament/form-entry" && method === "POST") return await tAddFormEntry(body);
+    if (path === "tournament/form-entries" && method === "POST") return await tAddFormEntries(body);
     if (path === "tournament/entrant" && method === "PUT") return await tUpdateEntrant(body);
     if (path === "tournament/match" && method === "PUT") return await tUpdateMatchScore(body);
     if (path === "tournament/playoff/match" && method === "PUT") return await tUpdatePlayoffScore(body);
@@ -1925,6 +1926,35 @@ async function tAddFormEntry(body) {
     requestBody: { values: [row] },
   });
   return respond(200, { ok: true });
+}
+
+// Bulk add many participant pairs at once (paste-from-Excel). One append call.
+async function tAddFormEntries(body) {
+  const b = body || {};
+  const category = String(b.category || "").trim();
+  const tournament = String(b.tournament || "").trim();
+  if (!category) return respond(400, { error: "Kategori wajib dipilih" });
+  const rows = Array.isArray(b.rows) ? b.rows : [];
+  const now = new Date().toISOString();
+  const values = [];
+  for (const r of rows) {
+    const p1 = String((r && r.player1_name) || "").trim();
+    const p2 = String((r && r.player2_name) || "").trim();
+    if (!p1 && !p2) continue;
+    values.push([
+      now, category, p1, String((r && r.player1_ig) || "").trim(),
+      p2, String((r && r.player2_ig) || "").trim(),
+      String((r && r.contact_wa) || "").trim(), tournament,
+    ]);
+  }
+  if (!values.length) return respond(400, { error: "Tidak ada baris peserta yang valid" });
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:H`, valueInputOption: "USER_ENTERED",
+    requestBody: { values },
+  });
+  return respond(200, { ok: true, added: values.length });
 }
 
 // Import pairs from Form_Responses for this tournament's category.
