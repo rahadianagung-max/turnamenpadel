@@ -584,6 +584,14 @@ const netlifyHandler = async (event) => {
     if (path === "elo/history" && method === "GET") return await getEloHistory(params.player);
     if (path === "elo/leaderboard" && method === "GET") return await getNationalLeaderboard(params);
 
+    // Diagnostic: reports whether the function can see the Supabase env vars
+    // (booleans only — never the values). Temporary, used to verify the switch.
+    if (path === "_debug" && method === "GET") return respond(200, {
+      supabase_url_set: !!process.env.SUPABASE_URL,
+      supabase_key_set: !!process.env.SUPABASE_SERVICE_KEY,
+      using_supabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY),
+    });
+
     if (path === "parse" && method === "POST") return await parseAmericanoUrl(body);
 
     if (path === "admins" && method === "GET") return await getAdmins();
