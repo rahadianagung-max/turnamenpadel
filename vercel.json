@@ -22,6 +22,7 @@
     { "source": "/mexicano/tv/:slug", "destination": "/mexicano-tv.html" },
     { "source": "/mexicano/p/:slug", "destination": "/mexicano-player.html" },
     { "source": "/draw", "destination": "/draw.html" },
+    { "source": "/tambah-peserta", "destination": "/tambah-peserta.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
 }

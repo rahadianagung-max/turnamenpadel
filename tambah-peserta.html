@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Tambah Peserta — TurnamenPadel</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,800;0,900;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{--bg:#0A0A0B;--s1:#141416;--s2:#1B1B1F;--bd:#2A2A2E;--bd2:#37373d;--tx:#F5F5F7;--mu:#A1A1AA;--or:#FF6A00;--amb:#FFB000;--grn:#22C55E;--red:#FF4A3D;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100dvh;-webkit-tap-highlight-color:transparent;background-image:radial-gradient(620px 300px at 80% -10%,rgba(255,106,0,.16),transparent 60%)}
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+.brand{font-family:'Saira Condensed',sans-serif;font-style:italic;font-weight:900;font-size:20px;text-transform:uppercase;margin-bottom:6px}
+.brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.disp{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;line-height:1}
+h1{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;font-size:clamp(28px,8vw,38px);margin:6px 0 4px}
+.k{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--or)}
+.hint{color:var(--mu);font-size:13.5px;line-height:1.55;margin:8px 0 20px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:18px 16px;margin-bottom:16px}
+.sec{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:16px;letter-spacing:.02em;color:var(--amb);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.sec .num{width:22px;height:22px;border-radius:50%;background:var(--or);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans';font-weight:800}
+label{display:block;font-size:12px;font-weight:700;color:var(--mu);margin:0 0 5px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:440px){.row{grid-template-columns:1fr}}
+.field{margin-bottom:13px}
+input,select{width:100%;padding:12px 13px;border:1px solid var(--bd2);border-radius:12px;background:var(--s2);color:var(--tx);font:inherit;font-size:15px}
+input:focus,select:focus{outline:none;border-color:var(--or)}
+select{font-weight:700;cursor:pointer}
+.pair{border:1px dashed var(--bd2);border-radius:12px;padding:12px;margin-bottom:12px}
+.pair .pl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--or);margin-bottom:8px}
+.btn{width:100%;padding:14px;border:none;border-radius:12px;background:var(--grad);color:#fff;font:inherit;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.sec2{background:var(--s2);color:var(--tx);border:1px solid var(--bd2)}
+.added{margin-top:8px}
+.added .it{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:14px}
+.added .it b{font-weight:700}
+.added .it span{color:var(--mu);font-size:12px}
+.count{background:var(--grn);color:#04210f;border-radius:20px;padding:2px 9px;font-size:12px;font-weight:800}
+.msg{padding:11px 13px;border-radius:10px;font-size:13.5px;font-weight:600;margin-bottom:14px;display:none}
+.msg.ok{display:block;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:var(--grn)}
+.msg.err{display:block;background:rgba(255,74,61,.12);border:1px solid rgba(255,74,61,.4);color:var(--red)}
+.note{background:rgba(255,176,0,.08);border:1px solid rgba(255,176,0,.35);border-radius:12px;padding:13px 14px;color:var(--amb);font-size:13px;line-height:1.55;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--grn);color:#04210f;font-weight:800;padding:12px 20px;border-radius:30px;opacity:0;transition:.3s;z-index:50}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">Turnamen<b>Padel</b></div>
+  <div class="k">Registrasi</div>
+  <h1>Tambah Peserta</h1>
+  <p class="hint">Isi pasangan pemain di sini — datanya langsung tersimpan. Setelah semua peserta ditambahkan, buka <b>Engine → Import dari Form</b> untuk memasukkannya ke bracket.</p>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="card">
+    <div class="sec"><span class="num">1</span>Pilih Turnamen</div>
+    <div class="field">
+      <label>Event</label>
+      <select id="event"><option value="">Memuat…</option></select>
+    </div>
+    <div class="field">
+      <label>Kategori</label>
+      <select id="category"><option value="">Pilih event dulu</option></select>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec"><span class="num">2</span>Data Pasangan</div>
+    <div class="pair">
+      <div class="pl">Pemain 1</div>
+      <div class="row">
+        <div class="field" style="margin:0"><label>Nama</label><input id="p1n" placeholder="Nama pemain 1"/></div>
+        <div class="field" style="margin:0"><label>Instagram (opsional)</label><input id="p1ig" placeholder="@username"/></div>
+      </div>
+    </div>
+    <div class="pair">
+      <div class="pl">Pemain 2</div>
+      <div class="row">
+        <div class="field" style="margin:0"><label>Nama</label><input id="p2n" placeholder="Nama pemain 2"/></div>
+        <div class="field" style="margin:0"><label>Instagram (opsional)</label><input id="p2ig" placeholder="@username"/></div>
+      </div>
+    </div>
+    <div class="field"><label>Kontak WhatsApp (opsional)</label><input id="wa" placeholder="08xxxxxxxxxx"/></div>
+    <button class="btn" id="add">+ Tambah Pasangan</button>
+  </div>
+
+  <div class="card" id="listCard" style="display:none">
+    <div class="sec"><span class="num">✓</span>Sudah ditambahkan <span class="count" id="cnt">0</span></div>
+    <div class="added" id="added"></div>
+    <div class="note">Selesai menambah? Buka <b>Engine</b>, pilih turnamen yang sama, lalu klik <b>Import dari Form</b>.</div>
+  </div>
+</div>
+<div class="toast" id="toast">Tersimpan</div>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const $ = (id) => document.getElementById(id);
+let EVENTS = [];
+
+function showMsg(text, kind){ const m=$("msg"); m.textContent=text; m.className="msg "+(kind||"err"); if(kind==="ok") setTimeout(()=>m.className="msg",3000); }
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),1800); }
+
+async function loadEvents(){
+  try{
+    const r = await fetch(`${BASE}/tournament/events`);
+    const d = await r.json();
+    EVENTS = (d && d.events) || [];
+    const sel = $("event");
+    if(!EVENTS.length){ sel.innerHTML='<option value="">(belum ada event)</option>'; return; }
+    sel.innerHTML = '<option value="">— pilih event —</option>' +
+      EVENTS.map(e=>`<option value="${e.eventId}">${(e.name||e.eventId).replace(/</g,"&lt;")}</option>`).join("");
+  }catch(e){ showMsg("Gagal memuat daftar event: "+e.message); }
+}
+
+async function loadCategories(eventId){
+  const cat = $("category");
+  cat.innerHTML = '<option value="">Memuat…</option>';
+  if(!eventId){ cat.innerHTML='<option value="">Pilih event dulu</option>'; return; }
+  try{
+    const r = await fetch(`${BASE}/tournament/list?eventId=${encodeURIComponent(eventId)}`);
+    const d = await r.json();
+    const ts = (d && d.tournaments) || [];
+    if(!ts.length){ cat.innerHTML='<option value="">(belum ada kategori)</option>'; return; }
+    const seen=new Set(), opts=[];
+    ts.forEach(t=>{ const c=t.category||""; if(c && !seen.has(c)){ seen.add(c); opts.push(c); } });
+    cat.innerHTML = '<option value="">— pilih kategori —</option>' +
+      opts.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c.replace(/</g,"&lt;")}</option>`).join("");
+  }catch(e){ cat.innerHTML='<option value="">(gagal memuat)</option>'; showMsg("Gagal memuat kategori: "+e.message); }
+}
+
+$("event").addEventListener("change", e=>loadCategories(e.target.value));
+
+let count=0;
+async function addPair(){
+  const eventId=$("event").value, category=$("category").value;
+  const p1n=$("p1n").value.trim(), p2n=$("p2n").value.trim();
+  if(!eventId){ showMsg("Pilih event dulu."); return; }
+  if(!category){ showMsg("Pilih kategori dulu."); return; }
+  if(!p1n && !p2n){ showMsg("Isi minimal satu nama pemain."); return; }
+  const ev = EVENTS.find(x=>x.eventId===eventId);
+  const btn=$("add"); btn.disabled=true; btn.textContent="Menyimpan…";
+  try{
+    const r = await fetch(`${BASE}/tournament/form-entry`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        category, tournament: (ev && ev.name) || "",
+        player1_name:p1n, player1_ig:$("p1ig").value.trim(),
+        player2_name:p2n, player2_ig:$("p2ig").value.trim(),
+        contact_wa:$("wa").value.trim(),
+      }),
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || ("HTTP "+r.status));
+    count++;
+    $("listCard").style.display="block"; $("cnt").textContent=count;
+    const it=document.createElement("div"); it.className="it";
+    it.innerHTML=`<div><b>${(p1n||"?")} & ${(p2n||"?")}</b></div><span>${category}</span>`;
+    $("added").prepend(it);
+    ["p1n","p1ig","p2n","p2ig","wa"].forEach(id=>$(id).value="");
+    $("p1n").focus();
+    toast("Pasangan tersimpan ✓");
+    showMsg(`Berhasil ditambahkan (${count} pasangan). Lanjut isi pasangan berikutnya.`, "ok");
+  }catch(e){ showMsg("Gagal menyimpan: "+e.message); }
+  finally{ btn.disabled=false; btn.textContent="+ Tambah Pasangan"; }
+}
+$("add").addEventListener("click", addPair);
+
+loadEvents();
+</script>
+</body>
+</html>

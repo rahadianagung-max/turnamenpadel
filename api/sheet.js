@@ -628,6 +628,7 @@ const netlifyHandler = async (event) => {
     }
     if (path === "tournament/list" && method === "GET") return await tListTournaments(params);
     if (path === "tournament" && method === "POST") return await tCreateTournament(body);
+    if (path === "tournament/form-entry" && method === "POST") return await tAddFormEntry(body);
     if (path === "tournament/entrant" && method === "PUT") return await tUpdateEntrant(body);
     if (path === "tournament/match" && method === "PUT") return await tUpdateMatchScore(body);
     if (path === "tournament/playoff/match" && method === "PUT") return await tUpdatePlayoffScore(body);
@@ -1898,6 +1899,32 @@ async function tGetTournament(id) {
   const enr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:A` });
   const entrantCount = (enr.data.values || []).filter((x) => x[0] === id).length;
   return respond(200, { tournament: t.tournament, entrantCount });
+}
+
+// Add one participant pair to Form_Responses (the tab the import reads). Lets
+// admins register pairs from an in-app form instead of typing into the sheet.
+// The optional `tournament` tag isolates the pair to a specific event so the
+// import picks up exactly these rows (see tImport's per-tournament isolation).
+async function tAddFormEntry(body) {
+  const b = body || {};
+  const p1 = String(b.player1_name || "").trim();
+  const p2 = String(b.player2_name || "").trim();
+  const category = String(b.category || "").trim();
+  if (!p1 && !p2) return respond(400, { error: "Minimal satu nama pemain wajib diisi" });
+  if (!category) return respond(400, { error: "Kategori wajib dipilih" });
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const now = new Date().toISOString();
+  const row = [
+    now, category, p1, String(b.player1_ig || "").trim(),
+    p2, String(b.player2_ig || "").trim(),
+    String(b.contact_wa || "").trim(), String(b.tournament || "").trim(),
+  ];
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:H`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [row] },
+  });
+  return respond(200, { ok: true });
 }
 
 // Import pairs from Form_Responses for this tournament's category.
