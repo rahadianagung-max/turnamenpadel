@@ -248,8 +248,8 @@ function renderTabs(){
   // Only show the category switcher when there is more than one category.
   // Category switcher as a compact dropdown (labels can be long, e.g. with level).
   document.getElementById("cattabs").innerHTML = cats.length>1
-    ? `<label class="catlbl" for="catSelect">Choose your Category:</label>
-       <select id="catSelect" class="catsel" aria-label="Choose your Category" onchange="setCat(this.value)">${cats.map((c,i)=>
+    ? `<label class="catlbl" for="catSelect">Category</label>
+       <select id="catSelect" class="catsel" aria-label="Category" onchange="setCat(this.value)">${cats.map((c,i)=>
         `<option value="${i}" ${i===state.cat?"selected":""}>${esc(catTabLabel(c))}</option>`).join("")}</select>`
     : "";
   const labels = { schedule:"Order of Play", standings:"Group / Standing", bracket:"Bracket" };
