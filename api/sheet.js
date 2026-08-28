@@ -3088,7 +3088,7 @@ function avoidSameGroup(round1, groupOf) {
 // the best-effort heuristic to minimise clashes.
 function separateRound1(round1, groupOf) {
   if (!groupOf) return round1;
-  const grp = (id) => (id ? (groupOf[id] || "") : " ");
+  const grp = (id) => (id ? (groupOf[id] || "") : "");
   const real = []; round1.forEach((m, i) => { if (m[0] && m[1]) real.push(i); });
   if (real.length < 2) return round1;
   const anchors = real.map((i) => round1[i][0]);

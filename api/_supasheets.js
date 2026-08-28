@@ -190,6 +190,12 @@ function buildClient(rest) {
       const rowsIn = (requestBody && requestBody.values) || [];
       const ids = await rest.selectIds(info.table, info.venue);
       let dataPos = (r.startRow || 2) - 2;
+      // Google Sheets `values.update` writes cells whether or not a row already
+      // exists there. We emulate that: patch a row that exists at this position,
+      // otherwise (when writing full rows from column A) INSERT it. This is what
+      // makes the "clear() then update(A2, allRows)" rewrite idiom actually
+      // persist — after clear() there are no ids, so every row must be inserted.
+      const toInsert = [];
       for (const vals of rowsIn) {
         const id = ids[dataPos];
         if (id != null) {
@@ -199,9 +205,16 @@ function buildClient(rest) {
             if (colIdx < info.cols.length) o[info.cols[colIdx]] = s(vals[i]);
           }
           if (Object.keys(o).length) await rest.patchById(info.table, id, o);
+        } else if (r.startCol === 0) {
+          // Beyond the existing rows and writing a full row from column A → insert.
+          const o = {};
+          info.cols.forEach((c, i) => { o[c] = i < vals.length ? s(vals[i]) : ""; });
+          if (info.venue != null) o.venue = info.venue;
+          toInsert.push(o);
         }
         dataPos++;
       }
+      if (toInsert.length) await rest.insert(info.table, toInsert);
       return { data: {} };
     },
     async batchUpdate({ requestBody }) {
