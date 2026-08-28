@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Trekkr · Tournament</title>
+<title>TurnamenPadel.com</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -35,8 +35,10 @@
     font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; white-space:nowrap;}
   .tab.on{background:var(--accent); color:#1a0d06; border-color:var(--accent);}
   .catsel{flex:0 0 auto; max-width:100%; padding:9px 13px; border:1px solid var(--line); border-radius:999px;
-    background:var(--panel); color:var(--tx); font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;}
+    background:var(--panel); color:var(--text); font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;}
   .catsel:focus{outline:none; border-color:var(--accent);}
+  .catlbl{flex:0 0 auto; align-self:center; font-family:'Space Mono',monospace; font-size:11px; color:var(--muted);
+    letter-spacing:.03em; margin-right:2px; white-space:nowrap;}
   .subtabs{display:flex; gap:0; margin:14px 0 4px; border:1px solid var(--line); border-radius:999px; padding:3px; background:var(--panel);}
   .subtab{flex:1; text-align:center; padding:8px 4px; border-radius:999px; font-size:11.5px; font-weight:600;
     color:var(--muted); cursor:pointer; white-space:nowrap;}
@@ -191,7 +193,7 @@ const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const state = { data:null, cat:0, view:"standings", player:"", court:"" };
+const state = { data:null, cat:0, view:"schedule", player:"", court:"" };
 
 async function api(path){ const r = await fetch(BASE+path); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
 
@@ -246,14 +248,15 @@ function renderTabs(){
   // Only show the category switcher when there is more than one category.
   // Category switcher as a compact dropdown (labels can be long, e.g. with level).
   document.getElementById("cattabs").innerHTML = cats.length>1
-    ? `<select class="catsel" aria-label="Category" onchange="setCat(this.value)">${cats.map((c,i)=>
+    ? `<label class="catlbl" for="catSelect">Choose your Category:</label>
+       <select id="catSelect" class="catsel" aria-label="Choose your Category" onchange="setCat(this.value)">${cats.map((c,i)=>
         `<option value="${i}" ${i===state.cat?"selected":""}>${esc(catTabLabel(c))}</option>`).join("")}</select>`
     : "";
   const labels = { schedule:"Order of Play", standings:"Group / Standing", bracket:"Bracket" };
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
   </div>
-  <p class="tap-hint">Klik nama pemain untuk melihat <b>track record</b> di Trekkr.</p>`;
+  <p class="tap-hint">Tap a player's name to see their <b>track record</b> on Trekkr.</p>`;
 }
 function setCat(i){ state.cat=parseInt(i)||0; renderTabs(); renderBody(); }
 function setView(v){ state.view=v; renderTabs(); renderBody(); }
@@ -403,10 +406,10 @@ function derivePodium(b){
   return {champion,runnerUp,third};
 }
 // Provisional qualification panel: confirmed names (clinched a spot) vs TBC.
-// Supports overall "N besar" mode and per-group mode.
+// Supports overall top-N mode and per-group mode.
 function qpRows(slots){
   return slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
-    + (s.confirmed ? `<span class="qnm">${esc(dispPair(s.team))}</span><span class="qtag">✓ Lolos</span>`
+    + (s.confirmed ? `<span class="qnm">${esc(dispPair(s.team))}</span><span class="qtag">✓ Qualified</span>`
                    : `<span class="qnm tbc">TBC</span>`)
     + `</div>`).join("");
 }
@@ -415,13 +418,13 @@ function qualifyPanelHtml(cat){
   if(!q) return "";
   if(q.mode==="group"){
     if(!q.groups || !q.groups.length) return "";
-    const blocks = q.groups.map(g=>`<div class="qgblk"><div class="qglabel">Grup ${esc(g.label)}</div><div class="qgrid">${qpRows(g.slots)}</div></div>`).join("");
-    return `<div class="qpanel"><div class="qhead">Lolos Playoff Sementara</div>`
-      + `<div class="qcap">Top ${q.perGroupN} tiap grup &middot; ✓ = sudah pasti lolos &middot; TBC = masih diperebutkan</div>${blocks}</div>`;
+    const blocks = q.groups.map(g=>`<div class="qgblk"><div class="qglabel">Group ${esc(g.label)}</div><div class="qgrid">${qpRows(g.slots)}</div></div>`).join("");
+    return `<div class="qpanel"><div class="qhead">Provisional Playoff Qualification</div>`
+      + `<div class="qcap">Top ${q.perGroupN} per group &middot; ✓ = already qualified &middot; TBC = still being contested</div>${blocks}</div>`;
   }
   if(!q.slots || !q.slots.length) return "";
-  return `<div class="qpanel"><div class="qhead">Unggulan Sementara &middot; ${q.size} Besar</div>`
-    + `<div class="qcap">${q.confirmed}/${q.size} sudah pasti lolos &middot; TBC = masih diperebutkan &middot; urutan final setelah grup selesai</div>`
+  return `<div class="qpanel"><div class="qhead">Provisional Seeds &middot; Top ${q.size}</div>`
+    + `<div class="qcap">${q.confirmed}/${q.size} already qualified &middot; TBC = still being contested &middot; final order once groups finish</div>`
     + `<div class="qgrid">${qpRows(q.slots)}</div></div>`;
 }
 function renderBracket(cat){
@@ -442,10 +445,10 @@ function renderBracket(cat){
     return `<div class="tier"><h3><span class="tg">${TIER[b.tier]||b.tier}</span> ${b.nQual} teams</h3>${pod}${rounds}${bronze}</div>`;
   }).join("");
 }
-// Projected bracket: placeholder seeds (e.g. "Winner Grup A" vs "Runner-up Grup C")
+// Projected bracket: placeholder seeds (e.g. "Winner Group A" vs "Runner-up Group C")
 // shown before the group stage finishes. No scores, no tap targets.
 function renderBracketProjection(proj){
-  const note = `<div class="projnote">Simulasi bagan playoff &middot; nama pemain muncul setelah babak grup selesai</div>`;
+  const note = `<div class="projnote">Projected playoff bracket &middot; player names appear once the group stage finishes</div>`;
   const body = proj.map(b=>{
     const rounds = b.rounds.map(r=>`<div class="pround"><h4>${roundLabel(r.round,b.numRounds)}</h4>${r.matches.map(pmatchProj).join("")}</div>`).join("");
     const bronze = b.bronze ? `<div class="pround"><h4>${roundLabel("BRONZE",b.numRounds)}</h4>${pmatchProj(b.bronze)}</div>`:"";
@@ -486,7 +489,7 @@ function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; cons
 // slot * admin match duration. Match 0 = start (e.g. 11:00), match 1 = +15min, and so on.
 // No server-time or actual-pace adjustment.
 // Day + date label for a match, e.g. "Sab, 12 Jul". Falls back to the event date.
-const HARI=["Min","Sen","Sel","Rab","Kam","Jum","Sab"], BULAN=["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+const HARI=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], BULAN=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 function matchDateLabel(m){
   const ds = (m&&m.date) || (state.data&&state.data.event&&state.data.event.date) || "";
   if(!ds) return "";
