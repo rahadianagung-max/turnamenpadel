@@ -895,20 +895,82 @@ async function selectTournament(id){
 }
 
 /* ---- IMPORT ---- */
+function nnName(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
 async function runImport(){
   if(!state.tournament) return;
-  document.getElementById("importHint").textContent = "Mengimpor…";
+  document.getElementById("importHint").textContent = "Mengecek nama…";
   try{
-    const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/import", { method:"POST" });
-    document.getElementById("rImported").textContent = r.imported||0;
-    document.getElementById("rNew").textContent = r.newPlayers||0;
-    document.getElementById("rMatch").textContent = r.matchedNames||0;
-    document.getElementById("rSkip").textContent = r.skippedDuplicates||0;
-    document.getElementById("importResult").classList.add("show");
+    // Step 1: preview — cross-check names against the player database first.
+    const pv = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/import-preview", { method:"POST" });
+    const sugg = (pv && pv.suggestions) || [];
+    if(!sugg.length){
+      // Nothing ambiguous → import straight away (same as before).
+      await commitImport({});
+      return;
+    }
+    // Step 2: show the merge-decision modal.
     document.getElementById("importHint").textContent = "";
-    toast(`Import selesai · ${r.imported||0} pasangan`);
-    loadEntrants();
+    openMerge(sugg, pv);
   }catch(e){ document.getElementById("importHint").textContent=""; toast(e.message, true); }
+}
+function openMerge(suggestions, pv){
+  const info = [];
+  if(pv.exactCount) info.push(`${pv.exactCount} cocok persis`);
+  if((pv.newNames||[]).length) info.push(`${pv.newNames.length} pemain baru`);
+  info.push(`${suggestions.length} perlu dicek`);
+  document.getElementById("mergeLead").innerHTML =
+    `<b>${info.join(" · ")}.</b> Untuk nama yang mirip di bawah, pilih <b>Gabung</b> kalau orangnya sama (rating &amp; riwayatnya ikut), atau <b>Buat baru</b> kalau memang berbeda.`;
+  const list = document.getElementById("mergeList");
+  list.innerHTML = suggestions.map((s,i)=>`
+    <div class="mg-row" data-import="${esc(s.importName)}" data-cand="${esc(s.candidate.name)}" data-choice="link">
+      <div class="mg-top">
+        <div>
+          <div class="mg-imp">${esc(s.importName)}</div>
+          <div class="mg-cand">≈ mirip: <b>${esc(s.candidate.name)}</b> · ELO ${s.candidate.elo}</div>
+        </div>
+        <div class="seg" data-i="${i}">
+          <button type="button" class="on" onclick="segPick(this,'link')">Gabung</button>
+          <button type="button" onclick="segPick(this,'new')">Buat baru</button>
+        </div>
+      </div>
+    </div>`).join("");
+  document.getElementById("mergeErr").textContent = "";
+  document.getElementById("mergeOverlay").classList.add("show");
+}
+function segPick(btn, choice){
+  const seg = btn.parentNode;
+  seg.querySelectorAll("button").forEach(b=>b.classList.remove("on"));
+  btn.classList.add("on");
+  seg.closest(".mg-row").setAttribute("data-choice", choice);
+}
+function closeMerge(){ document.getElementById("mergeOverlay").classList.remove("show"); }
+async function confirmMerge(){
+  const overrides = {};
+  document.querySelectorAll("#mergeList .mg-row").forEach(row=>{
+    const imp = row.getAttribute("data-import");
+    const cand = row.getAttribute("data-cand");
+    const choice = row.getAttribute("data-choice");
+    if(choice === "link") overrides[nnName(imp)] = { action:"link", to:cand };
+    else overrides[nnName(imp)] = { action:"new" };
+  });
+  const btn = document.getElementById("mergeGoBtn"); btn.disabled = true; btn.textContent = "Mengimpor…";
+  try{
+    await commitImport(overrides);
+    closeMerge();
+  }catch(e){ document.getElementById("mergeErr").textContent = e.message; }
+  finally{ btn.disabled = false; btn.textContent = "Lanjut import"; }
+}
+async function commitImport(overrides){
+  document.getElementById("importHint").textContent = "Mengimpor…";
+  const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/import", { method:"POST", body:{ overrides: overrides||{} } });
+  document.getElementById("rImported").textContent = r.imported||0;
+  document.getElementById("rNew").textContent = r.newPlayers||0;
+  document.getElementById("rMatch").textContent = r.matchedNames||0;
+  document.getElementById("rSkip").textContent = r.skippedDuplicates||0;
+  document.getElementById("importResult").classList.add("show");
+  document.getElementById("importHint").textContent = "";
+  toast(`Import selesai · ${r.imported||0} pasangan`);
+  loadEntrants();
 }
 
 /* ---- ENTRANTS ---- */
@@ -1674,5 +1736,29 @@ renderContext();
 refreshAmpm();
 (function(){ try{ var sp=localStorage.getItem("tp_sponsor")||""; var el=document.getElementById("sponsorUrl"); if(el){ el.value=sp; state.sponsorUrl=sp; onSponsor(); } }catch(e){} })();
 </script>
+
+<div class="overlay" id="mergeOverlay">
+  <div class="modal" style="max-width:600px;">
+    <button type="button" class="x" onclick="closeMerge()">×</button>
+    <h2>Cek nama peserta</h2>
+    <p class="lead" id="mergeLead">Beberapa nama mirip dengan pemain yang sudah ada. Pilih <b>Gabung</b> kalau orangnya sama (rating &amp; riwayatnya ikut), atau <b>Buat baru</b> kalau memang orang berbeda.</p>
+    <div id="mergeList" style="display:flex; flex-direction:column; gap:10px; max-height:52vh; overflow:auto; margin-bottom:16px;"></div>
+    <p class="err-line" id="mergeErr"></p>
+    <div class="actions" style="margin-top:4px; display:flex; gap:10px;">
+      <button type="button" class="btn btn-primary" id="mergeGoBtn" onclick="confirmMerge()">Lanjut import</button>
+      <button type="button" class="btn btn-ghost" onclick="closeMerge()">Batal</button>
+    </div>
+  </div>
+</div>
+<style>
+  #mergeList .mg-row{border:1px solid var(--line); border-radius:12px; padding:11px 13px; background:var(--panel2);}
+  #mergeList .mg-top{display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;}
+  #mergeList .mg-imp{font-weight:800; font-size:15px;}
+  #mergeList .mg-cand{color:var(--muted); font-size:13px; margin-top:2px;}
+  #mergeList .mg-cand b{color:var(--text);}
+  #mergeList .seg{display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; flex:0 0 auto;}
+  #mergeList .seg button{background:none; border:none; color:var(--muted); font:inherit; font-size:12.5px; font-weight:700; padding:7px 12px; cursor:pointer;}
+  #mergeList .seg button.on{background:var(--accent); color:#0a0a0a;}
+</style>
 </body>
 </html>

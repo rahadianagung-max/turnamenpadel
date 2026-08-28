@@ -649,8 +649,11 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "DELETE") {
       return await tResetPlayoff(decodeURIComponent(path.replace("tournament/", "").replace("/playoff", "")));
     }
+    if (path.startsWith("tournament/") && path.endsWith("/import-preview") && method === "POST") {
+      return await tImport(decodeURIComponent(path.replace("tournament/", "").replace("/import-preview", "")), { preview: true });
+    }
     if (path.startsWith("tournament/") && path.endsWith("/import") && method === "POST") {
-      return await tImport(decodeURIComponent(path.replace("tournament/", "").replace("/import", "")));
+      return await tImport(decodeURIComponent(path.replace("tournament/", "").replace("/import", "")), { overrides: (body && body.overrides) || {} });
     }
     if (path.startsWith("tournament/") && path.endsWith("/draw") && method === "POST") {
       return await tDrawGroups(decodeURIComponent(path.replace("tournament/", "").replace("/draw", "")));
@@ -1949,9 +1952,78 @@ async function tAddFormEntries(body) {
   return respond(200, { ok: true, added: values.length });
 }
 
+// ---- Smart (no-AI) name matching for import de-dup ----
+// Stronger normalization than normName: strip accents & punctuation too, so
+// "Budi  Santoso!" and "budi santoso" compare equal.
+function fuzzyNorm(s) {
+  return String(s || "").toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function levDist(a, b) {
+  a = a || ""; b = b || "";
+  if (a === b) return 0;
+  const m = a.length, n = b.length;
+  if (!m) return n; if (!n) return m;
+  let prev = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let cur = [i];
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+// Score how likely two names are the same person (0 = no, higher = stronger).
+// Deterministic heuristics only — no AI. Threshold applied by the caller.
+function nameSimilarity(aRaw, bRaw) {
+  const a = fuzzyNorm(aRaw), b = fuzzyNorm(bRaw);
+  if (!a || !b) return 0;
+  if (a === b) return 100;
+  const ta = a.split(" ").filter(Boolean), tb = b.split(" ").filter(Boolean);
+  // Same words, any order (e.g. "santoso budi" ↔ "budi santoso").
+  if (ta.length === tb.length && [...ta].sort().join(" ") === [...tb].sort().join(" ")) return 95;
+  // Token prefix / initials: every token of the shorter name matches a distinct
+  // token of the longer (equal, or one a prefix of the other, min 1 char).
+  // Requires the shorter side to have ≥2 tokens so a lone first name can't match
+  // every "X something".
+  const [shortT, longT] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  if (shortT.length >= 2) {
+    const used = new Array(longT.length).fill(false);
+    let ok = true;
+    for (const s of shortT) {
+      let hit = -1;
+      for (let j = 0; j < longT.length; j++) {
+        if (used[j]) continue;
+        const l = longT[j];
+        if (s === l || (s.length >= 1 && (l.startsWith(s) || s.startsWith(l)))) { hit = j; break; }
+      }
+      if (hit === -1) { ok = false; break; }
+      used[hit] = true;
+    }
+    if (ok) return 85;
+  }
+  // Whole-string typo tolerance (short edit distance on compact forms).
+  const ca = a.replace(/\s+/g, ""), cb = b.replace(/\s+/g, "");
+  if (Math.min(ca.length, cb.length) >= 4) {
+    const d = levDist(ca, cb);
+    if (d <= 2) return 80 - d * 2;
+    // One name is fully contained in the other and lengths are close.
+    if ((ca.includes(cb) || cb.includes(ca)) && Math.abs(ca.length - cb.length) <= 4) return 72;
+  }
+  return 0;
+}
+
 // Import pairs from Form_Responses for this tournament's category.
 // Existing Trekkr players keep their last ELO; unknown names are auto-created at the category level ELO.
-async function tImport(id) {
+// opts.preview: don't write — return a name-resolution report (exact / suggest / new).
+// opts.overrides: { normName(importName): { action:"link", to:"<canonical>" } | { action:"new" } }
+//   applied on commit so admins can merge a fuzzy match into an existing player.
+async function tImport(id, opts) {
+  opts = opts || {};
+  const preview = !!opts.preview;
+  const overrides = opts.overrides || {};
   const sheets = getSheets();
   await ensureTabs(sheets);
   const t = await tGetTournamentRow(sheets, id);
@@ -1989,12 +2061,38 @@ async function tImport(id) {
   const createdThisRun = new Set();
   let matched = 0, created = 0, skipped = 0;
 
+  const eloOf = (nm) => (eloByName.has(nm) ? eloByName.get(nm) : startElo);
+  // Best fuzzy candidate for a name that has no exact match. Returns the existing
+  // player most likely to be the same person, or null. Only real (pre-existing)
+  // players are considered, never rows created earlier in this same run.
+  function fuzzyBest(rawName) {
+    const nm = normName(rawName);
+    let best = null, bestScore = 0;
+    for (const [pnm, info] of playerByName) {
+      if (pnm === nm || createdThisRun.has(pnm)) continue;
+      const sc = nameSimilarity(rawName, info.name);
+      if (sc > bestScore) { bestScore = sc; best = info; }
+    }
+    if (best && bestScore >= 72) return { name: best.name, elo: eloOf(normName(best.name)), score: bestScore };
+    return null;
+  }
+
   function resolvePlayer(rawName, ig) {
     const nm = normName(rawName);
     if (!nm) return null;
-    if (playerByName.has(nm)) {
+    // Admin override from the preview step (merge into an existing player, or
+    // force-create a new one for a fuzzy suggestion they rejected).
+    const ov = overrides[nm];
+    if (ov && ov.action === "link" && ov.to) {
+      const tnm = normName(ov.to);
+      if (playerByName.has(tnm)) {
+        matched++;
+        return { name: playerByName.get(tnm).name, elo: eloOf(tnm), isNew: false };
+      }
+    }
+    if ((!ov || ov.action !== "new") && playerByName.has(nm)) {
       matched++;
-      return { name: playerByName.get(nm).name, elo: eloByName.has(nm) ? eloByName.get(nm) : startElo, isNew: false };
+      return { name: playerByName.get(nm).name, elo: eloOf(nm), isNew: false };
     }
     const cleanName = String(rawName).trim();
     created++;
@@ -2022,12 +2120,45 @@ async function tImport(id) {
   const belongsToThis = (f) => { const tg = normName(f[7] || ""); return !!tg && (tg === tName || tg === tId || tg === evId); };
   const taggedForOther = (f) => { const tg = normName(f[7] || ""); return !!tg && !belongsToThis(f); };
   const strictMode = fRows.some(belongsToThis);
-
-  for (const f of fRows) {
+  const included = (f) => {
     const pc = parseFormCategory(f[1]);
-    if (pc.cat !== category) continue;
-    if (pc.level && !levelMatches(pc.level, tourLevel)) continue;
-    if (strictMode ? !belongsToThis(f) : taggedForOther(f)) continue;
+    if (pc.cat !== category) return false;
+    if (pc.level && !levelMatches(pc.level, tourLevel)) return false;
+    if (strictMode ? !belongsToThis(f) : taggedForOther(f)) return false;
+    return true;
+  };
+  const selectedRows = fRows.filter(included);
+
+  // PREVIEW: classify each unique participant name without writing anything, so
+  // the engine can show the admin which imported names match an existing player
+  // exactly, which look like the same person (needs a merge decision), and which
+  // are brand new.
+  if (preview) {
+    const seen = new Map(); // normName -> classification
+    for (const f of selectedRows) {
+      for (const raw of [f[2], f[4]]) {
+        const nm = normName(raw);
+        if (!nm || seen.has(nm)) continue;
+        if (playerByName.has(nm)) {
+          seen.set(nm, { importName: String(raw).trim(), status: "exact", player: { name: playerByName.get(nm).name, elo: eloOf(nm) } });
+        } else {
+          const cand = fuzzyBest(raw);
+          if (cand) seen.set(nm, { importName: String(raw).trim(), status: "suggest", candidate: { name: cand.name, elo: cand.elo } });
+          else seen.set(nm, { importName: String(raw).trim(), status: "new" });
+        }
+      }
+    }
+    const all = [...seen.values()];
+    return respond(200, {
+      preview: true,
+      pairs: selectedRows.length,
+      suggestions: all.filter((x) => x.status === "suggest"),
+      exactCount: all.filter((x) => x.status === "exact").length,
+      newNames: all.filter((x) => x.status === "new").map((x) => x.importName),
+    });
+  }
+
+  for (const f of selectedRows) {
     const p1 = resolvePlayer(f[2], f[3]);
     const p2 = resolvePlayer(f[4], f[5]);
     if (!p1 || !p2) continue;
