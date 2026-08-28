@@ -623,6 +623,9 @@ const netlifyHandler = async (event) => {
     if (path === "tournament/form-entry" && method === "POST") return await tAddFormEntry(body);
     if (path === "tournament/form-entries" && method === "POST") return await tAddFormEntries(body);
     if (path === "tournament/entrant" && method === "PUT") return await tUpdateEntrant(body);
+    if (path.startsWith("tournament/") && path.endsWith("/level") && method === "PUT") {
+      return await tUpdateLevel(decodeURIComponent(path.replace("tournament/", "").replace("/level", "")), body);
+    }
     if (path === "tournament/match" && method === "PUT") return await tUpdateMatchScore(body);
     if (path === "tournament/playoff/match" && method === "PUT") return await tUpdatePlayoffScore(body);
     if (path === "tournament/match/meta" && method === "PUT") return await tUpdateMatchMeta(body);
@@ -1847,6 +1850,94 @@ async function tCreateTournament(body) {
     ]] },
   });
   return respond(200, { success: true, tournamentId: id });
+}
+
+// Fix a mistakenly-chosen category level fast. Updates the category's level and
+// re-seeds the STARTING ELO of the players this category created as new (their
+// INITIAL ELO_Log row) plus the entrant/group seed averages. Groups & the
+// schedule are untouched — they don't depend on level (the draw is random).
+async function tUpdateLevel(id, body) {
+  const newLevel = String((body && body.level) || "").toLowerCase().trim();
+  if (!newLevel) return respond(400, { error: "Level wajib diisi" });
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const t = await tGetTournamentRow(sheets, id);
+  if (!t) return respond(404, { error: "Tournament not found" });
+  const newStart = levelToElo(newLevel);
+  const oldStart = levelToElo(t.tournament.level);
+
+  // 1) Update the category's Level column (D).
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!D${t.rowIndex}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [[newLevel]] },
+  });
+
+  const [enRes, elRes, grRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:H` }),
+  ]);
+  const enRows = enRes.data.values || [], elRows = elRes.data.values || [], grRows = grRes.data.values || [];
+
+  // Players this category created as NEW (entrant flags cols H/I).
+  const newPlayers = new Set();
+  for (const r of enRows) {
+    if (r[0] !== id) continue;
+    if ((r[7] || "") === "TRUE" && r[2]) newPlayers.add(normName(r[2]));
+    if ((r[8] || "") === "TRUE" && r[4]) newPlayers.add(normName(r[4]));
+  }
+
+  // 2) Re-seed those players' INITIAL ELO_Log row to the new level's ELO.
+  const eloUpdates = [];
+  let reseeded = 0;
+  for (let i = 0; i < elRows.length; i++) {
+    const r = elRows[i];
+    if (String(r[0] || "").toUpperCase() !== "INITIAL") continue;
+    if (!newPlayers.has(normName(r[1]))) continue;
+    if (parseInt(r[2]) === newStart) continue;
+    const row = r.slice(); while (row.length < 7) row.push("");
+    row[2] = newStart;
+    eloUpdates.push({ range: `${TABS.elo_log}!A${i + 2}:G${i + 2}`, values: [row] });
+    reseeded++;
+  }
+  if (eloUpdates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: eloUpdates } });
+
+  // Current ELO per player: latest from ELO_Log, then override new players to newStart.
+  const eloByName = new Map();
+  for (const r of elRows) { const v = parseInt(r[2]); if (!isNaN(v)) eloByName.set(normName(r[1]), v); }
+  for (const nm of newPlayers) eloByName.set(nm, newStart);
+  const curElo = (nm) => (eloByName.has(nm) ? eloByName.get(nm) : newStart);
+
+  // 3) Recompute entrant seeds (avg of the pair's current ELO).
+  const seedUpdates = [];
+  let updatedEntrants = 0;
+  for (let i = 0; i < enRows.length; i++) {
+    const r = enRows[i];
+    if (r[0] !== id) continue;
+    const seed = Math.round((curElo(normName(r[2])) + curElo(normName(r[4]))) / 2);
+    if (parseInt(r[6]) === seed) continue;
+    const row = r.slice(); while (row.length < 11) row.push("");
+    row[6] = seed;
+    seedUpdates.push({ range: `${TABS.t_entrants}!A${i + 2}:K${i + 2}`, values: [row] });
+    updatedEntrants++;
+  }
+  if (seedUpdates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: seedUpdates } });
+
+  // 4) Keep the group cards' seed numbers consistent (display only — membership
+  //    and schedule are left exactly as drawn).
+  const groupUpdates = [];
+  for (let i = 0; i < grRows.length; i++) {
+    const r = grRows[i];
+    if (r[0] !== id) continue;
+    const seed = Math.round((curElo(normName(r[4])) + curElo(normName(r[5]))) / 2);
+    if (parseInt(r[6]) === seed) continue;
+    const row = r.slice(); while (row.length < 8) row.push("");
+    row[6] = seed;
+    groupUpdates.push({ range: `${TABS.t_groups}!A${i + 2}:H${i + 2}`, values: [row] });
+  }
+  if (groupUpdates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: groupUpdates } });
+
+  return respond(200, { success: true, level: newLevel, startElo: newStart, oldStartElo: oldStart, reseededPlayers: reseeded, updatedEntrants });
 }
 
 async function tListTournaments(params) {

@@ -429,6 +429,10 @@
     <div class="divider"></div>
     <div class="pick"><label>Kategori di event ini</label>
       <select id="tourSelect" onchange="selectTournament(this.value)"><option value="">—</option></select>
+      <div style="margin-top:8px;">
+        <button type="button" class="btn btn-ghost btn-sm" id="editLevelBtn" style="display:none;" onclick="openLevelEditor()">✏️ Ubah level kategori</button>
+        <span class="muted" style="font-size:11.5px; margin-left:6px;">Salah level? Ganti di sini — grup &amp; jadwal tetap.</span>
+      </div>
     </div>
   </section>
 
@@ -878,6 +882,7 @@ async function createTournament(){
   }catch(e){ toast(e.message, true); }
 }
 async function selectTournament(id){
+  var elb=document.getElementById("editLevelBtn"); if(elb) elb.style.display = id ? "" : "none";
   if(!id){ state.tournament=null; renderContext(); setLocks(); return; }
   try{
     const { tournament, entrantCount } = await api("tournament/"+encodeURIComponent(id));
@@ -895,6 +900,44 @@ async function selectTournament(id){
 }
 
 /* ---- IMPORT ---- */
+/* ---- EDIT LEVEL (perbaiki level yang salah tanpa mengulang grup/jadwal) ---- */
+const LEVEL_KEYS = ["upper_beginner","lower_bronze","bronze","upper_bronze","silver","gold","platinum"];
+function onElLevelChange(){
+  document.getElementById("elCustomWrap").style.display =
+    document.getElementById("elLevel").value === "__custom" ? "" : "none";
+}
+function openLevelEditor(){
+  if(!state.tournament) return;
+  const cur = String(state.tournament.level||"").toLowerCase();
+  const sel = document.getElementById("elLevel");
+  if(LEVEL_KEYS.indexOf(cur) >= 0){ sel.value = cur; }
+  else { sel.value = "__custom"; document.getElementById("elCustom").value = (/^\d+$/.test(cur) ? cur : "1200"); }
+  onElLevelChange();
+  document.getElementById("elErr").textContent = "";
+  document.getElementById("levelOverlay").classList.add("show");
+}
+function closeLevelEditor(){ document.getElementById("levelOverlay").classList.remove("show"); }
+async function saveLevel(){
+  if(!state.tournament) return;
+  const sel = document.getElementById("elLevel").value;
+  let level = sel;
+  if(sel === "__custom"){
+    const n = parseInt(document.getElementById("elCustom").value, 10);
+    if(isNaN(n) || n < 100 || n > 4000){ document.getElementById("elErr").textContent = "ELO harus antara 100–4000."; return; }
+    level = String(n);
+  }
+  const btn = document.getElementById("elSaveBtn"); btn.disabled = true; btn.textContent = "Menyimpan…";
+  try{
+    const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/level", { method:"PUT", body:{ level } });
+    state.tournament.level = r.level || level;
+    renderContext();
+    closeLevelEditor();
+    loadEntrants(); loadGroups();
+    toast(`Level diubah → ${levelLabel(r.level||level)} · ${r.reseededPlayers||0} pemain baru diperbaiki`);
+  }catch(e){ document.getElementById("elErr").textContent = e.message; }
+  finally{ btn.disabled = false; btn.textContent = "Simpan level"; }
+}
+
 function nnName(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
 async function runImport(){
   if(!state.tournament) return;
@@ -1736,6 +1779,33 @@ renderContext();
 refreshAmpm();
 (function(){ try{ var sp=localStorage.getItem("tp_sponsor")||""; var el=document.getElementById("sponsorUrl"); if(el){ el.value=sp; state.sponsorUrl=sp; onSponsor(); } }catch(e){} })();
 </script>
+
+<div class="overlay" id="levelOverlay">
+  <div class="modal" style="max-width:460px;">
+    <button type="button" class="x" onclick="closeLevelEditor()">×</button>
+    <h2>Ubah level kategori</h2>
+    <p class="lead">Level menentukan <b>ELO awal pemain baru</b>. Mengubahnya <b>tidak</b> mengubah grup atau jadwal (keduanya tidak bergantung level) — hanya memperbaiki rating awal pemain baru yang dibuat di kategori ini.</p>
+    <div class="f"><label>Level baru</label>
+      <select id="elLevel" onchange="onElLevelChange()">
+        <option value="upper_beginner">Upper Beginner · 900</option>
+        <option value="lower_bronze">Lower Bronze · 1200</option>
+        <option value="bronze">Bronze · 1500</option>
+        <option value="upper_bronze">Upper Bronze · 1800</option>
+        <option value="silver">Silver · 2100</option>
+        <option value="gold">Gold · 2500</option>
+        <option value="platinum">Platinum · 3000</option>
+        <option value="__custom">Lainnya (angka ELO)…</option>
+      </select>
+    </div>
+    <div class="f" id="elCustomWrap" style="display:none; margin-top:10px;"><label>ELO awal pemain baru</label>
+      <input id="elCustom" type="number" min="100" max="4000" step="10" value="1200" /></div>
+    <p class="err-line" id="elErr"></p>
+    <div class="actions" style="margin-top:6px; display:flex; gap:10px;">
+      <button type="button" class="btn btn-primary" id="elSaveBtn" onclick="saveLevel()">Simpan level</button>
+      <button type="button" class="btn btn-ghost" onclick="closeLevelEditor()">Batal</button>
+    </div>
+  </div>
+</div>
 
 <div class="overlay" id="mergeOverlay">
   <div class="modal" style="max-width:600px;">
