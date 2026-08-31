@@ -149,11 +149,34 @@ async function sendBrevoEmail(to, subject, htmlContent) {
   return true;
 }
 // Internal alert to the site owner. Best-effort: never breaks the request flow.
+// Sends to every channel that is configured (Telegram and/or email).
 function ownerEmail() { return String(process.env.NOTIFY_EMAIL || "rahadianagung@gmail.com").trim(); }
 function escHtml(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function htmlToText(html) {
+  return String(html || "")
+    .replace(/<\s*br\s*\/?>/gi, "\n").replace(/<\/(p|h1|h2|h3|div)>/gi, "\n").replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+// Telegram push via Bot API. Needs TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID.
+async function sendTelegram(text) {
+  const token = String(process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  const chatId = String(process.env.TELEGRAM_CHAT_ID || "").trim();
+  if (!token || !chatId) return false;
+  const resp = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 3900), disable_web_page_preview: true }),
+  });
+  if (!resp.ok) { let m = `HTTP ${resp.status}`; try { const j = await resp.json(); if (j && j.description) m = j.description; } catch (e) {} throw new Error(m); }
+  return true;
+}
 async function notifyOwner(subject, html) {
-  try { await sendBrevoEmail(ownerEmail(), subject, html); }
-  catch (e) { console.error("notifyOwner failed:", e && e.message); }
+  if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+    try { await sendTelegram(subject + "\n\n" + htmlToText(html)); } catch (e) { console.error("notify telegram failed:", e && e.message); }
+  }
+  if (process.env.BREVO_API_KEY && process.env.BREVO_SENDER_EMAIL) {
+    try { await sendBrevoEmail(ownerEmail(), subject, html); } catch (e) { console.error("notify email failed:", e && e.message); }
+  }
 }
 
 // "Run your tournament" contact form -> a dedicated Tournament_Leads tab
