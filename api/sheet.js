@@ -126,6 +126,36 @@ async function imgbbUpload(dataUrl, name) {
   return j.data.display_url || j.data.url || (j.data.image && j.data.image.url) || "";
 }
 
+// Send a transactional email via Brevo (https://api.brevo.com). Uses global fetch.
+async function sendBrevoEmail(to, subject, htmlContent) {
+  const key = String(process.env.BREVO_API_KEY || "").trim();
+  const sender = String(process.env.BREVO_SENDER_EMAIL || "").trim();
+  if (!key || !sender) throw new Error("Email service not configured (BREVO_API_KEY / BREVO_SENDER_EMAIL)");
+  const resp = await fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": key, "Content-Type": "application/json", "accept": "application/json" },
+    body: JSON.stringify({
+      sender: { email: sender, name: process.env.BREVO_SENDER_NAME || "TurnamenPadel" },
+      to: [{ email: to }],
+      subject,
+      htmlContent,
+    }),
+  });
+  if (!resp.ok) {
+    let msg = `HTTP ${resp.status}`;
+    try { const j = await resp.json(); if (j && j.message) msg = j.message; } catch (e) {}
+    throw new Error(`Email send failed: ${msg}`);
+  }
+  return true;
+}
+// Internal alert to the site owner. Best-effort: never breaks the request flow.
+function ownerEmail() { return String(process.env.NOTIFY_EMAIL || "rahadianagung@gmail.com").trim(); }
+function escHtml(s) { return String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+async function notifyOwner(subject, html) {
+  try { await sendBrevoEmail(ownerEmail(), subject, html); }
+  catch (e) { console.error("notifyOwner failed:", e && e.message); }
+}
+
 // "Run your tournament" contact form -> a dedicated Tournament_Leads tab
 // (self-bootstrapping on first submit).
 async function ensureLeadsTab(sheets) {
@@ -162,6 +192,21 @@ async function submitLead(body) {
       String(body.days || ""), String(body.hours || ""), String(body.courts || ""),
     ]] },
   });
+  await notifyOwner(
+    `🔥 Hot lead — Run your tournament: ${name}`,
+    `<h2>New "Run your tournament" lead</h2>` +
+    `<p><b>Name:</b> ${escHtml(name)}<br>` +
+    `<b>WhatsApp:</b> ${escHtml(whatsapp)}<br>` +
+    `<b>Email:</b> ${escHtml(String(body.email || ""))}<br>` +
+    `<b>Date:</b> ${escHtml(String(body.date || "-"))}<br>` +
+    `<b>Participants:</b> ${escHtml(String(body.participants || "-"))}<br>` +
+    `<b>Category:</b> ${escHtml(category || "-")}<br>` +
+    `<b>Venue:</b> ${escHtml(String(body.venue || "-"))}<br>` +
+    `<b>City:</b> ${escHtml(String(body.city || "-"))}<br>` +
+    `<b>Package:</b> ${escHtml(String(body.package || "-"))}<br>` +
+    `<b>Notes:</b> ${escHtml(String(body.notes || "-"))}</p>` +
+    `<p style="color:#888;font-size:12px">${escHtml(now)}</p>`
+  );
   return respond(200, { success: true });
 }
 
@@ -252,6 +297,18 @@ async function calcResult(body) {
       String(b.rules_ref || ""), interested ? "TRUE" : "FALSE", interested ? "HOT" : "NEW",
     ]] },
   });
+  if (interested) {
+    await notifyOwner(
+      `🔥 Hot lead — Calculator: ${String(b.name || email)}`,
+      `<h2>Calculator lead interested in management/services</h2>` +
+      `<p><b>Name:</b> ${escHtml(String(b.name || "-"))}<br>` +
+      `<b>Email:</b> ${escHtml(email)}<br>` +
+      `<b>Players:</b> ${escHtml(String(b.total_players || "-"))} · <b>Pairs:</b> ${escHtml(String(b.total_pairs || "-"))}<br>` +
+      `<b>Courts:</b> ${escHtml(String(b.courts || "-"))} · <b>Hours:</b> ${escHtml(String(b.hours_available || "-"))}<br>` +
+      `<b>Est. court cost:</b> ${escHtml(String(b.estimated_court_cost || "-"))}<br>` +
+      `<b>Services requested:</b> ${escHtml(String(b.services_requested || "-"))}</p>`
+    );
+  }
   return respond(200, { success: true });
 }
 // One-shot header repair, safe to hit from a browser (GET). Ensures/repairs the
