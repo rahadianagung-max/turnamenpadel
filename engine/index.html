@@ -553,11 +553,11 @@
         <button type="button" data-v="intense" onclick="pickSchedMode(this)">Intense · play 3× in a row</button>
       </div>
     </div>
-    <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: each team's matches are spread out evenly, gaps are kept from ever reaching 1 hour. <b>Intense</b>: each team plays 3 matches in a row then a short rest, then 3 more. Courts are used automatically: if there are more courts than groups (or groups are uneven), one group's matches are <b>split across several courts</b> so the event finishes sooner (a team may switch courts). If splitting doesn't speed things up (e.g. courts = groups), the engine keeps <b>1 group = 1 court</b> with no switching.</p>
-    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Taken from the event settings — change here if needed, then regenerate (new values are also saved back to the event). <b>Court numbers</b> optional: enter e.g. <code>3,4,5,6</code> to use custom court numbering; leave empty for 1..N. The number of courts follows how many numbers you enter. <b>Breaks</b> optional: up to 4 breaks, enter start &amp; end time for each (e.g. <code>12:00</code>–<code>13:00</code>) — matches falling on/after a break time are automatically pushed to after the break (cumulative for multiple breaks). Leave unused pairs empty.</p>
+    <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. Courts fill automatically — with spare courts a group can split across several to finish sooner; otherwise it stays 1 group per court.</p>
+    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Prefilled from the event settings — edit here and regenerate to update them. Custom court numbers and breaks are under <b>Advanced</b>.</p>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="schLockGroups" checked style="width:auto">
-      <span><b>Batch by group order</b> — the whole group-stage batch 1 (A–D) finishes first across all courts, then batch 2 (E–H) starts. The schedule may run a little longer, but batches stay tidy.</span>
+      <span><b>Batch by group order</b> — finish batch 1 (A–D) on all courts before batch 2 (E–H) starts. Slightly longer, but tidier.</span>
     </label>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate schedule</button>
