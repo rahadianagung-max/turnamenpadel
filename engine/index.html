@@ -485,10 +485,11 @@
 
   <!-- 3. IMPORT -->
   <section id="sec3" class="locked">
-    <div class="sec-head"><div class="num">3</div><h2>Import players</h2><span class="sub">from the Form_Responses tab</span></div>
-    <p class="muted">Reads the rows in <code>Form_Responses</code> whose category matches, matches them against the Trekkr database (using the latest ELO), and automatically creates new players at the category's level ELO. <code>Category</code> column: write <code>Men's Doubles</code> / <code>Women's Doubles</code> / <code>Fixed Mixed</code>. If there are 2 categories of the same gender but different levels, append the level, e.g. <code>Women's Doubles Lower Bronze</code> and <code>Women's Doubles Upper Beginner</code>, so they don't mix. For an <b>Other</b> category, write in the <code>Category</code> column exactly the same name as the category you created (e.g. <code>Tarkam Cup</code>).</p>
+    <div class="sec-head"><div class="num">3</div><h2>Import players</h2><span class="sub">add participants, then import them into this category</span></div>
+    <p class="muted">Two steps: <b>1)</b> add your participant pairs on the <b>Add participants</b> page (or via a linked Google Form), then <b>2)</b> click <b>Import participants</b> here to pull them in. Existing Trekkr players keep their latest ELO; new names are created at the category's level ELO, and similar names are flagged so you can merge duplicates.</p>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="runImport()">Import from Form</button>
+      <a class="btn btn-primary" href="/tambah-peserta" target="_blank" rel="noopener">➕ Add participants ↗</a>
+      <button type="button" class="btn btn-ghost" onclick="runImport()">⬇ Import participants</button>
       <span class="muted" id="importHint"></span>
     </div>
     <div class="result" id="importResult">
