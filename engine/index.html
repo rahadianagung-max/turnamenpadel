@@ -75,8 +75,10 @@
   section:nth-of-type(1){animation-delay:.05s} section:nth-of-type(2){animation-delay:.12s}
   section:nth-of-type(3){animation-delay:.19s} section:nth-of-type(4){animation-delay:.26s}
   @keyframes rise{to{opacity:1; transform:none;}}
-  section.locked{opacity:.4; pointer-events:none;}
-  section.locked::after{content:"Selesaikan langkah sebelumnya"; position:absolute; top:22px; right:22px;
+  /* Locked = previewable but not yet fillable: readable, but no input until its
+     prerequisite step is done. Tabs stay clickable so the forms can be inspected. */
+  section.locked{opacity:.6; pointer-events:none;}
+  section.locked::after{content:"🔒 Finish the previous step to fill this in"; position:absolute; top:22px; right:22px;
     font-size:11px; font-family:'Space Mono',monospace; color:var(--faint);}
   .sec-head{display:flex; align-items:center; gap:12px; margin-bottom:18px;}
   .num{font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--bg);
@@ -97,7 +99,7 @@
   .snav.done{color:var(--text);} .snav.done .n{background:rgba(56,211,159,.16); border-color:transparent; color:#38d39f;}
   .snav.active{color:#0A0A0B; background:var(--accent); border-color:transparent;}
   .snav.active .n{background:#0A0A0B; color:var(--accent); border-color:transparent;}
-  .snav.locked{opacity:.42; cursor:not-allowed;}
+  .snav.locked{opacity:.55; cursor:pointer;}
   section.step-hidden{display:none !important;}
   .stepbar{position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; gap:12px;
     padding:11px 16px; background:rgba(12,12,14,.94); backdrop-filter:blur(8px); border-top:1px solid var(--line);}
@@ -1884,7 +1886,8 @@ function buildStepNav(){
 }
 function showStep(n){
   n=parseInt(n)||1;
-  if(tpLocked(n) && n!==TP_CUR_STEP){ if(typeof toast==="function") toast("Finish the previous step first", true); return; }
+  // Any step is openable for preview — locked sections inside stay greyed/non-editable
+  // (section.locked) until their prerequisite is met, so nothing can be filled early.
   TP_CUR_STEP=n;
   var show={}; (TP_STEPS[n-1].secs||[]).forEach(function(s){ show[s]=true; });
   for(var i=1;i<=9;i++){ var s=tpSection(i); if(s) s.classList.toggle("step-hidden", !show[i]); }
@@ -1893,7 +1896,6 @@ function showStep(n){
 }
 function syncStepNav(){
   var nav=document.getElementById("stepnav"); if(!nav) return;
-  if(tpLocked(TP_CUR_STEP) && TP_CUR_STEP!==1){ showStep(1); return; }
   for(var i=1;i<=TP_NSTEP;i++){
     var el=nav.querySelector('.snav[data-step="'+i+'"]'); if(!el) continue;
     el.classList.remove("active","done","locked");
@@ -1904,11 +1906,11 @@ function syncStepNav(){
   var mid=document.getElementById("sbMid"); if(mid) mid.textContent="Step "+TP_CUR_STEP+" of "+TP_NSTEP+" · "+TP_STEPS[TP_CUR_STEP-1].label;
   var prev=document.getElementById("sbPrev"); if(prev) prev.disabled = TP_CUR_STEP<=1;
   var next=document.getElementById("sbNext");
-  if(next){ var nx=TP_CUR_STEP+1; next.disabled = nx>TP_NSTEP || tpLocked(nx);
+  if(next){ var nx=TP_CUR_STEP+1; next.disabled = nx>TP_NSTEP;
     next.textContent = nx>TP_NSTEP ? "Done" : ("Next → "+TP_STEPS[nx-1].label); }
 }
 function stepPrev(){ if(TP_CUR_STEP>1) showStep(TP_CUR_STEP-1); }
-function stepNext(){ var nx=TP_CUR_STEP+1; if(nx>TP_NSTEP) return; if(tpLocked(nx)){ if(typeof toast==="function") toast("Finish this step first", true); return; } showStep(nx); }
+function stepNext(){ var nx=TP_CUR_STEP+1; if(nx>TP_NSTEP) return; showStep(nx); }
 
 /* init */
 applySession(state.session);
