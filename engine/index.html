@@ -140,6 +140,9 @@
   .btn-primary{background:var(--accent); color:var(--bg);} .btn-primary:hover{filter:brightness(1.06);}
   .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);} .btn-ghost:hover{border-color:var(--accent);}
   .btn-sm{padding:7px 12px; font-size:12.5px;}
+  /* Toolbar actions that only work after an event is set up (share/monitor/score). */
+  .btn.needs-setup{opacity:.38; cursor:not-allowed; pointer-events:none;}
+  a.btn.needs-setup{text-decoration:none;}
   .divider{height:1px; background:var(--line); margin:20px 0;}
   .pick label{display:block; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;}
 
@@ -350,8 +353,8 @@
       <div class="logo">TurnamenPadel<span class="dot">.</span></div>
     </div>
     <div class="who" id="whoBox">
-      <a class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/courts" target="_blank" rel="noopener" title="Monitor semua lapangan: revisi skor & jadwal">🎾 Monitor Lapangan</a>
-      <a class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/score" target="_blank" rel="noopener" title="Halaman khusus input skor">⚡ Input Skor</a>
+      <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/courts" target="_blank" rel="noopener" title="Monitor semua lapangan: revisi skor & jadwal">🎾 Monitor Lapangan</a>
+      <a id="navScore" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/score" target="_blank" rel="noopener" title="Halaman khusus input skor">⚡ Input Skor</a>
       <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Kelola admin</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Keluar</button>
       <div class="u"><b id="whoName">—</b><span id="whoRole">—</span></div>
@@ -758,6 +761,21 @@ function renderContext(){
   const t = state.tournament;
   document.getElementById("ctxTour").innerHTML = "Kategori: <b>" + (t ? `${esc(t.category)} · ${esc(levelLabel(t.level))} · ${t.format}` : "—") + "</b>";
   document.getElementById("ctxTour").classList.toggle("on", !!t);
+  syncTopActions();
+}
+// Share/monitor/score only make sense once an event exists — gray them out until then
+// so the toolbar doesn't advertise actions that just pop a "pilih event dulu" toast.
+function syncTopActions(){
+  var ready = !!state.event;
+  ["shareCheckin","shareMobile","shareTv","navCourts","navScore"].forEach(function(id){
+    var el = document.getElementById(id); if(!el) return;
+    el.classList.toggle("needs-setup", !ready);
+    if(el.tagName === "BUTTON") el.disabled = !ready;
+    if(el.dataset.title0 === undefined) el.dataset.title0 = el.getAttribute("title") || "";
+    if(!ready) el.setAttribute("title", "Pilih atau buat event dulu untuk memakai ini");
+    else if(el.dataset.title0) el.setAttribute("title", el.dataset.title0);
+    else el.removeAttribute("title");
+  });
 }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 // Normalize a clock string (Sheets may return "8:00" / "8.00" / "8:00 AM") to "HH:MM".
