@@ -4210,34 +4210,44 @@ async function tUpdatePlayoffScore(body) {
   // A playoff match must have a winner to advance the bracket — reject draws
   // (clearing a score, i.e. non-numeric, stays allowed for corrections).
   if (numeric && sa === sb) return respond(400, { error: "Playoff tidak boleh seri — tentukan pemenang." });
+  const prevWinner = row[13] || "";
+  const nowIso = new Date().toISOString();
   row[11] = isNaN(sa) ? "" : sa; row[12] = isNaN(sb) ? "" : sb;
   const winner = numeric ? (sa > sb ? a : b) : "";
   const loser = winner ? (winner === a ? b : a) : "";
-  row[13] = winner; row[14] = numeric ? "DONE" : "SCHEDULED"; row[15] = new Date().toISOString();
+  row[13] = winner; row[14] = numeric ? "DONE" : "SCHEDULED"; row[15] = nowIso;
 
   const inTier = (x) => x[0] === tid && x[2] === "PLAYOFF" && x[4] === tier;
   const numRounds = Math.max(0, ...rows.filter((x) => inTier(x) && /^\d+$/.test(String(x[5]))).map((x) => parseInt(x[5])));
   const rnum = /^\d+$/.test(String(roundRaw)) ? parseInt(roundRaw) : null;
-  // Persist ONLY the rows we actually touch (this match + any downstream slot),
-  // via batchUpdate. The old clear-then-rewrite of the whole tab risked wiping
-  // every event's matches if the rewrite failed, and could clobber concurrent
-  // score saves. Keyed by row index so a row is written once.
+  // Persist ONLY the rows we touch, via batchUpdate (no whole-tab clear/rewrite —
+  // that risked wiping every event's matches on a failed write and could clobber
+  // concurrent saves). Keyed by row index so each row is written once.
   const changed = new Map();
   changed.set(_pidx, row);
-  const resetSlot = (m, slot, val) => { m[slot] = val; m[11] = ""; m[12] = ""; m[13] = ""; m[14] = (m[9] && m[10]) ? "SCHEDULED" : m[14] === "BYE" ? "BYE" : "SCHEDULED"; m[15] = row[15]; };
-  if (numeric && winner && rnum !== null) {
-    if (rnum < numRounds) {
-      const ni = rows.findIndex((x) => inTier(x) && /^\d+$/.test(String(x[5])) && parseInt(x[5]) === rnum + 1 && (parseInt(x[7]) || 0) === Math.floor(mIdx / 2));
-      if (ni !== -1) { const next = rows[ni]; while (next.length < 16) next.push(""); resetSlot(next, mIdx % 2 === 0 ? 9 : 10, winner); changed.set(ni, next); }
+  const blank = (m) => { m[11] = ""; m[12] = ""; m[13] = ""; m[14] = (m[9] && m[10]) ? "SCHEDULED" : (m[14] === "BYE" ? "BYE" : "SCHEDULED"); m[15] = nowIso; };
+  // Cascade: only when this match's winner actually changes (incl. cleared) do we
+  // disturb later rounds. Walk the new advancer up through EVERY downstream round —
+  // each match we alter loses its now-stale result, which in turn clears whatever it
+  // had fed further up. A score-only fix that keeps the same winner leaves the rest intact.
+  if (rnum !== null && winner !== prevWinner) {
+    let rr = rnum, ii = mIdx, adv = winner;
+    while (rr < numRounds) {
+      const pj = rows.findIndex((x) => inTier(x) && /^\d+$/.test(String(x[5])) && parseInt(x[5]) === rr + 1 && (parseInt(x[7]) || 0) === Math.floor(ii / 2));
+      if (pj === -1) break;
+      const p = rows[pj]; while (p.length < 16) p.push("");
+      p[ii % 2 === 0 ? 9 : 10] = adv || ""; blank(p); changed.set(pj, p);
+      adv = ""; ii = Math.floor(ii / 2); rr = rr + 1;
     }
+    // Bronze is fed by the two semifinal losers.
     if (rnum === numRounds - 1) {
       const bi = rows.findIndex((x) => inTier(x) && String(x[5]) === "BRONZE");
-      if (bi !== -1 && loser) { const bronze = rows[bi]; while (bronze.length < 16) bronze.push(""); resetSlot(bronze, mIdx === 0 ? 9 : 10, loser); changed.set(bi, bronze); }
+      if (bi !== -1) { const bronze = rows[bi]; while (bronze.length < 16) bronze.push(""); bronze[mIdx === 0 ? 9 : 10] = loser || ""; blank(bronze); changed.set(bi, bronze); }
     }
   }
   const data = [...changed.entries()].map(([i, r]) => ({ range: `${TABS.t_matches}!A${i + 2}:Q${i + 2}`, values: [padMatchRow(r)] }));
   await withSheetsRetry(() => sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "RAW", data } }));
-  return respond(200, { success: true, status: row[14], winner });
+  return respond(200, { success: true, status: row[14], winner, cascaded: changed.size - 1 });
 }
 // Pure view-builder: given mapped PLAYOFF matches + a name(entrantId) fn -> brackets array.
 function playoffBracketsView(all, nm) {

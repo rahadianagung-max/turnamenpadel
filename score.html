@@ -403,12 +403,25 @@ function roundLabel(round, numRounds){
   return "Babak "+r;
 }
 const nameOf = id => state.names[id] || id;
+// How many already-finished (DONE) matches downstream of this playoff match would
+// be invalidated if its winner changed — the match it feeds, that match's parent,
+// … up to the final, plus bronze when this is a semifinal. Used to warn the operator.
+function downstreamDoneCount(info){
+  const b = (state.brackets||[]).find(x=>x.tier===info.tier); if(!b) return 0;
+  const r0 = parseInt(info.round); if(isNaN(r0)) return 0;
+  const at = (rr,ii)=>{ const rd=(b.rounds||[]).find(x=>x.round===rr); return rd ? (rd.matches||[]).find(m=>m.idx===ii) : null; };
+  let cnt=0, r=r0, i=parseInt(info.idx)||0;
+  while(r < info.numRounds){ const p=at(r+1, Math.floor(i/2)); if(p && p.status==="DONE") cnt++; i=Math.floor(i/2); r++; }
+  if(r0 === info.numRounds-1 && b.bronze && b.bronze.status==="DONE") cnt++;
+  return cnt;
+}
 // Opsi D (scorer): players stay the primary label; the custom team name — when
 // set — rides along as a small chip so the operator can't pick the wrong pair.
 const teamChip = id => { const t = state.teamNames[id]; return t ? `<span class="tchip">${esc(t)}</span>` : ""; };
 
 function render(matches, brackets){
   state.matchIndex = {};
+  state.brackets = brackets || [];
   const wrap = $("matchesWrap");
   let html = "";
 
@@ -444,11 +457,11 @@ function render(matches, brackets){
     let tierHtml = "";
     rounds.forEach(r=>{
       (r.matches||[]).forEach(m=>{
-        const c = playoffCard(m, b.numRounds);
+        const c = playoffCard(m, b.numRounds, b.tier);
         if(c){ tierHtml += c; poCards++; }
       });
     });
-    if(b.bronze){ const c = playoffCard(b.bronze, b.numRounds); if(c){ tierHtml += c; poCards++; } }
+    if(b.bronze){ const c = playoffCard(b.bronze, b.numRounds, b.tier); if(c){ tierHtml += c; poCards++; } }
     if(tierHtml){ poHtml += `<h4 class="tier">${esc(TIER_LABEL[b.tier]||b.tier)}</h4>` + tierHtml; }
   });
   html += `<h3 class="sect">Playoff <span class="cnt">${poCards} match siap</span></h3>`;
@@ -462,11 +475,12 @@ function render(matches, brackets){
   applyFilter();
 }
 
-function playoffCard(m, numRounds){
+function playoffCard(m, numRounds, tier){
   if(!m || m.status==="BYE") return null;
   if(!m.entrantA || !m.entrantB) return null; // not ready (TBD)
   const nameA = m.teamA || nameOf(m.entrantA), nameB = m.teamB || nameOf(m.entrantB);
-  state.matchIndex[m.matchId] = { kind:"playoff", entrantA:m.entrantA, entrantB:m.entrantB, nameA, nameB };
+  state.matchIndex[m.matchId] = { kind:"playoff", entrantA:m.entrantA, entrantB:m.entrantB, nameA, nameB,
+    tier, round:m.round, idx:m.idx, numRounds, curWinner:m.winner };
   const meta = `<span class="ct">LAP ${esc(String(m.court||"?"))}</span><span class="gl">${esc(roundLabel(m.round, numRounds))}${m.time?" · "+esc(fmtTime(m.time)):""}</span>`;
   return scoreCard("playoff", m, nameA, nameB, meta);
 }
@@ -521,7 +535,16 @@ function saveScore(kind, mid){
     if(!confirm(`Skor ${na}–${nb} tidak biasa untuk padel. Yakin sudah benar?`)) return;
   }
   if(na === nb){
+    if(kind==="playoff"){ toast("Playoff tidak boleh seri — tentukan pemenang", true); return; }
     if(!confirm("Skor sama — pertandingan seri tanpa pemenang. Simpan sebagai seri?")) return;
+  }
+  // Playoff correction that flips the winner will reset the matches it fed into.
+  if(kind==="playoff"){
+    const nw = na>nb ? info.entrantA : nb>na ? info.entrantB : "";
+    if(info.curWinner && nw && String(nw)!==String(info.curWinner)){
+      const dn = downstreamDoneCount(info);
+      if(dn>0 && !confirm(`Mengubah pemenang match ini akan MERESET ${dn} match lanjutan (harus diinput ulang). Lanjutkan?`)) return;
+    }
   }
   // optimistic UI
   const aw = na>nb, bw = nb>na;
