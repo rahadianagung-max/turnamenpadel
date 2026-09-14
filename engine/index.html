@@ -30,7 +30,7 @@
     content:""; position:fixed; inset:0; pointer-events:none; opacity:.035; z-index:0;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
-  .wrap{max-width:920px; margin:0 auto; padding:28px 20px 80px; position:relative; z-index:1;}
+  .wrap{max-width:920px; margin:0 auto; padding:28px 20px 110px; position:relative; z-index:1;}
 
   /* Header */
   header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; flex-wrap:wrap;}
@@ -83,6 +83,25 @@
        background:var(--accent); width:26px; height:26px; border-radius:7px; display:grid; place-items:center; flex:none;}
   .sec-head h2{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:19px; margin:0; letter-spacing:-.01em;}
   .sec-head .sub{font-size:12.5px; color:var(--muted); margin-left:auto;}
+
+  /* ---- Stepper navigation (presentation layer; engine logic unchanged) ---- */
+  .stepnav{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 12px; margin:0 0 4px; -webkit-overflow-scrolling:touch;}
+  .stepnav::-webkit-scrollbar{height:6px;} .stepnav::-webkit-scrollbar-thumb{background:var(--line); border-radius:3px;}
+  .snav{flex:0 0 auto; display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--line);
+    border-radius:999px; padding:7px 14px 7px 8px; cursor:pointer; color:var(--muted); font-size:12.5px; font-weight:600; white-space:nowrap;}
+  .snav .n{width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:12px; background:var(--panel2); color:var(--muted); border:1px solid var(--line);}
+  .snav.done{color:var(--text);} .snav.done .n{background:rgba(56,211,159,.16); border-color:transparent; color:#38d39f;}
+  .snav.active{color:#0A0A0B; background:var(--accent); border-color:transparent;}
+  .snav.active .n{background:#0A0A0B; color:var(--accent); border-color:transparent;}
+  .snav.locked{opacity:.42; cursor:not-allowed;}
+  section.step-hidden{display:none !important;}
+  .stepbar{position:fixed; left:0; right:0; bottom:0; z-index:40; display:flex; align-items:center; gap:12px;
+    padding:11px 16px; background:rgba(12,12,14,.94); backdrop-filter:blur(8px); border-top:1px solid var(--line);}
+  .stepbar .sb-mid{flex:1; text-align:center; font-size:12px; color:var(--muted);}
+  .stepbar .btn{min-width:130px; justify-content:center;}
+  .stepbar .btn[disabled]{opacity:.4; pointer-events:none;}
+  @media(max-width:560px){ .stepbar .btn{min-width:96px; font-size:13px;} .snav .lbl{display:none;} }
 
   /* Forms */
   .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px;}
@@ -339,6 +358,8 @@
       <button type="button" class="btn btn-ghost btn-share" id="shareTv" onclick="shareUrl('tv')">Share TV URL</button>
     </span>
   </div>
+
+  <nav id="stepnav" class="stepnav" aria-label="Langkah turnamen"></nav>
 
   <!-- 1. EVENT -->
   <section id="sec1">
@@ -695,6 +716,7 @@ function setLocks(){
   document.getElementById("sec7").classList.toggle("locked", !state.tournament);
   document.getElementById("sec8").classList.toggle("locked", !state.tournament);
   document.getElementById("sec9").classList.toggle("locked", !state.event);
+  if (typeof syncStepNav === "function") syncStepNav();
 }
 function renderContext(){
   document.getElementById("ctxEvent").innerHTML = "Event: <b>" + (state.event ? esc(state.event.name) : "—") + "</b>";
@@ -1771,8 +1793,58 @@ async function addNewAdmin(){
   }catch(e){ err.textContent = e.status === 409 ? "Username sudah dipakai." : (e.status === 403 ? "Hanya superadmin yang bisa menambah admin." : e.message); }
 }
 
+/* ===== Stepper navigation (presentation only — engine logic untouched) =====
+   Shows one <section id="secN"> at a time with a clickable step rail + Back/Next
+   bar. Step lock state is the existing setLocks() truth; unlocked steps can be
+   revisited/edited freely. */
+var TP_STEP_LABELS = ["Event","Kategori","Import","Peserta","Grup","Jadwal","Standing","Playoff","Selesai"];
+var TP_CUR_STEP = 1;
+function tpSection(n){ return document.getElementById("sec"+n); }
+function tpLocked(n){ var s=tpSection(n); return !s || s.classList.contains("locked"); }
+function buildStepNav(){
+  var nav=document.getElementById("stepnav"); if(!nav) return;
+  nav.innerHTML = TP_STEP_LABELS.map(function(lbl,i){ var n=i+1;
+    return '<div class="snav" data-step="'+n+'" onclick="showStep('+n+')"><span class="n">'+n+'</span><span class="lbl">'+lbl+'</span></div>';
+  }).join("");
+  if(!document.getElementById("stepbar")){
+    var bar=document.createElement("div"); bar.className="stepbar"; bar.id="stepbar";
+    bar.innerHTML='<button type="button" class="btn btn-ghost" id="sbPrev" onclick="stepPrev()">← Kembali</button>'
+      +'<span class="sb-mid" id="sbMid"></span>'
+      +'<button type="button" class="btn btn-primary" id="sbNext" onclick="stepNext()">Lanjut →</button>';
+    document.body.appendChild(bar);
+  }
+}
+function showStep(n){
+  n=parseInt(n)||1;
+  if(tpLocked(n) && n!==TP_CUR_STEP){ if(typeof toast==="function") toast("Selesaikan langkah sebelumnya dulu", true); return; }
+  TP_CUR_STEP=n;
+  for(var i=1;i<=9;i++){ var s=tpSection(i); if(s) s.classList.toggle("step-hidden", i!==n); }
+  syncStepNav();
+  try{ window.scrollTo({top:0, behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); }
+}
+function syncStepNav(){
+  var nav=document.getElementById("stepnav"); if(!nav) return;
+  if(tpLocked(TP_CUR_STEP) && TP_CUR_STEP!==1){ showStep(1); return; }
+  for(var i=1;i<=9;i++){
+    var el=nav.querySelector('.snav[data-step="'+i+'"]'); if(!el) continue;
+    el.classList.remove("active","done","locked");
+    if(i===TP_CUR_STEP) el.classList.add("active");
+    else if(tpLocked(i)) el.classList.add("locked");
+    else el.classList.add("done");
+  }
+  var mid=document.getElementById("sbMid"); if(mid) mid.textContent="Langkah "+TP_CUR_STEP+" dari 9 · "+TP_STEP_LABELS[TP_CUR_STEP-1];
+  var prev=document.getElementById("sbPrev"); if(prev) prev.disabled = TP_CUR_STEP<=1;
+  var next=document.getElementById("sbNext");
+  if(next){ var nx=TP_CUR_STEP+1; next.disabled = nx>9 || tpLocked(nx);
+    next.textContent = nx>9 ? "Selesai" : ("Lanjut → "+TP_STEP_LABELS[nx-1]); }
+}
+function stepPrev(){ if(TP_CUR_STEP>1) showStep(TP_CUR_STEP-1); }
+function stepNext(){ var nx=TP_CUR_STEP+1; if(nx>9) return; if(tpLocked(nx)){ if(typeof toast==="function") toast("Selesaikan langkah ini dulu", true); return; } showStep(nx); }
+
 /* init */
 applySession(state.session);
+buildStepNav();
+showStep(1);
 loadEvents();
 loadArchivedEvents();
 renderContext();
