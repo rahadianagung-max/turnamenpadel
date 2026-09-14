@@ -4207,27 +4207,36 @@ async function tUpdatePlayoffScore(body) {
   while (row.length < 16) row.push("");
   const tid = row[0], tier = row[4], roundRaw = row[5], mIdx = parseInt(row[7]) || 0, a = row[9], b = row[10];
   const sa = parseInt(scoreA), sb = parseInt(scoreB), numeric = !isNaN(sa) && !isNaN(sb);
+  // A playoff match must have a winner to advance the bracket — reject draws
+  // (clearing a score, i.e. non-numeric, stays allowed for corrections).
+  if (numeric && sa === sb) return respond(400, { error: "Playoff tidak boleh seri — tentukan pemenang." });
   row[11] = isNaN(sa) ? "" : sa; row[12] = isNaN(sb) ? "" : sb;
-  const winner = numeric ? (sa > sb ? a : (sb > sa ? b : "")) : "";
+  const winner = numeric ? (sa > sb ? a : b) : "";
   const loser = winner ? (winner === a ? b : a) : "";
   row[13] = winner; row[14] = numeric ? "DONE" : "SCHEDULED"; row[15] = new Date().toISOString();
 
   const inTier = (x) => x[0] === tid && x[2] === "PLAYOFF" && x[4] === tier;
   const numRounds = Math.max(0, ...rows.filter((x) => inTier(x) && /^\d+$/.test(String(x[5]))).map((x) => parseInt(x[5])));
   const rnum = /^\d+$/.test(String(roundRaw)) ? parseInt(roundRaw) : null;
+  // Persist ONLY the rows we actually touch (this match + any downstream slot),
+  // via batchUpdate. The old clear-then-rewrite of the whole tab risked wiping
+  // every event's matches if the rewrite failed, and could clobber concurrent
+  // score saves. Keyed by row index so a row is written once.
+  const changed = new Map();
+  changed.set(_pidx, row);
   const resetSlot = (m, slot, val) => { m[slot] = val; m[11] = ""; m[12] = ""; m[13] = ""; m[14] = (m[9] && m[10]) ? "SCHEDULED" : m[14] === "BYE" ? "BYE" : "SCHEDULED"; m[15] = row[15]; };
   if (numeric && winner && rnum !== null) {
     if (rnum < numRounds) {
-      const next = rows.find((x) => inTier(x) && /^\d+$/.test(String(x[5])) && parseInt(x[5]) === rnum + 1 && (parseInt(x[7]) || 0) === Math.floor(mIdx / 2));
-      if (next) { while (next.length < 16) next.push(""); resetSlot(next, mIdx % 2 === 0 ? 9 : 10, winner); }
+      const ni = rows.findIndex((x) => inTier(x) && /^\d+$/.test(String(x[5])) && parseInt(x[5]) === rnum + 1 && (parseInt(x[7]) || 0) === Math.floor(mIdx / 2));
+      if (ni !== -1) { const next = rows[ni]; while (next.length < 16) next.push(""); resetSlot(next, mIdx % 2 === 0 ? 9 : 10, winner); changed.set(ni, next); }
     }
     if (rnum === numRounds - 1) {
-      const bronze = rows.find((x) => inTier(x) && String(x[5]) === "BRONZE");
-      if (bronze && loser) { while (bronze.length < 16) bronze.push(""); resetSlot(bronze, mIdx === 0 ? 9 : 10, loser); }
+      const bi = rows.findIndex((x) => inTier(x) && String(x[5]) === "BRONZE");
+      if (bi !== -1 && loser) { const bronze = rows[bi]; while (bronze.length < 16) bronze.push(""); resetSlot(bronze, mIdx === 0 ? 9 : 10, loser); changed.set(bi, bronze); }
     }
   }
-  await withSheetsRetry(() => sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` }));
-  await withSheetsRetry(() => sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2`, valueInputOption: "RAW", requestBody: { values: rows.map(padMatchRow) } }));
+  const data = [...changed.entries()].map(([i, r]) => ({ range: `${TABS.t_matches}!A${i + 2}:Q${i + 2}`, values: [padMatchRow(r)] }));
+  await withSheetsRetry(() => sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "RAW", data } }));
   return respond(200, { success: true, status: row[14], winner });
 }
 // Pure view-builder: given mapped PLAYOFF matches + a name(entrantId) fn -> brackets array.
