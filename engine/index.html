@@ -353,8 +353,7 @@
       <div class="logo">TurnamenPadel<span class="dot">.</span></div>
     </div>
     <div class="who" id="whoBox">
-      <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/courts" target="_blank" rel="noopener" title="Monitor semua lapangan: revisi skor & jadwal">🎾 Monitor Lapangan</a>
-      <a id="navScore" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/score" target="_blank" rel="noopener" title="Halaman khusus input skor">⚡ Input Skor</a>
+      <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/courts" target="_blank" rel="noopener" title="Monitor semua lapangan: input & revisi skor + atur jadwal">🎾 Monitor Lapangan</a>
       <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Kelola admin</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Keluar</button>
       <div class="u"><b id="whoName">—</b><span id="whoRole">—</span></div>
@@ -767,7 +766,7 @@ function renderContext(){
 // so the toolbar doesn't advertise actions that just pop a "pilih event dulu" toast.
 function syncTopActions(){
   var ready = !!state.event;
-  ["shareCheckin","shareMobile","shareTv","navCourts","navScore"].forEach(function(id){
+  ["shareCheckin","shareMobile","shareTv","navCourts"].forEach(function(id){
     var el = document.getElementById(id); if(!el) return;
     el.classList.toggle("needs-setup", !ready);
     if(el.tagName === "BUTTON") el.disabled = !ready;

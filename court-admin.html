@@ -97,7 +97,6 @@
     <div class="brand"><span class="logo">Turnamen<span class="dot">Padel</span></span><span class="tag">Monitor Lapangan</span></div>
     <div class="hactions">
       <span class="who">Admin: <b id="who">—</b></span>
-      <a href="/score">Input Skor</a>
       <a href="/engine">Engine</a>
       <a href="#" onclick="logout();return false;">Keluar</a>
     </div>
@@ -148,6 +147,20 @@ async function apiWithRetry(path,opts={},tries=4){ let delay=500,lastErr; for(le
 
 function catLabel(c){ return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed"}[c]||c||""; }
 function roundLabel(round,numRounds){ if(String(round)==="BRONZE") return "Juara 3"; const r=parseInt(round),fe=numRounds-r; if(fe===0)return"Final"; if(fe===1)return"Semifinal"; if(fe===2)return"Perempat Final"; if(fe===3)return"16 Besar"; return "Babak "+r; }
+// How many already-finished (DONE) matches downstream of this playoff match would be
+// invalidated if its winner changed — the match it feeds, that match's parent, … up to
+// the final, plus bronze when this is a semifinal. Mirrors /score so the score desk gets
+// the same "akan mereset N match lanjutan" warning before a cascade. Server enforces the
+// actual reset (api/sheet.js tUpdatePlayoffScore); this is just the operator heads-up.
+function downstreamDoneCount(info){
+  const b=info.bracket; if(!b) return 0;
+  const r0=parseInt(info.round); if(isNaN(r0)) return 0; // bronze (round "BRONZE") has no downstream
+  const at=(rr,ii)=>{ const rd=(b.rounds||[]).find(x=>parseInt(x.round)===rr); return rd?(rd.matches||[]).find(m=>(m.idx||0)===ii):null; };
+  let cnt=0, r=r0, i=parseInt(info.idx)||0;
+  while(r < info.numRounds){ const p=at(r+1, Math.floor(i/2)); if(p && p.status==="DONE") cnt++; i=Math.floor(i/2); r++; }
+  if(r0 === info.numRounds-1 && b.bronze && b.bronze.status==="DONE") cnt++;
+  return cnt;
+}
 
 // ---- events ----
 async function loadEvents(){
@@ -181,7 +194,7 @@ function flatten(payload){
         label:"Grup "+(m.groupLabel||""), nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status });
     });
     (cat.playoff||[]).forEach(b=>{
-      const push=(m,slot,label)=>{ if(!m||!m.entrantA||!m.entrantB) return; out.push({ kind:"playoff", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:parseInt(m.court)||0, slot:slot, time:m.time||"", label:label, nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status }); };
+      const push=(m,slot,label)=>{ if(!m||!m.entrantA||!m.entrantB) return; out.push({ kind:"playoff", tid:cat.tournamentId, cat:clabel, matchId:m.matchId, court:parseInt(m.court)||0, slot:slot, time:m.time||"", label:label, nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status, round:m.round, idx:m.idx, numRounds:b.numRounds, bracket:b }); };
       (b.rounds||[]).forEach(r=>(r.matches||[]).forEach(m=>push(m,(parseInt(m.round)||0)*100+(m.idx||0),roundLabel(m.round,b.numRounds))));
       if(b.bronze) push(b.bronze,99999,"Juara 3");
     });
@@ -269,7 +282,18 @@ async function saveScore(cid){
   if(a==="" || b===""){ toast("Skor kedua tim harus diisi",true); return; }
   if(!isInt(a)||!isInt(b)){ toast("Skor harus angka bulat",true); return; }
   const na=+a, nb=+b;
-  if(na===nb && !confirm("Skor sama — simpan sebagai seri?")) return;
+  if(na===nb){
+    if(m.kind==="playoff"){ toast("Playoff tidak boleh seri — tentukan pemenang",true); return; }
+    if(!confirm("Skor sama — simpan sebagai seri?")) return;
+  }
+  // Playoff correction that flips the winner will reset the matches it fed into.
+  if(m.kind==="playoff"){
+    const nw = na>nb ? m.entrantA : nb>na ? m.entrantB : "";
+    if(m.winner && nw && String(nw)!==String(m.winner)){
+      const dn = downstreamDoneCount(m);
+      if(dn>0 && !confirm(`Mengubah pemenang match ini akan MERESET ${dn} match lanjutan (harus diinput ulang). Lanjutkan?`)) return;
+    }
+  }
   setBadge(cid,"saving","⟳ Menyimpan…");
   const path=m.kind==="playoff"?"tournament/playoff/match":"tournament/match";
   try{
