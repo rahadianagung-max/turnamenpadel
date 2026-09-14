@@ -83,6 +83,9 @@
        background:var(--accent); width:26px; height:26px; border-radius:7px; display:grid; place-items:center; flex:none;}
   .sec-head h2{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:19px; margin:0; letter-spacing:-.01em;}
   .sec-head .sub{font-size:12.5px; color:var(--muted); margin-left:auto;}
+  /* Steps are grouped in the rail now (Setup, Players, …), so the per-section
+     1–9 badges would clash with the 5-step numbering — hide them. */
+  .sec-head .num{display:none;}
 
   /* ---- Stepper navigation (presentation layer; engine logic unchanged) ---- */
   .stepnav{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 12px; margin:0 0 4px; -webkit-overflow-scrolling:touch;}
@@ -1848,49 +1851,64 @@ async function addNewAdmin(){
    Shows one <section id="secN"> at a time with a clickable step rail + Back/Next
    bar. Step lock state is the existing setLocks() truth; unlocked steps can be
    revisited/edited freely. */
-var TP_STEP_LABELS = ["Event","Kategori","Import","Peserta","Grup","Jadwal","Standing","Playoff","Selesai"];
+// Grouped steps: each step shows several <section id="secN"> stacked, so the flow
+// reads as 5 plain phases instead of 9. Sections keep their own IDs/handlers and
+// their own .locked state (a still-locked section inside an open step stays greyed
+// in place), so engine logic is untouched — this is presentation only.
+var TP_STEPS = [
+  { label:"Setup",         secs:[1,2] },   // Event + Kategori
+  { label:"Players",       secs:[3,4] },   // Import peserta + Peserta
+  { label:"Order of Play", secs:[5,6] },   // Grup + Jadwal & Skor
+  { label:"Results",       secs:[7,8] },   // Standing + Playoff
+  { label:"Finish",        secs:[9] }      // Selesai Turnamen
+];
+var TP_NSTEP = TP_STEPS.length;
 var TP_CUR_STEP = 1;
 function tpSection(n){ return document.getElementById("sec"+n); }
-function tpLocked(n){ var s=tpSection(n); return !s || s.classList.contains("locked"); }
+function tpSecLocked(n){ var s=tpSection(n); return !s || s.classList.contains("locked"); }
+// A merged step's gate is its FIRST section — you can open the step once that section
+// unlocks; any later sections inside stay individually locked until their turn.
+function tpLocked(step){ var g=TP_STEPS[step-1]; return !g || tpSecLocked(g.secs[0]); }
 function buildStepNav(){
   var nav=document.getElementById("stepnav"); if(!nav) return;
-  nav.innerHTML = TP_STEP_LABELS.map(function(lbl,i){ var n=i+1;
-    return '<div class="snav" data-step="'+n+'" onclick="showStep('+n+')"><span class="n">'+n+'</span><span class="lbl">'+lbl+'</span></div>';
+  nav.innerHTML = TP_STEPS.map(function(g,i){ var n=i+1;
+    return '<div class="snav" data-step="'+n+'" onclick="showStep('+n+')"><span class="n">'+n+'</span><span class="lbl">'+g.label+'</span></div>';
   }).join("");
   if(!document.getElementById("stepbar")){
     var bar=document.createElement("div"); bar.className="stepbar"; bar.id="stepbar";
-    bar.innerHTML='<button type="button" class="btn btn-ghost" id="sbPrev" onclick="stepPrev()">← Kembali</button>'
+    bar.innerHTML='<button type="button" class="btn btn-ghost" id="sbPrev" onclick="stepPrev()">← Back</button>'
       +'<span class="sb-mid" id="sbMid"></span>'
-      +'<button type="button" class="btn btn-primary" id="sbNext" onclick="stepNext()">Lanjut →</button>';
+      +'<button type="button" class="btn btn-primary" id="sbNext" onclick="stepNext()">Next →</button>';
     document.body.appendChild(bar);
   }
 }
 function showStep(n){
   n=parseInt(n)||1;
-  if(tpLocked(n) && n!==TP_CUR_STEP){ if(typeof toast==="function") toast("Selesaikan langkah sebelumnya dulu", true); return; }
+  if(tpLocked(n) && n!==TP_CUR_STEP){ if(typeof toast==="function") toast("Finish the previous step first", true); return; }
   TP_CUR_STEP=n;
-  for(var i=1;i<=9;i++){ var s=tpSection(i); if(s) s.classList.toggle("step-hidden", i!==n); }
+  var show={}; (TP_STEPS[n-1].secs||[]).forEach(function(s){ show[s]=true; });
+  for(var i=1;i<=9;i++){ var s=tpSection(i); if(s) s.classList.toggle("step-hidden", !show[i]); }
   syncStepNav();
   try{ window.scrollTo({top:0, behavior:"smooth"}); }catch(e){ window.scrollTo(0,0); }
 }
 function syncStepNav(){
   var nav=document.getElementById("stepnav"); if(!nav) return;
   if(tpLocked(TP_CUR_STEP) && TP_CUR_STEP!==1){ showStep(1); return; }
-  for(var i=1;i<=9;i++){
+  for(var i=1;i<=TP_NSTEP;i++){
     var el=nav.querySelector('.snav[data-step="'+i+'"]'); if(!el) continue;
     el.classList.remove("active","done","locked");
     if(i===TP_CUR_STEP) el.classList.add("active");
     else if(tpLocked(i)) el.classList.add("locked");
     else el.classList.add("done");
   }
-  var mid=document.getElementById("sbMid"); if(mid) mid.textContent="Langkah "+TP_CUR_STEP+" dari 9 · "+TP_STEP_LABELS[TP_CUR_STEP-1];
+  var mid=document.getElementById("sbMid"); if(mid) mid.textContent="Step "+TP_CUR_STEP+" of "+TP_NSTEP+" · "+TP_STEPS[TP_CUR_STEP-1].label;
   var prev=document.getElementById("sbPrev"); if(prev) prev.disabled = TP_CUR_STEP<=1;
   var next=document.getElementById("sbNext");
-  if(next){ var nx=TP_CUR_STEP+1; next.disabled = nx>9 || tpLocked(nx);
-    next.textContent = nx>9 ? "Selesai" : ("Lanjut → "+TP_STEP_LABELS[nx-1]); }
+  if(next){ var nx=TP_CUR_STEP+1; next.disabled = nx>TP_NSTEP || tpLocked(nx);
+    next.textContent = nx>TP_NSTEP ? "Done" : ("Next → "+TP_STEPS[nx-1].label); }
 }
 function stepPrev(){ if(TP_CUR_STEP>1) showStep(TP_CUR_STEP-1); }
-function stepNext(){ var nx=TP_CUR_STEP+1; if(nx>9) return; if(tpLocked(nx)){ if(typeof toast==="function") toast("Selesaikan langkah ini dulu", true); return; } showStep(nx); }
+function stepNext(){ var nx=TP_CUR_STEP+1; if(nx>TP_NSTEP) return; if(tpLocked(nx)){ if(typeof toast==="function") toast("Finish this step first", true); return; } showStep(nx); }
 
 /* init */
 applySession(state.session);
