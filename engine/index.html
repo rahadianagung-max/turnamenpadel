@@ -76,10 +76,14 @@
   section:nth-of-type(3){animation-delay:.19s} section:nth-of-type(4){animation-delay:.26s}
   @keyframes rise{to{opacity:1; transform:none;}}
   /* Locked = previewable but not yet fillable: readable, but no input until its
-     prerequisite step is done. Tabs stay clickable so the forms can be inspected. */
+     prerequisite step is done. Tabs stay clickable so the forms can be inspected.
+     The note is a normal-flow banner ABOVE the header (::before) so it never
+     overlaps the section's right-aligned caption. */
   section.locked{opacity:.6; pointer-events:none;}
-  section.locked::after{content:"🔒 Finish the previous step to fill this in"; position:absolute; top:22px; right:22px;
-    font-size:11px; font-family:'Space Mono',monospace; color:var(--faint);}
+  section.locked::before{content:"🔒 Finish the earlier step to fill this in";
+    display:block; margin:0 0 14px; padding:7px 11px; border-radius:8px;
+    background:rgba(255,255,255,.04); border:1px solid var(--line);
+    font-size:11px; font-family:'Space Mono',monospace; letter-spacing:.02em; color:var(--faint);}
   .sec-head{display:flex; align-items:center; gap:12px; margin-bottom:18px;}
   .num{font-family:'Space Mono',monospace; font-weight:700; font-size:13px; color:var(--bg);
        background:var(--accent); width:26px; height:26px; border-radius:7px; display:grid; place-items:center; flex:none;}
@@ -358,9 +362,9 @@
       <div class="logo">TurnamenPadel<span class="dot">.</span></div>
     </div>
     <div class="who" id="whoBox">
-      <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/courts" target="_blank" rel="noopener" title="Monitor semua lapangan: input & revisi skor + atur jadwal">🎾 Monitor Lapangan</a>
-      <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Kelola admin</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Keluar</button>
+      <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/courts" target="_blank" rel="noopener" title="Monitor all courts: enter & revise scores + manage schedule">🎾 Court Monitor</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Manage admins</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>
       <div class="u"><b id="whoName">—</b><span id="whoRole">—</span></div>
       <div class="av" id="whoAvatar">?</div>
     </div>
@@ -368,7 +372,7 @@
 
   <div class="context">
     <span class="chip" id="ctxEvent">Event: <b>—</b></span>
-    <span class="chip" id="ctxTour">Kategori: <b>—</b></span>
+    <span class="chip" id="ctxTour">Category: <b>—</b></span>
     <span class="share-grp">
       <button type="button" class="btn btn-ghost btn-share" id="shareCheckin" onclick="shareUrl('checkin')">Share Check-in URL</button>
       <button type="button" class="btn btn-ghost btn-share" id="shareMobile" onclick="shareUrl('mobile')">Share Player URL</button>
@@ -376,61 +380,61 @@
     </span>
   </div>
 
-  <nav id="stepnav" class="stepnav" aria-label="Langkah turnamen"></nav>
+  <nav id="stepnav" class="stepnav" aria-label="Tournament steps"></nav>
 
   <!-- 1. EVENT -->
   <section id="sec1">
-    <div class="sec-head"><div class="num">1</div><h2>Event</h2><span class="sub">court &amp; jam mulai dipakai bersama semua kategori</span></div>
+    <div class="sec-head"><div class="num">1</div><h2>Event</h2><span class="sub">court &amp; start time shared by all categories</span></div>
     <div class="grid">
-      <div class="f"><label>Nama event</label><input id="evName" placeholder="Stellar Open 2026" /></div>
+      <div class="f"><label>Event name</label><input id="evName" placeholder="Stellar Open 2026" /></div>
       <div class="f"><label>Venue</label><input id="evVenue" placeholder="La Familia, Pejaten" /></div>
-      <div class="f"><label>Tanggal</label><input id="evDate" type="date" /></div>
-      <div class="f"><label>Jam mulai <small class="ampm" id="evStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="evStart" type="time" value="09:00" oninput="ampmPrev('evStart')" /></div>
-      <div class="f"><label>Jumlah court</label><input id="evCourts" type="number" min="1" value="3" /></div>
-      <div class="f"><label>Menit / match</label><input id="evMin" type="number" min="5" value="15" /></div>
+      <div class="f"><label>Date</label><input id="evDate" type="date" /></div>
+      <div class="f"><label>Start time <small class="ampm" id="evStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="evStart" type="time" value="09:00" oninput="ampmPrev('evStart')" /></div>
+      <div class="f"><label>Courts</label><input id="evCourts" type="number" min="1" value="3" /></div>
+      <div class="f"><label>Minutes / match</label><input id="evMin" type="number" min="5" value="15" /></div>
     </div>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="submitEvent()">Buat event</button>
+      <button type="button" class="btn btn-primary" onclick="submitEvent()">Create event</button>
     </div>
     <div class="divider"></div>
-    <div class="pick"><label>Pilih event yang sudah ada</label>
-      <select id="eventSelect" onchange="selectEvent(this.value)"><option value="">Memuat…</option></select>
+    <div class="pick"><label>Select an existing event</label>
+      <select id="eventSelect" onchange="selectEvent(this.value)"><option value="">Loading…</option></select>
     </div>
     <div id="assignAdminBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Assign admin event <span style="color:var(--muted);font-weight:400">— siapa yang bisa mengelola event ini di engine</span></div>
-      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Pemilik saat ini: <b id="assignCurrent">—</b></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Assign event admin <span style="color:var(--muted);font-weight:400">— who can manage this event in the engine</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Current owner: <b id="assignCurrent">—</b></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <select id="assignSelect" style="flex:1;min-width:180px"><option value="">— pilih admin —</option></select>
+        <select id="assignSelect" style="flex:1;min-width:180px"><option value="">— select admin —</option></select>
         <button type="button" class="btn btn-primary" onclick="assignAdmin()">Assign</button>
       </div>
     </div>
     <div id="tvThemeBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Tema warna TV LED <span style="color:var(--muted);font-weight:400">— untuk papan /tv event ini</span></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px">TV LED colour theme <span style="color:var(--muted);font-weight:400">— for this event's /tv board</span></div>
       <div id="tvPresets" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px"></div>
       <div class="grid">
         <div class="f"><label>Background</label><input type="color" id="tv-bg" value="#000000"></div>
         <div class="f"><label>Box / panel</label><input type="color" id="tv-panel" value="#121110"></div>
-        <div class="f"><label>Garis / border</label><input type="color" id="tv-line" value="#332a24"></div>
-        <div class="f"><label>Teks utama</label><input type="color" id="tv-text" value="#fdf4ee"></div>
-        <div class="f"><label>Teks sekunder</label><input type="color" id="tv-muted" value="#bfa091"></div>
-        <div class="f"><label>Aksen (skor/judul)</label><input type="color" id="tv-accent" value="#FF6A00"></div>
-        <div class="f"><label>Aksen 2 (zebra)</label><input type="color" id="tv-accent2" value="#FFB000"></div>
+        <div class="f"><label>Line / border</label><input type="color" id="tv-line" value="#332a24"></div>
+        <div class="f"><label>Main text</label><input type="color" id="tv-text" value="#fdf4ee"></div>
+        <div class="f"><label>Secondary text</label><input type="color" id="tv-muted" value="#bfa091"></div>
+        <div class="f"><label>Accent (score/title)</label><input type="color" id="tv-accent" value="#FF6A00"></div>
+        <div class="f"><label>Accent 2 (zebra)</label><input type="color" id="tv-accent2" value="#FFB000"></div>
       </div>
       <div class="actions">
-        <button type="button" class="btn btn-primary" onclick="saveTvTheme()">Simpan tema TV</button>
-        <button type="button" class="btn btn-ghost" onclick="resetTvTheme()">Reset ke default</button>
-        <a class="btn btn-ghost" id="tvOpenLink" target="_blank" rel="noopener" href="#">Buka papan TV ↗</a>
+        <button type="button" class="btn btn-primary" onclick="saveTvTheme()">Save TV theme</button>
+        <button type="button" class="btn btn-ghost" onclick="resetTvTheme()">Reset to default</button>
+        <a class="btn btn-ghost" id="tvOpenLink" target="_blank" rel="noopener" href="#">Open TV board ↗</a>
       </div>
-      <p style="font-size:11.5px;color:var(--muted);margin:6px 2px 0">Warna disimpan per event & langsung dipakai papan TV. Field kosong/Reset = kembali ke tema default.</p>
+      <p style="font-size:11.5px;color:var(--muted);margin:6px 2px 0">Colours are saved per event and used by the TV board immediately. Empty fields / Reset = back to the default theme.</p>
     </div>
     <div class="divider"></div>
     <details class="adv">
-      <summary><b>Opsi lanjutan</b> — sponsor display (TV / court LED)</summary>
+      <summary><b>Advanced</b> — sponsor display (TV / court LED)</summary>
       <div class="adv-body">
         <div class="pick">
           <label>Sponsor display (TV / court LED)</label>
           <input id="sponsorUrl" placeholder="https://…/sponsor.png" oninput="onSponsor()" />
-          <p class="sponsor-hint">URL gambar sponsor yang tampil di layar TV / LED court. Rekomendasi: <b>banner landscape 1920×360 px</b> (strip LED) atau <b>1080×1080 px</b> (kotak) · format <b>PNG / JPG / WebP</b> · maks ±2 MB · gunakan PNG transparan untuk logo.</p>
+          <p class="sponsor-hint">URL of the sponsor image shown on the TV / court LED screen. Recommended: <b>landscape banner 1920×360 px</b> (LED strip) or <b>1080×1080 px</b> (square) · format <b>PNG / JPG / WebP</b> · max ±2 MB · use a transparent PNG for logos.</p>
           <div id="sponsorPreview" class="sponsor-preview"></div>
         </div>
       </div>
@@ -439,13 +443,13 @@
 
   <!-- 2. KATEGORI -->
   <section id="sec2" class="locked">
-    <div class="sec-head"><div class="num">2</div><h2>Kategori</h2><span class="sub">satu turnamen per kategori, pasangan tetap</span></div>
+    <div class="sec-head"><div class="num">2</div><h2>Category</h2><span class="sub">one tournament per category, fixed pairs</span></div>
     <div class="grid">
-      <div class="f"><label>Kategori</label>
-        <select id="tCat" onchange="onCatChange()"><option>Men's Doubles</option><option>Women's Doubles</option><option>Fixed Mixed</option><option value="Other">Other (nama bebas)</option></select></div>
-      <div class="f" id="fCatOther" style="display:none"><label>Nama kategori</label>
-        <input id="tCatOther" type="text" placeholder="mis. Tarkam Cup, Beginner Fun" maxlength="40" /></div>
-      <div class="f" id="fLevel"><label>Level (ELO awal pemain baru)</label>
+      <div class="f"><label>Category</label>
+        <select id="tCat" onchange="onCatChange()"><option>Men's Doubles</option><option>Women's Doubles</option><option>Fixed Mixed</option><option value="Other">Other (custom name)</option></select></div>
+      <div class="f" id="fCatOther" style="display:none"><label>Category name</label>
+        <input id="tCatOther" type="text" placeholder="e.g. Tarkam Cup, Beginner Fun" maxlength="40" /></div>
+      <div class="f" id="fLevel"><label>Level (starting ELO for new players)</label>
         <select id="tLevel">
           <option value="upper_beginner">Upper Beginner · 900</option>
           <option value="lower_bronze" selected>Lower Bronze · 1200</option>
@@ -455,208 +459,208 @@
           <option value="gold">Gold · 2500</option>
           <option value="platinum">Platinum · 3000</option>
         </select></div>
-      <div class="f" id="fOtherElo" style="display:none"><label>ELO awal pemain baru</label>
+      <div class="f" id="fOtherElo" style="display:none"><label>Starting ELO for new players</label>
         <input id="tOtherElo" type="number" min="100" max="4000" step="10" value="1200" /></div>
-      <div class="f"><label>Target ukuran grup (≥3)</label><input id="tSize" type="number" min="3" value="4" /></div>
-      <div class="f"><label>Lolos / grup</label><input id="tAdv" type="number" min="1" value="2" /></div>
+      <div class="f"><label>Target group size (≥3)</label><input id="tSize" type="number" min="3" value="4" /></div>
+      <div class="f"><label>Advance / group</label><input id="tAdv" type="number" min="1" value="2" /></div>
     </div>
-    <div style="margin-top:14px" class="pick"><label>Format playoff</label>
+    <div style="margin-top:14px" class="pick"><label>Playoff format</label>
       <div class="seg" id="tFormat">
         <button type="button" class="active" data-v="SINGLE" onclick="pickFormat(this)">Single bracket</button>
         <button type="button" data-v="SPLIT" onclick="pickFormat(this)">Split · Champion + Prospect</button>
       </div>
     </div>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="createTournament()">Buat kategori</button>
+      <button type="button" class="btn btn-primary" onclick="createTournament()">Create category</button>
     </div>
     <div class="divider"></div>
-    <div class="pick"><label>Kategori di event ini</label>
+    <div class="pick"><label>Categories in this event</label>
       <select id="tourSelect" onchange="selectTournament(this.value)"><option value="">—</option></select>
       <div style="margin-top:8px;">
-        <button type="button" class="btn btn-ghost btn-sm" id="editLevelBtn" style="display:none;" onclick="openLevelEditor()">✏️ Ubah level kategori</button>
-        <span class="muted" style="font-size:11.5px; margin-left:6px;">Salah level? Ganti di sini — grup &amp; jadwal tetap.</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="editLevelBtn" style="display:none;" onclick="openLevelEditor()">✏️ Change category level</button>
+        <span class="muted" style="font-size:11.5px; margin-left:6px;">Wrong level? Change it here — groups &amp; schedule stay.</span>
       </div>
     </div>
   </section>
 
   <!-- 3. IMPORT -->
   <section id="sec3" class="locked">
-    <div class="sec-head"><div class="num">3</div><h2>Import peserta</h2><span class="sub">dari tab Form_Responses</span></div>
-    <p class="muted">Membaca baris di <code>Form_Responses</code> yang kategorinya cocok, mencocokkan ke database Trekkr (pakai ELO terakhir), dan otomatis membuat pemain baru pada ELO level kategori. Kolom <code>Category</code>: tulis <code>Men's Doubles</code> / <code>Women's Doubles</code> / <code>Fixed Mixed</code>. Jika ada 2 kategori gender sama beda level, tambahkan levelnya, mis. <code>Women's Doubles Lower Bronze</code> dan <code>Women's Doubles Upper Beginner</code>, agar tidak tercampur. Untuk kategori <b>Other</b>, tulis di kolom <code>Category</code> nama yang sama persis dengan nama kategori yang Anda buat (mis. <code>Tarkam Cup</code>).</p>
+    <div class="sec-head"><div class="num">3</div><h2>Import players</h2><span class="sub">from the Form_Responses tab</span></div>
+    <p class="muted">Reads the rows in <code>Form_Responses</code> whose category matches, matches them against the Trekkr database (using the latest ELO), and automatically creates new players at the category's level ELO. <code>Category</code> column: write <code>Men's Doubles</code> / <code>Women's Doubles</code> / <code>Fixed Mixed</code>. If there are 2 categories of the same gender but different levels, append the level, e.g. <code>Women's Doubles Lower Bronze</code> and <code>Women's Doubles Upper Beginner</code>, so they don't mix. For an <b>Other</b> category, write in the <code>Category</code> column exactly the same name as the category you created (e.g. <code>Tarkam Cup</code>).</p>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="runImport()">Import dari Form</button>
+      <button type="button" class="btn btn-primary" onclick="runImport()">Import from Form</button>
       <span class="muted" id="importHint"></span>
     </div>
     <div class="result" id="importResult">
       <div class="stats">
-        <div><b id="rImported">0</b><span>masuk</span></div>
-        <div><b id="rNew">0</b><span>pemain baru</span></div>
-        <div><b id="rMatch">0</b><span>nama cocok</span></div>
-        <div><b id="rSkip">0</b><span>duplikat dilewati</span></div>
+        <div><b id="rImported">0</b><span>imported</span></div>
+        <div><b id="rNew">0</b><span>new players</span></div>
+        <div><b id="rMatch">0</b><span>names matched</span></div>
+        <div><b id="rSkip">0</b><span>duplicates skipped</span></div>
       </div>
     </div>
   </section>
 
-  <!-- 4. PESERTA -->
+  <!-- 4. PLAYERS -->
   <section id="sec4" class="locked">
-    <div class="sec-head"><div class="num">4</div><h2>Peserta</h2>
-      <span class="sub"><button type="button" class="btn btn-ghost btn-sm" onclick="loadEntrants()">↻ Muat ulang</button></span></div>
-    <div id="entrantsWrap"><p class="empty">Belum ada peserta.</p></div>
+    <div class="sec-head"><div class="num">4</div><h2>Players</h2>
+      <span class="sub"><button type="button" class="btn btn-ghost btn-sm" onclick="loadEntrants()">↻ Reload</button></span></div>
+    <div id="entrantsWrap"><p class="empty">No players yet.</p></div>
   </section>
 
   <!-- 5. GRUP -->
   <section id="sec5" class="locked">
-    <div class="sec-head"><div class="num">5</div><h2>Grup</h2><span class="sub">undian acak · geser manual di Google Sheet lalu sync</span></div>
+    <div class="sec-head"><div class="num">5</div><h2>Group</h2><span class="sub">random draw · rearrange manually in Google Sheet then sync</span></div>
     <p id="groupPreview">—</p>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="drawGroups()">Undi grup</button>
-      <button type="button" class="btn btn-ghost" onclick="openWheelDraw()">🎡 Undian roda (spin the wheel)</button>
-      <button type="button" class="btn btn-ghost" onclick="loadGroups()">↻ Sync dari sheet</button>
+      <button type="button" class="btn btn-primary" onclick="drawGroups()">Draw groups</button>
+      <button type="button" class="btn btn-ghost" onclick="openWheelDraw()">🎡 Wheel draw (spin the wheel)</button>
+      <button type="button" class="btn btn-ghost" onclick="loadGroups()">↻ Sync from sheet</button>
     </div>
     <div id="groupsWrap" style="margin-top:18px;"></div>
   </section>
 
   <!-- 6. JADWAL & SKOR -->
   <section id="sec6" class="locked">
-    <div class="sec-head"><div class="num">6</div><h2>Jadwal &amp; Skor</h2>
-      <span class="sub">generate menjadwalkan semua kategori di event ini sekaligus</span></div>
+    <div class="sec-head"><div class="num">6</div><h2>Order of Play</h2>
+      <span class="sub">generate schedules all categories in this event at once</span></div>
     <div class="grid">
-      <div class="f"><label>Jam mulai <small class="ampm" id="schStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="schStart" type="time" oninput="ampmPrev('schStart')" /></div>
-      <div class="f"><label>Jumlah court</label><input id="schCourts" type="number" min="1" /></div>
-      <div class="f"><label>Menit / match</label><input id="schMin" type="number" min="5" /></div>
+      <div class="f"><label>Start time <small class="ampm" id="schStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="schStart" type="time" oninput="ampmPrev('schStart')" /></div>
+      <div class="f"><label>Courts</label><input id="schCourts" type="number" min="1" /></div>
+      <div class="f"><label>Minutes / match</label><input id="schMin" type="number" min="5" /></div>
     </div>
     <details class="adv">
-      <summary><b>Opsi lanjutan</b> — nomor court manual &amp; jeda/break</summary>
+      <summary><b>Advanced</b> — manual court numbers &amp; breaks</summary>
       <div class="adv-body">
         <div class="grid">
-          <div class="f"><label>Nomor court (opsional)</label><input id="schCourtNums" type="text" placeholder="mis. 3,4,5,6" /></div>
-          <div class="f"><label>Break 1 mulai (opsional)</label><input id="schBreak1Start" type="time" /></div>
-          <div class="f"><label>Break 1 selesai</label><input id="schBreak1End" type="time" /></div>
-          <div class="f"><label>Break 2 mulai (opsional)</label><input id="schBreak2Start" type="time" /></div>
-          <div class="f"><label>Break 2 selesai</label><input id="schBreak2End" type="time" /></div>
-          <div class="f"><label>Break 3 mulai (opsional)</label><input id="schBreak3Start" type="time" /></div>
-          <div class="f"><label>Break 3 selesai</label><input id="schBreak3End" type="time" /></div>
-          <div class="f"><label>Break 4 mulai (opsional)</label><input id="schBreak4Start" type="time" /></div>
-          <div class="f"><label>Break 4 selesai</label><input id="schBreak4End" type="time" /></div>
+          <div class="f"><label>Court numbers (optional)</label><input id="schCourtNums" type="text" placeholder="e.g. 3,4,5,6" /></div>
+          <div class="f"><label>Break 1 start (optional)</label><input id="schBreak1Start" type="time" /></div>
+          <div class="f"><label>Break 1 end</label><input id="schBreak1End" type="time" /></div>
+          <div class="f"><label>Break 2 start (optional)</label><input id="schBreak2Start" type="time" /></div>
+          <div class="f"><label>Break 2 end</label><input id="schBreak2End" type="time" /></div>
+          <div class="f"><label>Break 3 start (optional)</label><input id="schBreak3Start" type="time" /></div>
+          <div class="f"><label>Break 3 end</label><input id="schBreak3End" type="time" /></div>
+          <div class="f"><label>Break 4 start (optional)</label><input id="schBreak4Start" type="time" /></div>
+          <div class="f"><label>Break 4 end</label><input id="schBreak4End" type="time" /></div>
         </div>
       </div>
     </details>
     <div id="catStartsWrap" style="margin-top:8px"></div>
-    <div style="margin-top:12px" class="pick"><label>Mode main (semua court dipakai · match grup jalan paralel)</label>
+    <div style="margin-top:12px" class="pick"><label>Play mode (all courts used · group matches run in parallel)</label>
       <div class="seg" id="schMode">
-        <button type="button" class="active" data-v="normal" onclick="pickSchedMode(this)">Normal · menyebar (tanpa jeda ≥1 jam)</button>
-        <button type="button" data-v="intense" onclick="pickSchedMode(this)">Intense · main 3× berturut-turut</button>
+        <button type="button" class="active" data-v="normal" onclick="pickSchedMode(this)">Normal · spread out (no gaps ≥1 hour)</button>
+        <button type="button" data-v="intense" onclick="pickSchedMode(this)">Intense · play 3× in a row</button>
       </div>
     </div>
-    <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: pertandingan tiap tim disebar merata, jeda diusahakan tak pernah sampai 1 jam. <b>Intense</b>: tiap tim diusahakan main 3 match berturut-turut lalu istirahat singkat, lalu 3 lagi. Court dipakai otomatis: jika ada court lebih banyak dari grup (atau grup timpang), pertandingan satu grup <b>dibagi ke beberapa court</b> agar event selesai lebih cepat (satu tim bisa berpindah court). Jika membagi tak mempercepat (mis. jumlah court = jumlah grup), engine tetap <b>1 grup = 1 court</b> tanpa perpindahan.</p>
-    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Diambil dari setelan event — ubah di sini bila perlu, lalu generate ulang (nilai baru ikut tersimpan ke event). <b>Nomor court</b> opsional: isi mis. <code>3,4,5,6</code> untuk memakai penomoran lapangan kustom; kosongkan untuk 1..N. Jumlah lapangan mengikuti banyaknya nomor yang diisi. <b>Break</b> opsional: hingga 4 jeda, isi jam mulai &amp; selesai tiap break (mis. <code>12:00</code>–<code>13:00</code>) — match yang jatuh pada/setelah jam break otomatis digeser ke setelah break (kumulatif untuk beberapa break). Kosongkan pasangan yang tak dipakai.</p>
+    <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: each team's matches are spread out evenly, gaps are kept from ever reaching 1 hour. <b>Intense</b>: each team plays 3 matches in a row then a short rest, then 3 more. Courts are used automatically: if there are more courts than groups (or groups are uneven), one group's matches are <b>split across several courts</b> so the event finishes sooner (a team may switch courts). If splitting doesn't speed things up (e.g. courts = groups), the engine keeps <b>1 group = 1 court</b> with no switching.</p>
+    <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Taken from the event settings — change here if needed, then regenerate (new values are also saved back to the event). <b>Court numbers</b> optional: enter e.g. <code>3,4,5,6</code> to use custom court numbering; leave empty for 1..N. The number of courts follows how many numbers you enter. <b>Breaks</b> optional: up to 4 breaks, enter start &amp; end time for each (e.g. <code>12:00</code>–<code>13:00</code>) — matches falling on/after a break time are automatically pushed to after the break (cumulative for multiple breaks). Leave unused pairs empty.</p>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="schLockGroups" checked style="width:auto">
-      <span><b>Batch per urutan grup</b> — seluruh group stage batch 1 (A–D) selesai dulu di semua court, baru batch 2 (E–H) mulai. Jadwal bisa sedikit lebih lama, tapi batch rapi.</span>
+      <span><b>Batch by group order</b> — the whole group-stage batch 1 (A–D) finishes first across all courts, then batch 2 (E–H) starts. The schedule may run a little longer, but batches stay tidy.</span>
     </label>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
-      <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Muat match kategori ini</button>
+      <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate schedule</button>
+      <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Load this category's matches</button>
     </div>
     <details class="adv">
-      <summary><b>Opsi lanjutan</b> — ubah nomor court &amp; import/export Google Sheet</summary>
+      <summary><b>Advanced</b> — change court numbers &amp; Google Sheet import/export</summary>
       <div class="adv-body">
         <div style="margin-top:2px;">
-          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Ubah nomor court saja <span style="color:var(--muted); font-weight:400;">(tanpa generate ulang — jadwal & skor tetap)</span></div>
+          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Change court numbers only <span style="color:var(--muted); font-weight:400;">(no regenerate — schedule &amp; scores stay)</span></div>
           <div class="grid">
-            <div class="f"><label>Dari (nomor sekarang)</label><input id="remapFrom" type="text" placeholder="1,2,3,4" /></div>
-            <div class="f"><label>Ke (nomor baru)</label><input id="remapTo" type="text" placeholder="3,4,5,6" /></div>
+            <div class="f"><label>From (current numbers)</label><input id="remapFrom" type="text" placeholder="1,2,3,4" /></div>
+            <div class="f"><label>To (new numbers)</label><input id="remapTo" type="text" placeholder="3,4,5,6" /></div>
           </div>
-          <div class="actions"><button type="button" class="btn btn-ghost" onclick="remapCourts()">Terapkan nomor court baru</button></div>
+          <div class="actions"><button type="button" class="btn btn-ghost" onclick="remapCourts()">Apply new court numbers</button></div>
         </div>
         <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Import jadwal dari Google Sheet <span style="color:var(--muted); font-weight:400;">(edit massal court, tanggal &amp; jam)</span></div>
-          <p style="font-size:12px; color:var(--muted); margin:0 0 8px;">1) Klik <b>Export</b> — app menulis semua match event ini ke tab <code>Jadwal_Import</code> di spreadsheet. 2) Di Google Sheet, edit kolom <b>Court</b>, <b>Tanggal&nbsp;(YYYY-MM-DD)</b> &amp; <b>Jam&nbsp;(HH:MM)</b> saja — <b>jangan ubah kolom Match_ID</b>. Kosongkan sel bila tak ingin mengubahnya. 3) Klik <b>Import</b> untuk menyimpan.</p>
+          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Import schedule from Google Sheet <span style="color:var(--muted); font-weight:400;">(bulk-edit court, date &amp; time)</span></div>
+          <p style="font-size:12px; color:var(--muted); margin:0 0 8px;">1) Click <b>Export</b> — the app writes all of this event's matches to the <code>Jadwal_Import</code> tab in the spreadsheet. 2) In Google Sheet, edit only the <b>Court</b>, <b>Date&nbsp;(YYYY-MM-DD)</b> &amp; <b>Time&nbsp;(HH:MM)</b> columns — <b>do not change the Match_ID column</b>. Leave a cell empty to keep it unchanged. 3) Click <b>Import</b> to save.</p>
           <div class="actions">
-            <button type="button" class="btn btn-ghost" onclick="exportScheduleSheet()">⬇ Export ke sheet</button>
-            <button type="button" class="btn btn-primary" onclick="importScheduleSheet()">⬆ Import dari sheet</button>
+            <button type="button" class="btn btn-ghost" onclick="exportScheduleSheet()">⬇ Export to sheet</button>
+            <button type="button" class="btn btn-primary" onclick="importScheduleSheet()">⬆ Import from sheet</button>
           </div>
           <div id="importResult" style="margin-top:8px;"></div>
         </div>
       </div>
     </details>
     <div id="clashWrap"></div>
-    <div id="matchesWrap" style="margin-top:16px;"><p class="empty">Belum ada jadwal. Klik “Generate jadwal”.</p></div>
+    <div id="matchesWrap" style="margin-top:16px;"><p class="empty">No schedule yet. Click “Generate schedule”.</p></div>
   </section>
 
   <!-- 7. STANDING -->
   <section id="sec7" class="locked">
-    <div class="sec-head"><div class="num">7</div><h2>Standing</h2>
-      <span class="sub"><button type="button" class="btn btn-ghost btn-sm" onclick="loadStandings()">↻ Muat ulang</button></span></div>
-    <div id="standingsWrap"><p class="empty">Belum ada standing. Input skor dulu di langkah 6.</p></div>
+    <div class="sec-head"><div class="num">7</div><h2>Standings</h2>
+      <span class="sub"><button type="button" class="btn btn-ghost btn-sm" onclick="loadStandings()">↻ Reload</button></span></div>
+    <div id="standingsWrap"><p class="empty">No standings yet. Enter scores first in Order of Play.</p></div>
   </section>
 
   <!-- 8. PLAYOFF -->
   <section id="sec8" class="locked">
     <div class="sec-head"><div class="num">8</div><h2>Playoff</h2>
-      <span class="sub">atur jadwal lalu generate bracket dari standing kategori ini</span></div>
+      <span class="sub">set the schedule then generate the bracket from this category's standings</span></div>
     <div class="grid">
-      <div class="f"><label>Tanggal playoff</label><input id="poDate" type="date" /></div>
-      <div class="f"><label>Jam mulai <small class="ampm" id="poStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="poStart" type="time" value="09:00" oninput="ampmPrev('poStart')" /></div>
-      <div class="f"><label>Jumlah court</label><input id="poCourts" type="number" min="1" value="2" /></div>
-      <div class="f"><label>Menit / match</label><input id="poMin" type="number" min="5" value="30" /></div>
-      <div class="f"><label>Lolos N besar (peringkat keseluruhan)</label><input id="poTopOverall" type="number" min="2" value="8" /></div>
-      <div class="f"><label>Mode simulasi</label>
+      <div class="f"><label>Playoff date</label><input id="poDate" type="date" /></div>
+      <div class="f"><label>Start time <small class="ampm" id="poStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="poStart" type="time" value="09:00" oninput="ampmPrev('poStart')" /></div>
+      <div class="f"><label>Courts</label><input id="poCourts" type="number" min="1" value="2" /></div>
+      <div class="f"><label>Minutes / match</label><input id="poMin" type="number" min="5" value="30" /></div>
+      <div class="f"><label>Advance top N (overall ranking)</label><input id="poTopOverall" type="number" min="2" value="8" /></div>
+      <div class="f"><label>Simulation mode</label>
         <select id="poSimMode">
-          <option value="group">Per grup (juara/runner-up)</option>
-          <option value="overall">N besar (ranking keseluruhan)</option>
+          <option value="group">Per group (champion/runner-up)</option>
+          <option value="overall">Top N (overall ranking)</option>
         </select></div>
-      <div class="f"><label>Pola crossing playoff</label>
+      <div class="f"><label>Playoff crossing pattern</label>
         <select id="poCross">
-          <option value="1">Silang antar-grup (Juara A vs Runner-up C, dst)</option>
-          <option value="0">Seeding standar (murni peringkat)</option>
+          <option value="1">Cross between groups (Champion A vs Runner-up C, etc.)</option>
+          <option value="0">Standard seeding (pure ranking)</option>
         </select></div>
     </div>
     <details class="adv">
-      <summary><b>Opsi lanjutan</b> — jeda/break playoff (maks 2)</summary>
+      <summary><b>Advanced</b> — playoff breaks (max 2)</summary>
       <div class="adv-body">
         <div class="grid">
-          <div class="f"><label>Break 1 mulai (opsional)</label><input id="poBreak1Start" type="time" /></div>
-          <div class="f"><label>Break 1 selesai</label><input id="poBreak1End" type="time" /></div>
-          <div class="f"><label>Break 2 mulai (opsional)</label><input id="poBreak2Start" type="time" /></div>
-          <div class="f"><label>Break 2 selesai</label><input id="poBreak2End" type="time" /></div>
+          <div class="f"><label>Break 1 start (optional)</label><input id="poBreak1Start" type="time" /></div>
+          <div class="f"><label>Break 1 end</label><input id="poBreak1End" type="time" /></div>
+          <div class="f"><label>Break 2 start (optional)</label><input id="poBreak2Start" type="time" /></div>
+          <div class="f"><label>Break 2 end</label><input id="poBreak2End" type="time" /></div>
         </div>
       </div>
     </details>
     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="poAuto" onchange="setPlayoffAuto()" style="width:auto">
-      <span><b>Auto-generate bracket</b> saat semua match grup selesai — memakai jadwal, pola crossing, &amp; mode simulasi yang tersimpan.</span>
+      <span><b>Auto-generate bracket</b> when all group matches finish — using the saved schedule, crossing pattern &amp; simulation mode.</span>
     </label>
     <div class="actions">
-      <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket (per grup)</button>
-      <button type="button" class="btn btn-primary" onclick="generatePlayoffOverall()">Generate N besar (ranking)</button>
-      <button type="button" class="btn btn-ghost" onclick="openSeedEditor()">🔧 Bracket modifikasi (seeding manual)</button>
-      <button type="button" class="btn btn-ghost" onclick="savePlayoffPlan()">Terapkan mode simulasi</button>
-      <button type="button" class="btn btn-ghost" onclick="resetPlayoff()">🗑 Hapus bracket (kembali ke simulasi)</button>
-      <button type="button" class="btn btn-ghost" onclick="loadPlayoff()">↻ Muat ulang</button>
+      <button type="button" class="btn btn-primary" onclick="generatePlayoff()">Generate bracket (per group)</button>
+      <button type="button" class="btn btn-primary" onclick="generatePlayoffOverall()">Generate top N (ranking)</button>
+      <button type="button" class="btn btn-ghost" onclick="openSeedEditor()">🔧 Custom bracket (manual seeding)</button>
+      <button type="button" class="btn btn-ghost" onclick="savePlayoffPlan()">Apply simulation mode</button>
+      <button type="button" class="btn btn-ghost" onclick="resetPlayoff()">🗑 Delete bracket (back to simulation)</button>
+      <button type="button" class="btn btn-ghost" onclick="loadPlayoff()">↻ Reload</button>
     </div>
-    <p class="lead" style="margin:8px 2px 0">“Per grup” meloloskan juara/runner-up tiap grup. “N besar (ranking)” meloloskan N tim terbaik dari seluruh grup berdasarkan peringkat (menang → selisih poin → poin masuk). <b>Bracket modifikasi</b>: atur sendiri urutan seed &amp; tim mana yang ikut. <b>Break</b> playoff opsional (maks 2): match yang jatuh pada/setelah jam break digeser ke setelahnya.</p>
+    <p class="lead" style="margin:8px 2px 0">“Per group” advances the champion/runner-up of each group. “Top N (ranking)” advances the N best teams across all groups by ranking (wins → point difference → points for). <b>Custom bracket</b>: set the seed order &amp; which teams take part yourself. Playoff <b>breaks</b> optional (max 2): matches falling on/after a break time are pushed to after it.</p>
     <div id="seedEditor" style="margin-top:14px;"></div>
-    <div id="playoffWrap" style="margin-top:16px;"><p class="empty">Belum ada bracket. Atur jadwal lalu klik “Generate bracket”.</p></div>
+    <div id="playoffWrap" style="margin-top:16px;"><p class="empty">No bracket yet. Set the schedule then click “Generate bracket”.</p></div>
   </section>
 
   <!-- 9. SELESAI TURNAMEN -->
   <section id="sec9" class="locked">
-    <div class="sec-head"><div class="num">9</div><h2>Selesai Turnamen</h2>
-      <span class="sub">hitung ELO untuk semua kategori event ini — jalankan sekali setelah turnamen benar-benar selesai</span></div>
-    <div class="elo-warn">Replay seluruh match (grup + playoff) secara kronologis dari ELO seed, pakai rumus Ranked Match. Hasil ditulis ke ELO_Log sebagai satu sesi turnamen. ELO peserta baru ikut terbentuk dari sini.</div>
+    <div class="sec-head"><div class="num">9</div><h2>Finish Tournament</h2>
+      <span class="sub">calculate ELO for all categories in this event — run once after the tournament is truly finished</span></div>
+    <div class="elo-warn">Replays every match (group + playoff) chronologically from the seed ELO, using the Ranked Match formula. Results are written to ELO_Log as one tournament session. New players' ELO is also formed here.</div>
     <div class="actions" style="margin-top:12px;">
-      <button type="button" class="btn btn-primary" onclick="finalizeElo(false)">Hitung ELO akhir</button>
-      <button type="button" class="btn btn-ghost" onclick="publishVenue()" title="Daftarkan turnamen ini agar pemenangnya tampil di venue.trekkr.online">Tampilkan di Venue</button>
-      <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Salin baris event ini ke Tournament_Archive lalu bersihkan data operasionalnya">Arsipkan &amp; bersihkan event</button>
+      <button type="button" class="btn btn-primary" onclick="finalizeElo(false)">Calculate final ELO</button>
+      <button type="button" class="btn btn-ghost" onclick="publishVenue()" title="Register this tournament so its winners show on venue.trekkr.online">Show on Venue</button>
+      <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Copy this event's rows to Tournament_Archive then clear its operational data">Archive &amp; clean up event</button>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Tampilkan di Venue</b> mendaftarkan turnamen ini ke halaman publik <code>venue.trekkr.online</code> (podium &amp; klasemen). Aman diklik kapan saja — sebelum atau sesudah diarsipkan.</p>
+    <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Show on Venue</b> registers this tournament on the public <code>venue.trekkr.online</code> page (podium &amp; standings). Safe to click anytime — before or after archiving.</p>
     <div class="pick" style="margin-top:12px">
-      <label>…atau tampilkan event yang sudah <b>diarsipkan</b> di venue</label>
+      <label>…or show an already-<b>archived</b> event on the venue</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
-        <select id="archEventSelect" style="flex:1;min-width:200px"><option value="">Memuat arsip…</option></select>
-        <button type="button" class="btn btn-ghost" onclick="publishArchived()">Tampilkan di Venue</button>
-        <button type="button" class="btn btn-ghost" onclick="loadArchivedEvents()" title="Muat ulang daftar arsip">↻</button>
+        <select id="archEventSelect" style="flex:1;min-width:200px"><option value="">Loading archive…</option></select>
+        <button type="button" class="btn btn-ghost" onclick="publishArchived()">Show on Venue</button>
+        <button type="button" class="btn btn-ghost" onclick="loadArchivedEvents()" title="Reload the archive list">↻</button>
       </div>
     </div>
     <div id="eloWrap" style="margin-top:16px;"></div>
@@ -763,7 +767,7 @@ function renderContext(){
   document.getElementById("ctxEvent").innerHTML = "Event: <b>" + (state.event ? esc(state.event.name) : "—") + "</b>";
   document.getElementById("ctxEvent").classList.toggle("on", !!state.event);
   const t = state.tournament;
-  document.getElementById("ctxTour").innerHTML = "Kategori: <b>" + (t ? `${esc(t.category)} · ${esc(levelLabel(t.level))} · ${t.format}` : "—") + "</b>";
+  document.getElementById("ctxTour").innerHTML = "Category: <b>" + (t ? `${esc(t.category)} · ${esc(levelLabel(t.level))} · ${t.format}` : "—") + "</b>";
   document.getElementById("ctxTour").classList.toggle("on", !!t);
   syncTopActions();
 }
@@ -1858,11 +1862,12 @@ async function addNewAdmin(){
 // their own .locked state (a still-locked section inside an open step stays greyed
 // in place), so engine logic is untouched — this is presentation only.
 var TP_STEPS = [
-  { label:"Setup",         secs:[1,2] },   // Event + Kategori
-  { label:"Players",       secs:[3,4] },   // Import peserta + Peserta
-  { label:"Order of Play", secs:[5,6] },   // Grup + Jadwal & Skor
-  { label:"Results",       secs:[7,8] },   // Standing + Playoff
-  { label:"Finish",        secs:[9] }      // Selesai Turnamen
+  { label:"Setup",             secs:[1,2] },   // Event + Category
+  { label:"Players",           secs:[3,4] },   // Import + Players
+  { label:"Group",             secs:[5] },     // Groups
+  { label:"Order of Play",     secs:[6] },     // Schedule & Scores
+  { label:"Standing & Playoff", secs:[7,8] },  // Standings + Playoff
+  { label:"Finish",            secs:[9] }      // Finish Tournament
 ];
 var TP_NSTEP = TP_STEPS.length;
 var TP_CUR_STEP = 1;
