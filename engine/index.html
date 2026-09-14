@@ -103,6 +103,16 @@
   .stepbar .btn[disabled]{opacity:.4; pointer-events:none;}
   @media(max-width:560px){ .stepbar .btn{min-width:96px; font-size:13px;} .snav .lbl{display:none;} }
 
+  /* ---- Advanced options (collapsed disclosure) ---- */
+  details.adv{border:1px dashed var(--line); border-radius:var(--r-sm); margin:14px 0 0; background:rgba(255,255,255,.015);}
+  details.adv>summary{list-style:none; cursor:pointer; padding:12px 14px; display:flex; align-items:center; gap:9px; font-size:13px; color:var(--muted); font-weight:600;}
+  details.adv>summary::-webkit-details-marker{display:none;}
+  details.adv>summary::before{content:"⚙"; opacity:.85;}
+  details.adv>summary::after{content:"▸"; margin-left:auto; color:var(--faint);}
+  details.adv[open]>summary::after{content:"▾";}
+  details.adv>summary b{color:var(--text);}
+  details.adv .adv-body{padding:0 14px 14px;}
+
   /* Forms */
   .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:14px;}
   .f label{display:block; font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin-bottom:6px;}
@@ -407,12 +417,17 @@
       <p style="font-size:11.5px;color:var(--muted);margin:6px 2px 0">Warna disimpan per event & langsung dipakai papan TV. Field kosong/Reset = kembali ke tema default.</p>
     </div>
     <div class="divider"></div>
-    <div class="pick">
-      <label>Sponsor display (TV / court LED)</label>
-      <input id="sponsorUrl" placeholder="https://…/sponsor.png" oninput="onSponsor()" />
-      <p class="sponsor-hint">URL gambar sponsor yang tampil di layar TV / LED court. Rekomendasi: <b>banner landscape 1920×360 px</b> (strip LED) atau <b>1080×1080 px</b> (kotak) · format <b>PNG / JPG / WebP</b> · maks ±2 MB · gunakan PNG transparan untuk logo.</p>
-      <div id="sponsorPreview" class="sponsor-preview"></div>
-    </div>
+    <details class="adv">
+      <summary><b>Opsi lanjutan</b> — sponsor display (TV / court LED)</summary>
+      <div class="adv-body">
+        <div class="pick">
+          <label>Sponsor display (TV / court LED)</label>
+          <input id="sponsorUrl" placeholder="https://…/sponsor.png" oninput="onSponsor()" />
+          <p class="sponsor-hint">URL gambar sponsor yang tampil di layar TV / LED court. Rekomendasi: <b>banner landscape 1920×360 px</b> (strip LED) atau <b>1080×1080 px</b> (kotak) · format <b>PNG / JPG / WebP</b> · maks ±2 MB · gunakan PNG transparan untuk logo.</p>
+          <div id="sponsorPreview" class="sponsor-preview"></div>
+        </div>
+      </div>
+    </details>
   </section>
 
   <!-- 2. KATEGORI -->
@@ -501,17 +516,24 @@
     <div class="grid">
       <div class="f"><label>Jam mulai <small class="ampm" id="schStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="schStart" type="time" oninput="ampmPrev('schStart')" /></div>
       <div class="f"><label>Jumlah court</label><input id="schCourts" type="number" min="1" /></div>
-      <div class="f"><label>Nomor court (opsional)</label><input id="schCourtNums" type="text" placeholder="mis. 3,4,5,6" /></div>
       <div class="f"><label>Menit / match</label><input id="schMin" type="number" min="5" /></div>
-      <div class="f"><label>Break 1 mulai (opsional)</label><input id="schBreak1Start" type="time" /></div>
-      <div class="f"><label>Break 1 selesai</label><input id="schBreak1End" type="time" /></div>
-      <div class="f"><label>Break 2 mulai (opsional)</label><input id="schBreak2Start" type="time" /></div>
-      <div class="f"><label>Break 2 selesai</label><input id="schBreak2End" type="time" /></div>
-      <div class="f"><label>Break 3 mulai (opsional)</label><input id="schBreak3Start" type="time" /></div>
-      <div class="f"><label>Break 3 selesai</label><input id="schBreak3End" type="time" /></div>
-      <div class="f"><label>Break 4 mulai (opsional)</label><input id="schBreak4Start" type="time" /></div>
-      <div class="f"><label>Break 4 selesai</label><input id="schBreak4End" type="time" /></div>
     </div>
+    <details class="adv">
+      <summary><b>Opsi lanjutan</b> — nomor court manual &amp; jeda/break</summary>
+      <div class="adv-body">
+        <div class="grid">
+          <div class="f"><label>Nomor court (opsional)</label><input id="schCourtNums" type="text" placeholder="mis. 3,4,5,6" /></div>
+          <div class="f"><label>Break 1 mulai (opsional)</label><input id="schBreak1Start" type="time" /></div>
+          <div class="f"><label>Break 1 selesai</label><input id="schBreak1End" type="time" /></div>
+          <div class="f"><label>Break 2 mulai (opsional)</label><input id="schBreak2Start" type="time" /></div>
+          <div class="f"><label>Break 2 selesai</label><input id="schBreak2End" type="time" /></div>
+          <div class="f"><label>Break 3 mulai (opsional)</label><input id="schBreak3Start" type="time" /></div>
+          <div class="f"><label>Break 3 selesai</label><input id="schBreak3End" type="time" /></div>
+          <div class="f"><label>Break 4 mulai (opsional)</label><input id="schBreak4Start" type="time" /></div>
+          <div class="f"><label>Break 4 selesai</label><input id="schBreak4End" type="time" /></div>
+        </div>
+      </div>
+    </details>
     <div id="catStartsWrap" style="margin-top:8px"></div>
     <div style="margin-top:12px" class="pick"><label>Mode main (semua court dipakai · match grup jalan paralel)</label>
       <div class="seg" id="schMode">
@@ -529,23 +551,28 @@
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate jadwal</button>
       <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Muat match kategori ini</button>
     </div>
-    <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-      <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Ubah nomor court saja <span style="color:var(--muted); font-weight:400;">(tanpa generate ulang — jadwal & skor tetap)</span></div>
-      <div class="grid">
-        <div class="f"><label>Dari (nomor sekarang)</label><input id="remapFrom" type="text" placeholder="1,2,3,4" /></div>
-        <div class="f"><label>Ke (nomor baru)</label><input id="remapTo" type="text" placeholder="3,4,5,6" /></div>
+    <details class="adv">
+      <summary><b>Opsi lanjutan</b> — ubah nomor court &amp; import/export Google Sheet</summary>
+      <div class="adv-body">
+        <div style="margin-top:2px;">
+          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Ubah nomor court saja <span style="color:var(--muted); font-weight:400;">(tanpa generate ulang — jadwal & skor tetap)</span></div>
+          <div class="grid">
+            <div class="f"><label>Dari (nomor sekarang)</label><input id="remapFrom" type="text" placeholder="1,2,3,4" /></div>
+            <div class="f"><label>Ke (nomor baru)</label><input id="remapTo" type="text" placeholder="3,4,5,6" /></div>
+          </div>
+          <div class="actions"><button type="button" class="btn btn-ghost" onclick="remapCourts()">Terapkan nomor court baru</button></div>
+        </div>
+        <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
+          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Import jadwal dari Google Sheet <span style="color:var(--muted); font-weight:400;">(edit massal court, tanggal &amp; jam)</span></div>
+          <p style="font-size:12px; color:var(--muted); margin:0 0 8px;">1) Klik <b>Export</b> — app menulis semua match event ini ke tab <code>Jadwal_Import</code> di spreadsheet. 2) Di Google Sheet, edit kolom <b>Court</b>, <b>Tanggal&nbsp;(YYYY-MM-DD)</b> &amp; <b>Jam&nbsp;(HH:MM)</b> saja — <b>jangan ubah kolom Match_ID</b>. Kosongkan sel bila tak ingin mengubahnya. 3) Klik <b>Import</b> untuk menyimpan.</p>
+          <div class="actions">
+            <button type="button" class="btn btn-ghost" onclick="exportScheduleSheet()">⬇ Export ke sheet</button>
+            <button type="button" class="btn btn-primary" onclick="importScheduleSheet()">⬆ Import dari sheet</button>
+          </div>
+          <div id="importResult" style="margin-top:8px;"></div>
+        </div>
       </div>
-      <div class="actions"><button type="button" class="btn btn-ghost" onclick="remapCourts()">Terapkan nomor court baru</button></div>
-    </div>
-    <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-      <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Import jadwal dari Google Sheet <span style="color:var(--muted); font-weight:400;">(edit massal court, tanggal &amp; jam)</span></div>
-      <p style="font-size:12px; color:var(--muted); margin:0 0 8px;">1) Klik <b>Export</b> — app menulis semua match event ini ke tab <code>Jadwal_Import</code> di spreadsheet. 2) Di Google Sheet, edit kolom <b>Court</b>, <b>Tanggal&nbsp;(YYYY-MM-DD)</b> &amp; <b>Jam&nbsp;(HH:MM)</b> saja — <b>jangan ubah kolom Match_ID</b>. Kosongkan sel bila tak ingin mengubahnya. 3) Klik <b>Import</b> untuk menyimpan.</p>
-      <div class="actions">
-        <button type="button" class="btn btn-ghost" onclick="exportScheduleSheet()">⬇ Export ke sheet</button>
-        <button type="button" class="btn btn-primary" onclick="importScheduleSheet()">⬆ Import dari sheet</button>
-      </div>
-      <div id="importResult" style="margin-top:8px;"></div>
-    </div>
+    </details>
     <div id="clashWrap"></div>
     <div id="matchesWrap" style="margin-top:16px;"><p class="empty">Belum ada jadwal. Klik “Generate jadwal”.</p></div>
   </section>
@@ -572,16 +599,23 @@
           <option value="group">Per grup (juara/runner-up)</option>
           <option value="overall">N besar (ranking keseluruhan)</option>
         </select></div>
-      <div class="f"><label>Break 1 mulai (opsional)</label><input id="poBreak1Start" type="time" /></div>
-      <div class="f"><label>Break 1 selesai</label><input id="poBreak1End" type="time" /></div>
-      <div class="f"><label>Break 2 mulai (opsional)</label><input id="poBreak2Start" type="time" /></div>
-      <div class="f"><label>Break 2 selesai</label><input id="poBreak2End" type="time" /></div>
       <div class="f"><label>Pola crossing playoff</label>
         <select id="poCross">
           <option value="1">Silang antar-grup (Juara A vs Runner-up C, dst)</option>
           <option value="0">Seeding standar (murni peringkat)</option>
         </select></div>
     </div>
+    <details class="adv">
+      <summary><b>Opsi lanjutan</b> — jeda/break playoff (maks 2)</summary>
+      <div class="adv-body">
+        <div class="grid">
+          <div class="f"><label>Break 1 mulai (opsional)</label><input id="poBreak1Start" type="time" /></div>
+          <div class="f"><label>Break 1 selesai</label><input id="poBreak1End" type="time" /></div>
+          <div class="f"><label>Break 2 mulai (opsional)</label><input id="poBreak2Start" type="time" /></div>
+          <div class="f"><label>Break 2 selesai</label><input id="poBreak2End" type="time" /></div>
+        </div>
+      </div>
+    </details>
     <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="poAuto" onchange="setPlayoffAuto()" style="width:auto">
       <span><b>Auto-generate bracket</b> saat semua match grup selesai — memakai jadwal, pola crossing, &amp; mode simulasi yang tersimpan.</span>
