@@ -183,6 +183,8 @@
   .gcard li .s{font-family:'Space Mono',monospace; color:var(--accent2); font-size:12px; flex:none;}
   .gcard li .gtn{display:block; font-weight:800; color:var(--accent, #FF6A00); line-height:1.15;}
   .gcard li .gsub{display:block; font-weight:500; font-size:12px; color:var(--muted); margin-top:1px;}
+  .gcard li .gmove{flex:none; align-self:center; background:#111; color:var(--text); border:1px solid var(--line);
+    border-radius:6px; font-family:'Space Mono',monospace; font-size:12px; padding:3px 4px; cursor:pointer;}
   .seedbox{border:1px solid var(--line); border-radius:var(--r-sm); background:#1B1B1F; padding:12px 14px;}
   .seedhd{font-size:12.5px; color:var(--muted); margin-bottom:8px;}
   .seedlist{list-style:none; margin:0; padding:0;}
@@ -511,13 +513,20 @@
 
   <!-- 5. GRUP -->
   <section id="sec5" class="locked">
-    <div class="sec-head"><div class="num">5</div><h2>Group</h2><span class="sub">random draw · rearrange manually in Google Sheet then sync</span></div>
+    <div class="sec-head"><div class="num">5</div><h2>Group</h2><span class="sub">random draw · or arrange the groups yourself</span></div>
     <p id="groupPreview">—</p>
-    <div class="actions">
+    <div class="actions" id="groupActions">
       <button type="button" class="btn btn-primary" onclick="drawGroups()">Draw groups</button>
       <button type="button" class="btn btn-ghost" onclick="openWheelDraw()">🎡 Wheel draw (spin the wheel)</button>
-      <button type="button" class="btn btn-ghost" onclick="loadGroups()">↻ Sync from sheet</button>
+      <button type="button" class="btn btn-ghost" onclick="startEditGroups()">✏️ Arrange manually</button>
+      <button type="button" class="btn btn-ghost" onclick="loadGroups()">↻ Reload</button>
     </div>
+    <div class="actions" id="groupEditActions" style="display:none">
+      <button type="button" class="btn btn-primary" onclick="saveGroups()">💾 Save arrangement</button>
+      <button type="button" class="btn btn-ghost" onclick="addGroup()">＋ Add group</button>
+      <button type="button" class="btn btn-ghost" onclick="cancelEditGroups()">Cancel</button>
+    </div>
+    <p id="groupEditHint" class="lead" style="display:none;margin:8px 2px 0">Move a pair with its group dropdown. Empty groups are dropped on save. If you already generated the schedule, <b>regenerate it</b> in Order of Play after changing groups.</p>
     <div id="groupsWrap" style="margin-top:18px;"></div>
   </section>
 
@@ -564,7 +573,7 @@
       <button type="button" class="btn btn-ghost" onclick="loadMatches()">↻ Load this category's matches</button>
     </div>
     <details class="adv">
-      <summary><b>Advanced</b> — change court numbers &amp; Google Sheet import/export</summary>
+      <summary><b>Advanced</b> — change court numbers</summary>
       <div class="adv-body">
         <div style="margin-top:2px;">
           <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Change court numbers only <span style="color:var(--muted); font-weight:400;">(no regenerate — schedule &amp; scores stay)</span></div>
@@ -574,18 +583,13 @@
           </div>
           <div class="actions"><button type="button" class="btn btn-ghost" onclick="remapCourts()">Apply new court numbers</button></div>
         </div>
-        <div style="margin-top:14px; padding-top:12px; border-top:1px solid var(--line);">
-          <div style="font-weight:600; font-size:13px; margin-bottom:6px;">Import schedule from Google Sheet <span style="color:var(--muted); font-weight:400;">(bulk-edit court, date &amp; time)</span></div>
-          <p style="font-size:12px; color:var(--muted); margin:0 0 8px;">1) Click <b>Export</b> — the app writes all of this event's matches to the <code>Jadwal_Import</code> tab in the spreadsheet. 2) In Google Sheet, edit only the <b>Court</b>, <b>Date&nbsp;(YYYY-MM-DD)</b> &amp; <b>Time&nbsp;(HH:MM)</b> columns — <b>do not change the Match_ID column</b>. Leave a cell empty to keep it unchanged. 3) Click <b>Import</b> to save.</p>
-          <div class="actions">
-            <button type="button" class="btn btn-ghost" onclick="exportScheduleSheet()">⬇ Export to sheet</button>
-            <button type="button" class="btn btn-primary" onclick="importScheduleSheet()">⬆ Import from sheet</button>
-          </div>
-          <div id="importResult" style="margin-top:8px;"></div>
-        </div>
       </div>
     </details>
     <div id="clashWrap"></div>
+    <div id="matchesHead" style="display:none; align-items:center; justify-content:space-between; gap:10px; margin-top:16px; flex-wrap:wrap;">
+      <p style="font-size:12px; color:var(--muted); margin:0;">Edit <b>Court · Tanggal · Jam</b> on each match below, then save one row (<b>Simpan jadwal</b>) or all at once.</p>
+      <button type="button" class="btn btn-primary btn-sm" onclick="saveAllSchedule()">💾 Save all schedule changes</button>
+    </div>
     <div id="matchesWrap" style="margin-top:16px;"><p class="empty">No schedule yet. Click “Generate schedule”.</p></div>
   </section>
 
@@ -862,6 +866,10 @@ function selectEvent(id){
   document.getElementById("importResult").classList.remove("show");
   document.getElementById("groupsWrap").innerHTML = "";
   document.getElementById("groupPreview").textContent = "—";
+  state.groupEdit = null;
+  document.getElementById("groupActions").style.display = "";
+  document.getElementById("groupEditActions").style.display = "none";
+  document.getElementById("groupEditHint").style.display = "none";
   if(state.event) loadTournaments();
 }
 
@@ -1192,21 +1200,87 @@ async function loadGroups(){
     renderGroups(groups);
   }catch(e){ toast(e.message, true); }
 }
+// Label of the (0-based) i-th group: A, B, C … matches the backend's groupLabel().
+function groupLetter(i){ return String.fromCharCode(65 + i); }
+function memberLabel(m){
+  const tn=(m.teamName||"").trim();
+  const pair=`${esc(m.player1Name)} + ${esc(m.player2Name)}`;
+  return tn ? `<b class="gtn">${esc(tn)}</b><span class="gsub">${pair}</span>` : pair;
+}
 function renderGroups(groups){
   buildNames(groups);
+  state.groupEdit = null; // read-only view resets any in-progress manual edit
+  document.getElementById("groupActions").style.display = "";
+  document.getElementById("groupEditActions").style.display = "none";
+  document.getElementById("groupEditHint").style.display = "none";
   const wrap = document.getElementById("groupsWrap");
-  if(!groups || !groups.length){ wrap.innerHTML = '<p class="empty">Belum diundi. Klik “Undi grup”.</p>'; return; }
+  if(!groups || !groups.length){ wrap.innerHTML = '<p class="empty">Belum diundi. Klik “Draw groups”.</p>'; return; }
   const mm = (state.event && state.event.matchMinutes) || 15;
   wrap.innerHTML = '<div class="groups">' + groups.map(g=>`
     <div class="gcard">
       <h3>Grup ${esc(g.label)} <span class="meta">${g.size} psg · ${g.matches} match · ~${g.matches*mm}m</span></h3>
-      <ul>${g.members.map(m=>{
-        const tn=(m.teamName||"").trim();
-        const pair=`${esc(m.player1Name)} + ${esc(m.player2Name)}`;
-        const nm = tn ? `<b class="gtn">${esc(tn)}</b><span class="gsub">${pair}</span>` : pair;
-        return `<li><span>${nm}</span><span class="s">${m.seedElo}</span></li>`;
-      }).join("")}</ul>
+      <ul>${g.members.map(m=>`<li><span>${memberLabel(m)}</span><span class="s">${m.seedElo}</span></li>`).join("")}</ul>
     </div>`).join("") + '</div>';
+}
+
+/* ---- MANUAL GROUP EDITOR ---- */
+// Enter edit mode from whatever is currently drawn. Loads fresh so we edit the
+// saved arrangement, not a stale render.
+async function startEditGroups(){
+  if(!state.tournament) return toast("Pilih kategori dulu", true);
+  try{
+    const { groups } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/groups");
+    buildNames(groups);
+    if(!groups || !groups.length) return toast("Undi grup dulu sebelum mengatur manual.", true);
+    // Working copy: array of groups, each an array of member objects.
+    state.groupEdit = groups.map(g => (g.members||[]).slice());
+    document.getElementById("groupActions").style.display = "none";
+    document.getElementById("groupEditActions").style.display = "";
+    document.getElementById("groupEditHint").style.display = "";
+    renderGroupEditor();
+  }catch(e){ toast(e.message, true); }
+}
+function cancelEditGroups(){ loadGroups(); }
+function addGroup(){
+  if(!state.groupEdit) return;
+  state.groupEdit.push([]);
+  renderGroupEditor();
+}
+// Move a member (identified by entrantId) into a target group index.
+function moveGroupMember(entrantId, toIdx){
+  if(!state.groupEdit) return;
+  toIdx = parseInt(toIdx);
+  let member = null;
+  state.groupEdit = state.groupEdit.map(members => members.filter(m => {
+    if(String(m.entrantId)===String(entrantId)){ member = m; return false; }
+    return true;
+  }));
+  if(member && state.groupEdit[toIdx]) state.groupEdit[toIdx].push(member);
+  renderGroupEditor();
+}
+function renderGroupEditor(){
+  const wrap = document.getElementById("groupsWrap");
+  const groups = state.groupEdit || [];
+  wrap.innerHTML = '<div class="groups">' + groups.map((members,gi)=>`
+    <div class="gcard">
+      <h3>Grup ${groupLetter(gi)} <span class="meta">${members.length} psg</span></h3>
+      <ul>${members.length ? members.map(m=>`
+        <li>
+          <span>${memberLabel(m)}</span>
+          <select class="gmove" onchange="moveGroupMember('${esc(String(m.entrantId))}', this.value)">
+            ${groups.map((_,i)=>`<option value="${i}"${i===gi?" selected":""}>${groupLetter(i)}</option>`).join("")}
+          </select>
+        </li>`).join("") : '<li class="empty" style="opacity:.6">— kosong —</li>'}</ul>
+    </div>`).join("") + '</div>';
+}
+async function saveGroups(){
+  if(!state.tournament || !state.groupEdit) return;
+  const payload = { groups: state.groupEdit.map(members => ({ entrantIds: members.map(m => m.entrantId) })) };
+  try{
+    const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/groups", { method:"PUT", body: payload });
+    toast(`Grup disimpan · ${r.groupCount} grup`);
+    renderGroups(r.groups);
+  }catch(e){ toast(e.message, true); }
 }
 
 /* ---- SCHEDULE / SCORES / STANDINGS (Phase 3) ---- */
@@ -1263,34 +1337,26 @@ async function remapCourts(){
     loadMatches();
   }catch(e){ toast("Gagal mengubah court: "+e.message, true); }
 }
-async function exportScheduleSheet(){
+// Manual bulk save of the schedule: read every match row's Court / Tanggal / Jam
+// inputs and push them in one request. The in-app replacement for the retired
+// Google-Sheet round-trip.
+async function saveAllSchedule(){
   if(!state.event) return toast("Pilih event dulu", true);
+  const edits = [];
+  document.querySelectorAll('#matchesWrap .mcard input[id^="ct-"]').forEach(ct=>{
+    const matchId = ct.id.slice(3);
+    const dt = document.getElementById("dt-"+matchId);
+    const tm = document.getElementById("tm-"+matchId);
+    edits.push({ matchId, court: ct.value.trim(), date: dt?dt.value.trim():"", time: tm?tm.value.trim():"" });
+  });
+  if(!edits.length) return toast("Tidak ada match untuk disimpan.", true);
   try{
-    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule-export", { method:"POST" });
-    if(r.count===undefined) return toast("Backend belum ter-redeploy (endpoint export belum aktif).", true);
-    toast(`Export OK · ${r.count} match ke tab '${r.tab}'. Edit di sheet lalu klik Import.`);
-    const el=document.getElementById("importResult");
-    if(el) el.innerHTML = `<div class="ok-flag">✓ ${r.count} match diekspor ke tab <b>${esc(r.tab)}</b> di spreadsheet. Buka tab itu, edit kolom Court / Tanggal / Jam, lalu klik “Import dari sheet”.</div>`;
-  }catch(e){ toast("Gagal export: "+e.message, true); }
-}
-async function importScheduleSheet(){
-  if(!state.event) return toast("Pilih event dulu", true);
-  if(!confirm("Import jadwal dari tab 'Jadwal_Import' dan timpa court/tanggal/jam match yang cocok?")) return;
-  try{
-    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule-import", { method:"POST" });
-    if(r.updated===undefined) return toast("Backend belum ter-redeploy (endpoint import belum aktif).", true);
-    toast(`Import OK · ${r.updated} match diperbarui${r.skipped?`, ${r.skipped} dilewati`:""}.`);
-    const el=document.getElementById("importResult");
-    if(el){
-      let html = `<div class="ok-flag">✓ ${r.updated} match diperbarui${r.skipped?` · ${r.skipped} dilewati`:""}.</div>`;
-      if(r.errors && r.errors.length){
-        html += `<div class="clash" style="margin-top:6px;"><b>${r.errorCount} baris bermasalah:</b><br>`+
-          r.errors.map(x=>`· <code>${esc(x.matchId||"")}</code> — ${esc(x.reason)}`).join("<br>")+`</div>`;
-      }
-      el.innerHTML = html;
-    }
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/schedule", { method:"PUT", body:{ edits }});
+    let msg = `Jadwal disimpan · ${r.updated} match diperbarui`;
+    if(r.skipped) msg += ` · ${r.skipped} dilewati`;
+    toast(msg, r.errorCount>0);
     loadMatches();
-  }catch(e){ toast("Gagal import: "+e.message, true); }
+  }catch(e){ toast("Gagal menyimpan jadwal: "+e.message, true); }
 }
 async function generateSchedule(){
   if(!state.event) return toast("Pilih event dulu", true);
@@ -1347,9 +1413,11 @@ function schedDateKey(m){ return String((m && m.date) || (state.event && state.e
 function schedTimeMin(m){ const s=fmtTime(m && m.time); if(!s) return (m && m.slot) || 0; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
 function renderMatches(matches){
   const wrap = document.getElementById("matchesWrap");
+  const head = document.getElementById("matchesHead");
   const group = matches.filter(m=>m.stage==="GROUP")
     .sort((a,b)=> schedDateKey(a).localeCompare(schedDateKey(b)) || (schedTimeMin(a)-schedTimeMin(b)) || (a.court-b.court));
-  if(!group.length){ wrap.innerHTML = '<p class="empty">Belum ada jadwal untuk kategori ini. Klik “Generate jadwal”.</p>'; return; }
+  if(!group.length){ if(head) head.style.display="none"; wrap.innerHTML = '<p class="empty">Belum ada jadwal untuk kategori ini. Klik “Generate jadwal”.</p>'; return; }
+  if(head) head.style.display="flex";
   const firstByCourt = {};
   group.forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
   const playing = new Set(Object.values(firstByCourt));

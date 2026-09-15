@@ -681,6 +681,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/schedule") && method === "POST") {
       return await tScheduleEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")), body);
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/schedule") && method === "PUT") {
+      return await tSaveScheduleTimes(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")), body);
+    }
     if (path.startsWith("tournament/event/") && path.endsWith("/finalize-elo") && method === "POST") {
       return await tFinalizeElo(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo", "")), body && body.force);
     }
@@ -743,6 +746,9 @@ const netlifyHandler = async (event) => {
     }
     if (path.startsWith("tournament/") && path.endsWith("/groups") && method === "GET") {
       return await tGetGroups(decodeURIComponent(path.replace("tournament/", "").replace("/groups", "")));
+    }
+    if (path.startsWith("tournament/") && path.endsWith("/groups") && method === "PUT") {
+      return await tSaveGroups(decodeURIComponent(path.replace("tournament/", "").replace("/groups", "")), body);
     }
     if (path.startsWith("tournament/") && path.endsWith("/matches") && method === "GET") {
       return await tListMatches(decodeURIComponent(path.replace("tournament/", "").replace("/matches", "")));
@@ -2463,6 +2469,59 @@ async function tGetGroups(id) {
   return respond(200, { groups });
 }
 
+// Persist a MANUAL group arrangement (the in-app replacement for the old
+// "edit in Google Sheet then sync" flow). Body: { groups: [{ entrantIds: [...] }] }.
+// The client only decides WHICH group each entrant sits in; every entrant's data
+// (names / seed ELO / team name) is re-read from Tournament_Entrants, so the
+// client can never corrupt it. Groups are relabelled A, B, C… in the order
+// received and empty groups are dropped, keeping labels contiguous like the draw.
+async function tSaveGroups(id, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const t = await tGetTournamentRow(sheets, id);
+  if (!t) return respond(404, { error: "Tournament not found" });
+  const groupsIn = body && Array.isArray(body.groups) ? body.groups : null;
+  if (!groupsIn) return respond(400, { error: "groups[] required" });
+
+  const enr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
+  const byId = new Map();
+  for (const e of enr.data.values || []) if (e[0] === id && e[1]) byId.set(String(e[1]), e);
+  if (!byId.size) return respond(400, { error: "Belum ada peserta di kategori ini." });
+
+  // Validate every assigned entrant is real, appears once, and that all entrants
+  // end up placed — guards against a bad payload silently dropping pairs.
+  const seen = new Set();
+  const ordered = [];
+  for (const g of groupsIn) {
+    const ids = g && Array.isArray(g.entrantIds) ? g.entrantIds.map(String) : [];
+    const members = [];
+    for (const eid of ids) {
+      if (!byId.has(eid)) return respond(400, { error: `Peserta tidak dikenal: ${eid}` });
+      if (seen.has(eid)) return respond(400, { error: `Peserta terpakai dua kali: ${eid}` });
+      seen.add(eid);
+      members.push(eid);
+    }
+    if (members.length) ordered.push(members);
+  }
+  if (seen.size !== byId.size) return respond(400, { error: `Semua peserta harus masuk grup (baru ${seen.size} dari ${byId.size}).` });
+  if (!ordered.length) return respond(400, { error: "Minimal satu grup harus berisi peserta." });
+
+  const newRows = [], summary = [];
+  ordered.forEach((members, gi) => {
+    const label = groupLabel(gi);
+    for (const eid of members) {
+      const e = byId.get(eid);
+      newRows.push([id, t.tournament.category, label, e[1], e[2], e[4], parseInt(e[6]) || 0, e[10] || ""]);
+    }
+    summary.push({
+      label, size: members.length, matches: (members.length * (members.length - 1)) / 2,
+      members: members.map((eid) => { const e = byId.get(eid); return { entrantId: e[1], player1Name: e[2], player2Name: e[4], seedElo: parseInt(e[6]) || 0, teamName: e[10] || "" }; }),
+    });
+  });
+  await rewriteGroups(sheets, id, newRows);
+  return respond(200, { success: true, groupCount: ordered.length, groups: summary });
+}
+
 // ==============================================================
 // TOURNAMENT HANDLERS (Phase 3a: group-stage scheduler)
 // ==============================================================
@@ -4167,6 +4226,51 @@ async function tImportSchedule(eventId) {
   return respond(200, { success: true, updated, skipped, errorCount: errors.length, errors: errors.slice(0, 50) });
 }
 
+// Manual BULK edit of match court/date/time straight from the app — the in-app
+// replacement for the retired Google-Sheet round-trip. Body:
+// { edits: [{ matchId, court, date, time }] }. Only rows belonging to this event
+// are touched; a blank field leaves that cell unchanged. Same normalisation as
+// the per-match editor (normClock / normDate), and only changed rows are written.
+async function tSaveScheduleTimes(eventId, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const edits = body && Array.isArray(body.edits) ? body.edits : null;
+  if (!edits) return respond(400, { error: "edits[] required" });
+
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const tids = (trRes.data.values || []).filter((x) => x[1] === eventId).map((x) => x[0]);
+
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const rows = mRes.data.values || [];
+  const now = new Date().toISOString();
+  let updated = 0, skipped = 0;
+  const errors = [];
+  const changedIdx = new Set();
+  for (const ed of edits) {
+    const mid = String((ed && ed.matchId) || "").trim();
+    if (!mid) continue;
+    const idx = resolveMatchIdx(rows, mid);
+    if (idx === -1) { skipped++; errors.push({ matchId: mid, reason: "match tidak ditemukan" }); continue; }
+    if (tids.length && !tids.includes(rows[idx][0])) { skipped++; errors.push({ matchId: mid, reason: "bukan milik event ini" }); continue; }
+    const row = rows[idx];
+    while (row.length < 17) row.push("");
+    const courtRaw = ed.court == null ? "" : String(ed.court).trim();
+    const timeRaw = ed.time == null ? "" : String(ed.time).trim();
+    const dateRaw = ed.date == null ? "" : String(ed.date).trim();
+    let changed = false;
+    if (courtRaw !== "") { const c = parseInt(courtRaw); const cv = isNaN(c) ? courtRaw : String(c); if (cv !== String(row[6])) { row[6] = cv; changed = true; } }
+    if (timeRaw !== "") { const tv = normClock(timeRaw); if (!tv) errors.push({ matchId: mid, reason: `jam '${timeRaw}' tidak valid` }); else if (tv !== String(row[8])) { row[8] = tv; changed = true; } }
+    if (dateRaw !== "") { const dv = normDate(dateRaw); if (dv === null) errors.push({ matchId: mid, reason: `tanggal '${dateRaw}' tidak valid (YYYY-MM-DD)` }); else if (dv !== String(row[16])) { row[16] = dv; changed = true; } }
+    if (changed) { row[15] = now; changedIdx.add(idx); updated++; }
+  }
+  for (const idx of changedIdx) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A${idx + 2}:Q${idx + 2}`,
+      valueInputOption: "RAW", requestBody: { values: [padMatchRow(rows[idx])] },
+    });
+  }
+  return respond(200, { success: true, updated, skipped, errorCount: errors.length, errors: errors.slice(0, 50) });
+}
 async function tUpdateMatchMeta(body) {  const { matchId, court, time, date } = body || {};
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
