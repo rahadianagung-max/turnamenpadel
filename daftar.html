@@ -186,20 +186,50 @@ function vCat(){
       <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('players')">Lanjut →</button></div></div>`;
 }
 function vPlayers(){
-  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Isi <b>nama lengkap</b> kedua pemain (wajib) + kontak. (Pengecekan otomatis ke database Trekkr menyusul.)</p>
+  const t=teamElig();
+  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Isi <b>nama lengkap</b> kedua pemain (wajib) + kontak, lalu <b>cek database</b> (nama · HP · email · IG).</p>
     ${[0,1].map(i=>pIdent(i)).join("")}
+    ${t.label?`<div class="card" style="margin-top:12px;background:#0e0e10"><div class="row" style="justify-content:space-between;align-items:center"><b>Eligibility tim</b><span class="chip ${t.cls}">${esc(t.label)}</span></div></div>`:''}
     <div class="nav"><button class="btn ghost" onclick="go('cat')">←</button>
-      <button class="btn primary" ${bothNamed()?'':'disabled'} onclick="go('personal')">Lanjut →</button></div></div>`;
+      <button class="btn primary" ${(bothNamed()&&t.cls!=='block')?'':'disabled'} onclick="go('personal')">Lanjut →</button></div></div>`;
 }
 function bothNamed(){ return F.players.every(p=>(p.name||"").trim()); }
-function pIdent(i){ const p=F.players[i];
-  return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||(''+ (i+1))).charAt(0).toUpperCase())}</div><div><div class="who">Pemain ${i+1}</div><div class="sub">identitas</div></div></div>
-    <label class="f"><span>Nama lengkap <span class="req">*</span></span><input value="${esc(p.name)}" oninput="F.players[${i}].name=this.value" placeholder="Nama lengkap"></label>
+function teamElig(){
+  const cs=F.players.map(p=>p.chk).filter(Boolean);
+  if(!cs.length) return {cls:"",label:""};
+  if(cs.some(c=>c.eligibility&&c.eligibility.state==="block")) return {cls:"warn",label:"⛔ Ada pemain di atas plafon — tak bisa lanjut"};
+  if(cs.some(c=>c.eligibility&&c.eligibility.state==="flag")) return {cls:"warn",label:"⚠ Ditandai untuk kurasi (boleh lanjut)"};
+  if(F.players.every(p=>p.chk&&p.chk.eligibility&&p.chk.eligibility.state==="ok")) return {cls:"ok",label:"✔ Tim memenuhi syarat"};
+  return {cls:"",label:""};
+}
+function setP(i,k,v){ F.players[i][k]=v; F.players[i].chk=null; }
+function pIdent(i){ const p=F.players[i]; const c=p.chk;
+  let res="";
+  if(c){
+    if(c.found){ const e=c.eligibility||{}; const st=e.state==='block'?'warn':(e.state==='flag'?'warn':'ok');
+      res=`<div class="card" style="margin-top:10px;background:#0e0e10"><div class="row" style="justify-content:space-between"><span>✔ <b>Cocok</b> via ${esc(c.method)}</span><span class="chip ${st}">${esc(e.msg||'')}</span></div>
+        <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span> ${c.claimed?'<span class="chip ok">di-claim ✔</span>':'<span class="chip warn">belum di-claim</span>'}</div>
+        ${c.enrolledInCategory?'<div style="margin-top:6px"><span class="chip warn">⚠ sudah terdaftar di kategori ini — ditandai untuk admin</span></div>':''}</div>`;
+    } else {
+      res=`<div class="card" style="margin-top:10px;background:#0e0e10"><span class="chip warn">pemain baru</span> <span class="note">didaftarkan sebagai pemain baru — level mengikuti kategori.</span></div>`;
+    }
+  }
+  return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||(''+ (i+1))).charAt(0).toUpperCase())}</div><div><div class="who">Pemain ${i+1}</div><div class="sub">identitas untuk cek database</div></div></div>
+    <label class="f"><span>Nama lengkap <span class="req">*</span></span><input value="${esc(p.name)}" oninput="setP(${i},'name',this.value)" placeholder="Nama lengkap"></label>
     <div class="grid2">
-      <label class="f"><span>No. HP</span><input value="${esc(p.phone)}" oninput="F.players[${i}].phone=this.value" placeholder="0812..."></label>
-      <label class="f"><span>Email</span><input value="${esc(p.email)}" oninput="F.players[${i}].email=this.value" placeholder="nama@mail.com"></label>
+      <label class="f"><span>No. HP</span><input value="${esc(p.phone)}" oninput="setP(${i},'phone',this.value)" placeholder="0812..."></label>
+      <label class="f"><span>Email</span><input value="${esc(p.email)}" oninput="setP(${i},'email',this.value)" placeholder="nama@mail.com"></label>
     </div>
-    <label class="f"><span>Instagram</span><input value="${esc(p.ig)}" oninput="F.players[${i}].ig=this.value" placeholder="@akun"></label></div>`;
+    <label class="f"><span>Instagram</span><input value="${esc(p.ig)}" oninput="setP(${i},'ig',this.value)" placeholder="@akun"></label>
+    <button class="btn primary" style="padding:8px 12px;font-size:12.5px" onclick="doCheck(${i})">🔎 Cek database</button>
+    ${res}</div>`;
+}
+async function doCheck(i){
+  const p=F.players[i], c=cat();
+  if(!(p.name||"").trim()) return;
+  try{ p.chk = await api("reg/check-player", {method:"POST", body:{ name:p.name, phone:p.phone, email:p.email, ig:p.ig, eventId:F.eventId, category:F.catId, level:c?c.level:"" }}); }
+  catch(e){ p.chk = {found:false, eligibility:{state:"flag",msg:"cek gagal"}}; }
+  render();
 }
 function vPersonal(){
   const f=F.data.config.fields||{};

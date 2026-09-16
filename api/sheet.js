@@ -779,6 +779,7 @@ const netlifyHandler = async (event) => {
       return await regPublic(decodeURIComponent(path.replace("reg/public/", "")));
     if (path.startsWith("reg/register/") && method === "POST")
       return await regRegisterPair(decodeURIComponent(path.replace("reg/register/", "")), body);
+    if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
     if (path.startsWith("reg/registrations/") && method === "GET")
       return await regListRegistrations(decodeURIComponent(path.replace("reg/registrations/", "")));
 
@@ -5276,6 +5277,19 @@ async function regRegisterPair(eventId, body) {
   if (!String(p1.name || "").trim() || !String(p2.name || "").trim())
     return respond(400, { error: "Nama lengkap kedua pemain wajib diisi." });
 
+  // Cek DB + eligibility (campur) — otoritatif di server. Blok keras ditolak.
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const prows = pRes.data.values || [];
+  const m1 = regLookupPlayer(prows, eMap, p1), m2 = regLookupPlayer(prows, eMap, p2);
+  const e1 = eligibilityOf(m1 ? m1.elo : null, !m1, cat.level), e2 = eligibilityOf(m2 ? m2.elo : null, !m2, cat.level);
+  if (e1.state === "block" || e2.state === "block")
+    return respond(400, { error: `Level di atas plafon kategori ${cat.label || catId}. ${e1.state === "block" ? p1.name + ": " + e1.msg + ". " : ""}${e2.state === "block" ? p2.name + ": " + e2.msg + "." : ""}`.trim() });
+  const teamElig = (e1.state === "flag" || e2.state === "flag") ? "flag" : "ok";
+
   // Kuota (model a): pair mengisi slot; penuh → waitlist (tanpa bayar).
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
   const counts = regCategoryCounts(rRes.data.values || [], formId);
@@ -5291,10 +5305,11 @@ async function regRegisterPair(eventId, body) {
   try { if (body.photo2) photo2 = await driveUploadImage(body.photo2, `reg_${safe(p2.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo2:", e.message); }
   if (!isWaitlist) { try { if (body.paymentProof) payUrl = await driveUploadImage(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
 
-  const mkP = (p, photo) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
-    nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo });
-  const data = { category: catId, level: cat.level || "", player1: mkP(p1, photo1), player2: mkP(p2, photo2),
-    waiver: !!body.waiver, infoTrue: !!body.infoTrue };
+  const mkP = (p, photo, m, e) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
+    nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo,
+    match: m ? { name: m.name, elo: m.elo, tier: m.tier, claimed: m.verified, via: m.method } : null, isNew: !m, eligibility: e });
+  const data = { category: catId, level: cat.level || "", player1: mkP(p1, photo1, m1, e1), player2: mkP(p2, photo2, m2, e2),
+    teamEligibility: teamElig, waiver: !!body.waiver, infoTrue: !!body.infoTrue };
   const regId = regGenId("reg");
   const now = new Date().toISOString();
   const teamName = `${data.player1.name} + ${data.player2.name}`;
@@ -5303,6 +5318,76 @@ async function regRegisterPair(eventId, body) {
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[regId, formId, now, teamName, data.player1.gender || "M", data.player1.phone || "", photo1, payUrl, JSON.stringify(data), catId, status]] } });
   return respond(200, { success: true, regId, status, waitlist: isWaitlist });
+}
+
+// ==============================================================
+// DB CHECK (4-metode) + ELIGIBILITY (campur)
+// ==============================================================
+const TIER_ORDER = ["beginner","upper_beginner","lower_bronze","bronze","upper_bronze","silver","gold","platinum"];
+// Batas ELO sebuah level kategori: floor = ambang tier; ceiling = tier berikutnya - 1.
+function levelBounds(level) {
+  const s = String(level || "").toLowerCase().trim().replace(/\s+/g, "_");
+  const idx = TIER_ORDER.indexOf(s);
+  if (idx >= 0) { const floor = LEVEL_ELO[s]; const next = TIER_ORDER[idx + 1]; return { floor, ceiling: next ? LEVEL_ELO[next] - 1 : null }; }
+  const n = parseInt(s, 10);
+  if (!isNaN(n) && n > 0) return { floor: n, ceiling: null }; // level "Other" = angka ELO
+  return { floor: null, ceiling: null };                       // open/tak dikenal → tanpa batas
+}
+// Aturan campur: ⛔ blok bila jelas di atas plafon; ⚠ flag bila di bawah syarat / pemain baru; else ✔.
+function eligibilityOf(elo, isNew, level) {
+  if (isNew || elo == null) return { state: "flag", msg: "pemain baru — untuk kurasi" };
+  const b = levelBounds(level);
+  if (b.ceiling != null && elo > b.ceiling) return { state: "block", msg: `di atas plafon (${elo} > ${b.ceiling})` };
+  if (b.floor != null && elo < b.floor) return { state: "flag", msg: `di bawah syarat (${elo} < ${b.floor}) — untuk kurasi` };
+  return { state: "ok", msg: `eligible (${elo})` };
+}
+// Cocokkan identitas ke DB pemain: HP/email/IG exact dulu, lalu nama fuzzy (ddSim).
+function regLookupPlayer(rows, eMap, ident) {
+  const nm = normName(ident.name), ph = String(ident.phone || "").replace(/\D/g, ""),
+        em = String(ident.email || "").trim().toLowerCase(), ig = String(ident.ig || "").replace(/^@/, "").trim().toLowerCase();
+  let hit = null, method = "";
+  for (const r of rows) {
+    const rph = String(r[12] || "").replace(/\D/g, ""), rem = String(r[11] || "").trim().toLowerCase(), rig = String(r[1] || "").replace(/^@/, "").trim().toLowerCase();
+    if (ph && rph && rph === ph) { hit = r; method = "nomor HP"; break; }
+    if (em && rem && rem === em) { hit = r; method = "email"; break; }
+    if (ig && rig && rig === ig) { hit = r; method = "Instagram"; break; }
+  }
+  if (!hit && nm) {
+    let best = null, bs = 0;
+    for (const r of rows) { const s = ddSim(nm, r[0] || ""); if (s > bs) { bs = s; best = r; } }
+    if (best && bs >= 0.75) { hit = best; method = bs >= 0.92 ? "nama" : "nama (mirip)"; }
+  }
+  if (!hit) return null;
+  const em2 = eMap[String(hit[0] || "").toLowerCase()] || {};
+  const elo = em2.elo == null ? 1350 : em2.elo;
+  return { name: hit[0] || "", ig: hit[1] || "", verified: String(hit[2]).toUpperCase() === "TRUE", elo, tier: getTierName(elo), method };
+}
+async function regCheckPlayer(body) {
+  const sheets = getSheets();
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const hit = regLookupPlayer(pRes.data.values || [], eMap, body || {});
+  const level = (body && body.level) || "";
+  // Penanda dobel: pemain (yang cocok) sudah terdaftar di kategori ini?
+  let enrolled = false;
+  if (body && body.eventId && body.category && hit) {
+    const formId = regFormIdForEvent(body.eventId);
+    const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+    for (const r of (rRes.data.values || [])) {
+      if (r[1] !== formId) continue;
+      const st = r[10] || ""; if (st === "rejected" || st === "cancelled") continue;
+      let d = {}; try { d = JSON.parse(r[8] || "{}"); } catch (e) {}
+      if ((d.category || r[9]) !== body.category) continue;
+      const names = [d.player1 && d.player1.name, d.player2 && d.player2.name].map((x) => normName(x || ""));
+      if (names.includes(normName(hit.name))) { enrolled = true; break; }
+    }
+  }
+  if (!hit) return respond(200, { found: false, eligibility: eligibilityOf(null, true, level) });
+  return respond(200, { found: true, name: hit.name, ig: hit.ig, elo: hit.elo, tier: hit.tier,
+    method: hit.method, claimed: hit.verified, enrolledInCategory: enrolled, eligibility: eligibilityOf(hit.elo, false, level) });
 }
 
 // ==============================================================
