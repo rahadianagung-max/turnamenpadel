@@ -35,6 +35,7 @@ const SHEET_MAP = {
   RegForms:           { table: "reg_forms",           cols: ["form_id","name","status","linked_tournament","config","created_at","updated_at"] },
   Registrations:      { table: "registrations",       cols: ["reg_id","form_id","timestamp","name","gender","phone","photo_url","payment_proof_url","data","linked_tournament","status"] },
   Appeals:            { table: "appeals",              cols: ["appeal_id","event_id","category","against_reg_id","against_label","appellant_name","appellant_email","appellant_phone","reason","proof_url","created_at","status","decision","decided_at","decided_by"] },
+  RegClaims:          { table: "reg_claims",           cols: ["token","player_name","email","event_id","status","created_at","expires_at","confirmed_at"] },
 
   // The live Tournament_Leads tab is the real 15-column layout (preserved as
   // tournament_leads_legacy during the Trekkr migration).

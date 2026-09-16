@@ -78,6 +78,9 @@
   .logo{font-family:var(--display);font-weight:800;font-size:22px}.logo .dot{color:var(--accent)}
   .done-hero{text-align:center;padding:8px 0}.done-hero .big{font-size:46px}
   .empty{color:var(--faint);text-align:center;padding:40px 0}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:grid;place-items:center;padding:18px;z-index:50}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:400px;width:100%}
+  .modal h3{font-size:19px;margin-bottom:4px}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -89,6 +92,7 @@
   <div id="head"></div>
   <div id="host"><p class="empty">Memuat…</p></div>
 </div>
+<div id="modalHost"></div>
 <script>
 const API = "/api";
 const rupiah = n => { const v=parseInt(String(n).replace(/\D/g,"")); return isNaN(v)?String(n||""):"Rp"+v.toLocaleString("id-ID"); };
@@ -207,8 +211,12 @@ function pIdent(i){ const p=F.players[i]; const c=p.chk;
   let res="";
   if(c){
     if(c.found){ const e=c.eligibility||{}; const st=e.state==='block'?'warn':(e.state==='flag'?'warn':'ok');
+      const claimBit = c.claimed ? '<span class="chip ok">di-claim ✔</span>'
+        : (p.claimPending ? '<span class="chip warn">klaim ⏳ menunggu email</span>'
+           : `<button class="btn ghost" style="padding:6px 10px;font-size:12px" onclick="openClaim(${i})">Klaim profil ini</button>`);
       res=`<div class="card" style="margin-top:10px;background:#0e0e10"><div class="row" style="justify-content:space-between"><span>✔ <b>Cocok</b> via ${esc(c.method)}</span><span class="chip ${st}">${esc(e.msg||'')}</span></div>
-        <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span> ${c.claimed?'<span class="chip ok">di-claim ✔</span>':'<span class="chip warn">belum di-claim</span>'}</div>
+        <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>
+        <div style="margin-top:8px">${claimBit}</div>
         ${c.enrolledInCategory?'<div style="margin-top:6px"><span class="chip warn">⚠ sudah terdaftar di kategori ini — ditandai untuk admin</span></div>':''}</div>`;
     } else {
       res=`<div class="card" style="margin-top:10px;background:#0e0e10"><span class="chip warn">pemain baru</span> <span class="note">didaftarkan sebagai pemain baru — level mengikuti kategori.</span></div>`;
@@ -230,6 +238,31 @@ async function doCheck(i){
   try{ p.chk = await api("reg/check-player", {method:"POST", body:{ name:p.name, phone:p.phone, email:p.email, ig:p.ig, eventId:F.eventId, category:F.catId, level:c?c.level:"" }}); }
   catch(e){ p.chk = {found:false, eligibility:{state:"flag",msg:"cek gagal"}}; }
   render();
+}
+function closeModal(){ document.getElementById("modalHost").innerHTML=""; }
+function openClaim(i){
+  const p=F.players[i], c=p.chk||{};
+  document.getElementById("modalHost").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal"><h3>Klaim profil</h3>
+      <p class="muted" style="margin:2px 0 12px;font-size:13px">${esc(c.name||p.name)} · ${esc(c.tier||'')} ${c.elo||''}</p>
+      <div id="claimBody">
+        <label class="f"><span>Email verifikasi</span><input id="claimEmail" value="${esc(p.email||'')}" placeholder="email@mail.com"></label>
+        <button class="btn primary" style="width:100%" onclick="claimStart(${i})">Kirim verifikasi</button>
+        <p class="note">Link konfirmasi dikirim ke email. Kamu boleh <b>lanjut mendaftar dulu</b> — klaim selesai saat link diklik.</p>
+      </div></div></div>`;
+}
+async function claimStart(i){
+  const p=F.players[i];
+  const email=(document.getElementById("claimEmail").value||"").trim();
+  if(!email){ alert("Isi email dulu."); return; }
+  const cb=document.getElementById("claimBody"); cb.innerHTML='<p class="muted">Mengirim…</p>';
+  try{
+    const r=await api("reg/claim/start",{method:"POST",body:{playerName:(p.chk&&p.chk.name)||p.name, email, eventId:F.eventId}});
+    p.claimPending=true; p.email=p.email||email;
+    cb.innerHTML = r.sent
+      ? '<div class="chip ok">📧 Email terkirim</div><p class="note">Cek inbox & klik konfirmasi. Kamu bisa lanjut mendaftar.</p><button class="btn primary" style="width:100%;margin-top:8px" onclick="closeModal();render()">Lanjut daftar</button>'
+      : '<div class="chip warn">Email belum terkirim</div><p class="note">'+esc(r.message||'Layanan email belum aktif.')+'</p><button class="btn" style="width:100%;margin-top:8px" onclick="closeModal();render()">Tutup</button>';
+  }catch(e){ cb.innerHTML='<div class="chip warn">Gagal: '+esc(e.message)+'</div><button class="btn" style="width:100%;margin-top:8px" onclick="closeModal()">Tutup</button>'; }
 }
 function vPersonal(){
   const f=F.data.config.fields||{};

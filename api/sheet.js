@@ -419,6 +419,8 @@ const TABS = {
   t_form: "Form_Responses",
   reg_forms: "RegForms",
   registrations: "Registrations",
+  reg_claims: "RegClaims",
+  appeals: "Appeals",
   leads: "Tournament_Leads",
   tracked_events: "Tracked_Events",
   calc_leads: "Calculator_Leads",
@@ -780,6 +782,8 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("reg/register/") && method === "POST")
       return await regRegisterPair(decodeURIComponent(path.replace("reg/register/", "")), body);
     if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
+    if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
+    if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
     if (path.startsWith("reg/registrations/") && method === "GET")
       return await regListRegistrations(decodeURIComponent(path.replace("reg/registrations/", "")));
 
@@ -5388,6 +5392,69 @@ async function regCheckPlayer(body) {
   if (!hit) return respond(200, { found: false, eligibility: eligibilityOf(null, true, level) });
   return respond(200, { found: true, name: hit.name, ig: hit.ig, elo: hit.elo, tier: hit.tier,
     method: hit.method, claimed: hit.verified, enrolledInCategory: enrolled, eligibility: eligibilityOf(hit.elo, false, level) });
+}
+
+// ==============================================================
+// CLAIM PROFIL saat pendaftaran — verifikasi via email (async, non-blocking).
+// Konfirmasi HANYA menandai player.verified + player.claim_email (seperti
+// claimProfile). Tidak menyentuh player_auth / profile_claims.
+// ==============================================================
+const REG_PUBLIC_BASE = (process.env.REG_PUBLIC_BASE || "https://turnamenpadel.com").replace(/\/+$/, "");
+async function regClaimStart(body) {
+  const playerName = String((body && body.playerName) || "").trim();
+  const email = String((body && body.email) || "").trim();
+  const eventId = String((body && body.eventId) || "").trim();
+  if (!playerName || !email) return respond(400, { error: "Nama pemain & email wajib." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const token = require("crypto").randomBytes(16).toString("hex");
+  const now = Date.now();
+  const expires = new Date(now + 24 * 3600 * 1000).toISOString();
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A:H`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[token, playerName, email, eventId, "pending", new Date(now).toISOString(), expires, ""]] } });
+  const link = `${REG_PUBLIC_BASE}/klaim?token=${token}`;
+  const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+    <h2 style="color:#FF6A00">Konfirmasi klaim profil</h2>
+    <p>Halo <b>${escHtml(playerName)}</b>, ada permintaan untuk mengklaim profil Trekkr atas namamu saat pendaftaran turnamen.</p>
+    <p>Jika ini kamu, klik untuk mengonfirmasi:</p>
+    <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Konfirmasi klaim →</a></p>
+    <p style="color:#888;font-size:12px">Link berlaku 24 jam. Abaikan email ini jika bukan kamu.</p></div>`;
+  try {
+    await sendBrevoEmail(email, "Konfirmasi klaim profil — TurnamenPadel", html);
+    return respond(200, { sent: true });
+  } catch (e) {
+    // Token tetap tersimpan; sampaikan bahwa email belum terkirim.
+    return respond(200, { sent: false, message: e.message });
+  }
+}
+async function regMarkPlayerClaimed(sheets, name, email) {
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const rows = res.data.values || [];
+  const idx = rows.findIndex((r) => String(r[0] || "").toLowerCase() === String(name || "").toLowerCase());
+  if (idx < 0) return false;
+  const sr = idx + 2;
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.players}!C${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [["TRUE"]] } });
+  if (email) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.players}!L${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[email]] } });
+  return true;
+}
+async function regClaimConfirm(body) {
+  const token = String((body && body.token) || "").trim();
+  if (!token) return respond(400, { error: "Token tidak ada." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A2:H` });
+  const rows = res.data.values || [];
+  const idx = rows.findIndex((r) => r[0] === token);
+  if (idx < 0) return respond(404, { error: "Link tidak valid." });
+  const row = rows[idx], sr = idx + 2;
+  const status = row[4] || "pending";
+  if (status === "confirmed") return respond(200, { success: true, already: true, playerName: row[1] || "" });
+  if (row[6] && Date.now() > Date.parse(row[6])) {
+    await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!E${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [["expired"]] } });
+    return respond(410, { error: "Link kedaluwarsa. Ajukan klaim lagi." });
+  }
+  try { await regMarkPlayerClaimed(sheets, row[1], row[2]); } catch (e) { console.error("mark claimed:", e.message); }
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!E${sr}:H${sr}`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [["confirmed", row[5] || "", row[6] || "", new Date().toISOString()]] } });
+  return respond(200, { success: true, playerName: row[1] || "" });
 }
 
 // ==============================================================
