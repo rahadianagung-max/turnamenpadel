@@ -487,20 +487,32 @@
 
   <!-- 3. IMPORT -->
   <section id="sec3" class="locked">
-    <div class="sec-head"><div class="num">3</div><h2>Import players</h2><span class="sub">add participants, then import them into this category</span></div>
-    <p class="muted">Two steps: <b>1)</b> add your participant pairs on the <b>Add participants</b> page (or via a linked Google Form), then <b>2)</b> click <b>Import participants</b> here to pull them in. Existing Trekkr players keep their latest ELO; new names are created at the category's level ELO, and similar names are flagged so you can merge duplicates.</p>
-    <div class="actions">
-      <a class="btn btn-primary" href="/tambah-peserta" target="_blank" rel="noopener">➕ Add participants ↗</a>
-      <button type="button" class="btn btn-ghost" onclick="runImport()">⬇ Import participants</button>
-      <span class="muted" id="importHint"></span>
+    <div class="sec-head"><div class="num">3</div><h2>Participants</h2><span class="sub">how do participants get in?</span></div>
+    <div class="seg" id="regOptSeg" style="display:inline-flex;border:1px solid var(--line);border-radius:999px;background:var(--panel);padding:3px;margin-bottom:16px">
+      <button type="button" id="regOpt1Btn" class="active" onclick="setRegOpt(1)" style="border:0;background:var(--orange);color:#0A0A0B;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:999px;cursor:pointer">Sudah lengkap · input nama</button>
+      <button type="button" id="regOpt2Btn" onclick="setRegOpt(2)" style="border:0;background:transparent;color:var(--muted);font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:999px;cursor:pointer">Buat formulir pendaftaran</button>
     </div>
-    <div class="result" id="importResult">
-      <div class="stats">
-        <div><b id="rImported">0</b><span>imported</span></div>
-        <div><b id="rNew">0</b><span>new players</span></div>
-        <div><b id="rMatch">0</b><span>names matched</span></div>
-        <div><b id="rSkip">0</b><span>duplicates skipped</span></div>
+
+    <div id="regOpt1">
+      <p class="muted">Two steps: <b>1)</b> add your participant pairs on the <b>Add participants</b> page (or via a linked Google Form), then <b>2)</b> click <b>Import participants</b> here to pull them in. Existing Trekkr players keep their latest ELO; new names are created at the category's level ELO, and similar names are flagged so you can merge duplicates.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="/tambah-peserta" target="_blank" rel="noopener">➕ Add participants ↗</a>
+        <button type="button" class="btn btn-ghost" onclick="runImport()">⬇ Import participants</button>
+        <span class="muted" id="importHint"></span>
       </div>
+      <div class="result" id="importResult">
+        <div class="stats">
+          <div><b id="rImported">0</b><span>imported</span></div>
+          <div><b id="rNew">0</b><span>new players</span></div>
+          <div><b id="rMatch">0</b><span>names matched</span></div>
+          <div><b id="rSkip">0</b><span>duplicates skipped</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="regOpt2" hidden>
+      <p class="muted" style="margin-top:0">Peserta mendaftar sendiri lewat <b>satu link publik per event</b>. Isi auto-terisi dari step Event &amp; Category; lengkapi sisanya. Tersimpan aman (tidak mengubah data yang ada).</p>
+      <div id="regBuilder"><p class="empty">Pilih/simpan event dulu untuk membangun formulir.</p></div>
     </div>
   </section>
 
@@ -1027,6 +1039,130 @@ async function saveLevel(){
     toast(`Level diubah → ${levelLabel(r.level||level)} · ${r.reseededPlayers||0} pemain baru diperbaiki`);
   }catch(e){ document.getElementById("elErr").textContent = e.message; }
   finally{ btn.disabled = false; btn.textContent = "Simpan level"; }
+}
+
+/* ================= REGISTRATION BUILDER (Opsi 2) ================= */
+// 1 formulir per event. formId = "evt:<eventId>". Konfigurasi lengkap disimpan
+// di RegForms.config (JSON). Data event/kategori diambil dari state.
+function regFormId(){ return state.event ? "evt:"+state.event.eventId : ""; }
+function regPublicLink(){ return location.origin + "/daftar/" + encodeURIComponent((state.event&&state.event.eventId)||""); }
+function setRegOpt(n){
+  document.getElementById("regOpt1").hidden = n!==1;
+  document.getElementById("regOpt2").hidden = n!==2;
+  const b1=document.getElementById("regOpt1Btn"), b2=document.getElementById("regOpt2Btn");
+  const set=(b,active)=>{ b.style.background=active?"var(--orange)":"transparent"; b.style.color=active?"#0A0A0B":"var(--muted)"; };
+  set(b1, n===1); set(b2, n===2);
+  if(n===2) openRegBuilder();
+}
+async function openRegBuilder(){
+  const host=document.getElementById("regBuilder");
+  if(!state.event){ host.innerHTML='<p class="empty">Pilih/simpan event dulu untuk membangun formulir.</p>'; return; }
+  host.innerHTML='<p class="empty">Memuat…</p>';
+  let cfg={}, status="draft";
+  try{ const r=await api("reg/form/"+encodeURIComponent(regFormId())); cfg=r.config||{}; status=r.status||"draft"; }
+  catch(e){ if(e.status!==404){ toast(e.message,true); } } // 404 = form baru
+  renderRegBuilder(cfg, status);
+}
+const REG_FIELDS=[["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["jersey","Ukuran jersey"]];
+function renderRegBuilder(cfg, status){
+  cfg=cfg||{}; const tl=cfg.timeline||{}, pay=cfg.payment||{}, f=cfg.fields||{}, cats=cfg.categories||{};
+  const dflt=(k,d)=> (f[k]===undefined? d : !!f[k]);
+  const ts=state.tournaments||[];
+  const catRows = ts.length ? ts.map(t=>{
+    const c=cats[t.tournamentId]||{};
+    return `<tr><td>${esc(t.category)}</td><td>${esc(levelLabel(t.level))}</td>
+      <td><input id="rb_fee_${esc(t.tournamentId)}" value="${esc(c.fee||"")}" placeholder="350000" style="max-width:110px"></td>
+      <td><input id="rb_prize_${esc(t.tournamentId)}" value="${esc(c.prize||"")}" placeholder="Rp5 jt" style="max-width:100px"></td>
+      <td><input id="rb_quota_${esc(t.tournamentId)}" value="${esc(c.quota||"")}" placeholder="32" style="max-width:70px"></td>
+      <td><input id="rb_req_${esc(t.tournamentId)}" value="${esc(c.req||"")}" placeholder="mis. ELO ≥ 1800"></td></tr>`;
+  }).join("") : `<tr><td colspan="6" class="muted" style="padding:10px">Belum ada kategori — buat di step Category dulu.</td></tr>`;
+  const statusChip = status==="open"?'<span class="chip on">● DIBUKA</span>':status==="closed"?'<span class="chip">● Ditutup</span>':'<span class="chip">draft</span>';
+  document.getElementById("regBuilder").innerHTML = `
+    <div class="rb-bar" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+      ${statusChip}
+      <span class="muted" style="font-size:12.5px">Link publik: <a href="${regPublicLink()}" target="_blank" rel="noopener">${esc(regPublicLink())}</a></span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="copyRegLink()">Salin link</button>
+    </div>
+
+    <div class="f"><label>Alamat lengkap venue</label><input id="rb_address" value="${esc(cfg.address||state.event.venue||"")}" placeholder="Jl. …"></div>
+    <div class="grid">
+      <div class="f"><label>Link Google Maps</label><input id="rb_maps" value="${esc(cfg.maps||"")}" placeholder="https://maps…"></div>
+      <div class="f"><label>Region / kota</label><input id="rb_region" value="${esc(cfg.region||"")}" placeholder="Tangerang Selatan"></div>
+    </div>
+
+    <div style="font-weight:700;margin:14px 0 6px">Kategori · biaya · prize · kuota · syarat</div>
+    <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px">
+      <table style="width:100%;border-collapse:collapse;font-size:12.5px">
+        <tr style="background:#0e0e10"><th style="text-align:left;padding:8px 9px">Kategori</th><th style="text-align:left;padding:8px 9px">Level</th><th style="text-align:left;padding:8px 9px">Biaya</th><th style="text-align:left;padding:8px 9px">Prize</th><th style="text-align:left;padding:8px 9px">Kuota</th><th style="text-align:left;padding:8px 9px">Syarat level</th></tr>
+        ${catRows}
+      </table>
+    </div>
+
+    <div class="f" style="margin-top:14px"><label>Basic game rules</label><textarea id="rb_rules" rows="3">${esc(cfg.rules||"")}</textarea></div>
+    <div class="f"><label>Waiver / disclaimer</label><textarea id="rb_waiver" rows="3">${esc(cfg.waiver||"")}</textarea></div>
+
+    <div style="font-weight:700;margin:14px 0 6px">Timeline pendaftaran</div>
+    <div class="grid">
+      <div class="f"><label>Buka daftar</label><input id="rb_openStart" value="${esc(tl.openStart||"")}" placeholder="20 Sep 2026"></div>
+      <div class="f"><label>Tutup daftar</label><input id="rb_openEnd" value="${esc(tl.openEnd||"")}" placeholder="1 Okt 2026"></div>
+      <div class="f"><label>Kurasi mulai</label><input id="rb_curStart" value="${esc(tl.curationStart||"")}" placeholder="2 Okt 2026"></div>
+      <div class="f"><label>Batas waktu appeal</label><input id="rb_appeal" value="${esc(tl.appealDeadline||"")}" placeholder="4 Okt 2026 · 23:59"></div>
+      <div class="f"><label>Technical Meeting + grup</label><input id="rb_tm" value="${esc(tl.tmDate||"")}" placeholder="8 Okt 2026"></div>
+      <div class="f"><label>Order of play rilis</label><input id="rb_oop" value="${esc(tl.oopDate||"")}" placeholder="10 Okt 2026"></div>
+    </div>
+
+    <div class="f" style="margin-top:8px"><label>Rekening / e-wallet pembayaran</label><input id="rb_account" value="${esc(pay.account||"")}" placeholder="BCA 123456 a.n. …"></div>
+
+    <div style="font-weight:700;margin:14px 0 6px">Field peserta yang diminta <span class="muted" style="font-weight:400">(nama, HP, email, IG selalu wajib)</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px">
+      ${REG_FIELDS.map(([k,lbl])=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="rb_field_${k}" ${dflt(k, k!=="jersey")?"checked":""} style="width:auto"> ${esc(lbl)}${k==="jersey"?' <span class="muted">(opsional)</span>':''}</label>`).join("")}
+    </div>
+
+    <div class="actions" style="margin-top:16px">
+      <button type="button" class="btn btn-primary" onclick="saveRegForm('draft')">💾 Simpan draft</button>
+      <button type="button" class="btn btn-primary" onclick="saveRegForm('open')">🚀 Publish &amp; buka pendaftaran</button>
+      ${status==="open"?'<button type="button" class="btn btn-ghost" onclick="saveRegForm(\'closed\')">Tutup pendaftaran</button>':''}
+    </div>
+    <p class="muted" style="font-size:11.5px;margin-top:8px">Kurasi (roster, appeal, waitlist) &amp; daftar pendaftar dikelola di langkah berikutnya (menyusul).</p>`;
+}
+function collectRegConfig(){
+  const ts=state.tournaments||[];
+  const categories={};
+  ts.forEach(t=>{ categories[t.tournamentId]={
+    label:t.category, level:t.level,
+    fee: (document.getElementById("rb_fee_"+t.tournamentId)||{}).value||"",
+    prize:(document.getElementById("rb_prize_"+t.tournamentId)||{}).value||"",
+    quota:(document.getElementById("rb_quota_"+t.tournamentId)||{}).value||"",
+    req:  (document.getElementById("rb_req_"+t.tournamentId)||{}).value||"",
+  };});
+  const fields={}; REG_FIELDS.forEach(([k])=>{ const el=document.getElementById("rb_field_"+k); fields[k]=el?el.checked:false; });
+  return {
+    eventId: state.event.eventId,
+    address: val("rb_address"), maps: val("rb_maps"), region: val("rb_region"),
+    categories,
+    rules: (document.getElementById("rb_rules")||{}).value||"",
+    waiver:(document.getElementById("rb_waiver")||{}).value||"",
+    timeline:{ openStart:val("rb_openStart"), openEnd:val("rb_openEnd"), curationStart:val("rb_curStart"),
+               appealDeadline:val("rb_appeal"), tmDate:val("rb_tm"), oopDate:val("rb_oop") },
+    payment:{ account: val("rb_account") },
+    fields, refund:"manual",
+  };
+}
+async function saveRegForm(status){
+  if(!state.event) return toast("Pilih event dulu", true);
+  try{
+    await api("reg/form", { method:"POST", body:{
+      formId: regFormId(), name: state.event.name, status,
+      linkedTournament: state.event.eventId, config: collectRegConfig(),
+    }});
+    toast(status==="open"?"Formulir dipublish — pendaftaran dibuka.":status==="closed"?"Pendaftaran ditutup.":"Draft tersimpan.");
+    openRegBuilder();
+  }catch(e){ toast(e.message, true); }
+}
+function copyRegLink(){
+  const url=regPublicLink();
+  if(navigator.clipboard) navigator.clipboard.writeText(url).then(()=>toast("Link disalin."),()=>toast(url));
+  else toast(url);
 }
 
 function nnName(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
