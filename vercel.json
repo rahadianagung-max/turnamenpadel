@@ -23,6 +23,8 @@
     { "source": "/mexicano/p/:slug", "destination": "/mexicano-player.html" },
     { "source": "/draw", "destination": "/draw.html" },
     { "source": "/tambah-peserta", "destination": "/tambah-peserta.html" },
+    { "source": "/daftar/:id", "destination": "/daftar.html" },
+    { "source": "/daftar", "destination": "/daftar.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
 }

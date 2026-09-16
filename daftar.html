@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pendaftaran · TurnamenPadel</title>
+<style>
+  :root{
+    --bg:#0A0A0B; --panel:#141416; --panel2:#1B1B1F; --line:#2A2A2E;
+    --text:#F5F5F7; --muted:#A1A1AA; --faint:#6B6B72;
+    --accent:#FF6A00; --accent2:#FFB000; --press:#FF7D1F;
+    --danger:#ff6f60; --warn:#ffd166; --ok:#3ad19b;
+    --r:16px; --r-sm:11px;
+    --display:'Saira Condensed','Arial Narrow',sans-serif;
+    --body:'Plus Jakarta Sans',system-ui,sans-serif;
+    --mono:'Space Mono',ui-monospace,monospace;
+    --grad:linear-gradient(120deg,var(--accent),var(--accent2));
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5;
+    background-image:radial-gradient(900px 460px at 88% -12%,rgba(255,106,0,.16),transparent 62%);background-attachment:fixed;}
+  .wrap{max-width:470px;margin:0 auto;padding:16px;padding-block:16px 52px;}
+  h1,h2,h3,h4{font-family:var(--display);font-weight:700;letter-spacing:-.01em;margin:0;}
+  a{color:var(--accent2)} .muted{color:var(--muted)} .faint{color:var(--faint)} .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 10px 30px -18px rgba(0,0,0,.9);}
+  .card+.card{margin-top:14px}
+  .row{display:flex;gap:10px;flex-wrap:wrap} .divider{height:1px;background:var(--line);margin:14px 0}
+  .note{font-size:12px;color:var(--faint);margin-top:6px}
+  .hero{position:relative;overflow:hidden;border-radius:var(--r);border:1px solid var(--line);background:linear-gradient(150deg,#1c1207,#141416 60%);padding:20px;margin-bottom:14px}
+  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(255,106,0,.28),transparent 70%)}
+  .hero .eyebrow{color:var(--accent2)} .hero h1{font-size:28px;margin:6px 0 10px;line-height:1.05}
+  .prog{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+  .stepper{display:flex;align-items:center;flex:1}
+  .snode{display:flex;align-items:center;flex:1}.snode:last-child{flex:0}
+  .dot{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700;border:1.5px solid var(--line);background:var(--panel2);color:var(--faint)}
+  .snode.done .dot{background:var(--grad);border-color:transparent;color:#0A0A0B}
+  .snode.cur .dot{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px rgba(255,106,0,.14)}
+  .seg-line{flex:1;height:2px;background:var(--line);margin:0 4px}.snode.done .seg-line{background:var(--grad)}
+  .steplbl{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
+  label.f{display:block;margin-bottom:12px}label.f>span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .req{color:var(--accent)}
+  input,select,textarea{width:100%;background:#0e0e10;border:1px solid var(--line);color:var(--text);border-radius:var(--r-sm);padding:11px 12px;font-family:var(--body);font-size:14px}
+  input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,106,0,.5);outline-offset:1px;border-color:transparent}
+  textarea{min-height:70px;resize:vertical}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:430px){.grid2{grid-template-columns:1fr}}
+  .btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-family:var(--body);font-weight:700;font-size:14px;padding:12px 16px;border-radius:var(--r-sm);cursor:pointer;transition:.15s}
+  .btn:hover{border-color:#3a3a40}.btn.primary{background:var(--grad);border-color:transparent;color:#0A0A0B}
+  .btn.ghost{background:transparent}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .nav{display:flex;gap:10px;margin-top:18px}.nav .btn{flex:1}.nav .btn.ghost{flex:0 0 auto}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
+  .chip.ok{color:var(--ok);border-color:rgba(58,209,155,.35);background:rgba(58,209,155,.08)}
+  .chip.warn{color:var(--warn);border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.08)}
+  .elo{font-family:var(--mono);color:var(--accent);font-weight:700}
+  .summary{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,106,0,.07);border:1px solid rgba(255,106,0,.28);border-radius:var(--r-sm);padding:9px 13px;margin-bottom:14px}
+  .summary .s-fee{font-family:var(--mono);font-weight:700;color:var(--accent2)}
+  .opt{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px;cursor:pointer;background:var(--panel)}
+  .opt.sel{border-color:var(--accent);background:rgba(255,106,0,.06);box-shadow:0 0 0 3px rgba(255,106,0,.1)}
+  .opt.full{border-style:dashed} .opt input{width:auto;margin:0} .opt .grow{flex:1}
+  .opt .meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:4px}
+  .opt .prize{font-family:var(--display);font-size:20px;color:var(--accent2);line-height:1;text-align:right}
+  .opt .prize small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase;margin-bottom:2px}
+  .quota{display:flex;align-items:center;gap:8px;margin-top:8px}
+  .qbar{flex:1;height:6px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
+  .qbar i{display:block;height:100%;background:var(--grad)}
+  .qnum{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}.qnum.full{color:var(--danger)}
+  .wltag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid rgba(255,209,102,.4);background:rgba(255,209,102,.08);border-radius:6px;padding:2px 7px;margin-top:6px}
+  .kv{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid rgba(42,42,46,.55);font-size:13.5px}.kv:last-child{border:0}
+  .kv .ic{width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:7px;background:#0e0e10;border:1px solid var(--line)}
+  .pcard{border:1px solid var(--line);border-radius:var(--r-sm);padding:15px;background:var(--panel)}.pcard+.pcard{margin-top:13px}
+  .avatar{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:16px;color:#0A0A0B;background:var(--grad)}
+  .phead{display:flex;align-items:center;gap:11px;margin-bottom:12px}.phead .who{font-family:var(--display);font-size:16px}.phead .sub{font-size:11.5px;color:var(--muted)}
+  .timeline{list-style:none;margin:8px 0 0;padding:0}
+  .timeline li{position:relative;padding:0 0 12px 20px;font-size:13px;color:var(--muted)}
+  .timeline li::before{content:"";position:absolute;left:3px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--grad)}
+  .timeline li b{color:var(--text)}
+  .logo{font-family:var(--display);font-weight:800;font-size:22px}.logo .dot{color:var(--accent)}
+  .done-hero{text-align:center;padding:8px 0}.done-hero .big{font-size:46px}
+  .empty{color:var(--faint);text-align:center;padding:40px 0}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span class="logo">turnamen<span class="dot">.</span>padel</span>
+  </div>
+  <div id="head"></div>
+  <div id="host"><p class="empty">Memuat…</p></div>
+</div>
+<script>
+const API = "/api";
+const rupiah = n => { const v=parseInt(String(n).replace(/\D/g,"")); return isNaN(v)?String(n||""):"Rp"+v.toLocaleString("id-ID"); };
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function qs(){ const m=location.pathname.match(/\/daftar\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]); return new URLSearchParams(location.search).get("e")||""; }
+
+const F = { eventId:qs(), data:null, step:0, catId:null,
+  players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
+function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:""}; }
+
+async function api(path, opts){
+  const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
+    headers:{"Content-Type":"application/json"}, body:opts&&opts.body?JSON.stringify(opts.body):undefined });
+  let d={}; try{ d=await res.json(); }catch(e){}
+  if(!res.ok){ const err=new Error(d.error||("HTTP "+res.status)); err.status=res.status; throw err; }
+  return d;
+}
+function fileToDataUrl(input){ return new Promise(r=>{ const f=input.files&&input.files[0]; if(!f) return r(""); const rd=new FileReader(); rd.onload=()=>r(rd.result); rd.onerror=()=>r(""); rd.readAsDataURL(f); }); }
+
+function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId); }
+function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
+function isWL(){ return catFull(cat()); }
+const STEP_NAME=["Kategori","Pemain","Data pribadi","Persetujuan","Pembayaran","Review"];
+function stepKeys(){ return isWL()? ["cat","players","personal","waiver","review","done"] : ["cat","players","personal","waiver","pay","review","done"]; }
+function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
+
+async function boot(){
+  if(!F.eventId){ document.getElementById("host").innerHTML='<p class="empty">Link tidak valid.</p>'; return; }
+  try{ F.data = await api("reg/public/"+encodeURIComponent(F.eventId)); }
+  catch(e){ document.getElementById("host").innerHTML='<div class="card"><p class="empty" style="padding:20px 0">'+(e.status===404?"Pendaftaran belum tersedia untuk event ini.":esc(e.message))+'</p></div>'; return; }
+  render();
+}
+function head(){
+  const h=document.getElementById("head");
+  const k=stepKeys()[F.step];
+  if(k==="info"||k==="done"||F.step===0&&k==="cat"&&!F.started){ h.innerHTML=""; return; }
+  const {idx,total,cur}=stepNum();
+  let nodes=""; for(let n=1;n<=total;n++){ const cls=n<idx?"done":(n===idx?"cur":""); nodes+=`<div class="snode ${cls}"><div class="dot">${n<idx?"✓":n}</div>${n<total?'<div class="seg-line"></div>':''}</div>`; }
+  const c=cat();
+  const sum=c?`<div class="summary"><span>${esc(c.label)} · ${esc(c.level)}${isWL()?' · waitlist':''}</span><span class="s-fee">${isWL()?'bayar nanti':rupiah(c.fee)}</span></div>`:"";
+  h.innerHTML=`<div class="prog"><div class="stepper">${nodes}</div><span class="steplbl">${idx}/${total}</span></div>${sum}`;
+}
+function render(){
+  head();
+  const k = F.started ? stepKeys()[F.step] : "info";
+  const host=document.getElementById("host");
+  host.innerHTML = ({info:vInfo,cat:vCat,players:vPlayers,personal:vPersonal,waiver:vWaiver,pay:vPay,review:vReview,done:vDone}[k])();
+  window.scrollTo(0,0);
+}
+function go(k){ const list=stepKeys(); F.step=list.indexOf(k); render(); }
+function start(){ F.started=true; F.step=0; render(); }
+
+function vInfo(){
+  const d=F.data, ev=d.event||{}, cfg=d.config||{}, tl=cfg.timeline||{};
+  const open = d.status==="open";
+  const cats=d.categories||[];
+  const tRow=(k,l)=> tl[k]?`<li><b>${esc(tl[k])}</b> — ${l}</li>`:"";
+  return `<div class="hero"><div class="eyebrow">Pendaftaran turnamen</div>
+      <h1>${esc(d.name||ev.name||"")}</h1>
+      <span class="chip ${open?'ok':'warn'}">● Pendaftaran ${open?'dibuka':'ditutup'}</span></div>
+    <div class="card">
+      ${ev.venue?`<div class="kv"><span class="ic">📍</span><div><b>${esc(ev.venue)}</b>${cfg.address?'<br><span class="muted">'+esc(cfg.address)+'</span>':''}${cfg.maps?' · <a href="'+esc(cfg.maps)+'" target="_blank" rel="noopener">Maps</a>':''}</div></div>`:""}
+      ${ev.date?`<div class="kv"><span class="ic">📅</span><div><b>${esc(ev.date)}</b>${ev.startTime?' · mulai '+esc(ev.startTime):''}</div></div>`:""}
+    </div>
+    <div class="card"><div class="eyebrow">Kategori · hadiah · kuota</div>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px">
+      ${cats.map(c=>`<div class="opt ${catFull(c)?'full':''}" style="cursor:default;flex-wrap:wrap">
+        <div class="grow"><b>${esc(c.label)} · ${esc(c.level)}</b>
+          <div class="meta">${rupiah(c.fee)}${c.req?' · syarat '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
+        ${c.prize?`<div class="prize"><small>Prize</small>${esc(c.prize)}</div>`:''}</div>`).join("")}
+      </div>
+      ${cfg.rules?`<div class="divider"></div><div class="eyebrow">Aturan main</div><p class="muted" style="margin:8px 0 0;font-size:13px;white-space:pre-line">${esc(cfg.rules)}</p>`:''}
+    </div>
+    ${(tl.openStart||tl.curationStart||tl.appealDeadline||tl.tmDate||tl.oopDate)?`<div class="card"><div class="eyebrow">Alur &amp; jadwal</div>
+      <ul class="timeline">${tRow('openStart','pendaftaran dibuka')}${tRow('openEnd','pendaftaran ditutup')}${tRow('curationStart','kurasi')}${tRow('appealDeadline','batas appeal')}${tRow('tmDate','Technical Meeting + grup')}${tRow('oopDate','order of play')}</ul></div>`:''}
+    <div class="nav"><button class="btn primary" ${open?'':'disabled'} onclick="start()">${open?'Daftar sekarang →':'Pendaftaran ditutup'}</button></div>`;
+}
+function quotaBar(c){
+  if(!c.quota) return "";
+  const pct=Math.min(100,Math.round(c.filled/c.quota*100));
+  return `<div class="quota"><div class="qbar"><i style="width:${pct}%;${catFull(c)?'background:var(--danger)':''}"></i></div><span class="qnum ${catFull(c)?'full':''}">${c.filled}/${c.quota}${catFull(c)?' · penuh':''}</span></div>`;
+}
+function vCat(){
+  const cats=F.data.categories||[];
+  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Pilih kategori.</p>
+    <div style="display:flex;flex-direction:column;gap:11px">
+    ${cats.map(c=>`<label class="opt ${F.catId===c.tournamentId?'sel':''} ${catFull(c)?'full':''}" style="flex-wrap:wrap">
+      <input type="radio" name="cat" ${F.catId===c.tournamentId?'checked':''} onchange="F.catId='${esc(c.tournamentId)}';render()">
+      <div class="grow"><b>${esc(c.label)} · ${esc(c.level)}</b><div class="meta">${rupiah(c.fee)}${c.req?' · '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
+      ${c.prize?`<div class="prize"><small>Prize</small>${esc(c.prize)}</div>`:''}
+    </label>`).join("")}
+    </div>
+    ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
+    <div class="nav"><button class="btn ghost" onclick="F.started=false;render()">←</button>
+      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('players')">Lanjut →</button></div></div>`;
+}
+function vPlayers(){
+  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Isi <b>nama lengkap</b> kedua pemain (wajib) + kontak. (Pengecekan otomatis ke database Trekkr menyusul.)</p>
+    ${[0,1].map(i=>pIdent(i)).join("")}
+    <div class="nav"><button class="btn ghost" onclick="go('cat')">←</button>
+      <button class="btn primary" ${bothNamed()?'':'disabled'} onclick="go('personal')">Lanjut →</button></div></div>`;
+}
+function bothNamed(){ return F.players.every(p=>(p.name||"").trim()); }
+function pIdent(i){ const p=F.players[i];
+  return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||(''+ (i+1))).charAt(0).toUpperCase())}</div><div><div class="who">Pemain ${i+1}</div><div class="sub">identitas</div></div></div>
+    <label class="f"><span>Nama lengkap <span class="req">*</span></span><input value="${esc(p.name)}" oninput="F.players[${i}].name=this.value" placeholder="Nama lengkap"></label>
+    <div class="grid2">
+      <label class="f"><span>No. HP</span><input value="${esc(p.phone)}" oninput="F.players[${i}].phone=this.value" placeholder="0812..."></label>
+      <label class="f"><span>Email</span><input value="${esc(p.email)}" oninput="F.players[${i}].email=this.value" placeholder="nama@mail.com"></label>
+    </div>
+    <label class="f"><span>Instagram</span><input value="${esc(p.ig)}" oninput="F.players[${i}].ig=this.value" placeholder="@akun"></label></div>`;
+}
+function vPersonal(){
+  const f=F.data.config.fields||{};
+  const on=(k,d)=> f[k]===undefined? d : !!f[k];
+  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Data pribadi tiap pemain.</p>
+    ${[0,1].map(i=>pPersonal(i,on)).join("")}
+    <div class="nav"><button class="btn ghost" onclick="go('players')">←</button>
+      <button class="btn primary" onclick="go('waiver')">Lanjut →</button></div></div>`;
+}
+function pPersonal(i,on){ const p=F.players[i];
+  const fld=[];
+  if(on('nick',true)) fld.push(`<label class="f"><span>Nama panggilan</span><input value="${esc(p.nick)}" oninput="F.players[${i}].nick=this.value"></label>`);
+  const dg=[];
+  if(on('dob',true)) dg.push(`<label class="f"><span>Tanggal lahir</span><input type="date" value="${esc(p.dob)}" oninput="F.players[${i}].dob=this.value"></label>`);
+  if(on('gender',true)) dg.push(`<label class="f"><span>Jenis kelamin</span><select onchange="F.players[${i}].gender=this.value"><option value="">—</option><option ${p.gender==='L'?'selected':''}>L</option><option ${p.gender==='P'?'selected':''}>P</option></select></label>`);
+  if(dg.length) fld.push(`<div class="grid2">${dg.join("")}</div>`);
+  if(on('region',true)) fld.push(`<label class="f"><span>Kota / region</span><input value="${esc(p.region)}" oninput="F.players[${i}].region=this.value" placeholder="kota"></label>`);
+  const pj=[];
+  if(on('photo',true)) pj.push(`<label class="f"><span>Foto pemain</span><input type="file" accept="image/*" onchange="pickPhoto(${i},this)"></label>`);
+  if(on('jersey',false)) pj.push(`<label class="f"><span>Ukuran jersey <span class="faint">(opsional)</span></span><select onchange="F.players[${i}].jersey=this.value"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(s=>`<option ${p.jersey===s?'selected':''}>${s}</option>`).join("")}</select></label>`);
+  if(pj.length) fld.push(`<div class="grid2">${pj.join("")}</div>`);
+  return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||'?').charAt(0).toUpperCase())}</div><div><div class="who">${esc(p.name||('Pemain '+(i+1)))}</div><div class="sub">${esc(p.phone||'')}</div></div></div>${fld.join("")}</div>`;
+}
+async function pickPhoto(i,input){ F.players[i].photo = await fileToDataUrl(input); }
+function vWaiver(){
+  const w=F.data.config.waiver||"Dengan mendaftar, peserta menyetujui ketentuan penyelenggara.";
+  return `<div class="card"><div class="card" style="max-height:180px;overflow:auto;background:#0e0e10"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
+    <label style="display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverA?'checked':''} onchange="F.waiverA=this.checked;render()"><span>Kami setuju atas <b>waiver &amp; disclaimer</b>.</span></label>
+    <label style="display:flex;gap:11px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverB?'checked':''} onchange="F.waiverB=this.checked;render()"><span>Seluruh informasi yang kami berikan <b>benar</b>.</span></label>
+    <div class="nav"><button class="btn ghost" onclick="go('personal')">←</button>
+      <button class="btn primary" ${F.waiverA&&F.waiverB?'':'disabled'} onclick="go(isWL()?'review':'pay')">Lanjut →</button></div></div>`;
+}
+function vPay(){
+  const c=cat(), acct=(F.data.config.payment||{}).account||"—";
+  return `<div class="card"><div class="card" style="background:#0e0e10">
+      <div class="row" style="justify-content:space-between;align-items:center"><span class="muted">Total (${esc(c.label)})</span><b class="elo" style="font-size:20px">${rupiah(c.fee)}</b></div>
+      <div class="divider"></div><div class="muted" style="font-size:13px">Transfer ke:</div><div class="mono" style="margin-top:4px">${esc(acct)}</div></div>
+    <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"></label>
+    ${F.payFile?'<span class="chip ok">bukti terpilih ✔</span>':'<span class="chip">belum ada bukti</span>'}
+    <div class="nav"><button class="btn ghost" onclick="go('waiver')">←</button>
+      <button class="btn primary" ${F.payFile?'':'disabled'} onclick="go('review')">Lanjut →</button></div></div>`;
+}
+async function pickPay(input){ F.payFile = await fileToDataUrl(input); render(); }
+function vReview(){
+  const c=cat(), wl=isWL();
+  const pl=i=>{const p=F.players[i]; return esc(p.name||'—');};
+  return `<div class="card">
+    ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin-bottom:12px;background:#0e0e10"><b class="mono" style="color:var(--warn)">⏳ Pendaftaran waitlist</b><div class="note">Kuota penuh — belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
+    <div class="kv"><span class="ic">🏆</span><div><b>${esc(c.label)} · ${esc(c.level)}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
+    <div class="kv"><span class="ic">🎾</span><div>P1 ${pl(0)}<br>P2 ${pl(1)}</div></div>
+    <div class="kv"><span class="ic">✅</span><div>Waiver disetujui${wl?'':' · bukti bayar terunggah'}</div></div>
+    <div id="subErr"></div>
+    <div class="nav"><button class="btn ghost" onclick="go(isWL()?'waiver':'pay')">←</button>
+      <button class="btn primary" id="subBtn" onclick="submitReg()">✅ Kirim pendaftaran</button></div></div>`;
+}
+async function submitReg(){
+  const btn=document.getElementById("subBtn"); if(btn){ btn.disabled=true; btn.textContent="Mengirim…"; }
+  const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB,
+    players:F.players.map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey})),
+    photo1:F.players[0].photo||"", photo2:F.players[1].photo||"", paymentProof:isWL()?"":F.payFile };
+  try{ const r=await api("reg/register/"+encodeURIComponent(F.eventId), {method:"POST", body});
+    F.result=r; go("done");
+  }catch(e){ const el=document.getElementById("subErr"); if(el) el.innerHTML='<div class="chip warn" style="margin-top:10px">Gagal: '+esc(e.message)+'</div>'; if(btn){ btn.disabled=false; btn.textContent="✅ Kirim pendaftaran"; } }
+}
+function vDone(){
+  const wl=(F.result&&F.result.waitlist)||isWL();
+  const tl=F.data.config.timeline||{};
+  return `<div class="card"><div class="done-hero"><div class="big">${wl?'⏳':'🎉'}</div>
+      <h2 style="font-size:24px;margin-top:6px">Pendaftaran terkirim!</h2>
+      <span class="chip warn" style="margin-top:8px">Status: ${wl?'masuk waitlist (antrean)':'menunggu kurasi'}</span></div>
+    ${wl?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4);background:#0e0e10"><div class="note" style="margin:0">Kuota penuh — kamu di antrean waitlist dan belum membayar. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
+    ${(tl.curationStart||tl.tmDate||tl.oopDate)?`<div class="divider"></div><div class="eyebrow">Langkah berikutnya</div><ul class="timeline" style="margin-top:8px">${tl.curationStart?'<li><b>'+esc(tl.curationStart)+'</b> — kurasi</li>':''}${tl.tmDate?'<li><b>'+esc(tl.tmDate)+'</b> — Technical Meeting + grup</li>':''}${tl.oopDate?'<li><b>'+esc(tl.oopDate)+'</b> — order of play</li>':''}</ul>`:''}
+    <p class="note">Simpan halaman ini sebagai bukti pendaftaran.</p></div>`;
+}
+boot();
+</script>
+</body>
+</html>

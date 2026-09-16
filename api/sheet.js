@@ -775,6 +775,10 @@ const netlifyHandler = async (event) => {
       return await regGetForm(decodeURIComponent(path.replace("reg/form/", "")));
     if (path.startsWith("reg/submit/") && method === "POST")
       return await regSubmit(decodeURIComponent(path.replace("reg/submit/", "")), body);
+    if (path.startsWith("reg/public/") && method === "GET")
+      return await regPublic(decodeURIComponent(path.replace("reg/public/", "")));
+    if (path.startsWith("reg/register/") && method === "POST")
+      return await regRegisterPair(decodeURIComponent(path.replace("reg/register/", "")), body);
     if (path.startsWith("reg/registrations/") && method === "GET")
       return await regListRegistrations(decodeURIComponent(path.replace("reg/registrations/", "")));
 
@@ -5201,6 +5205,104 @@ async function regListRegistrations(formId) {
     return { regId: r[0], timestamp: r[2], name: r[3], gender: r[4], phone: r[5], photoUrl: r[6], paymentProofUrl: r[7], data, status: r[10] || "received" };
   });
   return respond(200, { registrations: list, count: list.length });
+}
+
+// ==============================================================
+// PUBLIC REGISTRATION (Opsi 2) — 1 form per event, keyed "evt:<eventId>".
+// Quota model (a) + waitlist: a submitted pair holds a slot; when the category
+// is full, new pairs go to the waitlist (no payment yet).
+// ==============================================================
+const REG_EVT_PREFIX = "evt:";
+function regFormIdForEvent(eventId) { return REG_EVT_PREFIX + eventId; }
+async function regFindFormRow(sheets, formId) {
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
+  return (res.data.values || []).find((x) => x[0] === formId) || null;
+}
+// filled = pairs holding a slot (any non-terminal, non-waitlist status);
+// waitlist = pairs queued because the category was full at submit time.
+function regCategoryCounts(regRows, formId) {
+  const filled = {}, waitlist = {};
+  for (const r of regRows) {
+    if (r[1] !== formId) continue;
+    let d = {}; try { d = JSON.parse(r[8] || "{}"); } catch (e) {}
+    const cat = d.category || r[9] || "";
+    const st = r[10] || "received";
+    if (st === "rejected" || st === "cancelled") continue;
+    if (st === "waitlist") waitlist[cat] = (waitlist[cat] || 0) + 1;
+    else filled[cat] = (filled[cat] || 0) + 1;
+  }
+  return { filled, waitlist };
+}
+async function regPublic(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
+  if (!frow) return respond(404, { error: "Formulir pendaftaran belum dibuat untuk event ini." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const status = frow[2] || "draft";
+  // Event details (name/venue/date/time) — untuk header halaman publik.
+  let ev = null;
+  try {
+    const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` });
+    const er = (evRes.data.values || []).find((x) => x[0] === eventId);
+    if (er) ev = { eventId: er[0], name: er[1], venue: er[2], date: er[3], startTime: er[4] };
+  } catch (e) {}
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const counts = regCategoryCounts(rRes.data.values || [], frow[0]);
+  // Kategori: gabungkan config.categories dengan hitungan terisi/waitlist.
+  const cats = Object.entries(config.categories || {}).map(([tid, c]) => ({
+    tournamentId: tid, label: c.label || "", level: c.level || "",
+    fee: c.fee || "", prize: c.prize || "", req: c.req || "",
+    quota: parseInt(c.quota) || 0, filled: counts.filled[tid] || 0, waitlist: counts.waitlist[tid] || 0,
+  }));
+  return respond(200, { eventId, status, event: ev, name: frow[1] || (ev && ev.name) || "",
+    config: { address: config.address || "", maps: config.maps || "", region: config.region || "",
+      rules: config.rules || "", waiver: config.waiver || "", timeline: config.timeline || {},
+      payment: config.payment || {}, fields: config.fields || {} },
+    categories: cats });
+}
+async function regRegisterPair(eventId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const frow = await regFindFormRow(sheets, formId);
+  if (!frow) return respond(404, { error: "Formulir tidak ditemukan." });
+  if ((frow[2] || "") !== "open") return respond(403, { error: "Pendaftaran belum dibuka / sudah ditutup." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const cats = config.categories || {};
+  const catId = String((body && body.category) || "").trim();
+  const cat = cats[catId];
+  if (!cat) return respond(400, { error: "Kategori tidak valid." });
+  const players = (body && Array.isArray(body.players)) ? body.players : [];
+  const p1 = players[0] || {}, p2 = players[1] || {};
+  if (!String(p1.name || "").trim() || !String(p2.name || "").trim())
+    return respond(400, { error: "Nama lengkap kedua pemain wajib diisi." });
+
+  // Kuota (model a): pair mengisi slot; penuh → waitlist (tanpa bayar).
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const counts = regCategoryCounts(rRes.data.values || [], formId);
+  const quota = parseInt(cat.quota) || 0;
+  const filled = counts.filled[catId] || 0;
+  const isWaitlist = quota > 0 && filled >= quota;
+
+  const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
+  const ts = Date.now();
+  const safe = (s) => String(s || "").replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").slice(0, 30) || "p";
+  let photo1 = "", photo2 = "", payUrl = "";
+  try { if (body.photo1) photo1 = await driveUploadImage(body.photo1, `reg_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo1:", e.message); }
+  try { if (body.photo2) photo2 = await driveUploadImage(body.photo2, `reg_${safe(p2.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo2:", e.message); }
+  if (!isWaitlist) { try { if (body.paymentProof) payUrl = await driveUploadImage(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
+
+  const mkP = (p, photo) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
+    nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo });
+  const data = { category: catId, level: cat.level || "", player1: mkP(p1, photo1), player2: mkP(p2, photo2),
+    waiver: !!body.waiver, infoTrue: !!body.infoTrue };
+  const regId = regGenId("reg");
+  const now = new Date().toISOString();
+  const teamName = `${data.player1.name} + ${data.player2.name}`;
+  const status = isWaitlist ? "waitlist" : "received";
+  // registrations: reg_id, form_id, timestamp, name, gender, phone, photo_url, payment_proof_url, data, linked_tournament(=category), status
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[regId, formId, now, teamName, data.player1.gender || "M", data.player1.phone || "", photo1, payUrl, JSON.stringify(data), catId, status]] } });
+  return respond(200, { success: true, regId, status, waitlist: isWaitlist });
 }
 
 // ==============================================================
