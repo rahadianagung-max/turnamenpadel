@@ -16,7 +16,7 @@
 // ============================================================
 
 const SHEET_MAP = {
-  Players:            { table: "players",             cols: ["name","ig","verified","display_name","gender","region","photo_url","clubs","created_at","winner_at","tournaments","claim_email"] },
+  Players:            { table: "players",             cols: ["name","ig","verified","display_name","gender","region","photo_url","clubs","created_at","winner_at","tournaments","claim_email","phone"] },
   Sessions:           { table: "sessions",            cols: ["session_id","session_name","source_url","format","sub_format","venue","player_count","match_count","created_at"] },
   ELO_Log:            { table: "elo_log",             cols: ["session_id","player","new_elo","elo_change","wins","losses","timestamp"] },
   Venues:             { table: "venues",              cols: ["name","location","region","schedule","prize_pool","contact","logo_url","created_at","register_url"] },
@@ -34,6 +34,7 @@ const SHEET_MAP = {
 
   RegForms:           { table: "reg_forms",           cols: ["form_id","name","status","linked_tournament","config","created_at","updated_at"] },
   Registrations:      { table: "registrations",       cols: ["reg_id","form_id","timestamp","name","gender","phone","photo_url","payment_proof_url","data","linked_tournament","status"] },
+  Appeals:            { table: "appeals",              cols: ["appeal_id","event_id","category","against_reg_id","against_label","appellant_name","appellant_email","appellant_phone","reason","proof_url","created_at","status","decision","decided_at","decided_by"] },
 
   // The live Tournament_Leads tab is the real 15-column layout (preserved as
   // tournament_leads_legacy during the Trekkr migration).
