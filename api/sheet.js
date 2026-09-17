@@ -788,6 +788,7 @@ const netlifyHandler = async (event) => {
       drive: !!(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY),
       imgbb: !!process.env.IMGBB_API_KEY,
       supabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY),
+      gate: !!String(process.env.REG_ADMIN_KEY || "").trim(),
     });
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
