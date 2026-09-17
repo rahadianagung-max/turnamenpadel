@@ -1183,15 +1183,22 @@ function renderCuration(regs, appeals){
     html+='<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">'
       +'<div><b>Di-appeal:</b> '+esc(a.againstLabel||a.againstRegId)+' <span class="muted">('+esc(catName(a.category))+')</span></div>'
       +'<div class="muted" style="font-size:12px;margin-top:2px">Pelapor: '+esc(a.appellantName)+' · '+esc(a.appellantEmail)+(a.appellantPhone?' · 📱 '+esc(a.appellantPhone):'')+'</div>'
+      +((a.players&&a.players.length)?'<div class="muted" style="font-size:12px;margin-top:4px">Pemain: '+a.players.map(p=>esc(p.name)+(p.tier?' <span class="chip">'+esc(p.tier)+(p.elo!=null?' '+p.elo:'')+'</span>':' <span class="chip">baru</span>')).join(' · ')+'</div>':'')
       +'<div style="font-size:13px;margin-top:6px">'+esc(a.reason)+'</div>'
       +(a.proofUrl?'<div style="margin-top:6px"><a href="'+esc(a.proofUrl)+'" target="_blank" rel="noopener">🖼 lihat bukti</a></div>':'')
       +'<div class="actions" style="margin-top:8px">'
-      +(decided
-          ? '<span class="chip">keputusan: '+esc(a.decision||a.status)+'</span>'
-          : '<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'lolos\')">✓ Lolos</button>'
+      +(!decided
+          ? '<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'lolos\')">✓ Lolos</button>'
             +'<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'levelup\')">⬆ Koreksi level</button>'
-            +'<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'reject\')">✗ Reject</button>')
-      +'</div></div>';
+            +'<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'reject\')">✗ Reject</button>'
+          : (a.status==='applied'
+              ? '<span class="chip on">level diterapkan ✔</span>'
+              : (a.decision==='levelup'
+                  ? '<span class="chip" style="color:var(--warn)">keputusan: koreksi level</span>'
+                  : '<span class="chip">keputusan: '+esc(a.decision||a.status)+'</span>')))
+      +'</div>'
+      +((decided&&a.decision==='levelup'&&a.status!=='applied')?applyLevelForm(a):'')
+      +'</div>';
   });
   document.getElementById("regCuration").innerHTML=html;
 }
@@ -1226,6 +1233,29 @@ async function appealDecide(appealId, decision){
   try{
     await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{decision, note, adminKey:regAdminKey()}});
     toast("Keputusan appeal disimpan.");
+    openCuration();
+  }catch(e){ toast(e.message, true); }
+}
+function applyLevelForm(a){
+  const id=esc(a.appealId);
+  const opts=Object.keys(LEVEL_LABEL).map(k=>'<option value="'+k+'">'+esc(LEVEL_LABEL[k])+'</option>').join("");
+  const players=(a.players||[]).map((p,i)=>'<label style="display:flex;gap:6px;align-items:center;font-size:12.5px"><input type="checkbox" id="apl_'+id+'_'+i+'" data-name="'+esc(p.name)+'" checked style="width:auto"> '+esc(p.name)+(p.tier?' <span class="muted">('+esc(p.tier)+(p.elo!=null?' '+p.elo:'')+')</span>':' <span class="muted">(baru)</span>')+'</label>').join("");
+  return '<div style="margin-top:8px;padding:10px;border:1px dashed var(--line);border-radius:8px;background:rgba(255,176,0,.05)">'
+    +'<div style="font-weight:700;font-size:12.5px;margin-bottom:6px">⬆ Terapkan koreksi level ke passport <span class="muted" style="font-weight:400">(menaikkan ELO — ber-audit, hanya naik)</span></div>'
+    +'<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:8px">'+players+'</div>'
+    +'<div class="f" style="max-width:220px;margin:0 0 8px"><label>Level target</label><select id="lvl_'+id+'">'+opts+'</select></div>'
+    +'<button type="button" class="btn btn-primary btn-sm" onclick="applyLevel(\''+id+'\')">Terapkan koreksi level</button></div>';
+}
+async function applyLevel(appealId){
+  const sel=document.getElementById("lvl_"+appealId); const targetLevel=sel?sel.value:"";
+  if(!targetLevel) return toast("Pilih level target dulu", true);
+  const names=[]; document.querySelectorAll('[id^="apl_'+appealId+'_"]').forEach(cb=>{ if(cb.checked && cb.dataset.name) names.push(cb.dataset.name); });
+  if(!names.length) return toast("Pilih minimal satu pemain", true);
+  if(!confirm("Naikkan level "+names.join(", ")+" → "+(LEVEL_LABEL[targetLevel]||targetLevel)+" di passport Trekkr?\nIni menulis penyesuaian ELO (ber-audit, hanya menaikkan). Lanjut?")) return;
+  try{
+    const r=await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body:{targetLevel, players:names, adminKey:regAdminKey()}});
+    const done=(r.applied||[]).map(x=>x.skipped?(x.name+": "+x.skipped):(x.name+" "+x.from+"→"+x.to)).join(" · ");
+    toast("Koreksi level diterapkan. "+done);
     openCuration();
   }catch(e){ toast(e.message, true); }
 }

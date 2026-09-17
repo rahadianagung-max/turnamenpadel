@@ -815,6 +815,10 @@ const netlifyHandler = async (event) => {
       if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
       return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body);
     }
+    if (path.startsWith("reg/appeal/") && path.endsWith("/apply-level") && method === "POST") {
+      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
+      return await regApplyLevel(decodeURIComponent(path.replace("reg/appeal/", "").replace("/apply-level", "")), body);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/invite-pay") && method === "POST") {
       if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
       return await regInvitePay(decodeURIComponent(path.replace("reg/event/", "").replace("/invite-pay", "")), body);
@@ -5643,15 +5647,65 @@ async function regAppealSubmit(body) {
       name, email, phone, reason, proofUrl, new Date().toISOString(), "baru", "", "", ""]] } });
   return respond(200, { success: true, appealId });
 }
+const regEloKey = (s) => String(s || "").trim().toLowerCase();
 async function regEventAppeals(eventId) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:O` });
-  const list = (res.data.values || []).filter((r) => r[1] === eventId).map((r) => ({
-    appealId: r[0], category: r[2], againstRegId: r[3], againstLabel: r[4], appellantName: r[5],
-    appellantEmail: r[6], appellantPhone: r[7], reason: r[8], proofUrl: r[9], createdAt: r[10],
-    status: r[11] || "baru", decision: r[12] || "", decidedAt: r[13] || "", note: r[14] || "",
-  }));
+  const [aRes, rRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:O` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const regById = {}; for (const r of (rRes.data.values || [])) regById[r[0]] = regParseReg(r);
+  const list = (aRes.data.values || []).filter((r) => r[1] === eventId).map((r) => {
+    const reg = regById[r[3]]; const players = [];
+    if (reg) for (const p of [reg.data.player1, reg.data.player2]) {
+      if (p && p.name) { const e = eMap[regEloKey(p.name)]; const elo = e && e.elo != null ? e.elo : null; players.push({ name: p.name, elo, tier: elo != null ? getTierName(elo) : "" }); }
+    }
+    return { appealId: r[0], category: r[2], againstRegId: r[3], againstLabel: r[4], appellantName: r[5],
+      appellantEmail: r[6], appellantPhone: r[7], reason: r[8], proofUrl: r[9], createdAt: r[10],
+      status: r[11] || "baru", decision: r[12] || "", decidedAt: r[13] || "", note: r[14] || "", players };
+  });
   return respond(200, { appeals: list, count: list.length });
+}
+// Terapkan koreksi level (audit): naikkan ELO pemain pasangan yang appeal-nya
+// terbukti (decision=levelup) ke level target, lewat baris ELO_Log audit.
+// Hanya MENAIKKAN; tercermin di passport. Ber-audit & idempoten.
+async function regApplyLevel(appealId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
+  const targetLevel = String((body && body.targetLevel) || "").trim();
+  if (!targetLevel) return respond(400, { error: "Level target wajib dipilih." });
+  const targetElo = levelToElo(targetLevel);
+  const aRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:O` });
+  const aRows = aRes.data.values || [];
+  const ai = aRows.findIndex((r) => r[0] === appealId);
+  if (ai < 0) return respond(404, { error: "Appeal tidak ditemukan." });
+  const a = aRows[ai], asr = ai + 2;
+  if ((a[12] || "") !== "levelup") return respond(400, { error: "Hanya untuk appeal berkeputusan 'Koreksi level'." });
+  if ((a[11] || "") === "applied") return respond(400, { error: "Koreksi level sudah pernah diterapkan." });
+  // Nama pemain target dari registrasi yang di-appeal.
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rrow = (rRes.data.values || []).find((r) => r[0] === a[3]);
+  const allNames = [];
+  if (rrow) { const d = regParseReg(rrow).data; for (const p of [d.player1, d.player2]) if (p && p.name) allNames.push(p.name); }
+  const want = Array.isArray(body && body.players) && body.players.length ? body.players.map(regEloKey) : null;
+  const targets = allNames.filter((n) => !want || want.includes(regEloKey(n)));
+  if (!targets.length) return respond(400, { error: "Tidak ada pemain untuk dikoreksi." });
+  const eRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` });
+  const eMap = ddEloMap(eRes.data.values || []);
+  const now = new Date().toISOString();
+  const rows = [], applied = [];
+  for (const nm of targets) {
+    const e = eMap[regEloKey(nm)]; const cur = e && e.elo != null ? e.elo : 1350;
+    if (targetElo > cur) { rows.push([`CURATION:${appealId}`, nm, targetElo, targetElo - cur, 0, 0, now]); applied.push({ name: nm, from: cur, to: targetElo }); }
+    else applied.push({ name: nm, from: cur, to: cur, skipped: "tidak dinaikkan (sudah ≥ target)" });
+  }
+  if (rows.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: rows } });
+  const done = applied.filter((x) => !x.skipped).map((x) => `${x.name} ${x.from}→${x.to}`).join("; ") || "-";
+  const note = `${a[14] || ""} | KOREKSI LEVEL → ${targetLevel} (${targetElo}) [${done}] @ ${now}`.trim();
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!L${asr}:O${asr}`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [["applied", "levelup", a[13] || now, note]] } });
+  return respond(200, { success: true, targetLevel, targetElo, applied });
 }
 async function regAppealDecision(appealId, body) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
