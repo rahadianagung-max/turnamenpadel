@@ -1125,6 +1125,8 @@ function renderRegBuilder(cfg, status){
       ${status==="open"?'<button type="button" class="btn btn-ghost" onclick="saveRegForm(\'closed\')">Tutup pendaftaran</button>':''}
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <div class="f" style="max-width:320px"><label>Kunci admin <span class="muted" style="font-weight:400">(REG_ADMIN_KEY — kalau endpoint dikunci)</span></label>
+        <input id="rb_adminKey" type="password" value="${esc(regAdminKey())}" oninput="setRegAdminKey(this.value)" placeholder="kosongkan bila belum dikunci"></div>
       <div class="actions">
         <button type="button" class="btn btn-ghost" onclick="openCuration()">📋 Pendaftar &amp; kurasi</button>
         <button type="button" class="btn btn-ghost" onclick="rosterBlast()">✉ Kirim roster ke peserta</button>
@@ -1132,14 +1134,17 @@ function renderRegBuilder(cfg, status){
       <div id="regCuration" style="margin-top:12px"></div>
     </div>`;
 }
+function regAdminKey(){ try{ return localStorage.getItem("tp_reg_admin_key")||""; }catch(e){ return ""; } }
+function setRegAdminKey(v){ try{ localStorage.setItem("tp_reg_admin_key", v||""); }catch(e){} }
+function regKeyQ(){ const k=regAdminKey(); return k?("?key="+encodeURIComponent(k)):""; }
 /* ---- Kurasi (Fase 5b) ---- */
 async function openCuration(){
   const host=document.getElementById("regCuration"); if(!state.event) return;
   host.innerHTML='<p class="muted">Memuat…</p>';
   try{
     const [rg, ap] = await Promise.all([
-      api("reg/event/"+encodeURIComponent(state.event.eventId)+"/registrations"),
-      api("reg/event/"+encodeURIComponent(state.event.eventId)+"/appeals"),
+      api("reg/event/"+encodeURIComponent(state.event.eventId)+"/registrations"+regKeyQ()),
+      api("reg/event/"+encodeURIComponent(state.event.eventId)+"/appeals"+regKeyQ()),
     ]);
     renderCuration(rg.registrations||[], ap.appeals||[]);
   }catch(e){ host.innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
@@ -1194,14 +1199,14 @@ async function rosterBlast(){
   if(!state.event) return;
   if(!confirm("Kirim email roster ke semua peserta event ini?")) return;
   try{
-    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/roster-blast",{method:"POST"});
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/roster-blast",{method:"POST",body:{adminKey:regAdminKey()}});
     toast("Roster dikirim · "+(r.sent||0)+"/"+(r.recipients||0)+" email"+(r.sent===0?" (Brevo belum aktif?)":""));
   }catch(e){ toast(e.message, true); }
 }
 async function finalizeCat(tid){
   if(!confirm("Finalisasi kategori ini → dorong semua pasangan Terkonfirmasi ke daftar peserta (entrants)?")) return;
   try{
-    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/finalize",{method:"POST",body:{category:tid}});
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/finalize",{method:"POST",body:{category:tid,adminKey:regAdminKey()}});
     toast("Finalisasi OK · "+(r.finalized||0)+" pasangan ke entrants.");
     openCuration();
   }catch(e){ toast(e.message, true); }
@@ -1209,7 +1214,7 @@ async function finalizeCat(tid){
 async function invitePay(regId){
   if(!confirm("Undang pendaftar waitlist ini untuk membayar? Email berisi link pembayaran akan dikirim.")) return;
   try{
-    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/invite-pay",{method:"POST",body:{regId}});
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/invite-pay",{method:"POST",body:{regId,adminKey:regAdminKey()}});
     toast("Undangan bayar dikirim"+(r.sent?" ("+r.sent+" email)":" (Brevo belum aktif — link tetap dibuat)")+".");
     openCuration();
   }catch(e){ toast(e.message, true); }
@@ -1219,7 +1224,7 @@ async function appealDecide(appealId, decision){
   if(decision==="levelup") note=prompt("Catatan koreksi level (mis. bukti, level baru yang sesuai):","")||"";
   if((decision==="reject"||decision==="levelup") && !confirm("Keputusan '"+decision+"' akan mengeluarkan pasangan dari kategori ini dan membuka slot. Lanjut?")) return;
   try{
-    await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{decision, note}});
+    await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{decision, note, adminKey:regAdminKey()}});
     toast("Keputusan appeal disimpan.");
     openCuration();
   }catch(e){ toast(e.message, true); }

@@ -791,21 +791,33 @@ const netlifyHandler = async (event) => {
     });
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
-    if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET")
+    if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET") {
+      if (!regAdminOk(params.key)) return REG_UNAUTH;
       return await regEventRegistrations(decodeURIComponent(path.replace("reg/event/", "").replace("/registrations", "")));
-    if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST")
+    }
+    if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
+      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
       return await regRosterBlast(decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", "")));
-    if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET")
+    }
+    if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET") {
+      if (!regAdminOk(params.key)) return REG_UNAUTH;
       return await regEventAppeals(decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", "")));
-    if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST")
+    }
+    if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST") {
+      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
       return await regFinalizeCategory(decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", "")), body);
+    }
     if (path.startsWith("reg/roster/") && method === "GET")
       return await regRoster(decodeURIComponent(path.replace("reg/roster/", "")), params);
     if (path === "reg/appeal" && method === "POST") return await regAppealSubmit(body);
-    if (path.startsWith("reg/appeal/") && path.endsWith("/decision") && method === "POST")
+    if (path.startsWith("reg/appeal/") && path.endsWith("/decision") && method === "POST") {
+      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
       return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body);
-    if (path.startsWith("reg/event/") && path.endsWith("/invite-pay") && method === "POST")
+    }
+    if (path.startsWith("reg/event/") && path.endsWith("/invite-pay") && method === "POST") {
+      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
       return await regInvitePay(decodeURIComponent(path.replace("reg/event/", "").replace("/invite-pay", "")), body);
+    }
     if (path.startsWith("reg/pay-info/") && method === "GET")
       return await regPayInfo(decodeURIComponent(path.replace("reg/pay-info/", "")), params);
     if (path === "reg/pay" && method === "POST") return await regPay(body);
@@ -5442,6 +5454,22 @@ async function regNotify(emails, subject, html) {
   await Promise.allSettled(list.map(async (to) => { try { await sendBrevoEmail(to, subject, html); sent++; } catch (e) {} }));
   return sent;
 }
+// Gerbang admin untuk endpoint kurasi/PII. Terbuka bila REG_ADMIN_KEY belum
+// di-set (kompat); begitu di-set, endpoint sensitif butuh key yang cocok.
+function regAdminOk(provided) {
+  const need = String(process.env.REG_ADMIN_KEY || "").trim();
+  if (!need) return true;
+  return String(provided || "").trim() === need;
+}
+const REG_UNAUTH = respond(401, { error: "Butuh kunci admin (REG_ADMIN_KEY)." });
+// Batas waktu (datetime-local tanpa zona) diperlakukan sebagai Asia/Jakarta (+07:00).
+function regDeadlineMs(iso) {
+  const s = String(iso || "").trim();
+  if (!s) return null;
+  const naive = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(s);
+  const t = Date.parse(naive ? s + "+07:00" : s);
+  return isNaN(t) ? null : t;
+}
 function regEmailShell(title, bodyHtml) {
   return `<div style="font-family:sans-serif;max-width:480px;margin:auto">
     <div style="background:#0A0A0B;color:#fff;padding:14px 18px;font-weight:800;font-size:18px">turnamen<span style="color:#FF6A00">.</span>padel</div>
@@ -5579,7 +5607,8 @@ async function regRoster(eventId, params) {
   }
   const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
   const dISO = config.timeline && config.timeline.appealDeadlineISO;
-  const appealOpen = dISO ? (Date.now() < Date.parse(dISO)) : true;
+  const dms = regDeadlineMs(dISO);
+  const appealOpen = dms ? (Date.now() < dms) : true;
   return respond(200, { eventId, name: frow[1] || "", categories,
     appealDeadline: (config.timeline && config.timeline.appealDeadline) || "", appealOpen });
 }
@@ -5589,8 +5618,8 @@ async function regAppealSubmit(body) {
   const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
   if (!frow) return respond(404, { error: "Form tidak ditemukan." });
   let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
-  const dISO = config.timeline && config.timeline.appealDeadlineISO;
-  if (dISO && Date.now() > Date.parse(dISO)) return respond(403, { error: "Batas waktu appeal sudah berakhir." });
+  const dms = regDeadlineMs(config.timeline && config.timeline.appealDeadlineISO);
+  if (dms && Date.now() > dms) return respond(403, { error: "Batas waktu appeal sudah berakhir." });
   const name = String((body && body.appellantName) || "").trim();
   const email = String((body && body.appellantEmail) || "").trim();
   const reason = String((body && body.reason) || "").trim();
