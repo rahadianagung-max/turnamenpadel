@@ -782,6 +782,13 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("reg/register/") && method === "POST")
       return await regRegisterPair(decodeURIComponent(path.replace("reg/register/", "")), body);
     if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
+    if (path === "reg/diag" && method === "GET") return respond(200, {
+      brevo: !!(String(process.env.BREVO_API_KEY || "").trim() && String(process.env.BREVO_SENDER_EMAIL || "").trim()),
+      senderSet: !!String(process.env.BREVO_SENDER_EMAIL || "").trim(),
+      drive: !!(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY),
+      imgbb: !!process.env.IMGBB_API_KEY,
+      supabase: !!(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY),
+    });
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
     if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET")
