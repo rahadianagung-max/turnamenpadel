@@ -1124,7 +1124,96 @@ function renderRegBuilder(cfg, status){
       <button type="button" class="btn btn-primary" onclick="saveRegForm('open')">🚀 Publish &amp; buka pendaftaran</button>
       ${status==="open"?'<button type="button" class="btn btn-ghost" onclick="saveRegForm(\'closed\')">Tutup pendaftaran</button>':''}
     </div>
-    <p class="muted" style="font-size:11.5px;margin-top:8px">Kurasi (roster, appeal, waitlist) &amp; daftar pendaftar dikelola di langkah berikutnya (menyusul).</p>`;
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" onclick="openCuration()">📋 Pendaftar &amp; kurasi</button>
+        <button type="button" class="btn btn-ghost" onclick="rosterBlast()">✉ Kirim roster ke peserta</button>
+      </div>
+      <div id="regCuration" style="margin-top:12px"></div>
+    </div>`;
+}
+/* ---- Kurasi (Fase 5b) ---- */
+async function openCuration(){
+  const host=document.getElementById("regCuration"); if(!state.event) return;
+  host.innerHTML='<p class="muted">Memuat…</p>';
+  try{
+    const [rg, ap] = await Promise.all([
+      api("reg/event/"+encodeURIComponent(state.event.eventId)+"/registrations"),
+      api("reg/event/"+encodeURIComponent(state.event.eventId)+"/appeals"),
+    ]);
+    renderCuration(rg.registrations||[], ap.appeals||[]);
+  }catch(e){ host.innerHTML='<p class="muted">'+esc(e.message)+'</p>'; }
+}
+function eligChip(s){ return s==="ok"?'<span class="chip on">eligible</span>':s==="flag"?'<span class="chip" style="color:var(--warn)">flag</span>':s==="block"?'<span class="chip" style="color:var(--danger)">block</span>':'<span class="chip">-</span>'; }
+function renderCuration(regs, appeals){
+  const cats=state.tournaments||[];
+  const byCat={}; regs.forEach(r=>{ (byCat[r.category]=byCat[r.category]||[]).push(r); });
+  const catName=tid=>{ const t=cats.find(x=>x.tournamentId===tid); return t?t.category+" · "+levelLabel(t.level):tid; };
+  let html='<div style="font-weight:700;margin-bottom:6px">Pendaftar ('+regs.length+')</div>';
+  if(!regs.length) html+='<p class="muted">Belum ada pendaftar.</p>';
+  cats.forEach(t=>{
+    const list=byCat[t.tournamentId]||[]; if(!list.length) return;
+    const nFilled=list.filter(r=>["received","approved","imported","final"].includes(r.status)).length;
+    const nWl=list.filter(r=>r.status==="waitlist").length;
+    html+='<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+      +'<b>'+esc(t.category)+' · '+esc(levelLabel(t.level))+'</b>'
+      +'<span><span class="chip">terisi '+nFilled+(nWl?' · +'+nWl+' wl':'')+'</span> '
+      +'<button type="button" class="btn btn-primary btn-sm" onclick="finalizeCat(\''+esc(t.tournamentId)+'\')">✅ Finalisasi → entrants</button></span></div>'
+      +'<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +'<tr style="color:var(--muted)"><th style="text-align:left;padding:4px 6px">Tim</th><th style="text-align:left;padding:4px 6px">Eligibility</th><th style="text-align:left;padding:4px 6px">Bayar</th><th style="text-align:left;padding:4px 6px">Status</th></tr>'
+      +list.map(r=>{
+        const te=(r.data&&r.data.teamEligibility)||"";
+        const pay=r.paymentProofUrl?'<a href="'+esc(r.paymentProofUrl)+'" target="_blank" rel="noopener">🧾 lihat</a>':(r.status==="waitlist"?'—':'belum');
+        return '<tr><td style="padding:4px 6px">'+esc(r.team)+'</td><td style="padding:4px 6px">'+eligChip(te)+'</td><td style="padding:4px 6px">'+pay+'</td><td style="padding:4px 6px"><span class="chip">'+esc(r.status)+'</span></td></tr>';
+      }).join("")
+      +'</table></div></div>';
+  });
+  // Appeals
+  html+='<div style="font-weight:700;margin:14px 0 6px">Appeal ('+appeals.length+')</div>';
+  if(!appeals.length) html+='<p class="muted">Belum ada appeal.</p>';
+  appeals.forEach(a=>{
+    const decided=a.status&&a.status!=="baru";
+    html+='<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px">'
+      +'<div><b>Di-appeal:</b> '+esc(a.againstLabel||a.againstRegId)+' <span class="muted">('+esc(catName(a.category))+')</span></div>'
+      +'<div class="muted" style="font-size:12px;margin-top:2px">Pelapor: '+esc(a.appellantName)+' · '+esc(a.appellantEmail)+(a.appellantPhone?' · 📱 '+esc(a.appellantPhone):'')+'</div>'
+      +'<div style="font-size:13px;margin-top:6px">'+esc(a.reason)+'</div>'
+      +(a.proofUrl?'<div style="margin-top:6px"><a href="'+esc(a.proofUrl)+'" target="_blank" rel="noopener">🖼 lihat bukti</a></div>':'')
+      +'<div class="actions" style="margin-top:8px">'
+      +(decided
+          ? '<span class="chip">keputusan: '+esc(a.decision||a.status)+'</span>'
+          : '<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'lolos\')">✓ Lolos</button>'
+            +'<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'levelup\')">⬆ Koreksi level</button>'
+            +'<button type="button" class="btn btn-ghost btn-sm" onclick="appealDecide(\''+esc(a.appealId)+'\',\'reject\')">✗ Reject</button>')
+      +'</div></div>';
+  });
+  document.getElementById("regCuration").innerHTML=html;
+}
+async function rosterBlast(){
+  if(!state.event) return;
+  if(!confirm("Kirim email roster ke semua peserta event ini?")) return;
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/roster-blast",{method:"POST"});
+    toast("Roster dikirim · "+(r.sent||0)+"/"+(r.recipients||0)+" email"+(r.sent===0?" (Brevo belum aktif?)":""));
+  }catch(e){ toast(e.message, true); }
+}
+async function finalizeCat(tid){
+  if(!confirm("Finalisasi kategori ini → dorong semua pasangan Terkonfirmasi ke daftar peserta (entrants)?")) return;
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/finalize",{method:"POST",body:{category:tid}});
+    toast("Finalisasi OK · "+(r.finalized||0)+" pasangan ke entrants.");
+    openCuration();
+  }catch(e){ toast(e.message, true); }
+}
+async function appealDecide(appealId, decision){
+  let note="";
+  if(decision==="levelup") note=prompt("Catatan koreksi level (mis. bukti, level baru yang sesuai):","")||"";
+  if((decision==="reject"||decision==="levelup") && !confirm("Keputusan '"+decision+"' akan mengeluarkan pasangan dari kategori ini dan membuka slot. Lanjut?")) return;
+  try{
+    await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{decision, note}});
+    toast("Keputusan appeal disimpan.");
+    openCuration();
+  }catch(e){ toast(e.message, true); }
 }
 function collectRegConfig(){
   const ts=state.tournaments||[];
