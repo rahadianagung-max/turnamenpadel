@@ -1,0 +1,10 @@
+# Sync Log
+
+## 2026-09-17
+
+- Engine (Grup & Order of Play): pengaturan grup dan jadwal kini diedit langsung di aplikasi (sebelumnya: rearrange manual lewat round-trip Google Sheet `Jadwal_Import` lalu sync; sekarang: editor grup & jadwal in-app di `/engine`, konsisten dengan backend yang sudah di Supabase).
+- Fitur baru — Pendaftaran turnamen self-service: tab **Participants** punya Opsi 2 "Buat formulir pendaftaran" + halaman publik `/daftar/<eventId>` (sebelumnya: peserta hanya bisa dimasukkan via input/import nama manual; sekarang: peserta mendaftar sendiri berpasangan lewat satu link per event, lalu difinalisasi admin menjadi entrants).
+- Skema data (additive, Supabase): tabel baru `appeals` & `reg_claims`, kolom baru `players.phone`; form & pendaftaran memakai `reg_forms`/`registrations` dengan seluruh konfigurasi/data di kolom JSON (sebelumnya: tabel-tabel ini belum dipakai; sekarang: menyimpan config form, pasangan, eligibility, status, token klaim/bayar).
+- Integrasi email — Brevo transactional diaktifkan untuk peserta (sebelumnya: email hanya untuk notifikasi owner pada leads; sekarang: konfirmasi pendaftaran, blast roster kurasi, undangan bayar waitlist, dan hasil kurasi — pengirim `noreply@trekkr.online`).
+- Alur kurasi berbasis appeal + anti-ringer: cek DB Trekkr 4-metode (nama/HP/email/IG) + eligibility campur, kuota per-kategori + waitlist (bayar hanya saat diundang), roster publik ber-token `/roster`, keputusan Lolos/Reject/**Koreksi level** (koreksi level menulis penyesuaian `ELO_Log` ber-audit ke passport, hanya menaikkan). Halaman publik baru: `/roster`, `/bayar`, `/klaim`.
+- Keamanan & konfigurasi: endpoint kurasi/PII dikunci `REG_ADMIN_KEY` (terbuka bila belum di-set); env baru wajib/relevan `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, `REG_ADMIN_KEY` (opsional `BREVO_SENDER_NAME`, `REG_PUBLIC_BASE`, `REG_DRIVE_FOLDER_ID`); batas waktu appeal dihitung sebagai WIB (+07:00). Endpoint diagnostik `GET /api/reg/diag` mengembalikan status presence env (tanpa nilai).
