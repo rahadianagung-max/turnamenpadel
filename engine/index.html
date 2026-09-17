@@ -1106,7 +1106,8 @@ function renderRegBuilder(cfg, status){
       <div class="f"><label>Buka daftar</label><input id="rb_openStart" value="${esc(tl.openStart||"")}" placeholder="20 Sep 2026"></div>
       <div class="f"><label>Tutup daftar</label><input id="rb_openEnd" value="${esc(tl.openEnd||"")}" placeholder="1 Okt 2026"></div>
       <div class="f"><label>Kurasi mulai</label><input id="rb_curStart" value="${esc(tl.curationStart||"")}" placeholder="2 Okt 2026"></div>
-      <div class="f"><label>Batas waktu appeal</label><input id="rb_appeal" value="${esc(tl.appealDeadline||"")}" placeholder="4 Okt 2026 · 23:59"></div>
+      <div class="f"><label>Batas waktu appeal (teks)</label><input id="rb_appeal" value="${esc(tl.appealDeadline||"")}" placeholder="4 Okt 2026 · 23:59"></div>
+      <div class="f"><label>Batas appeal (tgl &amp; jam — untuk auto-tutup)</label><input id="rb_appealISO" type="datetime-local" value="${esc(tl.appealDeadlineISO||"")}"></div>
       <div class="f"><label>Technical Meeting + grup</label><input id="rb_tm" value="${esc(tl.tmDate||"")}" placeholder="8 Okt 2026"></div>
       <div class="f"><label>Order of play rilis</label><input id="rb_oop" value="${esc(tl.oopDate||"")}" placeholder="10 Okt 2026"></div>
     </div>
@@ -1143,7 +1144,7 @@ function collectRegConfig(){
     rules: (document.getElementById("rb_rules")||{}).value||"",
     waiver:(document.getElementById("rb_waiver")||{}).value||"",
     timeline:{ openStart:val("rb_openStart"), openEnd:val("rb_openEnd"), curationStart:val("rb_curStart"),
-               appealDeadline:val("rb_appeal"), tmDate:val("rb_tm"), oopDate:val("rb_oop") },
+               appealDeadline:val("rb_appeal"), appealDeadlineISO:(document.getElementById("rb_appealISO")||{}).value||"", tmDate:val("rb_tm"), oopDate:val("rb_oop") },
     payment:{ account: val("rb_account") },
     fields, refund:"manual",
   };

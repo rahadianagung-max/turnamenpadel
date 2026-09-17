@@ -784,6 +784,19 @@ const netlifyHandler = async (event) => {
     if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
+    if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET")
+      return await regEventRegistrations(decodeURIComponent(path.replace("reg/event/", "").replace("/registrations", "")));
+    if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST")
+      return await regRosterBlast(decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", "")));
+    if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET")
+      return await regEventAppeals(decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", "")));
+    if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST")
+      return await regFinalizeCategory(decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", "")), body);
+    if (path.startsWith("reg/roster/") && method === "GET")
+      return await regRoster(decodeURIComponent(path.replace("reg/roster/", "")), params);
+    if (path === "reg/appeal" && method === "POST") return await regAppealSubmit(body);
+    if (path.startsWith("reg/appeal/") && path.endsWith("/decision") && method === "POST")
+      return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body);
     if (path.startsWith("reg/registrations/") && method === "GET")
       return await regListRegistrations(decodeURIComponent(path.replace("reg/registrations/", "")));
 
@@ -5455,6 +5468,187 @@ async function regClaimConfirm(body) {
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!E${sr}:H${sr}`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [["confirmed", row[5] || "", row[6] || "", new Date().toISOString()]] } });
   return respond(200, { success: true, playerName: row[1] || "" });
+}
+
+// ==============================================================
+// KURASI (Fase 5): daftar pendaftar, roster+blast, appeal, keputusan, finalisasi.
+// ==============================================================
+function regParseReg(r) {
+  let d = {}; try { d = JSON.parse(r[8] || "{}"); } catch (e) {}
+  return { regId: r[0], formId: r[1], timestamp: r[2], team: r[3], phone: r[5], photoUrl: r[6],
+    paymentProofUrl: r[7], category: d.category || r[9] || "", status: r[10] || "received", data: d };
+}
+async function regUpdateFormConfig(sheets, formRowIdx, config) {
+  const sr = formRowIdx + 2;
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!E${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(config)]] } });
+}
+async function regUpdateRegStatus(sheets, regRowIdx, status, dataObj) {
+  const sr = regRowIdx + 2;
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!K${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[status]] } });
+  if (dataObj) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!I${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(dataObj)]] } });
+}
+async function regEventRegistrations(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const list = (res.data.values || []).filter((r) => r[1] === formId).map(regParseReg);
+  return respond(200, { registrations: list, count: list.length });
+}
+// Kirim roster ke semua peserta (email) + buat/roster token. Best-effort email.
+async function regRosterBlast(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const res0 = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
+  const forms = res0.data.values || [];
+  const idx = forms.findIndex((x) => x[0] === regFormIdForEvent(eventId));
+  if (idx < 0) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(forms[idx][4] || "{}"); } catch (e) {}
+  if (!config.rosterToken) config.rosterToken = require("crypto").randomBytes(9).toString("hex");
+  await regUpdateFormConfig(sheets, idx, config);
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const regs = (rRes.data.values || []).filter((r) => r[1] === regFormIdForEvent(eventId)).map(regParseReg)
+    .filter((r) => r.status !== "rejected" && r.status !== "cancelled");
+  const deadline = (config.timeline && (config.timeline.appealDeadline || config.timeline.appealDeadlineISO)) || "";
+  const recipients = []; // {email, category}
+  for (const r of regs) {
+    const e1 = r.data.player1 && r.data.player1.email, e2 = r.data.player2 && r.data.player2.email;
+    if (e1) recipients.push({ email: e1, category: r.category });
+    if (e2) recipients.push({ email: e2, category: r.category });
+  }
+  let sent = 0;
+  const cfgName = forms[idx][1] || "";
+  await Promise.allSettled(recipients.slice(0, 400).map(async (rc) => {
+    const link = `${REG_PUBLIC_BASE}/roster/${encodeURIComponent(eventId)}?t=${config.rosterToken}&c=${encodeURIComponent(rc.category)}`;
+    const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+      <h2 style="color:#FF6A00">Roster peserta — ${escHtml(cfgName)}</h2>
+      <p>Berikut roster sementara kategorimu. Periksa peserta lain; bila ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p>
+      <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lihat roster &amp; ajukan appeal →</a></p>
+      ${deadline ? `<p style="background:#fff4e8;border:1px solid #ffd7ad;border-radius:8px;padding:10px 12px;font-size:13px">⏳ Batas waktu appeal: <b>${escHtml(deadline)}</b>. Setelah itu roster dikunci final dan diundi ke grup.</p>` : ""}</div>`;
+    try { await sendBrevoEmail(rc.email, `Roster peserta — ${cfgName}`, html); sent++; } catch (e) {}
+  }));
+  return respond(200, { success: true, rosterToken: config.rosterToken, recipients: recipients.length, sent });
+}
+async function regRoster(eventId, params) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const token = (params && params.t) || "";
+  if (!config.rosterToken || token !== config.rosterToken) return respond(403, { error: "Link roster tidak valid." });
+  const cats = config.categories || {};
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const regs = (rRes.data.values || []).filter((r) => r[1] === regFormIdForEvent(eventId)).map(regParseReg)
+    .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && r.status !== "waitlist");
+  const byCat = {};
+  for (const r of regs) {
+    const pub = (p) => ({ name: p.name || "", alias: p.nick || "", region: p.region || "", ig: p.ig || "", photoUrl: p.photoUrl || "" });
+    (byCat[r.category] = byCat[r.category] || []).push({ regId: r.regId, label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
+  }
+  const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
+  const dISO = config.timeline && config.timeline.appealDeadlineISO;
+  const appealOpen = dISO ? (Date.now() < Date.parse(dISO)) : true;
+  return respond(200, { eventId, name: frow[1] || "", categories,
+    appealDeadline: (config.timeline && config.timeline.appealDeadline) || "", appealOpen });
+}
+async function regAppealSubmit(body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const eventId = String((body && body.eventId) || "").trim();
+  const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const dISO = config.timeline && config.timeline.appealDeadlineISO;
+  if (dISO && Date.now() > Date.parse(dISO)) return respond(403, { error: "Batas waktu appeal sudah berakhir." });
+  const name = String((body && body.appellantName) || "").trim();
+  const email = String((body && body.appellantEmail) || "").trim();
+  const reason = String((body && body.reason) || "").trim();
+  if (!name || !email || !reason) return respond(400, { error: "Nama, email, dan alasan wajib diisi." });
+  if (!body.proof) return respond(400, { error: "Bukti (foto) wajib diunggah." });
+  // Resolve nomor HP pelapor dari registrasinya (cocok via email).
+  let phone = "";
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  for (const r of (rRes.data.values || [])) {
+    if (r[1] !== regFormIdForEvent(eventId)) continue;
+    const d = regParseReg(r).data;
+    for (const p of [d.player1, d.player2]) { if (p && String(p.email || "").toLowerCase() === email.toLowerCase()) { phone = p.phone || ""; break; } }
+    if (phone) break;
+  }
+  const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
+  let proofUrl = ""; try { proofUrl = await driveUploadImage(body.proof, `appeal_${Date.now()}.jpg`, folderId); } catch (e) {}
+  const appealId = regGenId("apl");
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A:O`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[appealId, eventId, String(body.category || ""), String(body.againstRegId || ""), String(body.againstLabel || ""),
+      name, email, phone, reason, proofUrl, new Date().toISOString(), "baru", "", "", ""]] } });
+  return respond(200, { success: true, appealId });
+}
+async function regEventAppeals(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:O` });
+  const list = (res.data.values || []).filter((r) => r[1] === eventId).map((r) => ({
+    appealId: r[0], category: r[2], againstRegId: r[3], againstLabel: r[4], appellantName: r[5],
+    appellantEmail: r[6], appellantPhone: r[7], reason: r[8], proofUrl: r[9], createdAt: r[10],
+    status: r[11] || "baru", decision: r[12] || "", decidedAt: r[13] || "", note: r[14] || "",
+  }));
+  return respond(200, { appeals: list, count: list.length });
+}
+async function regAppealDecision(appealId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const decision = String((body && body.decision) || "").trim(); // lolos | reject | levelup
+  if (!["lolos", "reject", "levelup"].includes(decision)) return respond(400, { error: "Keputusan tidak valid." });
+  const aRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:O` });
+  const aRows = aRes.data.values || [];
+  const ai = aRows.findIndex((r) => r[0] === appealId);
+  if (ai < 0) return respond(404, { error: "Appeal tidak ditemukan." });
+  const a = aRows[ai], asr = ai + 2;
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!L${asr}:O${asr}`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[decision, decision, new Date().toISOString(), String((body && body.note) || "")]] } });
+  // reject / levelup → keluarkan pasangan target dari kelas ini (buka slot).
+  let targetUpdated = false;
+  if ((decision === "reject" || decision === "levelup") && a[3]) {
+    const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+    const rows = rRes.data.values || [];
+    const ri = rows.findIndex((r) => r[0] === a[3]);
+    if (ri >= 0) {
+      const rp = regParseReg(rows[ri]);
+      const d = rp.data;
+      d.curation = { decision, note: String((body && body.note) || ""), at: new Date().toISOString() };
+      // refund manual bila sudah bayar
+      if (rp.paymentProofUrl) d.refund = "pending";
+      // koreksi level: catat niat (penulisan ELO/passport dilakukan lewat aksi terpisah yang ber-audit)
+      if (decision === "levelup") d.levelUp = { requested: true, note: String((body && body.note) || "") };
+      await regUpdateRegStatus(sheets, ri, "rejected", d);
+      targetUpdated = true;
+    }
+  }
+  return respond(200, { success: true, decision, targetUpdated });
+}
+// Finalisasi 1 kategori → tulis ke Form_Responses (tagged) lalu jalankan import.
+async function regFinalizeCategory(eventId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
+  const tid = String((body && body.category) || "").trim();
+  const t = await tGetTournamentRow(sheets, tid);
+  if (!t || t.tournament.eventId !== eventId) return respond(400, { error: "Kategori tidak valid untuk event ini." });
+  const category = t.tournament.category;
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rows = rRes.data.values || [];
+  const now = new Date().toISOString();
+  const formRows = []; const toMark = [];
+  rows.forEach((r, i) => {
+    if (r[1] !== regFormIdForEvent(eventId)) return;
+    const rp = regParseReg(r);
+    if (rp.category !== tid) return;
+    if (!["received", "approved"].includes(rp.status)) return; // lewati waitlist/rejected/imported
+    const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
+    const nm = (p) => (p.match && p.match.name) || p.name || ""; // pakai nama kanonik bila cocok DB
+    formRows.push([now, category, nm(p1), p1.ig || "", nm(p2), p2.ig || "", p1.phone || "", tid]);
+    toMark.push(i);
+  });
+  if (!formRows.length) return respond(400, { error: "Tidak ada pasangan Terkonfirmasi untuk difinalisasi." });
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:H`, valueInputOption: "USER_ENTERED", requestBody: { values: formRows } });
+  // Jalankan import (buat entrants + pemain baru pada level kategori, link yang cocok).
+  const imp = await tImport(tid, { overrides: {} });
+  let impData = {}; try { impData = JSON.parse(imp.body); } catch (e) {}
+  if (imp.statusCode !== 200) return respond(imp.statusCode, { error: (impData && impData.error) || "Import gagal.", finalized: formRows.length });
+  for (const i of toMark) { try { await regUpdateRegStatus(sheets, i, "imported"); } catch (e) {} }
+  return respond(200, { success: true, finalized: formRows.length, import: impData });
 }
 
 // ==============================================================
