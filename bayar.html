@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pembayaran · TurnamenPadel</title>
+<style>
+  :root{--bg:#0A0A0B;--panel:#141416;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--accent:#FF6A00;--accent2:#FFB000;--ok:#3ad19b;--danger:#ff6f60;--r:16px;--r-sm:11px;
+    --display:'Saira Condensed','Arial Narrow',sans-serif;--body:'Plus Jakarta Sans',system-ui,sans-serif;--mono:'Space Mono',ui-monospace,monospace;
+    --grad:linear-gradient(120deg,var(--accent),var(--accent2));color-scheme:dark;}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;display:grid;place-items:center;padding:18px;
+    background-image:radial-gradient(700px 380px at 80% -10%,rgba(255,106,0,.16),transparent 60%);}
+  .card{max-width:440px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;box-shadow:0 20px 60px -24px #000}
+  .logo{font-family:var(--display);font-weight:800;font-size:22px;margin-bottom:12px}.logo .dot{color:var(--accent)}
+  h2{font-family:var(--display);font-size:22px;margin:0 0 10px} .muted{color:var(--muted)} .mono{font-family:var(--mono)} .note{font-size:12px;color:#6B6B72;margin-top:8px}
+  .box{background:#0e0e10;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px;margin-bottom:14px}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .elo{font-family:var(--mono);color:var(--accent);font-weight:700;font-size:20px}
+  .divider{height:1px;background:var(--line);margin:12px 0}
+  label span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  input{width:100%;background:#0e0e10;border:1px solid var(--line);color:var(--text);border-radius:var(--r-sm);padding:11px 12px;font-family:var(--body);font-size:14px}
+  .btn{appearance:none;border:0;background:var(--grad);color:#0A0A0B;font-family:var(--body);font-weight:800;font-size:15px;padding:13px;border-radius:var(--r-sm);cursor:pointer;width:100%}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .chip{display:inline-flex;font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line)}
+  .chip.ok{color:var(--ok);border-color:rgba(58,209,155,.35);background:rgba(58,209,155,.08)}
+  .chip.warn{color:#ffd166;border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.08)}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">turnamen<span class="dot">.</span>padel</div>
+  <div id="host"><p class="muted">Memuat…</p></div>
+</div>
+<script>
+const API="/api";
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function rupiah(n){const v=parseInt(String(n).replace(/\D/g,""));return isNaN(v)?String(n||""):"Rp"+v.toLocaleString("id-ID");}
+const P={ }; (function(){ const m=location.pathname.match(/\/bayar\/([^\/?#]+)/); const sp=new URLSearchParams(location.search);
+  P.eventId=m?decodeURIComponent(m[1]):sp.get("e")||""; P.r=sp.get("r")||""; P.t=sp.get("t")||""; })();
+let PROOF="";
+async function api(path,opts){const res=await fetch(API+"/"+path,{method:(opts&&opts.method)||"GET",headers:{"Content-Type":"application/json"},body:opts&&opts.body?JSON.stringify(opts.body):undefined});
+  let d={};try{d=await res.json();}catch(e){} if(!res.ok){const err=new Error(d.error||("HTTP "+res.status));err.status=res.status;throw err;} return d;}
+function fileToDataUrl(input){return new Promise(r=>{const f=input.files&&input.files[0];if(!f)return r("");const rd=new FileReader();rd.onload=()=>r(rd.result);rd.onerror=()=>r("");rd.readAsDataURL(f);});}
+async function boot(){
+  const host=document.getElementById("host");
+  if(!P.eventId||!P.r||!P.t){ host.innerHTML='<p class="muted">Link pembayaran tidak valid.</p>'; return; }
+  let info; try{ info=await api("reg/pay-info/"+encodeURIComponent(P.eventId)+"?r="+encodeURIComponent(P.r)+"&t="+encodeURIComponent(P.t)); }
+  catch(e){ host.innerHTML='<p class="muted">'+esc(e.message)+'</p>'; return; }
+  if(info.status==="received"||info.status==="imported"||info.status==="approved"||info.status==="final"){ host.innerHTML='<h2>Sudah dibayar</h2><p class="muted">Pembayaran untuk pendaftaran ini sudah tercatat.</p>'; return; }
+  host.innerHTML=`<h2>Pembayaran</h2>
+    <p class="muted" style="margin:0 0 12px">${esc(info.team)} · ${esc(info.category)} — ${esc(info.eventName)}</p>
+    <div class="box"><div class="row"><span class="muted">Total</span><b class="elo">${rupiah(info.fee)}</b></div>
+      <div class="divider"></div><div class="muted" style="font-size:13px">Transfer ke:</div><div class="mono" style="margin-top:4px">${esc(info.account||'-')}</div></div>
+    <label><span>Upload bukti transfer</span><input type="file" accept="image/*" onchange="pick(this)"></label>
+    <div id="proofChip" style="margin:8px 0"></div>
+    <button class="btn" id="btn" disabled onclick="submitPay()">Kirim bukti</button>
+    <p class="note">Setelah dikirim, status menjadi menunggu kurasi.</p>`;
+}
+async function pick(input){ PROOF=await fileToDataUrl(input);
+  document.getElementById("proofChip").innerHTML = PROOF?'<span class="chip ok">bukti terpilih ✔</span>':'';
+  document.getElementById("btn").disabled=!PROOF; }
+async function submitPay(){
+  const btn=document.getElementById("btn"); btn.disabled=true; btn.textContent="Mengirim…";
+  try{ await api("reg/pay",{method:"POST",body:{eventId:P.eventId,regId:P.r,token:P.t,proof:PROOF}});
+    document.getElementById("host").innerHTML='<h2>✅ Terima kasih!</h2><p class="muted">Bukti transfer terkirim. Status: <span class="chip warn">menunggu kurasi</span>. Kami akan mengabari via email.</p>';
+  }catch(e){ btn.disabled=false; btn.textContent="Kirim bukti"; alert("Gagal: "+e.message); }
+}
+boot();
+</script>
+</body>
+</html>

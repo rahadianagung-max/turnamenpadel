@@ -95,6 +95,8 @@
 <div id="modalHost"></div>
 <script>
 const API = "/api";
+// Daftar kota/kabupaten Indonesia (subset representatif; bisa diperluas).
+const REG_CITIES = ["Kota Jakarta Pusat","Kota Jakarta Utara","Kota Jakarta Barat","Kota Jakarta Selatan","Kota Jakarta Timur","Kota Tangerang","Kota Tangerang Selatan","Kabupaten Tangerang","Kota Bekasi","Kabupaten Bekasi","Kota Depok","Kota Bogor","Kabupaten Bogor","Kota Bandung","Kabupaten Bandung","Kota Cimahi","Kota Serang","Kabupaten Serang","Kota Cilegon","Kota Sukabumi","Kota Cirebon","Kota Bandung Barat","Kota Semarang","Kota Surakarta","Kota Yogyakarta","Kabupaten Sleman","Kabupaten Bantul","Kota Surabaya","Kota Malang","Kota Sidoarjo","Kabupaten Gresik","Kota Denpasar","Kabupaten Badung","Kota Medan","Kota Binjai","Kota Pekanbaru","Kota Batam","Kota Padang","Kota Palembang","Kota Bandar Lampung","Kota Makassar","Kota Manado","Kota Balikpapan","Kota Samarinda","Kota Pontianak","Kota Banjarmasin","Kota Ambon","Kota Jayapura","Kota Mataram","Kota Kupang","Kota Palu","Kota Kendari","Kota Gorontalo","Kota Jambi","Kota Bengkulu","Kota Pangkalpinang","Kota Tanjungpinang","Kota Banda Aceh","Kota Ternate","Kota Sorong"];
 const rupiah = n => { const v=parseInt(String(n).replace(/\D/g,"")); return isNaN(v)?String(n||""):"Rp"+v.toLocaleString("id-ID"); };
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function qs(){ const m=location.pathname.match(/\/daftar\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]); return new URLSearchParams(location.search).get("e")||""; }
@@ -268,6 +270,7 @@ function vPersonal(){
   const f=F.data.config.fields||{};
   const on=(k,d)=> f[k]===undefined? d : !!f[k];
   return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Data pribadi tiap pemain.</p>
+    <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     ${[0,1].map(i=>pPersonal(i,on)).join("")}
     <div class="nav"><button class="btn ghost" onclick="go('players')">←</button>
       <button class="btn primary" onclick="go('waiver')">Lanjut →</button></div></div>`;
@@ -279,7 +282,7 @@ function pPersonal(i,on){ const p=F.players[i];
   if(on('dob',true)) dg.push(`<label class="f"><span>Tanggal lahir</span><input type="date" value="${esc(p.dob)}" oninput="F.players[${i}].dob=this.value"></label>`);
   if(on('gender',true)) dg.push(`<label class="f"><span>Jenis kelamin</span><select onchange="F.players[${i}].gender=this.value"><option value="">—</option><option ${p.gender==='L'?'selected':''}>L</option><option ${p.gender==='P'?'selected':''}>P</option></select></label>`);
   if(dg.length) fld.push(`<div class="grid2">${dg.join("")}</div>`);
-  if(on('region',true)) fld.push(`<label class="f"><span>Kota / region</span><input value="${esc(p.region)}" oninput="F.players[${i}].region=this.value" placeholder="kota"></label>`);
+  if(on('region',true)) fld.push(`<label class="f"><span>Kota / region</span><input list="cities" value="${esc(p.region)}" oninput="F.players[${i}].region=this.value" placeholder="ketik kota…"></label>`);
   const pj=[];
   if(on('photo',true)) pj.push(`<label class="f"><span>Foto pemain</span><input type="file" accept="image/*" onchange="pickPhoto(${i},this)"></label>`);
   if(on('jersey',false)) pj.push(`<label class="f"><span>Ukuran jersey <span class="faint">(opsional)</span></span><select onchange="F.players[${i}].jersey=this.value"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(s=>`<option ${p.jersey===s?'selected':''}>${s}</option>`).join("")}</select></label>`);

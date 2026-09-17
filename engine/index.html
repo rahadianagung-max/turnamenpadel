@@ -1161,11 +1161,12 @@ function renderCuration(regs, appeals){
       +'<span><span class="chip">terisi '+nFilled+(nWl?' · +'+nWl+' wl':'')+'</span> '
       +'<button type="button" class="btn btn-primary btn-sm" onclick="finalizeCat(\''+esc(t.tournamentId)+'\')">✅ Finalisasi → entrants</button></span></div>'
       +'<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:12px">'
-      +'<tr style="color:var(--muted)"><th style="text-align:left;padding:4px 6px">Tim</th><th style="text-align:left;padding:4px 6px">Eligibility</th><th style="text-align:left;padding:4px 6px">Bayar</th><th style="text-align:left;padding:4px 6px">Status</th></tr>'
+      +'<tr style="color:var(--muted)"><th style="text-align:left;padding:4px 6px">Tim</th><th style="text-align:left;padding:4px 6px">Eligibility</th><th style="text-align:left;padding:4px 6px">Bayar</th><th style="text-align:left;padding:4px 6px">Status</th><th style="text-align:left;padding:4px 6px">Aksi</th></tr>'
       +list.map(r=>{
         const te=(r.data&&r.data.teamEligibility)||"";
         const pay=r.paymentProofUrl?'<a href="'+esc(r.paymentProofUrl)+'" target="_blank" rel="noopener">🧾 lihat</a>':(r.status==="waitlist"?'—':'belum');
-        return '<tr><td style="padding:4px 6px">'+esc(r.team)+'</td><td style="padding:4px 6px">'+eligChip(te)+'</td><td style="padding:4px 6px">'+pay+'</td><td style="padding:4px 6px"><span class="chip">'+esc(r.status)+'</span></td></tr>';
+        const act=(r.status==="waitlist")?'<button type="button" class="btn btn-ghost btn-sm" onclick="invitePay(\''+esc(r.regId)+'\')">✉ Undang bayar</button>':(r.status==="invited"?'<span class="chip" style="color:var(--warn)">diundang</span>':'');
+        return '<tr><td style="padding:4px 6px">'+esc(r.team)+'</td><td style="padding:4px 6px">'+eligChip(te)+'</td><td style="padding:4px 6px">'+pay+'</td><td style="padding:4px 6px"><span class="chip">'+esc(r.status)+'</span></td><td style="padding:4px 6px">'+act+'</td></tr>';
       }).join("")
       +'</table></div></div>';
   });
@@ -1202,6 +1203,14 @@ async function finalizeCat(tid){
   try{
     const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/finalize",{method:"POST",body:{category:tid}});
     toast("Finalisasi OK · "+(r.finalized||0)+" pasangan ke entrants.");
+    openCuration();
+  }catch(e){ toast(e.message, true); }
+}
+async function invitePay(regId){
+  if(!confirm("Undang pendaftar waitlist ini untuk membayar? Email berisi link pembayaran akan dikirim.")) return;
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/invite-pay",{method:"POST",body:{regId}});
+    toast("Undangan bayar dikirim"+(r.sent?" ("+r.sent+" email)":" (Brevo belum aktif — link tetap dibuat)")+".");
     openCuration();
   }catch(e){ toast(e.message, true); }
 }

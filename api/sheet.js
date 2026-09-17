@@ -797,6 +797,11 @@ const netlifyHandler = async (event) => {
     if (path === "reg/appeal" && method === "POST") return await regAppealSubmit(body);
     if (path.startsWith("reg/appeal/") && path.endsWith("/decision") && method === "POST")
       return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body);
+    if (path.startsWith("reg/event/") && path.endsWith("/invite-pay") && method === "POST")
+      return await regInvitePay(decodeURIComponent(path.replace("reg/event/", "").replace("/invite-pay", "")), body);
+    if (path.startsWith("reg/pay-info/") && method === "GET")
+      return await regPayInfo(decodeURIComponent(path.replace("reg/pay-info/", "")), params);
+    if (path === "reg/pay" && method === "POST") return await regPay(body);
     if (path.startsWith("reg/registrations/") && method === "GET")
       return await regListRegistrations(decodeURIComponent(path.replace("reg/registrations/", "")));
 
@@ -5334,6 +5339,16 @@ async function regRegisterPair(eventId, body) {
   // registrations: reg_id, form_id, timestamp, name, gender, phone, photo_url, payment_proof_url, data, linked_tournament(=category), status
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[regId, formId, now, teamName, data.player1.gender || "M", data.player1.phone || "", photo1, payUrl, JSON.stringify(data), catId, status]] } });
+  // Email konfirmasi (best-effort).
+  try {
+    const evName = frow[1] || "";
+    const body = isWaitlist
+      ? `<p>Halo, pendaftaran <b>${escHtml(teamName)}</b> untuk <b>${escHtml(cat.label || catId)}</b> di <b>${escHtml(evName)}</b> masuk <b>daftar tunggu (waitlist)</b>.</p>
+         <p>Kuota kategori penuh — <b>belum ada pembayaran</b>. Jika ada slot kosong, kami akan mengundangmu via email untuk melanjutkan ke pembayaran.</p>`
+      : `<p>Halo, pendaftaran <b>${escHtml(teamName)}</b> untuk <b>${escHtml(cat.label || catId)}</b> di <b>${escHtml(evName)}</b> sudah kami terima.</p>
+         <p>Status: <b>menunggu kurasi</b>. Kami akan mengabari hasilnya via email.</p>`;
+    await regNotify([data.player1.email, data.player2.email], `Pendaftaran diterima — ${evName}`, regEmailShell("Pendaftaran diterima", body));
+  } catch (e) {}
   return respond(200, { success: true, regId, status, waitlist: isWaitlist });
 }
 
@@ -5413,6 +5428,18 @@ async function regCheckPlayer(body) {
 // claimProfile). Tidak menyentuh player_auth / profile_claims.
 // ==============================================================
 const REG_PUBLIC_BASE = (process.env.REG_PUBLIC_BASE || "https://turnamenpadel.com").replace(/\/+$/, "");
+// Kirim email ke beberapa penerima, best-effort (tak pernah mematahkan alur).
+async function regNotify(emails, subject, html) {
+  const list = [...new Set((emails || []).filter((e) => e && String(e).includes("@")))];
+  let sent = 0;
+  await Promise.allSettled(list.map(async (to) => { try { await sendBrevoEmail(to, subject, html); sent++; } catch (e) {} }));
+  return sent;
+}
+function regEmailShell(title, bodyHtml) {
+  return `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+    <div style="background:#0A0A0B;color:#fff;padding:14px 18px;font-weight:800;font-size:18px">turnamen<span style="color:#FF6A00">.</span>padel</div>
+    <div style="padding:18px"><h2 style="color:#FF6A00;margin:0 0 10px">${escHtml(title)}</h2>${bodyHtml}</div></div>`;
+}
 async function regClaimStart(body) {
   const playerName = String((body && body.playerName) || "").trim();
   const email = String((body && body.email) || "").trim();
@@ -5616,6 +5643,15 @@ async function regAppealDecision(appealId, body) {
       if (decision === "levelup") d.levelUp = { requested: true, note: String((body && body.note) || "") };
       await regUpdateRegStatus(sheets, ri, "rejected", d);
       targetUpdated = true;
+      // Email hasil ke pasangan terkait (best-effort).
+      try {
+        const emails = [d.player1 && d.player1.email, d.player2 && d.player2.email];
+        const body2 = decision === "levelup"
+          ? `<p>Setelah peninjauan, pasangan <b>${escHtml(rp.team)}</b> dinilai berada di level yang lebih tinggi dari kategori ini, sehingga <b>tidak dapat mengikuti kategori ini</b>. Level/riwayat akan disesuaikan di profil Trekkr.</p>`
+          : `<p>Mohon maaf, setelah peninjauan pendaftaran <b>${escHtml(rp.team)}</b> pada kategori ini <b>tidak dapat dilanjutkan</b>.</p>`;
+        const refundLine = rp.paymentProofUrl ? `<p>Karena pembayaran sudah masuk, <b>refund akan diproses</b> oleh panitia. Kami akan menghubungimu.</p>` : "";
+        await regNotify(emails, `Hasil kurasi — ${a[1] || ""}`, regEmailShell("Hasil kurasi", body2 + refundLine));
+      } catch (e) {}
     }
   }
   return respond(200, { success: true, decision, targetUpdated });
@@ -5649,6 +5685,74 @@ async function regFinalizeCategory(eventId, body) {
   if (imp.statusCode !== 200) return respond(imp.statusCode, { error: (impData && impData.error) || "Import gagal.", finalized: formRows.length });
   for (const i of toMark) { try { await regUpdateRegStatus(sheets, i, "imported"); } catch (e) {} }
   return respond(200, { success: true, finalized: formRows.length, import: impData });
+}
+// Undang peserta waitlist untuk membayar (saat ada slot kosong).
+async function regInvitePay(eventId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const frow = await regFindFormRow(sheets, formId);
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const regId = String((body && body.regId) || "").trim();
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rows = rRes.data.values || [];
+  const ri = rows.findIndex((r) => r[0] === regId && r[1] === formId);
+  if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  const rp = regParseReg(rows[ri]);
+  if (rp.status !== "waitlist") return respond(400, { error: "Hanya untuk pendaftar waitlist." });
+  const token = require("crypto").randomBytes(8).toString("hex");
+  const d = rp.data; d.payToken = token;
+  await regUpdateRegStatus(sheets, ri, "invited", d);
+  const cat = (config.categories || {})[rp.category] || {};
+  const link = `${REG_PUBLIC_BASE}/bayar/${encodeURIComponent(eventId)}?r=${encodeURIComponent(regId)}&t=${token}`;
+  const html = regEmailShell("Slot tersedia — silakan lanjut pembayaran", `
+    <p>Kabar baik! Ada slot kosong di <b>${escHtml(cat.label || rp.category)}</b> (${escHtml(frow[1] || "")}), dan pendaftaran <b>${escHtml(rp.team)}</b> kini bisa dilanjutkan.</p>
+    <p>Total: <b>${cat.fee ? "Rp" + (parseInt(String(cat.fee).replace(/\D/g, "")) || 0).toLocaleString("id-ID") : "-"}</b></p>
+    <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lanjut ke pembayaran →</a></p>`);
+  const sent = await regNotify([d.player1 && d.player1.email, d.player2 && d.player2.email], `Slot tersedia — ${frow[1] || ""}`, html);
+  return respond(200, { success: true, sent, regId });
+}
+// Peserta waitlist yang diundang mengunggah bukti transfer → status received.
+async function regPay(body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const eventId = String((body && body.eventId) || "").trim();
+  const formId = regFormIdForEvent(eventId);
+  const regId = String((body && body.regId) || "").trim();
+  const token = String((body && body.token) || "").trim();
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rows = rRes.data.values || [];
+  const ri = rows.findIndex((r) => r[0] === regId && r[1] === formId);
+  if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  const rp = regParseReg(rows[ri]);
+  if (!rp.data.payToken || rp.data.payToken !== token) return respond(403, { error: "Link pembayaran tidak valid." });
+  if (!["invited", "waitlist"].includes(rp.status)) return respond(400, { error: "Pembayaran sudah tidak diperlukan (status: " + rp.status + ")." });
+  if (!body.proof) return respond(400, { error: "Bukti transfer wajib diunggah." });
+  const frow = await regFindFormRow(sheets, formId);
+  let config = {}; try { config = JSON.parse((frow && frow[4]) || "{}"); } catch (e) {}
+  const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
+  let payUrl = ""; try { payUrl = await driveUploadImage(body.proof, `pay_${regId}_${Date.now()}.jpg`, folderId); } catch (e) {}
+  const sr = ri + 2;
+  const d = rp.data; delete d.payToken;
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!H${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[payUrl]] } });
+  await regUpdateRegStatus(sheets, ri, "received", d);
+  return respond(200, { success: true });
+}
+// Info ringkas untuk halaman bayar (nominal + rekening).
+async function regPayInfo(eventId, params) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const frow = await regFindFormRow(sheets, formId);
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const regId = (params && params.r) || "", token = (params && params.t) || "";
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const row = (rRes.data.values || []).find((r) => r[0] === regId && r[1] === formId);
+  if (!row) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  const rp = regParseReg(row);
+  if (!rp.data.payToken || rp.data.payToken !== token) return respond(403, { error: "Link tidak valid." });
+  const cat = (config.categories || {})[rp.category] || {};
+  return respond(200, { team: rp.team, category: cat.label || rp.category, fee: cat.fee || "",
+    account: (config.payment || {}).account || "", status: rp.status, eventName: frow[1] || "" });
 }
 
 // ==============================================================

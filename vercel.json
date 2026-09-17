@@ -27,6 +27,7 @@
     { "source": "/daftar", "destination": "/daftar.html" },
     { "source": "/klaim", "destination": "/klaim.html" },
     { "source": "/roster/:id", "destination": "/roster.html" },
+    { "source": "/bayar/:id", "destination": "/bayar.html" },
     { "source": "/rules", "destination": "/rules/index.html" }
   ]
 }
