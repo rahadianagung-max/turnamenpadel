@@ -187,7 +187,8 @@ async function resolveEvent(){
   if(!slug) return;
   try{
     const { events } = await api("/tournament/events");
-    const m=(events||[]).filter(e=>slugify(e.name)===slug);
+    // Match the frozen slug first (rename-safe), fall back to the name-derived slug.
+    const m=(events||[]).filter(e=>(e.slug||slugify(e.name))===slug);
     if(m.length) state.eventId=m[m.length-1].eventId;
   }catch(e){}
 }

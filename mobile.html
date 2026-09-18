@@ -577,7 +577,9 @@ async function resolveEventId(){
   if(!slug) return null;
   try{
     const { events } = await api("/tournament/events");
-    const matches = (events||[]).filter(e=>slugify(e.name)===slug);
+    // Match the FROZEN slug first (an event can be renamed without moving its URL),
+    // then fall back to the name-derived slug for older links.
+    const matches = (events||[]).filter(e=>(e.slug||slugify(e.name))===slug);
     if(matches.length) return matches[matches.length-1].eventId; // newest on name collision
   }catch(e){}
   return null;

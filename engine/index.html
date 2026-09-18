@@ -410,6 +410,14 @@
         <button type="button" class="btn btn-primary" onclick="assignAdmin()">Assign</button>
       </div>
     </div>
+    <div id="renameBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Display name <span style="color:var(--muted);font-weight:400">— shown on every screen; the /tv &amp; /mobile URL stays the same</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Public URL (unchanged by rename): <b>/tv/<span id="renameSlug">—</span></b> · <b>/mobile/<span id="renameSlug2">—</span></b></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="renameInput" style="flex:1;min-width:220px" placeholder="Event display name" />
+        <button type="button" class="btn btn-primary" onclick="renameEvent()">Save name</button>
+      </div>
+    </div>
     <div id="tvThemeBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
       <div style="font-weight:600;font-size:13px;margin-bottom:2px">TV LED colour theme <span style="color:var(--muted);font-weight:400">— for this event's /tv board</span></div>
       <div id="tvPresets" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 10px"></div>
@@ -744,6 +752,10 @@ const LEVEL_LABEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_b
 function levelLabel(l){ if(LEVEL_LABEL[l]) return LEVEL_LABEL[l]; return /^\d+$/.test(String(l||"")) ? "ELO "+l : (l||""); }
 
 function shareSlug(){
+  // Prefer the FROZEN slug (so a renamed event keeps its /tv & /mobile URL);
+  // fall back to the name-derived slug for events never renamed.
+  var frozen = String(state.event && state.event.slug || "").trim();
+  if(frozen) return frozen;
   return String(state.event && state.event.name || "").toLowerCase().trim()
     .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
 }
@@ -850,13 +862,37 @@ const TV_PRESETS={
 function renderTvPresets(){ const el=document.getElementById('tvPresets'); if(!el||el._done)return; el._done=1; el.innerHTML=Object.keys(TV_PRESETS).map(n=>'<button type="button" class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="applyTvPreset(\''+n+'\')">'+n+'</button>').join(''); }
 function applyTvPreset(n){ const p=TV_PRESETS[n]; if(!p)return; TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i&&p[k]) i.value=p[k]; }); }
 function tvSlug(name){ return String(name||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,''); }
+function fillRenameEvent(){
+  const box=document.getElementById('renameBox'); if(!box)return;
+  if(!state.event){ box.style.display='none'; return; }
+  box.style.display='';
+  document.getElementById('renameInput').value = state.event.name || '';
+  const slug = String(state.event.slug||'').trim() || shareSlug();
+  document.getElementById('renameSlug').textContent = slug;
+  document.getElementById('renameSlug2').textContent = slug;
+}
+async function renameEvent(){
+  if(!state.event) return;
+  const name = (document.getElementById('renameInput').value||'').trim();
+  if(!name) return toast('Event name is required', true);
+  if(name === state.event.name){ toast('Name unchanged'); return; }
+  try{
+    const r = await api('tournament/event/'+encodeURIComponent(state.event.eventId)+'/rename',{method:'POST',body:{name}});
+    state.event.name = r.name; state.event.slug = r.slug;
+    const e = state.events.find(x=>x.eventId===state.event.eventId); if(e){ e.name=r.name; e.slug=r.slug; }
+    const opt = Array.from(document.getElementById('eventSelect').options).find(o=>o.value===state.event.eventId);
+    if(opt) opt.textContent = r.name + (state.event.date ? ' · '+state.event.date : '');
+    renderContext(); fillTvTheme(); fillRenameEvent();
+    toast('Event name updated — URL stays /tv/'+r.slug);
+  }catch(e){ toast('Rename failed: '+e.message, true); }
+}
 function fillTvTheme(){
   const box=document.getElementById('tvThemeBox'); if(!box)return;
   if(!state.event){ box.style.display='none'; return; }
   box.style.display=''; renderTvPresets();
   const t=state.event.tvTheme||{};
   TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i) i.value=(t[k]||TV_DEFAULT[k]); });
-  const link=document.getElementById('tvOpenLink'); if(link) link.href='https://turnamenpadel.com/tv/'+encodeURIComponent(tvSlug(state.event.name));
+  const link=document.getElementById('tvOpenLink'); if(link) link.href='https://turnamenpadel.com/tv/'+encodeURIComponent(String(state.event.slug||'').trim()||tvSlug(state.event.name));
 }
 async function saveTvTheme(){
   if(!state.event) return;
@@ -872,7 +908,7 @@ async function resetTvTheme(){
 function selectEvent(id){
   state.event = state.events.find(e=>e.eventId===id) || null;
   state.tournament = null;
-  renderContext(); setLocks(); fillScheduleParams(); fillTvTheme(); fillAssignAdmin();
+  renderContext(); setLocks(); fillScheduleParams(); fillTvTheme(); fillAssignAdmin(); fillRenameEvent();
   document.getElementById("tourSelect").innerHTML = '<option value="">—</option>';
   document.getElementById("entrantsWrap").innerHTML = '<p class="empty">Belum ada peserta.</p>';
   document.getElementById("importResult").classList.remove("show");
