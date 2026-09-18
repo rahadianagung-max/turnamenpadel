@@ -762,9 +762,15 @@ function shareSlug(){
 }
 function shareUrl(kind){
   if(!state.event){ toast("Pilih atau buat event dulu.", true); return; }
-  var seg = kind==="tv" ? "tv/" : kind==="checkin" ? "checkin/" : "mobile/";
-  var url = location.origin + "/" + seg + encodeURIComponent(shareSlug());
-  if(kind==="tv"){ var sp=(state.sponsorUrl||"").trim(); if(sp) url += "?sponsor=" + encodeURIComponent(sp); }
+  var url;
+  if(kind==="tv"){
+    // Short URL for the TV/LED board — opens the remote-navigable event picker
+    // (far easier to type on a TV remote than the full slug).
+    url = location.origin + "/tv";
+  } else {
+    var seg = kind==="checkin" ? "checkin/" : "mobile/";
+    url = location.origin + "/" + seg + encodeURIComponent(shareSlug());
+  }
   var label = kind==="tv" ? "TV display URL disalin ke clipboard"
             : kind==="checkin" ? "Check-in URL disalin ke clipboard"
             : "Player URL disalin ke clipboard";
@@ -896,7 +902,7 @@ function fillTvTheme(){
   box.style.display=''; renderTvPresets();
   const t=state.event.tvTheme||{};
   TV_TOKENS.forEach(k=>{ const i=document.getElementById('tv-'+k); if(i) i.value=(t[k]||TV_DEFAULT[k]); });
-  const link=document.getElementById('tvOpenLink'); if(link) link.href='https://turnamenpadel.com/tv/'+encodeURIComponent(String(state.event.slug||'').trim()||tvSlug(state.event.name));
+  const link=document.getElementById('tvOpenLink'); if(link) link.href='https://turnamenpadel.com/tv';
 }
 async function saveTvTheme(){
   if(!state.event) return;
