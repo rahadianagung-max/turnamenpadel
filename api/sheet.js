@@ -1830,58 +1830,31 @@ async function setSetting(body) {
 function eventSlugify(s) {
   return String(s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
 }
-// Read/write the Settings key-value tab directly (the Settings tab already exists
-// once liveEventId has been set). Used for the frozen per-event slug override.
-async function readSettingsMap(sheets) {
-  try {
-    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Settings!A2:B" });
-    const m = {}; (res.data.values || []).forEach((r) => { if (r[0]) m[r[0]] = r[1] || ""; });
-    return m;
-  } catch (e) { return {}; }
-}
-async function writeSetting(sheets, key, value) {
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Settings!A2:B" });
-  const rows = res.data.values || [];
-  const i = rows.findIndex((r) => r[0] === key);
-  if (i === -1) {
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID, range: "Settings!A:B", valueInputOption: "RAW",
-      requestBody: { values: [[key, String(value)]] },
-    });
-  } else {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `Settings!A${i + 2}:B${i + 2}`, valueInputOption: "RAW",
-      requestBody: { values: [[key, String(value)]] },
-    });
-  }
-}
 // Rename an event's DISPLAY name without changing its public /tv & /mobile URL.
-// The slug is frozen in Settings (key eventslug:<id>) the first time the name is
-// changed (or when explicitly provided), so every screen shows the new name while
-// existing links keep working.
+// The slug lives in the events table (col W). Precedence: an explicit body.slug,
+// then the already-stored slug, then a slug frozen from the CURRENT (pre-rename)
+// name — so every screen shows the new name while existing links keep working.
 async function tRenameEvent(id, body) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:W` });
   const rows = r.data.values || [];
   const idx = rows.findIndex((x) => x[0] === id);
   if (idx === -1) return respond(404, { error: "Event not found" });
   const oldName = String(rows[idx][1] || "");
+  const storedSlug = String(rows[idx][22] || "").trim();
   const newName = String((body && body.name) || "").trim();
   if (!newName) return respond(400, { error: "Nama event tidak boleh kosong." });
-  // Freeze the slug: keep an already-stored override, else pin the CURRENT (pre-rename)
-  // slug so the URL that was generated from the old name never moves.
-  const settings = await readSettingsMap(sheets);
-  let slug = String(settings["eventslug:" + id] || "").trim();
-  if (!slug) {
-    const want = (body && body.slug != null) ? eventSlugify(body.slug) : "";
-    slug = want || eventSlugify(oldName) || eventSlugify(id) || String(id).toLowerCase();
-  }
+  const wanted = (body && body.slug != null) ? eventSlugify(body.slug) : "";
+  const slug = wanted || storedSlug || eventSlugify(oldName) || eventSlugify(id) || String(id).toLowerCase();
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID, range: `${TABS.t_events}!B${idx + 2}`,
     valueInputOption: "USER_ENTERED", requestBody: { values: [[newName]] },
   });
-  await writeSetting(sheets, "eventslug:" + id, slug);
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!W${idx + 2}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [[slug]] },
+  });
   return respond(200, { success: true, name: newName, slug });
 }
 // ==============================================================
@@ -2012,18 +1985,15 @@ async function tSetTvTheme(id, body) {
 async function tListEvents(params = {}) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const [r, settings] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` }),
-    readSettingsMap(sheets),
-  ]);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:W` });
   let events = (r.data.values || []).map((x) => ({
     eventId: x[0], name: x[1], venue: x[2], date: x[3], startTime: x[4],
     numCourts: parseInt(x[5]) || 0, matchMinutes: parseInt(x[6]) || 15, createdAt: x[7],
     tvTheme: parseTvTheme(x[8]),   // col I — TV LED color theme
     adminUsername: x[13] || "",   // col N — owning admin
-    // Frozen public URL slug: an admin can rename the event without moving its
-    // /tv & /mobile URL. Falls back to the name-derived slug when never renamed.
-    slug: String(settings["eventslug:" + x[0]] || "").trim() || eventSlugify(x[1]),
+    // Frozen public URL slug (events col W): an admin can rename the event without
+    // moving its /tv & /mobile URL. Falls back to the name-derived slug when unset.
+    slug: String(x[22] || "").trim() || eventSlugify(x[1]),
     // cols O:V — up to 4 optional break windows
     breaks: [0, 1, 2, 3].map((i) => ({ start: x[14 + i * 2] || "", end: x[15 + i * 2] || "" })).filter((b) => b.start || b.end),
     breakStart: x[14] || "", breakEnd: x[15] || "",   // legacy single-break compat

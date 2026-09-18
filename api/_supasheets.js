@@ -25,7 +25,7 @@ const SHEET_MAP = {
   PlayRank_Active:    { table: "playrank_active",     cols: ["event_id","title","venue","level","gender","format","week_start","week_end","status","players","leader","url","highlight"] },
 
   // Tournament engine (wider than Trekkr): break windows, playoff, team name, etc.
-  Tournament_Events:  { table: "tournament_events",   cols: ["event_id","name","venue","date","start_time","num_courts","match_minutes","created_at","status","format","category","url","highlight","admin_username","break1_start","break1_end","break2_start","break2_end","break3_start","break3_end","break4_start","break4_end"] },
+  Tournament_Events:  { table: "tournament_events",   cols: ["event_id","name","venue","date","start_time","num_courts","match_minutes","created_at","status","format","category","url","highlight","admin_username","break1_start","break1_end","break2_start","break2_end","break3_start","break3_end","break4_start","break4_end","slug"] },
   Tournaments:        { table: "tournaments",         cols: ["tournament_id","event_id","category","level","format","group_size_target","advancers_per_group","status","admin_username","created_at","playoff_top_overall","auto_playoff"] },
   Tournament_Entrants:{ table: "tournament_entrants", cols: ["tournament_id","entrant_id","player1_name","player1_ig","player2_name","player2_ig","seed_elo","is_new_p1","is_new_p2","created_at","team_name"] },
   Tournament_Groups:  { table: "tournament_groups",   cols: ["tournament_id","category","group_label","entrant_id","player1_name","player2_name","seed_elo","team_name"] },
