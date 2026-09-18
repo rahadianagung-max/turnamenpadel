@@ -351,7 +351,8 @@ function renderLinks(){
     const url=ORIGIN+"/court"+n+suffix;
     return `<span class="linkchip" title="Click to copy" onclick="copyLink('${esc(url)}')"><span class="cn">/court${n}</span> ${isLive?"":'<span style="color:var(--faint)">'+esc(suffix)+'</span>'}</span>`;
   }).join("");
-  const slug=slugify(state.event&&state.event.name);
+  // Use the event's frozen slug (rename-safe); fall back to the name-derived slug.
+  const slug=String(state.event&&state.event.slug||"").trim()||slugify(state.event&&state.event.name);
   const tvUrl=ORIGIN+"/tv/"+encodeURIComponent(slug);
   const mbUrl=ORIGIN+"/mobile/"+encodeURIComponent(slug);
   $("ledGrid").innerHTML=`<a class="linkchip led" href="${esc(tvUrl)}" target="_blank" rel="noopener"><span class="cn">/tv/${esc(slug)}</span> ↗</a>`

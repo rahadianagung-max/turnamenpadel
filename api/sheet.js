@@ -4568,6 +4568,7 @@ async function tPublicEvent(eventId, opts) {
   const evRow = evRows.find((x) => x[0] === eventId);
   if (!evRow) return respond(404, { error: "Event not found" }, { "Cache-Control": "no-store" });
   const event = { eventId: evRow[0], name: evRow[1], venue: evRow[2], date: evRow[3], startTime: evRow[4], numCourts: parseInt(evRow[5]) || 1, matchMinutes: parseInt(evRow[6]) || 15,
+    slug: String(evRow[22] || "").trim() || eventSlugify(evRow[1]),   // frozen public URL slug (events col W)
     theme: parseTvTheme(evRow[8]),   // per-event TV LED color theme
     breaks: [0, 1, 2, 3].map((i) => ({ start: evRow[14 + i * 2] || "", end: evRow[15 + i * 2] || "" })).filter((b) => b.start || b.end),
     breakStart: evRow[14] || "", breakEnd: evRow[15] || "" };
