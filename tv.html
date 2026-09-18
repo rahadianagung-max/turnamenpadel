@@ -70,6 +70,20 @@
     border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent);
     animation:liveblink 1.4s steps(1,end) infinite;}
   .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
+  /* remote-navigable event picker (short URL /tv or /led, no slug typing) */
+  .tvpick-ov{position:fixed; inset:0; z-index:100; background:radial-gradient(1100px 600px at 84% -12%,rgba(255,106,0,.10),transparent 55%),#000; padding:5vh 6vw; overflow:auto; display:flex; flex-direction:column;}
+  .tvpick-brand{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(22px,3vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:.6vh;}
+  .tvpick-h{font-family:'Space Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--accent2); font-size:clamp(11px,1.1vw,18px); margin-bottom:3vh;}
+  .tvpick-h b{color:var(--accent);}
+  .tvpick-list{display:flex; flex-direction:column; gap:1.4vh; max-width:min(94vw,1000px);}
+  .tvpick-row{display:flex; align-items:center; gap:1.6vw; padding:1.8vh 1.8vw; border:2px solid var(--line); border-radius:16px; background:var(--panel);}
+  .tvpick-row.on{border-color:var(--accent); background:linear-gradient(180deg,rgba(255,122,26,.18),rgba(255,122,26,.04)); box-shadow:0 0 0 3px rgba(255,122,26,.22);}
+  .tvpick-n{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--muted); border-radius:9px; padding:.5vh 1.1vw; font-size:clamp(15px,1.5vw,26px); min-width:2.2em; text-align:center;}
+  .tvpick-row.on .tvpick-n{background:var(--accent);}
+  .tvpick-nm{flex:1 1 auto; min-width:0; font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(22px,2.6vw,46px); line-height:1.02; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tvpick-mt{flex:0 0 auto; font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(12px,1.15vw,20px); white-space:nowrap;}
+  .tvpick-cd{margin-top:2.4vh; font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(12px,1.1vw,18px);}
+  .tvpick-cd b{color:var(--accent2);}
   /* upcoming — compact single-line queue, ordered by time; capped so Now Playing stays bigger */
   #nextWrap{flex:0 0 auto; min-height:clamp(80px,11vh,170px); display:flex; flex-direction:column; gap:.6vh;}
   .up-row{display:flex; align-items:center; gap:.8vw; border:1px solid var(--line); border-radius:8px; background:var(--panel); padding:.5vh .9vw;}
@@ -231,7 +245,7 @@ function catAllowed(c){
 }
 let CAT_LABEL = "";
 const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
-function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
+function slugFromPath(){ const m = /^\/(?:mobile|tv|led)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const PATH_SLUG = slugFromPath();
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const state = { data:null };
@@ -834,9 +848,51 @@ async function resolveEventId(){
   }catch(e){}
   return null;
 }
+// ---- Remote-navigable event picker (for the short /tv or /led URL, no slug typing) ----
+let PICK=[], PICK_I=0, PICK_CD=null;
+function pickSlug(e){ return e.slug || slugify(e.name); }
+function pickGo(){ const e=PICK[PICK_I]; if(!e) return; try{ localStorage.setItem("tp_tv_last_slug", pickSlug(e)); }catch(_){} location.href = "/tv/" + encodeURIComponent(pickSlug(e)); }
+function pickStop(){ if(PICK_CD){ clearInterval(PICK_CD); PICK_CD=null; renderPicker(); } }
+function renderPicker(cd){
+  const ov=document.getElementById("tvPicker"); if(!ov) return;
+  ov.innerHTML = `<div class="tvpick-brand">TurnamenPadel</div>
+    <div class="tvpick-h">Pilih event — <b>▲ ▼</b> lalu <b>OK</b>, atau tekan angka</div>
+    <div class="tvpick-list">${PICK.map((e,i)=>`<div class="tvpick-row ${i===PICK_I?'on':''}">
+      <span class="tvpick-n">${i+1}</span>
+      <span class="tvpick-nm">${esc(e.name||"")}</span>
+      <span class="tvpick-mt">${esc([e.venue,e.date].filter(Boolean).join(" · "))}</span></div>`).join("")}</div>
+    ${cd!=null?`<div class="tvpick-cd">Membuka <b>${esc(PICK[PICK_I]&&PICK[PICK_I].name||"")}</b> dalam <b>${cd}</b> dtk — tekan tombol apa saja untuk memilih lain.</div>`:""}`;
+}
+function pickerKey(ev){
+  if(!PICK.length) return;
+  const k=ev.key;
+  if(k==="ArrowDown"||k==="ArrowRight"){ pickStop(); PICK_I=(PICK_I+1)%PICK.length; renderPicker(); ev.preventDefault(); }
+  else if(k==="ArrowUp"||k==="ArrowLeft"){ pickStop(); PICK_I=(PICK_I-1+PICK.length)%PICK.length; renderPicker(); ev.preventDefault(); }
+  else if(k==="Enter"||k===" "){ pickStop(); pickGo(); ev.preventDefault(); }
+  else if(/^[1-9]$/.test(k)){ const i=parseInt(k,10)-1; if(i<PICK.length){ pickStop(); PICK_I=i; pickGo(); } }
+  else { pickStop(); }
+}
+async function showPicker(){
+  let ov=document.getElementById("tvPicker");
+  if(!ov){ ov=document.createElement("div"); ov.id="tvPicker"; ov.className="tvpick-ov"; document.body.appendChild(ov); }
+  ov.innerHTML='<div class="tvpick-brand">TurnamenPadel</div><div class="tvpick-h">Memuat event…</div>';
+  let events=[];
+  try{ ({events}=await api("/tournament/events")); }catch(e){}
+  PICK=(events||[]).slice().sort((a,b)=>String(b.createdAt||"").localeCompare(String(a.createdAt||"")));
+  if(!PICK.length){ ov.innerHTML='<div class="tvpick-brand">TurnamenPadel</div><div class="tvpick-h">Belum ada event. Buat dulu di /engine.</div>'; return; }
+  let last=""; try{ last=localStorage.getItem("tp_tv_last_slug")||""; }catch(e){}
+  const li=PICK.findIndex(e=>pickSlug(e)===last);
+  PICK_I = li>=0 ? li : 0;
+  document.addEventListener("keydown", pickerKey);
+  // Auto-resume the last-shown event after a short countdown (any key cancels).
+  if(li>=0){ let n=6; renderPicker(n); PICK_CD=setInterval(()=>{ n--; if(n<=0){ pickStop(); pickGo(); } else renderPicker(n); },1000); }
+  else renderPicker();
+}
+
 (async function boot(){
   EVENT_ID = await resolveEventId();
   if(EVENT_ID){
+    try{ if(PATH_SLUG) localStorage.setItem("tp_tv_last_slug", PATH_SLUG); }catch(e){}
     setupQR(); load(); setInterval(load,20000); startSponsorCycle();
     // Group stage shows Group Standings only; the simulated playoff bracket is no
     // longer rotated in. The real bracket appears once the playoff actually starts.
@@ -857,8 +913,8 @@ async function resolveEventId(){
     setInterval(updateRotCountdown, 1000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
   } else {
-    document.getElementById("nowWrap").innerHTML='';
-    document.getElementById("standWrap").innerHTML='<div class="center">Buka /tv/&lt;nama-turnamen&gt; atau tambahkan ?event=EVENT_ID di URL.</div>';
+    // No event resolved (bare /tv, /led, or a mistyped slug) → remote-friendly picker.
+    showPicker();
   }
 })();
 </script>
