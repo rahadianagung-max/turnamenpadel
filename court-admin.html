@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="robots" content="noindex" />
-<title>Scorer — TurnamenPadel</title>
+<title>Scorer Desk — TurnamenPadel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -43,7 +43,7 @@
   .btn-ghost{background:transparent; color:var(--text); border:1px solid var(--line);} .btn-ghost:hover{border-color:var(--accent);}
   .btn-sm{padding:8px 11px; font-size:12.5px;}
 
-  /* Sub-judul event + kategori (satu-satunya tempat kategori ditulis) */
+  /* Event + category sub-title (the only place the category is written) */
   .subtitle{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:2px 2px 14px;}
   .subtitle .ev{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:26px; letter-spacing:-.01em;}
   .subtitle .catpill{font-family:'Space Mono',monospace; font-size:12.5px; font-weight:700; color:#0A0A0B; background:var(--accent2); padding:4px 10px; border-radius:999px;}
@@ -69,7 +69,7 @@
   .tabbtn:hover{color:var(--text);}
   .tabbtn.active{color:var(--text); border-bottom-color:var(--accent);}
 
-  /* Baris per-round (dikelompokkan per jam); 4 lapangan per baris */
+  /* Per-round rows (grouped by time); 4 courts per row */
   .roundrow{margin-bottom:22px;}
   .roundhead{display:flex; align-items:baseline; gap:10px; margin:0 2px 12px; padding-bottom:7px; border-bottom:1px solid var(--line);}
   .roundhead .rn{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:22px; letter-spacing:-.01em;}
@@ -82,7 +82,7 @@
   .mcard{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:11px 12px;}
   .mcard.st-done{border-color:rgba(56,211,159,.30);}
   .mtop{display:flex; align-items:center; gap:7px; margin-bottom:9px; flex-wrap:wrap;}
-  /* COURT & GRUP harus terlihat jelas */
+  /* COURT & GROUP must be clearly visible */
   .cbig{font-family:'Saira Condensed',sans-serif; color:#0A0A0B; background:var(--accent); font-weight:800; padding:3px 10px; border-radius:6px; font-size:14px; letter-spacing:.02em;}
   .gbig{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:14px; color:var(--text); border:1.5px solid var(--line); padding:2px 9px; border-radius:6px; letter-spacing:.01em;}
   .mtop .badge{margin-left:auto; font-weight:700; font-size:10px; padding:2px 7px; border-radius:999px; font-family:'Space Mono',monospace;}
@@ -99,7 +99,7 @@
   .team .sin:focus{border-color:var(--accent);}
   .sep{height:1px; background:var(--line); margin:1px 0;}
 
-  /* Editor nama & tim */
+  /* Name & team editor */
   .nameedit{margin:6px 0 2px; padding:9px; background:#111114; border:1px solid var(--line); border-radius:10px; display:none;}
   .nameedit.open{display:block;}
   .nameedit .grp{margin-bottom:8px;}
@@ -154,21 +154,21 @@
 <body>
 <div class="wrap">
   <header>
-    <div class="brand"><span class="logo">Turnamen<span class="dot">Padel</span></span><span class="tag">Scorer</span></div>
+    <div class="brand"><span class="logo">Turnamen<span class="dot">Padel</span></span><span class="tag">Scorer Desk</span></div>
     <div class="hactions">
       <span class="who">Admin: <b id="who">—</b></span>
       <a href="/engine">Engine</a>
-      <a href="#" onclick="logout();return false;">Keluar</a>
+      <a href="#" onclick="logout();return false;">Log out</a>
     </div>
   </header>
 
   <div class="pickrow">
     <div class="pick">
       <label>Event</label>
-      <select id="eventSelect" onchange="onPickEvent(this.value)"><option value="">— pilih event —</option></select>
+      <select id="eventSelect" onchange="onPickEvent(this.value)"><option value="">— select event —</option></select>
     </div>
     <div class="pick">
-      <label>Kategori</label>
+      <label>Category</label>
       <select id="catSelect" onchange="onPickCat(this.value)"><option value="">—</option></select>
     </div>
     <button type="button" class="btn btn-primary" onclick="reload()">↻ Refresh</button>
@@ -177,29 +177,29 @@
   <div class="subtitle" id="subtitle" style="display:none;"></div>
 
   <div class="links" id="linksPanel" style="display:none;">
-    <h4>Link <span id="liveFlag"></span></h4>
+    <h4>Links <span id="liveFlag"></span></h4>
     <div class="linkblock">
-      <div class="linklabel">Scorer — per lapangan (bagikan ke penjaga tiap court, tanpa login)</div>
+      <div class="linklabel">Scorer — per court (share with each court's marshal, no login)</div>
       <div class="linkgrid" id="scorerGrid"></div>
     </div>
     <div class="linkblock">
-      <div class="linklabel">LED / TV — layar besar</div>
+      <div class="linklabel">LED / TV — big screen</div>
       <div class="linkgrid" id="ledGrid"></div>
     </div>
     <div class="linkblock">
-      <div class="linklabel">Player — papan peserta (jadwal, klasemen, bracket)</div>
+      <div class="linklabel">Player — participant board (schedule, standings, bracket)</div>
       <div class="linkgrid" id="playerGrid"></div>
     </div>
-    <div style="margin-top:12px;"><button type="button" class="btn btn-ghost btn-sm" id="setLiveBtn" onclick="setLive()">Set event ini sebagai Live</button></div>
+    <div style="margin-top:12px;"><button type="button" class="btn btn-ghost btn-sm" id="setLiveBtn" onclick="setLive()">Set this event as Live</button></div>
   </div>
 
   <div class="tabbar" id="tabbar" style="display:none;">
-    <button type="button" class="tabbtn active" data-tab="courts" onclick="switchTab('courts')">Lapangan &amp; Skor</button>
-    <button type="button" class="tabbtn" data-tab="standings" onclick="switchTab('standings')">Klasemen</button>
+    <button type="button" class="tabbtn active" data-tab="courts" onclick="switchTab('courts')">Courts &amp; Scores</button>
+    <button type="button" class="tabbtn" data-tab="standings" onclick="switchTab('standings')">Standings</button>
     <button type="button" class="tabbtn" data-tab="bracket" onclick="switchTab('bracket')">Bracket</button>
   </div>
 
-  <div id="tabCourts"><p class="empty">Pilih event untuk mulai skoring.</p></div>
+  <div id="tabCourts"><p class="empty">Pick an event to start scoring.</p></div>
   <div id="tabStandings" style="display:none;"></div>
   <div id="tabBracket" style="display:none;"></div>
 </div>
@@ -234,7 +234,7 @@ async function apiWithRetry(path,opts={},tries=4){ let delay=500,lastErr; for(le
 function catLabel(c){ return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed"}[c]||c||""; }
 function catFullLabel(cat){ return catLabel(cat.category)+(cat.level?(" "+(LEVEL[cat.level]||cat.level)):""); }
 function tierLabel(t){ return TIER_LABEL[t]||t||"Bracket"; }
-function roundLabel(round,numRounds){ if(String(round)==="BRONZE") return "Juara 3"; const r=parseInt(round),fe=numRounds-r; if(fe===0)return"Final"; if(fe===1)return"Semifinal"; if(fe===2)return"Perempat Final"; if(fe===3)return"16 Besar"; return "Babak "+r; }
+function roundLabel(round,numRounds){ if(String(round)==="BRONZE") return "3rd Place"; const r=parseInt(round),fe=numRounds-r; if(fe===0)return"Final"; if(fe===1)return"Semifinal"; if(fe===2)return"Quarterfinal"; if(fe===3)return"Round of 16"; return "Round "+r; }
 function downstreamDoneCount(info){
   const b=info.bracket; if(!b) return 0;
   const r0=parseInt(info.round); if(isNaN(r0)) return 0;
@@ -256,14 +256,14 @@ async function loadEvents(){
   state.events=events||[];
   state.liveEventId=(settingsRes.settings&&settingsRes.settings.liveEventId)||"";
   const sel=$("eventSelect");
-  sel.innerHTML='<option value="">— pilih event —</option>'+state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
+  sel.innerHTML='<option value="">— select event —</option>'+state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
   let def=localStorage.getItem("tp_court_admin_event")||"";
   if(!(def && state.events.some(e=>e.eventId===def))) def=(state.liveEventId && state.events.some(e=>e.eventId===state.liveEventId))?state.liveEventId:(state.events[0]&&state.events[0].eventId)||"";
   if(def){ sel.value=def; await onPickEvent(def); }
 }
 async function onPickEvent(eventId){
   state.eventId=eventId; state.matches=[]; state.event=null; state.payload=null; state.categories=[]; state.catId="";
-  if(!eventId){ $("tabCourts").innerHTML='<p class="empty">Pilih event.</p>'; $("linksPanel").style.display="none"; $("tabbar").style.display="none"; $("subtitle").style.display="none"; $("catSelect").innerHTML='<option value="">—</option>'; localStorage.removeItem("tp_court_admin_event"); return; }
+  if(!eventId){ $("tabCourts").innerHTML='<p class="empty">Select an event.</p>'; $("linksPanel").style.display="none"; $("tabbar").style.display="none"; $("subtitle").style.display="none"; $("catSelect").innerHTML='<option value="">—</option>'; localStorage.removeItem("tp_court_admin_event"); return; }
   localStorage.setItem("tp_court_admin_event",eventId);
   await load();
 }
@@ -282,12 +282,12 @@ function flattenCat(cat){
     o.bP1=b.player1||""; o.bP2=b.player2||""; o.bTeam=b.teamName||""; return o; };
   (cat.schedule||[]).forEach(m=>{
     out.push(attach({ kind:"group", tid:cat.tournamentId, matchId:m.matchId, court:parseInt(m.court)||0, slot:m.slot||0, time:m.time||"",
-      label:"Grup "+(m.groupLabel||""), nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status }, m.entrantA, m.entrantB));
+      label:"Group "+(m.groupLabel||""), nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status }, m.entrantA, m.entrantB));
   });
   (cat.playoff||[]).forEach(b=>{
     const push=(m,slot,label)=>{ if(!m||!m.entrantA||!m.entrantB) return; out.push(attach({ kind:"playoff", tid:cat.tournamentId, matchId:m.matchId, court:parseInt(m.court)||0, slot:slot, time:m.time||"", label:label, nameA:m.teamA, nameB:m.teamB, entrantA:m.entrantA, entrantB:m.entrantB, scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status, round:m.round, idx:m.idx, numRounds:b.numRounds, bracket:b }, m.entrantA, m.entrantB)); };
     (b.rounds||[]).forEach(r=>(r.matches||[]).forEach(m=>push(m,(parseInt(m.round)||0)*100+(m.idx||0),roundLabel(m.round,b.numRounds))));
-    if(b.bronze) push(b.bronze,99999,"Juara 3");
+    if(b.bronze) push(b.bronze,99999,"3rd Place");
   });
   return out;
 }
@@ -300,7 +300,7 @@ function buildForCat(){
 }
 
 async function load(){
-  $("tabCourts").innerHTML='<p class="empty">Memuat…</p>';
+  $("tabCourts").innerHTML='<p class="empty">Loading…</p>';
   try{
     const payload=await api(`tournament/event/${encodeURIComponent(state.eventId)}/public?live=1`);
     state.payload=payload;
@@ -312,11 +312,11 @@ async function load(){
     if(!(want && state.categories.some(c=>c.tournamentId===want))) want=(state.categories[0]&&state.categories[0].tournamentId)||"";
     state.catId=want;
     const cs=$("catSelect");
-    cs.innerHTML=state.categories.length ? state.categories.map(c=>`<option value="${esc(c.tournamentId)}" ${c.tournamentId===want?"selected":""}>${esc(catFullLabel(c))}</option>`).join("") : '<option value="">— belum ada kategori —</option>';
+    cs.innerHTML=state.categories.length ? state.categories.map(c=>`<option value="${esc(c.tournamentId)}" ${c.tournamentId===want?"selected":""}>${esc(catFullLabel(c))}</option>`).join("") : '<option value="">— no categories yet —</option>';
     buildForCat();
     renderSubtitle(); renderLinks(); $("tabbar").style.display=state.categories.length?"":"none";
     renderActive();
-  }catch(e){ $("tabCourts").innerHTML=`<p class="empty err">Gagal memuat: ${esc(e.message)}</p>`; }
+  }catch(e){ $("tabCourts").innerHTML=`<p class="empty err">Failed to load: ${esc(e.message)}</p>`; }
 }
 function reload(){ if(state.eventId) load(); }
 
@@ -342,26 +342,26 @@ function renderLinks(){
   const nums=courtNumbers();
   const isLive=state.liveEventId===state.eventId;
   $("liveFlag").innerHTML=isLive?'<span class="liveflag"><i>●</i> LIVE</span>':'';
-  $("setLiveBtn").textContent=isLive?"Event ini sudah Live ✓":"Set event ini sebagai Live";
+  $("setLiveBtn").textContent=isLive?"This event is Live ✓":"Set this event as Live";
   $("setLiveBtn").disabled=isLive;
   const suffix=isLive?"":("?e="+encodeURIComponent(state.eventId));
   $("scorerGrid").innerHTML=nums.map(n=>{
     const url=ORIGIN+"/court"+n+suffix;
-    return `<span class="linkchip" title="Klik untuk menyalin" onclick="copyLink('${esc(url)}')"><span class="cn">/court${n}</span> ${isLive?"":'<span style="color:var(--faint)">'+esc(suffix)+'</span>'}</span>`;
+    return `<span class="linkchip" title="Click to copy" onclick="copyLink('${esc(url)}')"><span class="cn">/court${n}</span> ${isLive?"":'<span style="color:var(--faint)">'+esc(suffix)+'</span>'}</span>`;
   }).join("");
   const slug=slugify(state.event&&state.event.name);
   const tvUrl=ORIGIN+"/tv/"+encodeURIComponent(slug);
   const mbUrl=ORIGIN+"/mobile/"+encodeURIComponent(slug);
   $("ledGrid").innerHTML=`<a class="linkchip led" href="${esc(tvUrl)}" target="_blank" rel="noopener"><span class="cn">/tv/${esc(slug)}</span> ↗</a>`
-    +`<span class="linkchip led" title="Salin" onclick="copyLink('${esc(tvUrl)}')">Salin</span>`;
+    +`<span class="linkchip led" title="Copy" onclick="copyLink('${esc(tvUrl)}')">Copy</span>`;
   $("playerGrid").innerHTML=`<a class="linkchip player" href="${esc(mbUrl)}" target="_blank" rel="noopener"><span class="cn">/mobile/${esc(slug)}</span> ↗</a>`
-    +`<span class="linkchip player" title="Salin" onclick="copyLink('${esc(mbUrl)}')">Salin</span>`;
+    +`<span class="linkchip player" title="Copy" onclick="copyLink('${esc(mbUrl)}')">Copy</span>`;
   $("linksPanel").style.display="";
 }
-function copyLink(url){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast("Link disalin: "+url)).catch(()=>toast(url)); }
+function copyLink(url){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast("Link copied: "+url)).catch(()=>toast(url)); }
 async function setLive(){
-  try{ await api("settings",{method:"POST",body:{key:"liveEventId",value:state.eventId}}); state.liveEventId=state.eventId; renderLinks(); toast("Event ini kini Live — link /court1 dst menunjuk ke sini ✓"); }
-  catch(e){ toast("Gagal: "+e.message,true); }
+  try{ await api("settings",{method:"POST",body:{key:"liveEventId",value:state.eventId}}); state.liveEventId=state.eventId; renderLinks(); toast("This event is now Live — /court1 etc. point here ✓"); }
+  catch(e){ toast("Failed: "+e.message,true); }
 }
 
 // ---- tabs ----
@@ -384,15 +384,16 @@ const byCid={};
 function renderCourts(){
   const wrap=$("tabCourts");
   const nums=courtNumbers();
-  if(!currentCat()){ wrap.innerHTML='<p class="empty">Pilih kategori.</p>'; return; }
-  if(!state.matches.length){ wrap.innerHTML='<p class="empty">Belum ada match di kategori ini.</p>'; return; }
+  if(!currentCat()){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
+  if(!state.matches.length){ wrap.innerHTML='<p class="empty">No matches in this category yet.</p>'; return; }
   const groups={};
   state.matches.forEach(m=>{ const key=m.time||""; (groups[key]=groups[key]||[]).push(m); });
   const keys=Object.keys(groups).sort((a,b)=>{ if(a===b) return 0; if(a==="") return 1; if(b==="") return -1; return tkey(a)-tkey(b); });
   wrap.innerHTML=keys.map(k=>{
     const list=groups[k].sort((a,b)=>((a.court||99)-(b.court||99))||a.slot-b.slot||String(a.label).localeCompare(String(b.label)));
-    const title=k?fmtTime(k):"Tanpa jam";
-    return `<div class="roundrow"><div class="roundhead"><span class="rn">${esc(title)}</span><span class="cnt">${list.length} match · ${new Set(list.map(m=>m.court||0)).size} court</span></div>`
+    const title=k?fmtTime(k):"No time";
+    const nc=new Set(list.map(m=>m.court||0)).size;
+    return `<div class="roundrow"><div class="roundhead"><span class="rn">${esc(title)}</span><span class="cnt">${list.length} ${list.length===1?"match":"matches"} · ${nc} ${nc===1?"court":"courts"}</span></div>`
       +`<div class="roundgrid">${list.map(m=>mcard(m,nums)).join("")}</div></div>`;
   }).join("");
   keys.forEach(k=>groups[k].forEach(initStatus));
@@ -420,92 +421,92 @@ function mcard(m,nums){
     <div class="sep"></div>
     ${teamRow(cid,"b",m)}
     <div class="nameedit" id="edit-${cid}">
-      <div class="grp"><div class="glab">Tim A — pemain &amp; nama tim</div>
-        <div class="row2"><input id="eaP1-${cid}" value="${esc(m.aP1)}" placeholder="Pemain 1"><input id="eaP2-${cid}" value="${esc(m.aP2)}" placeholder="Pemain 2"></div>
-        <input id="eaT-${cid}" value="${esc(m.aTeam)}" placeholder="Nama tim (opsional)">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="saveTeam('${cid}','a')">Simpan Tim A</button>
+      <div class="grp"><div class="glab">Team A — players &amp; team name</div>
+        <div class="row2"><input id="eaP1-${cid}" value="${esc(m.aP1)}" placeholder="Player 1"><input id="eaP2-${cid}" value="${esc(m.aP2)}" placeholder="Player 2"></div>
+        <input id="eaT-${cid}" value="${esc(m.aTeam)}" placeholder="Team name (optional)">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="saveTeam('${cid}','a')">Save Team A</button>
       </div>
-      <div class="grp"><div class="glab">Tim B — pemain &amp; nama tim</div>
-        <div class="row2"><input id="ebP1-${cid}" value="${esc(m.bP1)}" placeholder="Pemain 1"><input id="ebP2-${cid}" value="${esc(m.bP2)}" placeholder="Pemain 2"></div>
-        <input id="ebT-${cid}" value="${esc(m.bTeam)}" placeholder="Nama tim (opsional)">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="saveTeam('${cid}','b')">Simpan Tim B</button>
+      <div class="grp"><div class="glab">Team B — players &amp; team name</div>
+        <div class="row2"><input id="ebP1-${cid}" value="${esc(m.bP1)}" placeholder="Player 1"><input id="ebP2-${cid}" value="${esc(m.bP2)}" placeholder="Player 2"></div>
+        <input id="ebT-${cid}" value="${esc(m.bTeam)}" placeholder="Team name (optional)">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="saveTeam('${cid}','b')">Save Team B</button>
       </div>
     </div>
     <div class="sched">
       <label>Court</label><select id="ct-${cid}">${opts}</select>
-      <label>Jam</label><input type="time" id="tm-${cid}" value="${esc(fmtTime(m.time))}">
+      <label>Time</label><input type="time" id="tm-${cid}" value="${esc(fmtTime(m.time))}">
     </div>
     <div class="mactions">
-      <button type="button" class="btn btn-ghost btn-sm edit" onclick="toggleEdit('${cid}')" title="Ubah nama pemain / tim">✎ Nama</button>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="saveMeta('${cid}')">Jadwal</button>
-      <button type="button" class="btn btn-primary btn-sm" onclick="saveScore('${cid}')">${done?"Revisi skor":"Simpan skor"}</button>
+      <button type="button" class="btn btn-ghost btn-sm edit" onclick="toggleEdit('${cid}')" title="Edit player / team names">✎ Names</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="saveMeta('${cid}')">Schedule</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="saveScore('${cid}')">${done?"Revise score":"Save score"}</button>
     </div>
   </div>`;
 }
 function toggleEdit(cid){ const el=$("edit-"+cid); if(el) el.classList.toggle("open"); }
-function initStatus(m){ const cid=cssid(m.matchId); const b=$("badge-"+cid); if(!b) return; if(m.status==="DONE"){ b.textContent="✓ Selesai"; b.className="badge st-done"; } else { b.textContent="Belum diskor"; b.className="badge st-empty"; } }
+function initStatus(m){ const cid=cssid(m.matchId); const b=$("badge-"+cid); if(!b) return; if(m.status==="DONE"){ b.textContent="✓ Done"; b.className="badge st-done"; } else { b.textContent="Not scored"; b.className="badge st-empty"; } }
 function setBadge(cid,st,label){ const b=$("badge-"+cid); if(b){ b.textContent=label; b.className="badge st-"+st; } }
 
 async function saveScore(cid){
   const m=byCid[cid]; if(!m) return;
   const a=$("a-"+cid).value.trim(), b=$("b-"+cid).value.trim();
-  if(a==="" && b===""){ toast("Isi skor kedua tim",true); return; }
-  if(a==="" || b===""){ toast("Skor kedua tim harus diisi",true); return; }
-  if(!isInt(a)||!isInt(b)){ toast("Skor harus angka bulat",true); return; }
+  if(a==="" && b===""){ toast("Enter both teams' scores",true); return; }
+  if(a==="" || b===""){ toast("Both teams' scores are required",true); return; }
+  if(!isInt(a)||!isInt(b)){ toast("Scores must be whole numbers",true); return; }
   const na=+a, nb=+b;
   if(na===nb){
-    if(m.kind==="playoff"){ toast("Playoff tidak boleh seri — tentukan pemenang",true); return; }
-    if(!confirm("Skor sama — simpan sebagai seri?")) return;
+    if(m.kind==="playoff"){ toast("Playoff can't be a draw — pick a winner",true); return; }
+    if(!confirm("Scores are equal — save as a draw?")) return;
   }
   if(m.kind==="playoff"){
     const nw = na>nb ? m.entrantA : nb>na ? m.entrantB : "";
     if(m.winner && nw && String(nw)!==String(m.winner)){
       const dn = downstreamDoneCount(m);
-      if(dn>0 && !confirm(`Mengubah pemenang match ini akan MERESET ${dn} match lanjutan (harus diinput ulang). Lanjutkan?`)) return;
+      if(dn>0 && !confirm(`Changing this match's winner will RESET ${dn} downstream match(es) (they must be re-entered). Continue?`)) return;
     }
   }
-  setBadge(cid,"saving","⟳ Menyimpan…");
+  setBadge(cid,"saving","⟳ Saving…");
   const path=m.kind==="playoff"?"tournament/playoff/match":"tournament/match";
   try{
     await apiWithRetry(path,{method:"PUT",body:{matchId:m.matchId,tournamentId:m.tid,scoreA:a,scoreB:b}});
     const aw=na>nb,bw=nb>na;
     $("row-a-"+cid).classList.toggle("win",aw); $("row-b-"+cid).classList.toggle("win",bw);
-    $("card-"+cid).classList.add("st-done"); setBadge(cid,"done","✓ Selesai");
+    $("card-"+cid).classList.add("st-done"); setBadge(cid,"done","✓ Done");
     m.scoreA=a; m.scoreB=b; m.status="DONE"; m.winner=aw?m.entrantA:(bw?m.entrantB:"");
-    toast(na===nb?"Skor seri tersimpan":`Tersimpan — ${aw?m.nameA:m.nameB}`);
+    toast(na===nb?"Draw saved":`Saved — ${aw?m.nameA:m.nameB}`);
     if(m.kind==="playoff") setTimeout(reload,600);
-  }catch(e){ setBadge(cid,"error","⚠ Gagal"); toast("Gagal simpan skor: "+e.message,true); }
+  }catch(e){ setBadge(cid,"error","⚠ Failed"); toast("Failed to save score: "+e.message,true); }
 }
 async function saveMeta(cid){
   const m=byCid[cid]; if(!m) return;
   const court=$("ct-"+cid).value, time=$("tm-"+cid).value;
-  setBadge(cid,"saving","⟳ Menyimpan…");
+  setBadge(cid,"saving","⟳ Saving…");
   try{
     await apiWithRetry("tournament/match/meta",{method:"PUT",body:{matchId:m.matchId,tournamentId:m.tid,court:court,time:time}});
-    toast("Jadwal tersimpan");
+    toast("Schedule saved");
     reload();
-  }catch(e){ initStatus(m); toast("Gagal simpan jadwal: "+e.message,true); }
+  }catch(e){ initStatus(m); toast("Failed to save schedule: "+e.message,true); }
 }
 // Edit player names & team name for one side, via the entrant record (propagates everywhere).
 async function saveTeam(cid,side){
   const m=byCid[cid]; if(!m) return;
   const eid = side==="a" ? m.entrantA : m.entrantB;
-  if(!eid){ toast("Peserta belum ditentukan (match TBD)",true); return; }
+  if(!eid){ toast("Entrant not set yet (match TBD)",true); return; }
   const p1=$("e"+side+"P1-"+cid).value.trim(), p2=$("e"+side+"P2-"+cid).value.trim(), team=$("e"+side+"T-"+cid).value.trim();
-  if(!p1||!p2){ toast("Nama kedua pemain harus diisi",true); return; }
+  if(!p1||!p2){ toast("Both player names are required",true); return; }
   try{
     await apiWithRetry("tournament/entrant",{method:"PUT",body:{entrantId:eid,updates:{player1Name:p1,player2Name:p2,teamName:team}}});
-    toast("Nama peserta diperbarui");
+    toast("Participant names updated");
     reload();
-  }catch(e){ toast("Gagal simpan nama: "+e.message,true); }
+  }catch(e){ toast("Failed to save names: "+e.message,true); }
 }
 
 // ---- standings tab ----
 function renderStandings(){
   const wrap=$("tabStandings"); const cat=currentCat();
-  if(!cat){ wrap.innerHTML='<p class="empty">Pilih kategori.</p>'; return; }
+  if(!cat){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
   const groups=cat.groups||[];
-  if(!groups.length){ wrap.innerHTML='<p class="empty">Belum ada grup/klasemen. Undi grup dulu di Engine.</p>'; return; }
+  if(!groups.length){ wrap.innerHTML='<p class="empty">No groups / standings yet. Draw the groups in Engine first.</p>'; return; }
   const adv=parseInt(cat.advancersPerGroup)||2;
   wrap.innerHTML='<div class="stgrid">'+groups.map(g=>{
     const rows=(g.standings||[]).map(s=>`<tr class="${s.rank<=adv?'q':''}">
@@ -513,8 +514,8 @@ function renderStandings(){
       <td class="tteam">${esc(s.team)}</td>
       <td>${s.played}</td><td>${s.wins}</td><td>${s.losses}</td>
       <td>${s.gd>0?"+":""}${s.gd}</td></tr>`).join("");
-    return `<div class="stcard"><h3>Grup ${esc(g.label)}</h3>
-      <table class="st"><thead><tr><th>#</th><th class="tteam">Tim</th><th>M</th><th>W</th><th>K</th><th>GD</th></tr></thead>
+    return `<div class="stcard"><h3>Group ${esc(g.label)}</h3>
+      <table class="st"><thead><tr><th>#</th><th class="tteam">Team</th><th>P</th><th>W</th><th>L</th><th>GD</th></tr></thead>
       <tbody>${rows||'<tr><td colspan="6" class="empty">—</td></tr>'}</tbody></table></div>`;
   }).join("")+'</div>';
 }
@@ -522,9 +523,9 @@ function renderStandings(){
 // ---- bracket tab ----
 function renderBracket(){
   const wrap=$("tabBracket"); const cat=currentCat();
-  if(!cat){ wrap.innerHTML='<p class="empty">Pilih kategori.</p>'; return; }
+  if(!cat){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
   const brackets=(cat.playoff&&cat.playoff.length)?cat.playoff:[];
-  if(!brackets.length){ wrap.innerHTML='<p class="empty">Bracket belum tersedia — muncul setelah semua match grup selesai (atau generate bracket di Engine).</p>'; return; }
+  if(!brackets.length){ wrap.innerHTML='<p class="empty">Bracket not available yet — it appears once all group matches are done (or generate the bracket in Engine).</p>'; return; }
   wrap.innerHTML=brackets.map(b=>{
     const pod=b.podium||{};
     const podium=(pod.champion||pod.runnerUp||pod.third)?`<div class="podium">
@@ -535,7 +536,7 @@ function renderBracket(){
       const ms=(r.matches||[]).map(m=>brMatch(m)).join("");
       return `<div class="brcol"><div class="rlab">${esc(roundLabel(r.round,b.numRounds))}</div>${ms||'<p class="empty">—</p>'}</div>`;
     }).join("");
-    const bronze=b.bronze?`<div class="brcol"><div class="rlab">Juara 3</div>${brMatch(b.bronze)}</div>`:"";
+    const bronze=b.bronze?`<div class="brcol"><div class="rlab">3rd Place</div>${brMatch(b.bronze)}</div>`:"";
     return `<div class="brtier"><h3>${esc(tierLabel(b.tier))}</h3>${podium}<div class="brrounds">${cols}${bronze}</div></div>`;
   }).join("");
 }
@@ -553,7 +554,7 @@ function brMatch(m){
 
 $("who").textContent=(state.session&&state.session.username)||"—";
 loadEvents().catch(e=>toast(e.message,true));
-// Refresh MANUAL saja — tombol ↻ Refresh. (Tidak ada auto-refresh.)
+// MANUAL refresh only — the ↻ Refresh button. (No auto-refresh.)
 </script>
 </body>
 </html>

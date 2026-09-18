@@ -11,6 +11,7 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/sheet.js" },
     { "source": "/score", "destination": "/score.html" },
+    { "source": "/scorerdesk", "destination": "/court-admin.html" },
     { "source": "/courts", "destination": "/court-admin.html" },
     { "source": "/court:n(\\d+)", "destination": "/court.html" },
     { "source": "/mobile/:slug", "destination": "/mobile.html" },
