@@ -2496,25 +2496,43 @@ async function tDrawGroups(id) {
 }
 
 // Read current groups for a tournament (also used as "sync from sheet" after manual edits).
+// Resolve the CURRENT names/seed/team of every entrant for a set of tournament ids,
+// keyed by entrantId. Group and match rows only store an entrantId reference (plus a
+// name snapshot taken at draw time); player names live in Tournament_Entrants. Reading
+// through this map means an edit in the Players step (tUpdateEntrant) shows up in the
+// group view, schedule, standings and the public board without a re-draw.
+function buildEntrantNameMap(enrRows, tids) {
+  const set = new Set(Array.isArray(tids) ? tids : [tids]);
+  const m = new Map();
+  for (const x of (enrRows || [])) {
+    if (!x || !set.has(x[0]) || !x[1]) continue;
+    m.set(x[1], { p1: String(x[2] || "").trim(), p2: String(x[4] || "").trim(), seedElo: parseInt(x[6]) || 0, teamName: String(x[10] || "").trim() });
+  }
+  return m;
+}
+async function loadEntrantNameMap(sheets, tids) {
+  const er = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
+  return buildEntrantNameMap(er.data.values, tids);
+}
+
 async function tGetGroups(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const br = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:H`, `${TABS.t_entrants}!A2:K`, `${TABS.players}!A2:D`] });
+  const br = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:H`, `${TABS.t_entrants}!A2:K`] });
   const vr = br.data.valueRanges || [];
-  const grpRows = (vr[0] && vr[0].values) || [], enrRows = (vr[1] && vr[1].values) || [], plRows = (vr[2] && vr[2].values) || [];
+  const grpRows = (vr[0] && vr[0].values) || [], enrRows = (vr[1] && vr[1].values) || [];
   const rows = grpRows.filter((x) => x[0] === id);
-  // Entrant_ID -> optional custom team name (entrants col K). Used as a fallback for
-  // group rows drawn before the group tab carried its own Team_Name (col H).
-  const teamNameById = {};
-  for (const x of enrRows) { if (x[0] === id && x[1]) teamNameById[x[1]] = x[10] || ""; }
-  const dmap = buildDisplayMap(plRows);
+  // Names/seed/team resolved from the LIVE entrant record (by entrantId); the group
+  // row's own snapshot columns are only a fallback for entrants no longer present.
+  // Raw entrant text is shown as-is (no Display_Name alias) per the tournament policy.
+  const nm = buildEntrantNameMap(enrRows, id);
   const map = new Map();
   for (const x of rows) {
     const label = x[2] || "?";
     if (!map.has(label)) map.set(label, []);
-    // player1Name/player2Name stay raw (the engine's entrant-edit inputs bind to
-    // them); `display` is the view label (Display_Name) for scoring/read surfaces.
-    map.get(label).push({ entrantId: x[3], player1Name: x[4], player2Name: x[5], seedElo: parseInt(x[6]) || 0, display: displayPair(dmap, x[4], x[5]), teamName: (x[7] || "").trim() || teamNameById[x[3]] || "" });
+    const e = nm.get(x[3]);
+    const p1 = e ? e.p1 : (x[4] || ""), p2 = e ? e.p2 : (x[5] || "");
+    map.get(label).push({ entrantId: x[3], player1Name: p1, player2Name: p2, seedElo: e ? e.seedElo : (parseInt(x[6]) || 0), display: `${p1} + ${p2}`, teamName: e ? e.teamName : (x[7] || "").trim() });
   }
   const groups = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, members]) => ({
     label, size: members.length, matches: (members.length * (members.length - 1)) / 2, members,
@@ -3317,9 +3335,12 @@ async function tGetEventSchedule(eventId) {
   const catByTid = {};
   for (const x of trs) catByTid[x[0]] = x[2];
   const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
-  const dmap = await loadDisplayNames(sheets);
+  // Names resolved live from the entrant record (by entrantId); the group snapshot is
+  // the fallback for entrants no longer present. Raw entrant text, no alias.
+  const nm = await loadEntrantNameMap(sheets, tids);
   const names = {};
-  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = displayPair(dmap, x[4], x[5]);
+  for (const x of (grRes.data.values || [])) if (tids.includes(x[0])) names[x[3]] = `${x[4] || ""} + ${x[5] || ""}`;
+  for (const [eid, e] of nm) names[eid] = `${e.p1} + ${e.p2}`;
   const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
   const matches = (mRes.data.values || []).filter((x) => tids.includes(x[0]) && x[2] === "GROUP").map((x) => ({
     ...mapMatchRow(x), category: catByTid[x[0]] || "", teamA: names[x[9]] || x[9], teamB: names[x[10]] || x[10],
@@ -3371,17 +3392,19 @@ function computeGroupStandings(matches, entrantIds) {
 async function tGetStandings(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const brS = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:G`, `${TABS.t_matches}!A2:P`, `${TABS.players}!A2:D`] });
+  const brS = await sheets.spreadsheets.values.batchGet({ spreadsheetId: SHEET_ID, ranges: [`${TABS.t_groups}!A2:G`, `${TABS.t_matches}!A2:P`, `${TABS.t_entrants}!A2:K`] });
   const vrS = brS.data.valueRanges || [];
   const grRows = ((vrS[0] && vrS[0].values) || []).filter((x) => x[0] === id);
   if (!grRows.length) return respond(200, { groups: [] });
-  const dmap = buildDisplayMap((vrS[2] && vrS[2].values) || []);
+  // Names resolved live from the entrant record (by entrantId); group snapshot is the fallback.
+  const nm = buildEntrantNameMap((vrS[2] && vrS[2].values) || [], id);
   const names = {}, members = new Map();
   for (const x of grRows) {
     const label = x[2];
     if (!members.has(label)) members.set(label, []);
     members.get(label).push(x[3]);
-    names[x[3]] = displayPair(dmap, x[4], x[5]);
+    const e = nm.get(x[3]);
+    names[x[3]] = e ? `${e.p1} + ${e.p2}` : `${x[4] || ""} + ${x[5] || ""}`;
   }
   const matches = ((vrS[1] && vrS[1].values) || []).filter((x) => x[0] === id && x[2] === "GROUP").map(mapMatchRow);
   const groups = [];
@@ -4521,16 +4544,17 @@ async function tPublicEvent(eventId, opts) {
   const categories = tournaments.map((t) => {
     const tid = t[0];
     const grRows = allGroups.filter((x) => x[0] === tid);
-    // Entrant_ID -> optional custom team name (col K). Blank => displays fall back to player names.
-    const teamNameById = {};
-    for (const x of enRows) { if (x[0] === tid && x[1]) teamNameById[x[1]] = x[10] || ""; }
+    // Names/seed/team from the LIVE entrant record (by entrantId) so edits in the
+    // Players step show on the board without a re-draw; the group snapshot is the
+    // fallback for entrants no longer present. Raw entrant text, no Display_Name alias.
+    const liveById = {};
+    for (const x of enRows) { if (x[0] === tid && x[1]) liveById[x[1]] = { player1: String(x[2] || "").trim(), player2: String(x[4] || "").trim(), seedElo: parseInt(x[6]) || 0, teamName: String(x[10] || "").trim() }; }
     const entrants = {}, members = new Map();
     for (const x of grRows) {
-      entrants[x[3]] = { player1: x[4] || "", player2: x[5] || "", seedElo: parseInt(x[6]) || 0, teamName: teamNameById[x[3]] || "" };
+      entrants[x[3]] = liveById[x[3]] || { player1: x[4] || "", player2: x[5] || "", seedElo: parseInt(x[6]) || 0, teamName: "" };
       const l = x[2]; if (!members.has(l)) members.set(l, []); members.get(l).push(x[3]);
     }
-    const pd = (raw) => { const p = players[normName(raw)]; return (p && p.display) || raw || ""; };
-    const nm = (eid) => { const e = entrants[eid]; return e ? `${pd(e.player1)} + ${pd(e.player2)}` : (eid || ""); };
+    const nm = (eid) => { const e = entrants[eid]; return e ? `${e.player1} + ${e.player2}` : (eid || ""); };
     const tMatches = allMatches.filter((m) => m.tournamentId === tid);
     const groupMatches = tMatches.filter((m) => m.stage === "GROUP");
     const groups = [...members.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, ids]) => ({

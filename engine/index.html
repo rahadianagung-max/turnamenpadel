@@ -1425,6 +1425,9 @@ async function saveRow(id){
     }}});
     toast("Peserta diperbarui");
     loadEntrants();
+    // Names are resolved live by entrantId, so refresh the drawn groups too — this
+    // updates state.entrantNames (schedule step) and the group view without a re-draw.
+    loadGroups().catch(()=>{});
   }catch(e){ toast(e.message, true); }
 }
 
