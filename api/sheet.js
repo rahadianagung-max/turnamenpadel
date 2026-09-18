@@ -2168,13 +2168,14 @@ async function tAddFormEntries(body) {
       now, category, p1, String((r && r.player1_ig) || "").trim(),
       p2, String((r && r.player2_ig) || "").trim(),
       String((r && r.contact_wa) || "").trim(), tournament,
+      String((r && r.team_name) || "").trim(),
     ]);
   }
   if (!values.length) return respond(400, { error: "Tidak ada baris peserta yang valid" });
   const sheets = getSheets();
   await ensureTabs(sheets);
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:H`, valueInputOption: "USER_ENTERED",
+    spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:I`, valueInputOption: "USER_ENTERED",
     requestBody: { values },
   });
   return respond(200, { ok: true, added: values.length });
@@ -2263,7 +2264,7 @@ async function tImport(id, opts) {
   const [pRes, eRes, fRes, enRes, evRes] = await Promise.all([
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:J` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A2:H` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A2:I` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:J` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:B` }),
   ]);
@@ -2397,12 +2398,13 @@ async function tImport(id, opts) {
     newEntrantRows.push([
       id, genId("EN"), p1.name, f[3] || "", p2.name, f[5] || "", seed,
       p1.isNew ? "TRUE" : "FALSE", p2.isNew ? "TRUE" : "FALSE", now,
+      String(f[8] || "").trim(),   // K — nama tim (dari Form_Responses)
     ]);
   }
 
   if (newPlayerRows.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:I`, valueInputOption: "USER_ENTERED", requestBody: { values: newPlayerRows } });
   if (newEloRows.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: newEloRows } });
-  if (newEntrantRows.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A:J`, valueInputOption: "USER_ENTERED", requestBody: { values: newEntrantRows } });
+  if (newEntrantRows.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A:K`, valueInputOption: "USER_ENTERED", requestBody: { values: newEntrantRows } });
 
   return respond(200, {
     success: true, imported: newEntrantRows.length, newPlayers: newPlayerRows.length,

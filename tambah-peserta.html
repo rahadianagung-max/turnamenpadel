@@ -106,17 +106,16 @@ tr:last-child td{border-bottom:none}
     <div class="sec"><span class="num">2</span>Tempel dari Excel</div>
     <div class="legend">
       Blok &amp; salin (Ctrl/Cmd+C) dari Excel/Google Sheets, lalu tempel di bawah — <b>satu baris = satu pasangan</b>.<br>
-      Urutan kolom yang dikenali:<br>
-      • 2 kolom: <b>Pemain 1 · Pemain 2</b><br>
-      • 3 kolom: <b>Pemain 1 · Pemain 2 · WhatsApp</b><br>
-      • 5 kolom: <b>Pemain 1 · IG 1 · Pemain 2 · IG 2 · WhatsApp</b>
+      Urutan kolom:<br>
+      • 3 kolom: <b>Nama Team · Pemain 1 · Pemain 2</b><br>
+      • 2 kolom: <b>Pemain 1 · Pemain 2</b> (tanpa nama tim)
     </div>
-    <textarea id="bulk" placeholder="Andi	Budi&#10;Cici	Deni	08123456789&#10;Eka	Fajar"></textarea>
+    <textarea id="bulk" placeholder="Garuda	Andi	Budi&#10;Elang	Cici	Deni&#10;Rajawali	Eka	Fajar"></textarea>
     <button class="btn ghost" id="parse" style="margin-top:12px">Proses &amp; Pratinjau</button>
 
     <div id="previewWrap" class="hidden">
       <div class="tblwrap">
-        <table id="preview"><thead><tr><th>#</th><th>Pemain 1</th><th>IG 1</th><th>Pemain 2</th><th>IG 2</th><th>WA</th></tr></thead><tbody></tbody></table>
+        <table id="preview"><thead><tr><th>#</th><th>Nama Team</th><th>Pemain 1</th><th>Pemain 2</th></tr></thead><tbody></tbody></table>
       </div>
       <button class="btn" id="importAll">Import Semua</button>
     </div>
@@ -193,10 +192,8 @@ $("add").addEventListener("click", addPair);
 function splitCols(line){ return (line.includes("\t") ? line.split("\t") : line.split(/\s*[,;]\s*|\s{2,}/)).map(c=>c.trim()); }
 function parseBulk(text){
   return text.split(/\r?\n/).map(l=>l.replace(/\s+$/,"")).filter(l=>l.trim()).map(line=>{
-    const c=splitCols(line); const o={player1_name:"",player1_ig:"",player2_name:"",player2_ig:"",contact_wa:""};
-    if(c.length>=5){ [o.player1_name,o.player1_ig,o.player2_name,o.player2_ig,o.contact_wa]=c; }
-    else if(c.length===4){ [o.player1_name,o.player1_ig,o.player2_name,o.player2_ig]=c; }
-    else if(c.length===3){ [o.player1_name,o.player2_name,o.contact_wa]=c; }
+    const c=splitCols(line); const o={team_name:"",player1_name:"",player2_name:""};
+    if(c.length>=3){ [o.team_name,o.player1_name,o.player2_name]=c; }
     else if(c.length===2){ [o.player1_name,o.player2_name]=c; }
     else { o.player1_name=c[0]||""; }
     return o;
@@ -206,7 +203,7 @@ $("parse").addEventListener("click",()=>{
   parsed = parseBulk($("bulk").value);
   const tb=$("preview").querySelector("tbody");
   if(!parsed.length){ $("previewWrap").classList.add("hidden"); showMsg("Belum ada baris yang bisa dibaca. Tempel data dulu."); return; }
-  tb.innerHTML = parsed.map((o,i)=>`<tr><td>${i+1}</td><td>${esc(o.player1_name)}</td><td>${esc(o.player1_ig)}</td><td>${esc(o.player2_name)}</td><td>${esc(o.player2_ig)}</td><td>${esc(o.contact_wa)}</td></tr>`).join("");
+  tb.innerHTML = parsed.map((o,i)=>`<tr><td>${i+1}</td><td>${esc(o.team_name)}</td><td>${esc(o.player1_name)}</td><td>${esc(o.player2_name)}</td></tr>`).join("");
   $("importAll").textContent = `Import Semua (${parsed.length} pasangan)`;
   $("previewWrap").classList.remove("hidden");
   showMsg(`Terbaca ${parsed.length} pasangan. Periksa pratinjau, lalu klik Import Semua.`, "ok");

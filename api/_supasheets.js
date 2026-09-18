@@ -30,7 +30,7 @@ const SHEET_MAP = {
   Tournament_Entrants:{ table: "tournament_entrants", cols: ["tournament_id","entrant_id","player1_name","player1_ig","player2_name","player2_ig","seed_elo","is_new_p1","is_new_p2","created_at","team_name"] },
   Tournament_Groups:  { table: "tournament_groups",   cols: ["tournament_id","category","group_label","entrant_id","player1_name","player2_name","seed_elo","team_name"] },
   Tournament_Matches: { table: "tournament_matches",  cols: ["tournament_id","match_id","stage","group_label","bracket","round","court","slot_index","scheduled_time","entrant_a","entrant_b","score_a","score_b","winner","status","updated_at","scheduled_date"] },
-  Form_Responses:     { table: "form_responses",      cols: ["timestamp","category","player1_name","player1_ig","player2_name","player2_ig","contact_wa","tournament"] },
+  Form_Responses:     { table: "form_responses",      cols: ["timestamp","category","player1_name","player1_ig","player2_name","player2_ig","contact_wa","tournament","team_name"] },
 
   RegForms:           { table: "reg_forms",           cols: ["form_id","name","status","linked_tournament","config","created_at","updated_at"] },
   Registrations:      { table: "registrations",       cols: ["reg_id","form_id","timestamp","name","gender","phone","photo_url","payment_proof_url","data","linked_tournament","status"] },
