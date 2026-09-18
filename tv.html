@@ -335,11 +335,11 @@ function buildFeed(){
   const d=state.data, feed=[];
   d.categories.forEach(c=>{
     (c.schedule||[]).forEach(m=> feed.push({ key:m.matchId, c, court:m.court, sortKey:(m.slot||0), stage:"GROUP", slot:(m.slot||0),
-      time:m.time, date:m.date||"", updatedAt:m.updatedAt||"", label:`${catLabel(c.category)} · Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
+      time:m.time, date:m.date||"", updatedAt:m.updatedAt||"", label:`Group ${m.groupLabel}`, eA:m.entrantA, eB:m.entrantB, status:m.status }));
     (c.playoff||[]).forEach(b=> (b.rounds||[]).forEach(r=> (r.matches||[]).forEach(m=>{
       if(m.status==="BYE" || !m.entrantA || !m.entrantB) return;
       feed.push({ key:m.matchId, c, court:m.court, sortKey:100000+(parseInt(m.round)||0)*100+(m.idx||0), stage:"PLAYOFF",
-        time:m.time, label:`${catLabel(c.category)} · ${TIER[b.tier]||b.tier}`, eA:m.entrantA, eB:m.entrantB, status:m.status });
+        time:m.time, label:`${TIER[b.tier]||b.tier}`, eA:m.entrantA, eB:m.entrantB, status:m.status });
     })));
   });
   feed.sort((a,b)=> (a.sortKey-b.sortKey) || ((a.court||0)-(b.court||0)));
