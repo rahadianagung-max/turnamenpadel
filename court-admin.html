@@ -59,6 +59,14 @@
   .courthead .cn{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:19px;}
   .courthead .cnt{font-family:'Space Mono',monospace; font-size:11px; color:var(--faint);}
 
+  /* Baris per-round (dikelompokkan per jam) */
+  .roundrow{margin-bottom:20px;}
+  .roundhead{display:flex; align-items:baseline; gap:10px; margin:0 2px 10px; padding-bottom:7px; border-bottom:1px solid var(--line);}
+  .roundhead .rn{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:21px; letter-spacing:-.01em;}
+  .roundhead .cnt{font-family:'Space Mono',monospace; font-size:11px; color:var(--faint);}
+  .roundgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:14px; align-items:start;}
+  .mtop .cn2{color:#0A0A0B; background:var(--accent); font-weight:800; padding:2px 7px; border-radius:5px; font-size:9.5px; letter-spacing:.03em;}
+
   .mcard{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:11px 12px; margin-bottom:11px;}
   .mcard.st-done{border-color:rgba(56,211,159,.30);}
   .mcard.st-live{border-color:rgba(255,176,0,.35);}
@@ -240,15 +248,18 @@ const byCid={};
 function render(){
   const wrap=$("courtsWrap");
   const nums=courtNumbers();
-  const unassigned=state.matches.filter(m=>!m.court);
-  const cols=nums.map(n=>({ n, list:state.matches.filter(m=>m.court===n).sort((a,b)=>tkey(a.time)-tkey(b.time)||a.slot-b.slot) }));
-  if(unassigned.length) cols.push({ n:0, list:unassigned.sort((a,b)=>tkey(a.time)-tkey(b.time)||a.slot-b.slot) });
-  wrap.innerHTML=`<div class="courts">`+cols.map(col=>{
-    const title=col.n?`Lapangan ${col.n}`:"Tanpa lapangan";
-    const body=col.list.length?col.list.map(m=>mcard(m,nums)).join(""):'<p class="empty">Belum ada match.</p>';
-    return `<div class="courtcol"><div class="courthead"><span class="cn">${esc(title)}</span><span class="cnt">${col.list.length} match</span></div>${body}</div>`;
-  }).join("")+`</div>`;
-  cols.forEach(col=>col.list.forEach(initStatus));
+  if(!state.matches.length){ wrap.innerHTML='<p class="empty">Belum ada match.</p>'; return; }
+  // Kelompokkan per jam → tiap baris = satu round. Match tanpa jam masuk grup terakhir.
+  const groups={};
+  state.matches.forEach(m=>{ const key=m.time||""; (groups[key]=groups[key]||[]).push(m); });
+  const keys=Object.keys(groups).sort((a,b)=>{ if(a===b) return 0; if(a==="") return 1; if(b==="") return -1; return tkey(a)-tkey(b); });
+  wrap.innerHTML=keys.map(k=>{
+    const list=groups[k].sort((a,b)=>((a.court||99)-(b.court||99))||a.slot-b.slot||String(a.cat).localeCompare(String(b.cat)));
+    const title=k?fmtTime(k):"Tanpa jam";
+    return `<div class="roundrow"><div class="roundhead"><span class="rn">${esc(title)}</span><span class="cnt">${list.length} match · ${new Set(list.map(m=>m.court||0)).size} lapangan</span></div>`
+      +`<div class="roundgrid">${list.map(m=>mcard(m,nums)).join("")}</div></div>`;
+  }).join("");
+  keys.forEach(k=>groups[k].forEach(initStatus));
 }
 function mcard(m,nums){
   const cid=cssid(m.matchId); byCid[cid]=m;
@@ -258,7 +269,7 @@ function mcard(m,nums){
   const aw=done&&String(m.winner)===String(m.entrantA), bw=done&&String(m.winner)===String(m.entrantB);
   const opts=nums.map(n=>`<option value="${n}" ${n===m.court?"selected":""}>${n}</option>`).join("")+(m.court?"":`<option value="0" selected>—</option>`);
   return `<div class="mcard ${done?'st-done':''}" id="card-${cid}">
-    <div class="mtop"><span class="cat">${esc(m.cat)}</span><span>${esc(m.label)}</span><span class="badge" id="badge-${cid}"></span></div>
+    <div class="mtop"><span class="cn2">LAP ${m.court||"—"}</span><span class="cat">${esc(m.cat)}</span><span>${esc(m.label)}</span><span class="badge" id="badge-${cid}"></span></div>
     <div class="team ${aw?'win':''}" id="row-a-${cid}"><span class="nm">${esc(m.nameA)}</span><input class="sin" id="a-${cid}" type="number" inputmode="numeric" min="0" value="${sa}"></div>
     <div class="sep"></div>
     <div class="team ${bw?'win':''}" id="row-b-${cid}"><span class="nm">${esc(m.nameB)}</span><input class="sin" id="b-${cid}" type="number" inputmode="numeric" min="0" value="${sb}"></div>
