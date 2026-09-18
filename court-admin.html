@@ -208,7 +208,9 @@
 <script>
 let SESSION=null;
 try{ SESSION=JSON.parse(sessionStorage.getItem("tp_session")||localStorage.getItem("tp_session")||"null"); }catch(e){}
-if(!SESSION || !SESSION.username){ location.replace("/admin.html"); }
+// Not signed in → go to the shared admin login, and come BACK here after login
+// (not to /engine) via ?next=.
+if(!SESSION || !SESSION.username){ location.replace("/admin.html?next="+encodeURIComponent(location.pathname)); }
 const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
 const ORIGIN = location.origin;
 const LEVEL={beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
@@ -225,7 +227,7 @@ function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const p=s.split(/[:.]/); let h=parseInt(p[0],10),m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m))m=0; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
 function tkey(t){ const s=fmtTime(t); if(!s) return 1e9; const [h,m]=s.split(":"); return (parseInt(h)||0)*60+(parseInt(m)||0); }
 function toast(msg,isErr){ const t=$("toast"); t.textContent=msg; t.className=isErr?"err show":"show"; clearTimeout(t._t); t._t=setTimeout(()=>{ t.className=t.className.replace("show","").trim(); },3200); }
-function logout(){ try{ sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session"); }catch(e){} location.replace("/admin.html"); }
+function logout(){ try{ sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session"); }catch(e){} location.replace("/admin.html?next="+encodeURIComponent(location.pathname)); }
 
 async function rawFetch(path,opts={}){ const res=await fetch(`${BASE}/${path}`,{ method:opts.method||"GET", headers:{"Content-Type":"application/json"}, body:opts.body?JSON.stringify(opts.body):undefined }); let data={}; try{ data=await res.json(); }catch(e){} return {res,data}; }
 async function api(path,opts={}){ const {res,data}=await rawFetch(path,opts); if(!res.ok){ const e=new Error(data.error||`HTTP ${res.status}`); e.status=res.status; throw e; } return data; }

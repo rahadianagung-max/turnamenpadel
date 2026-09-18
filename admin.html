@@ -59,7 +59,18 @@
   // Each admin gets their own login; tournaments they create are recorded under
   // their username. Superadmins can add more admins from inside the engine.
   var BASE = location.protocol.startsWith('http') ? '/api' : 'https://www.turnamenpadel.com/api';
-  var ENGINE = '/engine'; // where a signed-in admin lands
+  var ENGINE = '/engine'; // default landing for a signed-in admin
+  // A page can send admins here with ?next=/some/path and get them back after
+  // login (e.g. /scorerdesk). Only same-origin relative paths are allowed
+  // (must start with a single "/") to avoid open-redirects.
+  function safeNext(){
+    try{
+      var n=new URLSearchParams(location.search).get('next');
+      if(n && n.charAt(0)==='/' && n.charAt(1)!=='/') return n;
+    }catch(e){}
+    return '';
+  }
+  var DEST = safeNext() || ENGINE;
   var form=document.getElementById('loginForm'),
       msg=document.getElementById('msg'),
       btn=document.getElementById('submitBtn'),
@@ -94,7 +105,7 @@
   // If already signed in, skip straight to the engine.
   try{
     var existing=JSON.parse(sessionStorage.getItem('tp_session')||localStorage.getItem('tp_session')||'null');
-    if(existing && existing.username){ location.replace(ENGINE); }
+    if(existing && existing.username){ location.replace(DEST); }
   }catch(e){}
 
   // Detect first-run (no admins yet) to offer superadmin setup.
@@ -115,8 +126,8 @@
       }
       var s=await api('auth/login', { method:'POST', body:{ username:username, password:password } });
       saveSession(s);
-      msg.className='msg ok'; msg.textContent='Selamat datang, '+s.username+'. Memuat engine…';
-      location.href=ENGINE;
+      msg.className='msg ok'; msg.textContent='Selamat datang, '+s.username+'. Memuat…';
+      location.href=DEST;
     }catch(err){
       btn.disabled=false;
       msg.className='msg err';
