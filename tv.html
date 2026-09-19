@@ -150,10 +150,20 @@
   .bteam.win{color:var(--accent); font-weight:700;}
   .bteam.tbd{color:var(--faint); font-style:italic;}
   /* Wrap to up to 2 lines instead of a 1-line ellipsis, so long team names
-     (e.g. "Borro padel club") stay fully readable in the bracket. */
-  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.98vw,18px); line-height:1.12; word-break:break-word; overflow:hidden;
+     (e.g. "Borro padel club") stay fully readable in the bracket. Font size is
+     adaptive per bracket via --bfz (set in JS): big for few teams, smaller as the
+     draw grows so all 16/32 fit on screen. */
+  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:var(--bfz,clamp(11px,.98vw,18px)); line-height:1.12; word-break:break-word; overflow:hidden;
     display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
-  .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); margin-left:auto; padding-left:.4vw;}
+  .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:var(--bfz,clamp(11px,1vw,18px)); margin-left:auto; padding-left:.4vw;}
+  /* Density: tighten spacing as the draw grows so every match still fits vertically. */
+  .bracket-block.dense .bmatch{padding:.55vh .65vw; gap:.2vh;}
+  .bracket-block.dense .brcol{gap:.55vh;}
+  .bracket-block.dense .brh{margin-bottom:.5vh; padding-bottom:.4vh;}
+  .bracket-block.xdense .bmatch{padding:.35vh .5vw; gap:.1vh;}
+  .bracket-block.xdense .brcol{gap:.3vh;}
+  .bracket-block.xdense .brh{margin-bottom:.35vh; padding-bottom:.3vh; font-size:clamp(8px,.66vw,11px);}
+  .bracket-block.xdense .bmeta{display:none;}
   /* projected (simulated) bracket */
   .bracket-block.proj .bt{color:var(--accent);}
   .bmatch.proj{border-style:dashed;}
@@ -495,7 +505,16 @@ function oneBracket(c, b, cell){
   } else {
     cols = bronzeCol;
   }
-  return `<div class="bracket-block${proj?' proj':''}">
+  // Adaptive sizing: the first round holds the most matches; the more there are,
+  // the smaller the team-name font (and tighter the spacing) so all teams fit.
+  const n = (rounds[0] && rounds[0].matches ? rounds[0].matches.length : (b.bronze?1:0)) || 1;
+  const bfz = n>=16 ? "clamp(6px,.62vw,11px)"      // 32-team draw
+            : n>=8  ? "clamp(8px,.82vw,14px)"       // 16-team draw
+            : n>=4  ? "clamp(11px,1.15vw,20px)"     // 8-team draw
+            : n>=2  ? "clamp(14px,1.5vw,26px)"      // 4-team draw
+            :         "clamp(17px,1.9vw,34px)";     // 2-team (final only)
+  const dens = n>=16 ? " xdense" : n>=8 ? " dense" : "";
+  return `<div class="bracket-block${proj?' proj':''}${dens}" style="--bfz:${bfz}">
     <div class="bt">${esc(catLabel(c.category))} · ${esc(tierName)}${proj?' · Simulasi':''}</div>${pod}
     <div class="bracket">${cols}</div></div>`;
 }
