@@ -136,7 +136,10 @@
   /* round columns */
   .bracket{flex:1 1 auto; min-height:0; display:flex; gap:1vw; align-items:stretch; overflow:hidden;}
   .bround{flex:1 1 0; min-width:0; display:flex; flex-direction:column;}
-  .bround.narrow{flex:0 0 auto; width:clamp(150px,15vw,240px);}
+  /* The first round holds the most teams (e.g. 16), so give it extra width so
+     full team names fit instead of being truncated. */
+  .bround.wide{flex:2.4 1 0;}
+  .bround.narrow{flex:0 0 auto; width:clamp(140px,13vw,220px);}
   .brh{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(9px,.78vw,13px); color:var(--faint);
     text-transform:uppercase; letter-spacing:.06em; margin-bottom:.8vh; padding-bottom:.6vh; border-bottom:1px solid var(--line); text-align:left;}
   .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:1vh;}
@@ -146,7 +149,10 @@
   .bteam{display:flex; align-items:center; gap:.4vw; min-width:0;}
   .bteam.win{color:var(--accent); font-weight:700;}
   .bteam.tbd{color:var(--faint); font-style:italic;}
-  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.98vw,18px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* Wrap to up to 2 lines instead of a 1-line ellipsis, so long team names
+     (e.g. "Borro padel club") stay fully readable in the bracket. */
+  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:clamp(11px,.98vw,18px); line-height:1.12; word-break:break-word; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
   .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(11px,1vw,18px); margin-left:auto; padding-left:.4vw;}
   /* projected (simulated) bracket */
   .bracket-block.proj .bt{color:var(--accent);}
@@ -476,13 +482,14 @@ function oneBracket(c, b, cell){
   // Each round as its own left→right column, mirroring the mobile list but arranged
   // horizontally for the landscape screen. The 3rd-place (bronze) match is placed
   // BEFORE the Final so the board reads … → Semifinal → 3rd Place → Final.
-  const colHtml = (r) => `<div class="bround"><div class="brh">${roundLabel(r.round,b.numRounds)}</div><div class="brcol">${(r.matches||[]).map((m)=>cell(c,m)).join("")}</div></div>`;
+  const colHtml = (r, cls) => `<div class="bround ${cls||''}"><div class="brh">${roundLabel(r.round,b.numRounds)}</div><div class="brcol">${(r.matches||[]).map((m)=>cell(c,m)).join("")}</div></div>`;
   const bronzeCol = b.bronze ? `<div class="bround narrow"><div class="brh">3rd Place</div><div class="brcol">${cell(c,b.bronze)}</div></div>` : "";
   const rounds = b.rounds||[];
   let cols = "";
   if(rounds.length){
     const fi = rounds.length-1;                 // final = last round
-    for(let i=0;i<fi;i++) cols += colHtml(rounds[i]);
+    // The first round has the most teams → give it extra width (`wide`).
+    for(let i=0;i<fi;i++) cols += colHtml(rounds[i], (i===0 && fi>1) ? 'wide' : '');
     cols += bronzeCol;                          // 3rd place first…
     cols += colHtml(rounds[fi]);                // …then the final (1st place)
   } else {
