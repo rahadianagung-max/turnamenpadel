@@ -143,6 +143,11 @@
   .brh{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(9px,.78vw,13px); color:var(--faint);
     text-transform:uppercase; letter-spacing:.06em; margin-bottom:.8vh; padding-bottom:.6vh; border-bottom:1px solid var(--line); text-align:left;}
   .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:1vh;}
+  /* The first (densest) round shares its column height equally across matches so
+     all of them (e.g. 8 in a Round of 16) always fit — the bottom match is never
+     clipped off-screen. Sparse later rounds keep their centred spacing. */
+  .bround.wide .brcol{justify-content:flex-start; gap:.5vh;}
+  .bround.wide .bmatch{flex:1 1 0; min-height:0; overflow:hidden; justify-content:center;}
   .bmatch{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.85vh .8vw; display:flex; flex-direction:column; gap:.3vh;}
   .bmatch.bye{opacity:.45;}
   .bmeta{font-family:'Space Mono',monospace; font-size:clamp(8px,.72vw,12px); color:var(--faint); letter-spacing:.02em; margin-bottom:.2vh;}
