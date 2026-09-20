@@ -7,21 +7,21 @@
 <meta name="description" content="Undian grup padel dengan roda putar berbasis pot peringkat Trekkr — adil, transparan, bisa ditonton di venue.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800&family=Barlow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --court:#0A1420;--panel:#12212F;--panel-2:#182C3D;--line:#24405A;
-    --orange:#FF6A00;--orange-dim:#B34A00;--turf:#1FBF75;--bone:#F5EFE6;--slate:#7E97AB;
-    --display:'Big Shoulders Display','Arial Narrow',sans-serif;
-    --body:'Barlow',system-ui,sans-serif;--mono:'IBM Plex Mono',ui-monospace,monospace;
+    --court:#F8FAFC;--panel:#FFFFFF;--panel-2:#F1F5F9;--line:#E2E8F0;
+    --orange:#FF5722;--orange-dim:#E64A19;--turf:#10B981;--bone:#0F172A;--slate:#64748B;
+    --display:'Plus Jakarta Sans',sans-serif;
+    --body:'Inter',system-ui,sans-serif;--mono:'Space Grotesk',ui-monospace,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
-  body{background:radial-gradient(120% 80% at 50% -10%,#16304A 0%,transparent 60%),var(--court);
+  body{background:radial-gradient(120% 80% at 50% -10%,#EEF2F6 0%,transparent 60%),var(--court);
     color:var(--bone);font-family:var(--body);-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
 
   /* Topbar */
-  .topbar{display:flex;align-items:center;gap:20px;padding:14px 26px;border-bottom:1px solid var(--line);background:rgba(10,20,32,.72);backdrop-filter:blur(8px);flex-wrap:wrap}
+  .topbar{display:flex;align-items:center;gap:20px;padding:14px 26px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.85);backdrop-filter:blur(8px);flex-wrap:wrap}
   .brand{display:flex;align-items:baseline;gap:10px}
   .brand .mark{font-family:var(--display);font-weight:800;font-size:26px;letter-spacing:.02em;color:var(--orange);line-height:1}
   .brand .sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--slate);font-weight:600}
@@ -40,9 +40,9 @@
   .rail .raillabel{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate);writing-mode:vertical-rl;margin-bottom:14px;font-weight:600}
   .tierchip{width:48px;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:22px;color:var(--slate);line-height:1;position:relative;transition:.25s}
   .tierchip small{font-size:8px;font-family:var(--body);letter-spacing:.14em;color:var(--slate);margin-top:2px}
-  .tierchip.done{background:var(--panel-2);color:var(--turf);border-color:#1a5f45}
-  .tierchip.active{background:var(--orange);color:#0A1420;border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,106,0,.16)}
-  .tierchip.active small{color:rgba(10,20,32,.7)}
+  .tierchip.done{background:var(--panel-2);color:var(--turf);border-color:#10B981}
+  .tierchip.active{background:var(--orange);color:#fff;border-color:var(--orange);box-shadow:0 0 0 4px rgba(255,106,0,.16)}
+  .tierchip.active small{color:rgba(255,255,255,.85)}
   .railconn{width:1px;height:12px;background:var(--line)}
 
   /* Wheel column */
@@ -69,7 +69,7 @@
   #confetti{position:absolute;inset:0;pointer-events:none;z-index:4}
 
   .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
-  .btn-spin{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:.06em;background:var(--orange);color:#0A1420;border:none;border-radius:12px;padding:12px 44px;cursor:pointer;transition:.15s}
+  .btn-spin{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:.06em;background:var(--orange);color:#fff;border:none;border-radius:12px;padding:12px 44px;cursor:pointer;transition:.15s}
   .btn-spin:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgba(255,106,0,.3)}
   .btn-spin:disabled{opacity:.32;cursor:not-allowed}
   .btn-spin:focus-visible{outline:3px solid var(--bone);outline-offset:3px}
@@ -77,17 +77,17 @@
   .btn-run:hover:not(:disabled){border-color:var(--orange);background:rgba(255,106,0,.09)}
   .btn-run:disabled{opacity:.32;cursor:not-allowed}
   .btn-run:focus-visible{outline:3px solid var(--bone);outline-offset:3px}
-  .btn-run.running{background:var(--orange);color:#0A1420;border-color:var(--orange)}
+  .btn-run.running{background:var(--orange);color:#fff;border-color:var(--orange)}
   .hint{font-family:var(--mono);font-size:10px;color:var(--slate)}
   .runbar{width:min(46vh,420px);height:3px;border-radius:99px;background:var(--panel-2);overflow:hidden}
   .runbar i{display:block;height:100%;background:var(--orange);width:0;transition:width .3s ease}
 
   /* commit */
   .commitrow{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
-  .btn-commit{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.05em;background:var(--turf);color:#04140C;border:none;border-radius:12px;padding:11px 30px;cursor:pointer;transition:.15s}
+  .btn-commit{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.05em;background:var(--turf);color:#fff;border:none;border-radius:12px;padding:11px 30px;cursor:pointer;transition:.15s}
   .btn-commit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgba(31,191,117,.28)}
   .btn-commit:disabled{opacity:.4;cursor:not-allowed}
-  .btn-commit.ok{background:var(--panel-2);color:var(--turf);border:1px solid #1a5f45}
+  .btn-commit.ok{background:var(--panel-2);color:var(--turf);border:1px solid #10B981}
   .commitmsg{font-size:11.5px;color:var(--slate);text-align:center;max-width:420px}
   .commitmsg.err{color:#FF8B6B}
 
@@ -100,7 +100,7 @@
   .group{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;transition:.25s}
   .group.target{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,106,0,.13)}
   .group h3{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.1em;padding:7px 11px;background:var(--panel-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
-  .group.target h3{background:var(--orange);color:#0A1420}
+  .group.target h3{background:var(--orange);color:#fff}
   .group h3 span{font-family:var(--mono);font-size:9px;font-weight:400;opacity:.65;letter-spacing:0}
   .slots{padding:7px;display:flex;flex-direction:column;gap:5px}
   .slot{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:rgba(36,64,90,.24);min-height:34px;border:1px dashed rgba(36,64,90,.9)}
@@ -128,7 +128,7 @@
   .validity.ok{color:var(--turf);background:rgba(31,191,117,.09);border:1px solid rgba(31,191,117,.28)}
   .validity.bad{color:#FF8B6B;background:rgba(255,106,0,.09);border:1px solid rgba(255,106,0,.32)}
 
-  .blocker{position:absolute;inset:0;background:rgba(10,20,32,.93);z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;gap:12px}
+  .blocker{position:absolute;inset:0;background:rgba(15,23,42,.5);z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;gap:12px}
   .blocker[hidden]{display:none}
   .blocker .big{font-family:var(--display);font-weight:800;font-size:34px;color:var(--orange);letter-spacing:.02em}
   .blocker p{max-width:400px;color:var(--slate);font-size:13.5px;line-height:1.6}
@@ -142,7 +142,7 @@
   #prep .lead{color:var(--slate);font-size:13.5px;margin:8px 0 22px;max-width:560px;line-height:1.6}
   .srctabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
   .srctab{background:var(--panel);border:1px solid var(--line);color:var(--slate);border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer}
-  .srctab[aria-selected="true"]{background:var(--orange);color:#0A1420;border-color:var(--orange)}
+  .srctab[aria-selected="true"]{background:var(--orange);color:#fff;border-color:var(--orange)}
   .srctab:focus-visible{outline:2px solid var(--orange);outline-offset:2px}
   .srcpane{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
   .srcpane label.fl{display:block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate);font-weight:700;margin-bottom:7px}
@@ -168,9 +168,9 @@
   .gate b{color:var(--bone)}
   .modepick{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
   .modepick button{background:var(--panel);border:1px solid var(--line);color:var(--slate);border-radius:9px;padding:9px 14px;font-weight:700;font-size:12.5px;cursor:pointer}
-  .modepick button[aria-pressed="true"]{background:var(--orange);color:#0A1420;border-color:var(--orange)}
+  .modepick button[aria-pressed="true"]{background:var(--orange);color:#fff;border-color:var(--orange)}
   .modepick button:disabled{opacity:.35;cursor:not-allowed}
-  .btn-lock{background:var(--orange);color:#0A1420;border:none;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.04em;border-radius:12px;padding:12px 30px;cursor:pointer}
+  .btn-lock{background:var(--orange);color:#fff;border:none;font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.04em;border-radius:12px;padding:12px 30px;cursor:pointer}
   .btn-lock:disabled{opacity:.35;cursor:not-allowed}
   .preperr{color:#FF8B6B;font-size:12.5px;margin-top:10px;min-height:16px}
 
@@ -255,9 +255,9 @@
     <div class="wheelwrap">
       <div class="pointer"></div>
       <svg viewBox="-110 -110 220 220" aria-hidden="true">
-        <circle r="106" fill="#182C3D"></circle>
+        <circle r="106" fill="#F1F5F9"></circle>
         <g id="wheelfade"><g id="wheelspin"></g><g id="wheellabels"></g></g>
-        <circle r="106" fill="none" stroke="#24405A" stroke-width="3"></circle>
+        <circle r="106" fill="none" stroke="#CBD5E1" stroke-width="3"></circle>
       </svg>
       <div class="hub"><div class="sponsorlabel">Presented by</div><div class="sponsorname">SPONSOR</div></div>
       <canvas id="confetti"></canvas>
@@ -531,8 +531,8 @@
       var large=seg>180?1:0, win=(i===S.highlight);
       var path=document.createElementNS(ns,"path");
       path.setAttribute("d","M0 0 L"+x1.toFixed(2)+" "+y1.toFixed(2)+" A"+R+" "+R+" 0 "+large+" 1 "+x2.toFixed(2)+" "+y2.toFixed(2)+" Z");
-      path.setAttribute("fill", win?"#FF6A00":(i%2?"#1B3247":"#12212F"));
-      path.setAttribute("stroke", win?"#FFB07A":"#24405A");
+      path.setAttribute("fill", win?"#FF5722":(i%2?"#F1F5F9":"#E2E8F0"));
+      path.setAttribute("stroke", win?"#FFB07A":"#CBD5E1");
       path.setAttribute("stroke-width", win?"2.5":"1.5");
       el.wheel.appendChild(path);
     });
@@ -540,7 +540,7 @@
       var a=i*seg, pg=document.createElementNS(ns,"circle");
       pg.setAttribute("cx",((R-7)*Math.sin(a*Math.PI/180)).toFixed(2));
       pg.setAttribute("cy",(-(R-7)*Math.cos(a*Math.PI/180)).toFixed(2));
-      pg.setAttribute("r","2.6"); pg.setAttribute("fill","#3D5B76"); el.wheel.appendChild(pg);
+      pg.setAttribute("r","2.6"); pg.setAttribute("fill","#94A3B8"); el.wheel.appendChild(pg);
     });
     list.forEach(function(p,i){
       var mid=i*seg+seg/2, g=document.createElementNS(ns,"g"); g.setAttribute("data-mid",mid.toFixed(3));
@@ -548,14 +548,14 @@
       [names[0],names[1]||""].forEach(function(nm,k){
         var tx=document.createElementNS(ns,"text");
         tx.setAttribute("text-anchor","middle"); tx.setAttribute("y",(k*15-6).toString());
-        tx.setAttribute("fill", win?"#0A1420":"#F5EFE6");
-        tx.setAttribute("font-family","Big Shoulders Display, sans-serif");
+        tx.setAttribute("fill", win?"#fff":"#0F172A");
+        tx.setAttribute("font-family","Plus Jakarta Sans, sans-serif");
         tx.setAttribute("font-weight","700"); tx.setAttribute("font-size","15"); tx.textContent=nm; g.appendChild(tx);
       });
       var sn=document.createElementNS(ns,"text");
       sn.setAttribute("text-anchor","middle"); sn.setAttribute("y","25");
-      sn.setAttribute("fill", win?"rgba(10,20,32,.62)":"#7E97AB");
-      sn.setAttribute("font-family","Barlow, sans-serif"); sn.setAttribute("font-size","7"); sn.setAttribute("letter-spacing","1.4");
+      sn.setAttribute("fill", win?"rgba(255,255,255,.85)":"#64748B");
+      sn.setAttribute("font-family","Inter, sans-serif"); sn.setAttribute("font-size","7"); sn.setAttribute("letter-spacing","1.4");
       sn.textContent = S.mode==="pot" ? ("POT "+(currentPotIdx()+1)) : "SEMUA";
       g.appendChild(sn); el.labels.appendChild(g); labelNodes.push(g);
     });
@@ -667,7 +667,7 @@
   /* ---------- Confetti ---------- */
   var cctx=null,parts=[],craf=null;
   function burstConfetti(){ var c=el.confetti; c.width=c.offsetWidth; c.height=c.offsetHeight; cctx=c.getContext("2d"); parts=[]; if(reduced) return;
-    for(var i=0;i<90;i++) parts.push({x:c.width/2,y:c.height/2,vx:(Math.random()-0.5)*11,vy:(Math.random()-0.9)*11,r:2+Math.random()*4,life:1,col:["#FF6A00","#F5EFE6","#1FBF75"][i%3]});
+    for(var i=0;i<90;i++) parts.push({x:c.width/2,y:c.height/2,vx:(Math.random()-0.5)*11,vy:(Math.random()-0.9)*11,r:2+Math.random()*4,life:1,col:["#FF5722","#0F172A","#10B981"][i%3]});
     cancelAnimationFrame(craf);
     (function loop(){ cctx.clearRect(0,0,c.width,c.height); var alive=false;
       parts.forEach(function(p){ p.vy+=0.28; p.x+=p.vx; p.y+=p.vy; p.life-=0.011; if(p.life>0){ alive=true; cctx.globalAlpha=Math.max(0,p.life); cctx.fillStyle=p.col; cctx.fillRect(p.x,p.y,p.r,p.r*1.6); } });
