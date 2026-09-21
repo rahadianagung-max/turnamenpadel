@@ -215,13 +215,41 @@ async function loadCoverage(){
     document.getElementById("covPhoneNum").textContent=`${c.withPhone} pemain punya no HP`;
     NOEMAIL=c.noEmailNames||[];
     document.getElementById("btnDlNoEmail").disabled=!NOEMAIL.length;
-    const dup=c.duplicates||[];
-    document.getElementById("dupWrap").innerHTML = dup.length
-      ? `<div class="divider"></div><div class="note" style="color:var(--danger)"><b>⚠ ${c.duplicateEmailCount} email dipakai lebih dari satu pemain</b> (${c.duplicatePlayerCount} pemain) — perlu digabung agar email jadi identitas unik:</div>
-         <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Email</th><th>Pemain</th></tr></thead><tbody>${dup.map(d=>`<tr><td class="mono">${esc(d.email)}</td><td>${d.players.map(esc).join(" · ")}</td></tr>`).join("")}</tbody></table></div>`
-      : `<div class="divider"></div><div class="note" style="color:var(--ok)">✓ Tidak ada email ganda — setiap email dipakai maksimal satu pemain.</div>`;
+    DUPS=c.duplicates||[];
+    renderDups(c);
   }catch(e){ if(e.status===403||e.status===401){ alert("Sesi berakhir / bukan superadmin. Silakan login lagi."); doLogout(); } else alert("Gagal: "+e.message); }
   btn.disabled=false; btn.textContent=old;
+}
+let DUPS=[];
+function renderDups(c){
+  const wrap=document.getElementById("dupWrap");
+  if(!DUPS.length){ wrap.innerHTML='<div class="divider"></div><div class="note" style="color:var(--ok)">✓ Tidak ada email ganda — setiap email dipakai maksimal satu pemain.</div>'; return; }
+  const groups=DUPS.map((d,gi)=>{
+    const rows=d.players.map((p,pi)=>`<label class="row" style="gap:8px;align-items:center;padding:4px 0;cursor:pointer">
+        <input type="radio" name="dupcanon_${gi}" value="${esc(p.name)}" style="width:auto" ${pi===0?'checked':''}>
+        <span><b>${esc(p.name)}</b> <span class="elo mono" style="color:var(--orange)">${esc(p.tier)} ${p.elo}</span>
+          <span class="muted">· ${p.matches} match${p.verified?' · ✔ verified':''}</span>${pi===0?' <span class="chip ok">disarankan</span>':''}</span></label>`).join("");
+    return `<div class="card" style="background:var(--inset);padding:12px;margin-top:10px">
+      <div class="mono" style="font-size:13px;margin-bottom:6px">${esc(d.email)} <span class="muted">· ${d.count} akun</span></div>
+      ${rows}
+      <div class="note">Pilih akun yang <b>dipertahankan</b> (kanonik) — riwayat ELO & registrasi akun lain dipindahkan ke sini, lalu akun lain dihapus.</div>
+      <div class="row" style="margin-top:8px"><button class="btn primary sm" onclick="mergeGroup(${gi})">Gabungkan ke akun terpilih</button></div>
+      <div class="note" id="dupMsg_${gi}"></div>
+    </div>`;
+  }).join("");
+  wrap.innerHTML=`<div class="divider"></div><div class="note" style="color:var(--danger)"><b>⚠ ${c.duplicateEmailCount} email dipakai lebih dari satu pemain</b> (${c.duplicatePlayerCount} akun) — gabungkan agar email jadi identitas unik:</div>${groups}`;
+}
+async function mergeGroup(gi){
+  const g=DUPS[gi]; if(!g) return;
+  const sel=document.querySelector('input[name="dupcanon_'+gi+'"]:checked'); if(!sel){ return; }
+  const canonical=sel.value; const aliases=g.players.map(p=>p.name).filter(n=>n!==canonical);
+  if(!aliases.length){ return; }
+  if(!confirm('Gabungkan '+aliases.length+' akun ke "'+canonical+'"?\nRiwayat ELO & registrasi dipindah ke akun ini; akun lain DIHAPUS. Tindakan ini tidak bisa dibatalkan.')) return;
+  const msg=document.getElementById("dupMsg_"+gi); if(msg) msg.textContent="Menggabungkan…";
+  try{ const r=await api("reg/import/merge-email",{method:"POST",body:{token:TOKEN,canonical,aliases}});
+    if(msg) msg.innerHTML='<span style="color:var(--ok)">✓ Digabung: '+(r.eloRebind||0)+' baris ELO dipindah, '+(r.playersRemoved||0)+' akun dihapus. Menyegarkan…</span>';
+    setTimeout(loadCoverage, 900);
+  }catch(e){ if(e.status===403||e.status===401){ alert("Sesi berakhir / bukan superadmin. Silakan login lagi."); doLogout(); } else if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc(e.message)+'</span>'; }
 }
 function downloadNoEmail(){
   const csv="nama\n"+NOEMAIL.map(n=>'"'+String(n).replace(/"/g,'""')+'"').join("\n");

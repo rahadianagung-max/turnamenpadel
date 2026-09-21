@@ -867,11 +867,12 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("reg/registrations/") && method === "GET")
       return await regListRegistrations(decodeURIComponent(path.replace("reg/registrations/", "")));
 
-    // --- DEDUP + SEED AGENT (AI-assisted) ---
-    if (path === "dedup/players-scan" && method === "GET") return await ddPlayersScan();
-    if (path === "dedup/match" && method === "POST") return await ddMatch(body);
-    if (path === "dedup/apply" && method === "POST") return await ddApply(body);
-    if (path === "dedup/merge" && method === "POST") return await ddMerge(body);
+    // --- DEDUP + SEED AGENT (AI-assisted) --- operasi DB inti: wajib admin.
+    if (path === "dedup/players-scan" && method === "GET") { if (!regGateOk(body, params)) return REG_UNAUTH; return await ddPlayersScan(); }
+    if (path === "dedup/match" && method === "POST") { if (!regGateOk(body, params)) return REG_UNAUTH; return await ddMatch(body); }
+    if (path === "dedup/apply" && method === "POST") { if (!regGateOk(body, params)) return REG_UNAUTH; return await ddApply(body); }
+    if (path === "dedup/merge" && method === "POST") { if (!regGateOk(body, params)) return REG_UNAUTH; return await ddMerge(body); }
+    if (path === "reg/import/merge-email" && method === "POST") return await regImportMergeEmail(body);
 
     // --- RECAP TURNAMEN OTOMATIS ---
     if (path === "recap/list" && method === "GET") return await recapList();
@@ -5766,25 +5767,56 @@ const NEED_SUPER = respond(403, { error: "Perlu login superadmin." });
 async function regImportCoverage(body) {
   if (!isSuperadmin(body)) return NEED_SUPER;
   const sheets = getSheets();
-  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
   const rows = (pRes.data.values || []).filter((r) => r[0]);
   let withEmail = 0, withPhone = 0, verified = 0;
   const emailMap = new Map(); const noEmail = [];
   for (const r of rows) {
     const name = r[0] || "", email = String(r[11] || "").trim(), phone = String(r[12] || "").trim();
-    if (email) { withEmail++; const k = normEmailLc(email); if (!emailMap.has(k)) emailMap.set(k, []); emailMap.get(k).push(name); }
+    if (email) { withEmail++; const k = normEmailLc(email);
+      const em = eMap[String(name).toLowerCase()] || {}; const elo = em.elo == null ? 1350 : em.elo;
+      if (!emailMap.has(k)) emailMap.set(k, []);
+      emailMap.get(k).push({ name, elo, tier: getTierName(elo), matches: em.matches || 0, verified: String(r[2]).toUpperCase() === "TRUE" });
+    }
     else noEmail.push(name);
     if (phone) withPhone++;
     if (String(r[2]).toUpperCase() === "TRUE") verified++;
   }
   const total = rows.length;
   const duplicates = [...emailMap.entries()].filter(([, ns]) => ns.length > 1)
-    .map(([email, players]) => ({ email, players, count: players.length })).sort((a, b) => b.count - a.count);
+    .map(([email, players]) => ({ email, players: players.slice().sort((a, b) => (b.matches - a.matches) || (b.elo - a.elo)), count: players.length }))
+    .sort((a, b) => b.count - a.count);
   return respond(200, { total, withEmail, withoutEmail: total - withEmail, withPhone, verified,
     coveragePct: total ? Math.round(withEmail / total * 100) : 0, phonePct: total ? Math.round(withPhone / total * 100) : 0,
     verifiedPct: total ? Math.round(verified / total * 100) : 0,
     duplicates, duplicateEmailCount: duplicates.length, duplicatePlayerCount: duplicates.reduce((s, d) => s + d.count, 0),
     noEmailNames: noEmail });
+}
+// Gabungkan akun yang BERBAGI email menjadi satu identitas. Aman: hanya
+// memproses bila canonical + semua alias benar-benar memiliki email yang sama
+// (email = identitas unik). Riwayat ELO & registrasi dipindah ke canonical,
+// baris alias di Players dihapus (memakai ddMerge).
+async function regImportMergeEmail(body) {
+  if (!isSuperadmin(body)) return NEED_SUPER;
+  const canonical = String((body && body.canonical) || "").trim();
+  const aliases = Array.isArray(body && body.aliases) ? body.aliases.map((a) => String(a || "").trim()).filter(Boolean) : [];
+  if (!canonical || !aliases.length) return respond(400, { error: "canonical & aliases wajib." });
+  const sheets = getSheets();
+  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const rows = pRes.data.values || [];
+  const emailOf = (nm) => { const r = rows.find((x) => normName(x[0]) === normName(nm)); return r ? normEmailLc(r[11]) : null; };
+  const cEmail = emailOf(canonical);
+  if (!cEmail) return respond(400, { error: `Pemain kanonik "${canonical}" tidak punya email.` });
+  for (const a of aliases) {
+    const ae = emailOf(a);
+    if (ae === null) return respond(400, { error: `Pemain "${a}" tidak ditemukan.` });
+    if (ae !== cEmail) return respond(400, { error: `"${a}" tidak berbagi email yang sama — batal demi keamanan.` });
+  }
+  return await ddMerge({ canonical, aliases }); // rebind ELO_Log + Registrations, hapus baris alias
 }
 async function regImportPreview(body) {
   if (!isSuperadmin(body)) return NEED_SUPER;
