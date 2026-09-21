@@ -31,18 +31,20 @@
   .catname{font-family:var(--display);font-weight:900;font-size:19px}
   .catcount{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--slate-500);white-space:nowrap}
 
-  .pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
-  .pair{display:flex;align-items:center;gap:8px;background:var(--card);border:var(--bd);
-    border-radius:var(--r-2xl);box-shadow:var(--sh-sm);padding:12px}
-  .pair .plus{font-family:var(--display);font-weight:900;color:var(--orange);flex:none}
-  .pl{display:flex;align-items:center;gap:9px;text-decoration:none;flex:1;min-width:0}
-  .pl:hover .pname{color:var(--orange);text-decoration:underline}
-  .av{width:40px;height:40px;border-radius:var(--r-full);flex:none;object-fit:cover;border:var(--bd);
-    background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;
-    font-family:var(--display);font-weight:900;font-size:15px;overflow:hidden}
-  .av img{width:100%;height:100%;object-fit:cover;display:block}
-  .pname{font-family:var(--sans);font-weight:700;font-size:14px;color:var(--dark);
-    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .players{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px}
+  @media(max-width:520px){.players{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}}
+  .pcard{display:flex;flex-direction:column;gap:10px;text-decoration:none;
+    background:var(--card);border:var(--bd);border-radius:var(--r-2xl);box-shadow:var(--sh);
+    padding:10px;transition:transform .12s,box-shadow .12s}
+  .pcard:hover{transform:translate(3px,3px);box-shadow:none}
+  .pcard:hover .pname{color:var(--orange)}
+  .photo{position:relative;width:100%;aspect-ratio:1/1;border-radius:var(--r-xl);overflow:hidden;
+    border:var(--bd);background:var(--grad,var(--orange));color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:900;font-size:38px;letter-spacing:.02em}
+  .photo img{width:100%;height:100%;object-fit:cover;display:block}
+  .pname{font-family:var(--display);font-weight:800;font-size:14.5px;color:var(--dark);
+    text-align:center;line-height:1.25;padding:0 2px 4px}
 
   .empty{color:var(--slate-400);font-size:14px;padding:6px 0}
   .state{text-align:center;padding:60px 16px;color:var(--slate-500)}
@@ -86,7 +88,7 @@
   function imgSrc(u){
     u=String(u||"");
     var m=u.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);
-    return m ? ("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w400") : u;
+    return m ? ("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w600") : u;
   }
   function levelLabel(l){ var k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_");
     return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l; }
@@ -104,16 +106,16 @@
   var host=document.getElementById("host");
   function fail(msg){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">group_off</span>'+esc(msg)+'</div>'; }
 
-  function initials(nm){ var p=String(nm||"").trim().split(/\s+/); return ((p[0]||"")[0]||"")+((p[1]||"")[0]||"")||"?"; }
-  function avatar(p){
-    if(p.photoUrl) return '<span class="av"><img src="'+esc(imgSrc(p.photoUrl))+'" alt="'+esc(p.name)+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.parentNode.textContent=\''+esc(initials(p.name).toUpperCase())+'\'"/></span>';
-    return '<span class="av">'+esc(initials(p.name).toUpperCase())+'</span>';
-  }
-  function playerLink(p){
+  function initials(nm){ var p=String(nm||"").trim().split(/\s+/); return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")||"?").toUpperCase(); }
+  // Big square photo + full name below; whole card links to the Trekkr passport.
+  function playerCard(p){
     var nm=String(p.name||"").trim();
-    if(!nm) return '<span class="pl">'+avatar(p)+'<span class="pname">—</span></span>';
-    return '<a class="pl" href="'+TREKKR+'/player/'+encodeURIComponent(nm)+'" target="_blank" rel="noopener" title="'+esc(nm)+' — lihat player passport di Trekkr">'+
-      avatar(p)+'<span class="pname">'+esc(nm)+'</span></a>';
+    var photo = p.photoUrl
+      ? '<span class="photo"><img src="'+esc(imgSrc(p.photoUrl))+'" alt="'+esc(nm)+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.parentNode.textContent=\''+esc(initials(nm))+'\'"/></span>'
+      : '<span class="photo">'+esc(initials(nm))+'</span>';
+    if(!nm) return '<span class="pcard">'+photo+'<span class="pname">—</span></span>';
+    return '<a class="pcard" href="'+TREKKR+'/player/'+encodeURIComponent(nm)+'" target="_blank" rel="noopener" title="'+esc(nm)+' — lihat player passport di Trekkr">'+
+      photo+'<span class="pname">'+esc(nm)+'</span></a>';
   }
 
   var RAW=ref();
@@ -146,13 +148,16 @@
 
     host.innerHTML = cats.map(function(c){
       var title=catLabel(c.label)+(c.level?' · '+levelLabel(c.level):'');
-      var n=(c.pairs||[]).length;
-      var pairs=(c.pairs||[]).map(function(pr){
-        return '<div class="pair">'+playerLink(pr.p1||{})+'<span class="plus">+</span>'+playerLink(pr.p2||{})+'</div>';
-      }).join("");
+      var players=[];
+      (c.pairs||[]).forEach(function(pr){
+        if(pr.p1 && (pr.p1.name||pr.p1.photoUrl)) players.push(pr.p1);
+        if(pr.p2 && (pr.p2.name||pr.p2.photoUrl)) players.push(pr.p2);
+      });
+      var n=players.length;
+      var cards=players.map(playerCard).join("");
       return '<section class="catsec"><div class="catbar"><span class="catname">'+esc(title)+'</span>'+
-        '<span class="catcount">'+n+' pair'+(n>1?'s':'')+'</span></div>'+
-        '<div class="pairs">'+pairs+'</div></section>';
+        '<span class="catcount">'+n+' player'+(n>1?'s':'')+'</span></div>'+
+        '<div class="players">'+cards+'</div></section>';
     }).join("");
   }
 })();
