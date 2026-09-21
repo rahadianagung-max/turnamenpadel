@@ -98,7 +98,17 @@ const API = "/api";
 const REG_CITIES = ["Kota Jakarta Pusat","Kota Jakarta Utara","Kota Jakarta Barat","Kota Jakarta Selatan","Kota Jakarta Timur","Kota Tangerang","Kota Tangerang Selatan","Kabupaten Tangerang","Kota Bekasi","Kabupaten Bekasi","Kota Depok","Kota Bogor","Kabupaten Bogor","Kota Bandung","Kabupaten Bandung","Kota Cimahi","Kota Serang","Kabupaten Serang","Kota Cilegon","Kota Sukabumi","Kota Cirebon","Kota Bandung Barat","Kota Semarang","Kota Surakarta","Kota Yogyakarta","Kabupaten Sleman","Kabupaten Bantul","Kota Surabaya","Kota Malang","Kota Sidoarjo","Kabupaten Gresik","Kota Denpasar","Kabupaten Badung","Kota Medan","Kota Binjai","Kota Pekanbaru","Kota Batam","Kota Padang","Kota Palembang","Kota Bandar Lampung","Kota Makassar","Kota Manado","Kota Balikpapan","Kota Samarinda","Kota Pontianak","Kota Banjarmasin","Kota Ambon","Kota Jayapura","Kota Mataram","Kota Kupang","Kota Palu","Kota Kendari","Kota Gorontalo","Kota Jambi","Kota Bengkulu","Kota Pangkalpinang","Kota Tanjungpinang","Kota Banda Aceh","Kota Ternate","Kota Sorong"];
 const rupiah = n => { const v=parseInt(String(n).replace(/\D/g,"")); return isNaN(v)?String(n||""):"Rp"+v.toLocaleString("id-ID"); };
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-function qs(){ const m=location.pathname.match(/\/daftar\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]); return new URLSearchParams(location.search).get("e")||""; }
+// Accept a raw event ref from: /daftar/<ref>, a friendly root slug /<slug>
+// (via the vercel.json catch-all), or ?e=<ref>. The ref may be an eventId
+// (EV_/TM_…) or a friendly slug derived from the event name.
+function qs(){
+  const m=location.pathname.match(/\/daftar\/([^\/?#]+)/);
+  if(m) return decodeURIComponent(m[1]);
+  const seg=location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
+  if(seg.length===1 && seg[0].toLowerCase()!=="daftar" && seg[0].indexOf(".")<0) return decodeURIComponent(seg[0]);
+  return new URLSearchParams(location.search).get("e")||"";
+}
+function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
 
 const F = { eventId:qs(), data:null, step:0, catId:null,
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
@@ -122,6 +132,16 @@ function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.fi
 
 async function boot(){
   if(!F.eventId){ document.getElementById("host").innerHTML='<p class="empty">Link tidak valid.</p>'; return; }
+  // Resolve a friendly slug (e.g. /nama-event) to the real eventId. Raw
+  // eventIds (EV_/TM_…) pass through untouched.
+  if(!/^(EV_|TM_)/.test(F.eventId)){
+    try{
+      const d = await api("tournament/events");
+      const want = slugify(F.eventId);
+      const hits = (d.events||[]).filter(e => ((e.slug && String(e.slug).toLowerCase()) || slugify(e.name)) === want);
+      if(hits.length) F.eventId = hits[hits.length-1].eventId;
+    }catch(e){}
+  }
   try{ F.data = await api("reg/public/"+encodeURIComponent(F.eventId)); }
   catch(e){ document.getElementById("host").innerHTML='<div class="card"><p class="empty" style="padding:20px 0">'+(e.status===404?"Pendaftaran belum tersedia untuk event ini.":esc(e.message))+'</p></div>'; return; }
   render();

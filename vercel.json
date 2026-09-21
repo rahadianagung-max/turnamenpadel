@@ -32,6 +32,8 @@
     { "source": "/klaim", "destination": "/klaim.html" },
     { "source": "/roster/:id", "destination": "/roster.html" },
     { "source": "/bayar/:id", "destination": "/bayar.html" },
-    { "source": "/rules", "destination": "/rules/index.html" }
+    { "source": "/rules", "destination": "/rules/index.html" },
+    { "source": "/engine", "destination": "/engine/index.html" },
+    { "source": "/:slug", "destination": "/daftar.html" }
   ]
 }
