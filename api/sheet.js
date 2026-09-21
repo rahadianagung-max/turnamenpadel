@@ -5627,13 +5627,17 @@ async function regVerifyStart(body) {
   await ensureRegTabs(sheets);
   const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 digit
   const now = Date.now();
-  const expires = new Date(now + 10 * 60 * 1000).toISOString(); // 10 menit
-  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A:H`, valueInputOption: "USER_ENTERED",
+  const OTP_TTL_MS = 24 * 3600 * 1000; // berlaku 24 jam
+  const expires = new Date(now + OTP_TTL_MS).toISOString();
+  // RAW agar Google Sheets TIDAK memformat ulang kode (mis. jadi "123,456")
+  // atau memotong tanggal ISO menjadi date-only (yang bikin kode dianggap
+  // kedaluwarsa saat dibaca kembali). Simpan apa adanya sebagai teks.
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A:H`, valueInputOption: "RAW",
     requestBody: { values: [[code, hit.name, email, eventId, "otp", new Date(now).toISOString(), expires, ""]] } });
   const html = regEmailShell("Kode verifikasi", `
     <p>Halo <b>${escHtml(hit.name)}</b>, gunakan kode berikut untuk membuka data profilmu saat pendaftaran turnamen:</p>
     <p style="font-size:30px;font-weight:800;letter-spacing:6px;color:#0F172A;background:#F1F5F9;border:2px solid #0F172A;border-radius:10px;padding:14px 18px;text-align:center;margin:14px 0">${code}</p>
-    <p style="color:#64748b;font-size:13px">Kode berlaku 10 menit. Abaikan email ini jika kamu tidak sedang mendaftar.</p>`);
+    <p style="color:#64748b;font-size:13px">Kode berlaku 24 jam. Abaikan email ini jika kamu tidak sedang mendaftar.</p>`);
   try {
     await sendBrevoEmail(email, "Kode verifikasi — TurnamenPadel", html);
     return respond(200, { available: true, sent: true, emailMask: maskEmail(email) });
@@ -5649,26 +5653,31 @@ async function regVerifyConfirm(body) {
   const cRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A2:H` });
   const rows = cRes.data.values || [];
   const nm = normName(name);
+  // Cocokkan berdasarkan KODE (rahasia yang dikirim ke email pemilik). Kode
+  // dibersihkan dari non-digit di kedua sisi agar tahan format Sheets. Nama
+  // yang diketik bisa berupa nama mirip (fuzzy), jadi nama TIDAK dijadikan
+  // syarat wajib — hanya sebagai tie-breaker. Baris yang cocok memberi nama
+  // kanonik (r[1]) untuk mengambil profil.
   let match = -1;
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
     if ((r[4] || "") !== "otp") continue;
-    if (String(r[0] || "").trim() !== code) continue;
-    if (normName(r[1] || "") !== nm) continue;
-    if (r[6] && Date.now() > Date.parse(r[6])) continue;
-    match = i; // pakai yang paling akhir (kode terbaru)
+    if (String(r[0] || "").replace(/\D/g, "") !== code) continue;
+    if (r[6]) { const t = Date.parse(r[6]); if (!isNaN(t) && Date.now() > t) continue; }
+    if (match < 0 || normName(r[1] || "") === nm) match = i; // utamakan nama yang sama
   }
   if (match < 0) return respond(400, { error: "Kode salah atau kedaluwarsa." });
-  // Tandai terpakai.
+  const canonName = rows[match][1] || name;
+  // Tandai terpakai (RAW, konsisten dengan penyimpanan).
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!E${match + 2}:H${match + 2}`,
-    valueInputOption: "USER_ENTERED", requestBody: { values: [["otp_used", rows[match][5] || "", rows[match][6] || "", new Date().toISOString()]] } });
-  // Ambil profil lengkap sekarang (setelah verifikasi berhasil).
+    valueInputOption: "RAW", requestBody: { values: [["otp_used", rows[match][5] || "", rows[match][6] || "", new Date().toISOString()]] } });
+  // Ambil profil lengkap sekarang (setelah verifikasi berhasil), memakai nama kanonik.
   const [pRes, eRes] = await Promise.all([
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
   ]);
   const eMap = ddEloMap(eRes.data.values || []);
-  const hit = regLookupPlayer(pRes.data.values || [], eMap, { name });
+  const hit = regLookupPlayer(pRes.data.values || [], eMap, { name: canonName });
   if (!hit) return respond(404, { error: "Profil tidak ditemukan." });
   return respond(200, { verified: true, profile: hit.profile });
 }
