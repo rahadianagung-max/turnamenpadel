@@ -1087,7 +1087,7 @@ async function playerCheckin(body) {
     } catch (e) {
       console.error("checkin imgbb upload:", e.message);
       const folder = process.env.CHECKIN_DRIVE_FOLDER_ID || process.env.REG_DRIVE_FOLDER_ID || "";
-      try { photoUrl = await driveUploadImage(body.photo, `checkin_${safe}_${Date.now()}.jpg`, folder); }
+      try { photoUrl = await uploadImageSmart(body.photo, `checkin_${safe}_${Date.now()}.jpg`, folder); }
       catch (e2) { console.error("checkin drive fallback:", e2.message); return respond(502, { error: "Photo upload failed" }); }
     }
   }
@@ -5240,17 +5240,26 @@ async function regGetForm(id) {
 }
 // Upload a flyer/poster data URL to a hotlinkable host (imgbb first, Drive
 // fallback). Returns "" if neither is configured so a save never fails on it.
-async function regUploadFlyer(dataUrl, name) {
+// Upload an image data URL to the best available host. Prefers imgbb (returns a
+// hotlinkable URL); falls back to Google Drive only if imgbb is unavailable.
+// NOTE: a bare service account has no Drive storage quota, so Drive uploads fail
+// unless REG_DRIVE_FOLDER_ID points at a Shared Drive folder — imgbb is the
+// reliable path here. Drive URLs are normalised to the thumbnail endpoint so
+// they render inside <img>. Throws only if every host fails.
+async function uploadImageSmart(dataUrl, name, folderId) {
   try { return await imgbbUpload(dataUrl, name); }
   catch (e) {
-    try {
-      // Drive's uc?export=view links don't reliably hotlink in <img>; store the
-      // thumbnail endpoint instead, which renders as an image.
-      const u = await driveUploadImage(dataUrl, name + ".jpg", process.env.REG_DRIVE_FOLDER_ID || "");
-      const m = String(u).match(/id=([-\w]+)/);
-      return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000` : u;
-    } catch (e2) { return ""; }
+    const drive = driveUploadImage; // aliased so callers can be routed here uniformly
+    const u = await drive(dataUrl, /\.(jpg|jpeg|png|webp|gif)$/i.test(name) ? name : (name + ".jpg"), folderId || process.env.REG_DRIVE_FOLDER_ID || "");
+    const m = String(u).match(/id=([-\w]+)/);
+    return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000` : u;
   }
+}
+// Flyer/poster upload for the public event page. Never throws (a save must not
+// fail on the flyer); returns "" when no host is available.
+async function regUploadFlyer(dataUrl, name) {
+  try { return await uploadImageSmart(dataUrl, name, process.env.REG_DRIVE_FOLDER_ID || ""); }
+  catch (e) { console.error("flyer upload:", e.message); return ""; }
 }
 async function regSaveForm(body) {
   const { formId, name, status, linkedTournament, config } = body;
@@ -5321,8 +5330,8 @@ async function regSubmit(formId, body) {
   const safe = name.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").slice(0, 40) || "player";
   const ts = Date.now();
   let photoUrl = "", payUrl = "";
-  try { if (body.photo) photoUrl = await driveUploadImage(body.photo, `photo_${safe}_${ts}.jpg`, folderId); } catch (e) { console.error("photo upload:", e.message); }
-  try { if (body.paymentProof) payUrl = await driveUploadImage(body.paymentProof, `pay_${safe}_${ts}.jpg`, folderId); } catch (e) { console.error("pay upload:", e.message); }
+  try { if (body.photo) photoUrl = await uploadImageSmart(body.photo, `photo_${safe}_${ts}.jpg`, folderId); } catch (e) { console.error("photo upload:", e.message); }
+  try { if (body.paymentProof) payUrl = await uploadImageSmart(body.paymentProof, `pay_${safe}_${ts}.jpg`, folderId); } catch (e) { console.error("pay upload:", e.message); }
   const regId = regGenId("reg");
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
@@ -5435,9 +5444,9 @@ async function regRegisterPair(eventId, body) {
   const ts = Date.now();
   const safe = (s) => String(s || "").replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").slice(0, 30) || "p";
   let photo1 = "", photo2 = "", payUrl = "";
-  try { if (body.photo1) photo1 = await driveUploadImage(body.photo1, `reg_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo1:", e.message); }
-  try { if (body.photo2) photo2 = await driveUploadImage(body.photo2, `reg_${safe(p2.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo2:", e.message); }
-  if (!isWaitlist) { try { if (body.paymentProof) payUrl = await driveUploadImage(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
+  try { if (body.photo1) photo1 = await uploadImageSmart(body.photo1, `reg_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo1:", e.message); }
+  try { if (body.photo2) photo2 = await uploadImageSmart(body.photo2, `reg_${safe(p2.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo2:", e.message); }
+  if (!isWaitlist) { try { if (body.paymentProof) payUrl = await uploadImageSmart(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
 
   const mkP = (p, photo, m, e) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
     nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo,
@@ -5728,7 +5737,7 @@ async function regAppealSubmit(body) {
     if (phone) break;
   }
   const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
-  let proofUrl = ""; try { proofUrl = await driveUploadImage(body.proof, `appeal_${Date.now()}.jpg`, folderId); } catch (e) {}
+  let proofUrl = ""; try { proofUrl = await uploadImageSmart(body.proof, `appeal_${Date.now()}.jpg`, folderId); } catch (e) {}
   const appealId = regGenId("apl");
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A:O`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[appealId, eventId, String(body.category || ""), String(body.againstRegId || ""), String(body.againstLabel || ""),
@@ -5909,7 +5918,7 @@ async function regPay(body) {
   const frow = await regFindFormRow(sheets, formId);
   let config = {}; try { config = JSON.parse((frow && frow[4]) || "{}"); } catch (e) {}
   const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
-  let payUrl = ""; try { payUrl = await driveUploadImage(body.proof, `pay_${regId}_${Date.now()}.jpg`, folderId); } catch (e) {}
+  let payUrl = ""; try { payUrl = await uploadImageSmart(body.proof, `pay_${regId}_${Date.now()}.jpg`, folderId); } catch (e) {}
   const sr = ri + 2;
   const d = rp.data; delete d.payToken;
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!H${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[payUrl]] } });
