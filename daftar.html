@@ -264,7 +264,19 @@ function chooseCandidate(i,idx){ const p=F.players[i]; const list=(p.chk&&p.chk.
   const c=list[idx]; if(!c) return; const e=c.eligibility||{}; if(e.state==='block') return;
   p.cand=c; p.otpStage=null; p.otpErr=""; p.otpCode=""; p.otpMask="";
   if(c.verify && c.verify.available){ startOtp(i); }
-  else { p.otpStage="unavail"; p.otpMsg="Tidak ada email terdaftar untuk profil ini."; render(); }
+  else { p.otpStage="nomail"; render(); }   // profil ada tapi tak ada email → pakai profil / buat baru
+}
+// Nama cocok tapi tak ada email terdaftar → pakai profil (identitas/ELO tetap
+// tertaut) lalu isi kontak sendiri. Tak perlu OTP (tak ada kontak sensitif).
+async function useNoEmail(i){ const p=F.players[i]; const nm=candName(p);
+  p.otpBusy=true; render();
+  let r; try{ r=await api("reg/profile/basic",{method:"POST",body:{name:nm}}); }catch(e){ r=null; }
+  p.otpBusy=false;
+  const pr=(r&&r.profile)||{};
+  p.name=pr.name||nm; p.nick=pr.alias||""; p.gender=pr.gender||""; p.region=pr.region||"";
+  p.photoUrl=pr.photoUrl||""; p.photo=""; p.phone=""; p.email="";
+  p.decision="use"; p.cand=null; p.otpStage=null;
+  render();
 }
 function candName(p){ return (p.cand&&p.cand.name)||p.name; }
 async function startOtp(i){ const p=F.players[i]; const nm=candName(p); if(!(nm||"").trim()) return;
@@ -272,7 +284,7 @@ async function startOtp(i){ const p=F.players[i]; const nm=candName(p); if(!(nm|
   let r; try{ r=await api("reg/verify/start",{method:"POST",body:{name:nm,eventId:F.eventId}}); }
   catch(e){ p.otpBusy=false; p.otpErr="Gagal mengirim kode. Coba lagi."; render(); return; }
   p.otpBusy=false;
-  if(!r.available){ p.otpStage="unavail"; p.otpMsg=r.message||"Tidak ada email terdaftar untuk profil ini."; render(); return; }
+  if(!r.available){ p.otpStage="nomail"; render(); return; }
   p.otpStage="sent"; p.otpMask=r.emailMask||""; p.otpCode="";
   p.otpErr = r.sent===false ? ("Email gagal terkirim"+(r.message?": "+r.message:"")+". Coba kirim ulang atau pilih Buat baru.") : "";
   render();
@@ -322,10 +334,11 @@ function candList(i){ const p=F.players[i]; const cs=(p.chk&&p.chk.candidates)||
 function otpBlock(i){ const p=F.players[i]; const nm=candName(p);
   const head=`<div class="row" style="justify-content:space-between;align-items:center"><span>Verifikasi: <b>${esc(nm)}</b></span>
       <a href="#" onclick="event.preventDefault();backToChooser(${i})" class="note">↩ pilih nama lain</a></div>`;
-  if(p.otpStage==="unavail"){
+  if(p.otpStage==="nomail"){
     return `<div class="card" style="margin-top:10px;background:var(--inset)">${head}
-      <div class="note" style="margin-top:8px">🔒 ${esc(p.otpMsg||"Tidak ada email terdaftar untuk profil ini.")} Data hanya bisa dibuka lewat verifikasi email.</div>
-      <div class="nav" style="margin-top:8px"><button class="btn primary" onclick="buatBaru(${i})">Buat baru</button></div></div>`;
+      <div class="note" style="margin-top:8px">✔ Profil <b>${esc(nm)}</b> ada di Trekkr, tapi <b>belum ada email terdaftar</b> — jadi tidak perlu verifikasi. Pakai profil ini (ELO &amp; rekam jejak tetap tertaut) lalu isi email &amp; no HP kamu sendiri.</div>
+      <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="useNoEmail(${i})">${p.otpBusy?'Memuat…':'Pakai profil ini & lengkapi kontak'}</button>
+        <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="buatBaru(${i})">Buat baru</button></div></div>`;
   }
   // Jalan keluar: email terdaftar ternyata bukan miliknya → buat akun baru saja.
   const notMine=`<div class="divider" style="margin:12px 0"></div>

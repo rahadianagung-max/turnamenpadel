@@ -816,6 +816,7 @@ const netlifyHandler = async (event) => {
     if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
     if (path === "reg/verify/start" && method === "POST") return await regVerifyStart(body);
     if (path === "reg/verify/confirm" && method === "POST") return await regVerifyConfirm(body);
+    if (path === "reg/profile/basic" && method === "POST") return await regProfileBasic(body);
     if (path === "reg/diag" && method === "GET") return respond(200, {
       brevo: !!(String(process.env.BREVO_API_KEY || "").trim() && String(process.env.BREVO_SENDER_EMAIL || "").trim()),
       senderSet: !!String(process.env.BREVO_SENDER_EMAIL || "").trim(),
@@ -5642,6 +5643,25 @@ function maskPhone(p) {
   const d = String(p || "").replace(/\D/g, "");
   if (d.length < 4) return "";
   return d.slice(0, 3) + "•".repeat(Math.max(2, d.length - 5)) + d.slice(-2);
+}
+// Profil PUBLIK saja (tampil di passport/rankings) — TANPA email/HP. Dipakai
+// saat nama cocok tapi tak ada email terdaftar: pendaftar boleh memakai profil
+// (identitas/ELO tetap tertaut) lalu mengisi kontaknya sendiri, tanpa OTP
+// (tak ada data kontak sensitif yang perlu dilindungi).
+async function regProfileBasic(body) {
+  const name = String((body && body.name) || "").trim();
+  if (!name) return respond(400, { error: "Nama wajib." });
+  const sheets = getSheets();
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const hit = regLookupPlayer(pRes.data.values || [], eMap, { name });
+  if (!hit) return respond(200, { found: false });
+  const pf = hit.profile || {};
+  return respond(200, { found: true, profile: { name: hit.name, alias: pf.alias || "", gender: pf.gender || "",
+    region: pf.region || "", photoUrl: pf.photoUrl || "", elo: hit.elo, tier: hit.tier } });
 }
 // ==============================================================
 // VERIFIKASI OTP — buka profil Trekkr (termasuk kontak sensitif) hanya setelah
