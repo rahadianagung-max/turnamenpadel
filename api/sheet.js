@@ -5556,6 +5556,43 @@ function regLookupPlayer(rows, eMap, ident) {
   return { name: hit[0] || "", ig: hit[1] || "", verified: String(hit[2]).toUpperCase() === "TRUE", elo, tier: getTierName(elo), method,
     profile: { name: hit[0] || "", alias: hit[3] || "", gender: hit[4] || "", region: hit[5] || "", photoUrl: hit[6] || "", email: hit[11] || "", phone: hit[12] || "" } };
 }
+// Cari beberapa KANDIDAT nama mirip (bukan cuma satu), supaya pendaftar bisa
+// memilih. Ambang direndahkan + cocokkan token/substring, jadi "rahadian agung"
+// menemukan "Rahadian N Agung", dan mengetik "agung" saja pun memunculkan
+// semua nama yang mengandung token itu. Data kontak sensitif TIDAK dibuka di
+// sini — hanya petunjuk tersamar; profil penuh butuh verifikasi OTP.
+function regNameCandidates(rows, eMap, name, level, enrolledSet) {
+  const nm = normName(name);
+  if (!nm) return [];
+  const qtokens = new Set(ddTokens(name));
+  const scored = [];
+  for (const r of rows) {
+    const rn = r[0] || ""; if (!rn) continue;
+    const base = ddSim(nm, rn);
+    const rtokens = ddTokens(rn);
+    const sharedExact = rtokens.some((t) => qtokens.has(t));
+    const rnorm = ddNorm(rn);
+    const sub = !!nm && (rnorm.includes(nm) || nm.includes(rnorm));
+    if (base < 0.5 && !sharedExact && !sub) continue;
+    const score = Math.max(base, sub ? 0.66 : 0, sharedExact ? 0.56 : 0);
+    scored.push({ r, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const seen = new Set(), out = [];
+  for (const s of scored) {
+    const key = normName(s.r[0] || "");
+    if (!key || seen.has(key)) continue; seen.add(key);
+    const em2 = eMap[String(s.r[0] || "").toLowerCase()] || {};
+    const elo = em2.elo == null ? 1350 : em2.elo;
+    const email = s.r[11] || "", phone = s.r[12] || "";
+    out.push({ name: s.r[0] || "", elo, tier: getTierName(elo),
+      enrolledInCategory: enrolledSet.has(key),
+      eligibility: eligibilityOf(elo, false, level),
+      verify: { available: String(email).includes("@"), emailMask: maskEmail(email), phoneMask: maskPhone(phone) } });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
 async function regCheckPlayer(body) {
   const sheets = getSheets();
   const [pRes, eRes] = await Promise.all([
@@ -5563,11 +5600,11 @@ async function regCheckPlayer(body) {
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
   ]);
   const eMap = ddEloMap(eRes.data.values || []);
-  const hit = regLookupPlayer(pRes.data.values || [], eMap, body || {});
+  const rows = pRes.data.values || [];
   const level = (body && body.level) || "";
-  // Penanda dobel: pemain (yang cocok) sudah terdaftar di kategori ini?
-  let enrolled = false;
-  if (body && body.eventId && body.category && hit) {
+  // Himpunan pemain yang sudah terdaftar di kategori ini (penanda dobel).
+  const enrolledSet = new Set();
+  if (body && body.eventId && body.category) {
     const formId = regFormIdForEvent(body.eventId);
     const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
     for (const r of (rRes.data.values || [])) {
@@ -5575,21 +5612,11 @@ async function regCheckPlayer(body) {
       const st = r[10] || ""; if (st === "rejected" || st === "cancelled") continue;
       let d = {}; try { d = JSON.parse(r[8] || "{}"); } catch (e) {}
       if ((d.category || r[9]) !== body.category) continue;
-      const names = [d.player1 && d.player1.name, d.player2 && d.player2.name].map((x) => normName(x || ""));
-      if (names.includes(normName(hit.name))) { enrolled = true; break; }
+      [d.player1 && d.player1.name, d.player2 && d.player2.name].forEach((x) => { const n = normName(x || ""); if (n) enrolledSet.add(n); });
     }
   }
-  if (!hit) return respond(200, { found: false, eligibility: eligibilityOf(null, true, level) });
-  // Data kontak sensitif (email/HP) TIDAK dikembalikan mentah. Frontend harus
-  // memverifikasi via OTP ke email terdaftar sebelum profil lengkap dibuka
-  // (lihat regVerifyStart / regVerifyConfirm).
-  const pf = hit.profile || {};
-  const hasEmail = !!String(pf.email || "").includes("@");
-  return respond(200, { found: true, name: hit.name, ig: hit.ig, elo: hit.elo, tier: hit.tier,
-    method: hit.method, claimed: hit.verified, enrolledInCategory: enrolled, eligibility: eligibilityOf(hit.elo, false, level),
-    // Pratinjau non-sensitif + petunjuk tersamar; bukan profil penuh.
-    preview: { name: pf.name || hit.name || "", alias: pf.alias || "", photoUrl: pf.photoUrl || "" },
-    verify: { available: hasEmail, emailMask: maskEmail(pf.email), phoneMask: maskPhone(pf.phone) } });
+  const candidates = regNameCandidates(rows, eMap, (body && body.name) || "", level, enrolledSet);
+  return respond(200, { found: candidates.length > 0, candidates });
 }
 // Penyamaran PII untuk pratinjau sebelum verifikasi.
 function maskEmail(e) {

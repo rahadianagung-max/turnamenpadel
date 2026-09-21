@@ -123,7 +123,7 @@ function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); r
 
 const F = { eventId:qs(), data:null, step:0, catId:null,
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
-function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
+function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
 
 async function api(path, opts){
   const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
@@ -247,23 +247,29 @@ function allFilled(i){ const p=F.players[i], on=fieldsOn();
 }
 function setF(i,k,v){ F.players[i][k]=v; updatePlayerNav(i); }
 function updatePlayerNav(i){ const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(F.players[i].decision && allFilled(i)); }
-function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.decision=null; p.checking=false;
-  p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg="";
+function clearOtp(p){ p.cand=null; p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg=""; }
+function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.decision=null; p.checking=false; clearOtp(p);
   const r=document.getElementById("pres_"+i); if(r) r.innerHTML=(v||"").trim()?'<div class="note">akan cek saat berhenti mengetik…</div>':"";
   clearTimeout(p._t); if(!(v||"").trim()) return; p._t=setTimeout(function(){ doCheck(i); }, 600);
 }
 async function doCheck(i){ const p=F.players[i], c=cat(); if(!(p.name||"").trim()) return;
-  p.checking=true; const r=document.getElementById("pres_"+i); if(r) r.innerHTML='<div class="note">⏳ Mengecek database Trekkr…</div>';
+  p.checking=true; const r=document.getElementById("pres_"+i); if(r) r.innerHTML='<div class="note">⏳ Mencari nama mirip di Trekkr…</div>';
   try{ p.chk=await api("reg/check-player",{method:"POST",body:{name:p.name,eventId:F.eventId,category:F.catId,level:c?c.level:""}}); }
-  catch(e){ p.chk={found:false,eligibility:{state:"flag",msg:"cek gagal"}}; }
+  catch(e){ p.chk={found:false,candidates:[]}; }
   p.checking=false;
-  if(p.chk && !p.chk.found) p.decision="new";   // no match → straight to the new-player form
-  render();
+  render();   // tampilkan daftar kandidat (atau opsi buat baru bila kosong)
 }
-// "Pakai data yang tersedia" → verifikasi OTP dulu (data kontak sensitif).
-async function startOtp(i){ const p=F.players[i]; if(!(p.name||"").trim()) return;
+// Pendaftar memilih salah satu kandidat → verifikasi OTP (data kontak sensitif).
+function chooseCandidate(i,idx){ const p=F.players[i]; const list=(p.chk&&p.chk.candidates)||[];
+  const c=list[idx]; if(!c) return; const e=c.eligibility||{}; if(e.state==='block') return;
+  p.cand=c; p.otpStage=null; p.otpErr=""; p.otpCode=""; p.otpMask="";
+  if(c.verify && c.verify.available){ startOtp(i); }
+  else { p.otpStage="unavail"; p.otpMsg="Tidak ada email terdaftar untuk profil ini."; render(); }
+}
+function candName(p){ return (p.cand&&p.cand.name)||p.name; }
+async function startOtp(i){ const p=F.players[i]; const nm=candName(p); if(!(nm||"").trim()) return;
   p.otpBusy=true; p.otpErr=""; render();
-  let r; try{ r=await api("reg/verify/start",{method:"POST",body:{name:p.name,eventId:F.eventId}}); }
+  let r; try{ r=await api("reg/verify/start",{method:"POST",body:{name:nm,eventId:F.eventId}}); }
   catch(e){ p.otpBusy=false; p.otpErr="Gagal mengirim kode. Coba lagi."; render(); return; }
   p.otpBusy=false;
   if(!r.available){ p.otpStage="unavail"; p.otpMsg=r.message||"Tidak ada email terdaftar untuk profil ini."; render(); return; }
@@ -271,47 +277,69 @@ async function startOtp(i){ const p=F.players[i]; if(!(p.name||"").trim()) retur
   p.otpErr = r.sent===false ? ("Email gagal terkirim"+(r.message?": "+r.message:"")+". Coba kirim ulang atau pilih Buat baru.") : "";
   render();
 }
-async function confirmOtp(i){ const p=F.players[i]; const code=String(p.otpCode||"").replace(/\D/g,"");
+async function confirmOtp(i){ const p=F.players[i]; const code=String(p.otpCode||"").replace(/\D/g,""); const nm=candName(p);
   if(!/^\d{6}$/.test(code)){ p.otpErr="Masukkan 6 digit kode."; render(); return; }
   p.otpBusy=true; p.otpErr=""; render();
-  let r; try{ r=await api("reg/verify/confirm",{method:"POST",body:{name:p.name,code:code}}); }
+  let r; try{ r=await api("reg/verify/confirm",{method:"POST",body:{name:nm,code:code}}); }
   catch(e){ p.otpBusy=false; p.otpErr=(e&&e.message)||"Kode salah atau kedaluwarsa."; render(); return; }
   p.otpBusy=false;
   const pr=r.profile||{};
-  p.name=pr.name||p.name; p.nick=pr.alias||""; p.gender=pr.gender||""; p.region=pr.region||"";
+  p.name=pr.name||nm; p.nick=pr.alias||""; p.gender=pr.gender||""; p.region=pr.region||"";
   p.phone=pr.phone||""; p.email=pr.email||""; p.photoUrl=pr.photoUrl||""; p.photo="";
-  p.decision="use"; p.otpStage=null; p.otpErr=""; p.otpCode=""; p.otpMask="";
+  p.decision="use"; p.cand=null; p.otpStage=null; p.otpErr=""; p.otpCode=""; p.otpMask="";
   render();
 }
+function backToChooser(i){ const p=F.players[i]; clearOtp(p); render(); }
 function buatBaru(i){ const p=F.players[i];
   p.nick="";p.gender="";p.dob="";p.region="";p.jersey="";p.phone="";p.email="";p.photo="";p.photoUrl="";
-  p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpMsg="";
-  p.decision="new"; render();
+  clearOtp(p); p.decision="new"; render();
 }
-function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false;
-  p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg=""; render(); }
+function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false; clearOtp(p); render(); }
 async function pickPhoto(i,input){ const p=F.players[i]; p.photo=await fileToDataUrl(input);
   const ph=document.getElementById("ph_"+i); if(ph&&p.photo) ph.innerHTML='<img src="'+p.photo+'" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">';
   updatePlayerNav(i);
 }
-function otpBlock(i){ const p=F.players[i];
+// Kartu kandidat: daftar nama mirip yang bisa dipilih pendaftar.
+function candList(i){ const p=F.players[i]; const cs=(p.chk&&p.chk.candidates)||[];
+  if(!cs.length){
+    return `<div class="card" style="margin-top:10px;background:var(--inset)">
+      <div class="note">🔎 Tidak ada nama mirip di Trekkr untuk "<b>${esc(p.name)}</b>".</div>
+      <div class="nav" style="margin-top:8px"><button class="btn primary" onclick="buatBaru(${i})">Buat data baru</button></div></div>`;
+  }
+  const rows=cs.map((c,idx)=>{ const e=c.eligibility||{}, blk=e.state==='block';
+    return `<div class="opt" style="align-items:center;${blk?'opacity:.6':''}">
+      <div class="grow"><b>${esc(c.name)}</b> <span class="elo">${esc(c.tier)} ${c.elo}</span>
+        ${c.enrolledInCategory?'<span class="chip warn" style="margin-left:6px">sudah terdaftar di kategori ini</span>':''}
+        ${blk?'<div class="note" style="margin-top:4px">⛔ Level di atas plafon kategori</div>':(e.msg?`<div class="note" style="margin-top:4px">${esc(e.msg)}</div>`:'')}</div>
+      <button class="btn ${blk?'ghost':'primary'}" ${blk?'disabled':''} onclick="chooseCandidate(${i},${idx})">Ini saya</button></div>`;}).join("");
+  return `<div class="card" style="margin-top:10px;background:var(--inset)">
+    <div class="note" style="margin-bottom:8px">Pilih namamu bila terdaftar di Trekkr — kami akan verifikasi lewat email dulu:</div>
+    <div style="display:flex;flex-direction:column;gap:9px">${rows}</div>
+    <div class="divider" style="margin:12px 0"></div>
+    <div class="note">Namamu tidak ada di daftar?</div>
+    <div class="nav" style="margin-top:6px"><button class="btn ghost" onclick="buatBaru(${i})">Buat data baru</button></div></div>`;
+}
+function otpBlock(i){ const p=F.players[i]; const nm=candName(p);
+  const head=`<div class="row" style="justify-content:space-between;align-items:center"><span>Verifikasi: <b>${esc(nm)}</b></span>
+      <a href="#" onclick="event.preventDefault();backToChooser(${i})" class="note">↩ pilih nama lain</a></div>`;
   if(p.otpStage==="unavail"){
-    return `<div class="note" style="margin-top:8px">🔒 ${esc(p.otpMsg||"Tidak ada email terdaftar untuk profil ini.")} Data hanya bisa dibuka lewat verifikasi email.</div>
-      <div class="nav" style="margin-top:8px"><button class="btn ghost" onclick="buatBaru(${i})">Buat baru</button></div>`;
+    return `<div class="card" style="margin-top:10px;background:var(--inset)">${head}
+      <div class="note" style="margin-top:8px">🔒 ${esc(p.otpMsg||"Tidak ada email terdaftar untuk profil ini.")} Data hanya bisa dibuka lewat verifikasi email.</div>
+      <div class="nav" style="margin-top:8px"><button class="btn primary" onclick="buatBaru(${i})">Buat baru</button></div></div>`;
   }
   if(p.otpStage==="sent"){
-    return `<div class="note" style="margin:8px 0 6px">🔐 Kami kirim <b>kode 6 digit</b> ke <b>${esc(p.otpMask)}</b>. Masukkan kode untuk membuka datamu.</div>
+    return `<div class="card" style="margin-top:10px;background:var(--inset)">${head}
+      <div class="note" style="margin:8px 0 6px">🔐 Kami kirim <b>kode 6 digit</b> ke <b>${esc(p.otpMask)}</b> (berlaku 24 jam). Masukkan kode untuk membuka datamu.</div>
       <label class="f"><span>Kode verifikasi <span class="req">*</span></span>
         <input id="otp_${i}" value="${esc(p.otpCode||"")}" oninput="F.players[${i}].otpCode=this.value" inputmode="numeric" maxlength="6" placeholder="______" autocomplete="one-time-code" style="letter-spacing:6px;font-weight:700;text-align:center"></label>
       ${p.otpErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.otpErr)}</div>`:""}
       <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="confirmOtp(${i})">${p.otpBusy?'Memverifikasi…':'Verifikasi & pakai data'}</button>
-        <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">Kirim ulang</button></div>
-      <div style="margin-top:6px"><a href="#" onclick="event.preventDefault();buatBaru(${i})" class="note">atau buat data baru</a></div>`;
+        <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">Kirim ulang</button></div></div>`;
   }
-  return `<div class="note" style="margin:8px 0 4px">Untuk melindungi data pribadi, kami akan mengirim <b>kode verifikasi ke email terdaftar</b> sebelum data dibuka.</div>
+  return `<div class="card" style="margin-top:10px;background:var(--inset)">${head}
+    <div class="note" style="margin:8px 0 4px">Untuk melindungi data pribadi, kami kirim <b>kode ke email terdaftar</b> sebelum data dibuka.</div>
     ${p.otpErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.otpErr)}</div>`:""}
-    <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">${p.otpBusy?'Mengirim kode…':'Pakai data yang tersedia'}</button>
-      <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="buatBaru(${i})">Buat baru</button></div>`;
+    <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">${p.otpBusy?'Mengirim kode…':'Kirim kode verifikasi'}</button></div></div>`;
 }
 function profileForm(i,on){ const p=F.players[i];
   const src = p.decision==="use"
@@ -335,20 +363,18 @@ function profileForm(i,on){ const p=F.players[i];
 function vPlayer(i){ const p=F.players[i], on=fieldsOn();
   let block;
   if(!p.decision){
-    let res="";
-    if(p.checking) res='<div class="note">⏳ Mengecek database Trekkr…</div>';
-    else if(p.chk&&p.chk.found){ const e=p.chk.eligibility||{}, blk=e.state==='block';
-      res=`<div class="card" style="margin-top:10px;background:var(--inset)">
-        <div class="row" style="justify-content:space-between;align-items:center"><span>✔ <b>Ditemukan</b> via ${esc(p.chk.method)}</span><span class="chip ${blk||e.state==='flag'?'warn':'ok'}">${esc(e.msg||'')}</span></div>
-        <div style="margin-top:6px">${esc(p.chk.name)} · <span class="elo">${esc(p.chk.tier)} ${p.chk.elo}</span></div>
-        ${blk?'<div class="note" style="margin-top:6px">⛔ Level di atas plafon kategori — tidak bisa daftar di kategori ini.</div>'
-             : otpBlock(i)}
-      </div>`;
+    if(p.cand){
+      // Kandidat sudah dipilih → panel verifikasi OTP (nama tidak diketik ulang).
+      block=otpBlock(i);
+    } else {
+      let res="";
+      if(p.checking) res='<div class="note">⏳ Mencari nama mirip di Trekkr…</div>';
+      else if(p.chk) res=candList(i);
+      block=`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span>
+          <input id="pn_${i}" value="${esc(p.name)}" oninput="onName(${i},this.value)" placeholder="Nama lengkap sesuai KTP" autocomplete="off"></label>
+        <div class="note">📇 Tulis <b>nama lengkap sesuai KTP</b> — panitia dapat mengecek KTP saat registrasi di lokasi.</div>
+        <div id="pres_${i}">${res}</div>`;
     }
-    block=`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span>
-        <input id="pn_${i}" value="${esc(p.name)}" oninput="onName(${i},this.value)" placeholder="Nama lengkap sesuai KTP" autocomplete="off"></label>
-      <div class="note">📇 Tulis <b>nama lengkap sesuai KTP</b> — panitia dapat mengecek KTP saat registrasi di lokasi.</div>
-      <div id="pres_${i}">${res}</div>`;
   } else {
     block=profileForm(i,on);
   }
