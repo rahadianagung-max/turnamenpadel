@@ -96,7 +96,7 @@
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
-        <button class="btn ghost sm" onclick="loadRegs()">↻ Segarkan</button>
+        <button class="btn ghost sm" onclick="loadRegs()">↻ Refresh</button>
       </div>
       <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
     </div>
@@ -104,7 +104,7 @@
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Kirim undangan ke peserta untuk meninjau roster & mengajukan banding (dengan bukti), lalu putuskan di sini.</div></div>
-        <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Segarkan</button></div>
+        <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Refresh</button></div>
       </div>
       <div id="triggerMsg" class="note"></div>
       <div id="appealDeadlineBox" style="margin-top:10px"></div>
@@ -295,34 +295,74 @@ function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.jersey) k.push(`Jersey: <b>${esc(p.jersey)}</b>`);
   if(p.dob) k.push(`Lahir: <b>${esc(p.dob)}</b>`);
   const photo=p.photoUrl?`<a href="${esc(p.photoUrl)}" target="_blank" rel="noopener"><img src="${esc(p.photoUrl)}" alt="" style="width:44px;height:44px;object-fit:cover;border:var(--bd);border-radius:8px"></a>`:"";
-  return `<div class="pcard"><div class="row" style="justify-content:space-between"><div class="who">Pemain ${idx}: ${esc(p.name||"—")} ${eligChip(p.eligibility)}</div>${photo}</div>
+  return `<div class="pcard"><div class="row" style="justify-content:space-between"><div class="who">Pemain ${idx}: ${esc(p.name||"—")} ${tierChip(p)} ${eligChip(p.eligibility)}</div>${photo}</div>
     <div class="kvs">${k.join(" · ")||'<span class="muted">tak ada detail tambahan</span>'}</div></div>`;
+}
+// Level (tier) chip from Trekkr data.
+function tierChip(p){ const t=(p&&(p.tier||(p.match&&p.match.tier)))||""; return t?'<span class="chip" style="background:#F1F5F9">'+esc(t)+'</span>':''; }
+function initials(nm){ const a=String(nm||"").trim().split(/\s+/); return (((a[0]||"")[0]||"")+((a[1]||"")[0]||"")||"?").toUpperCase(); }
+function avatarBox(p,size){ size=size||40; const s='width:'+size+'px;height:'+size+'px;object-fit:cover;border:var(--bd);border-radius:8px;flex:none';
+  return p&&p.photoUrl?`<img src="${esc(p.photoUrl)}" alt="" referrerpolicy="no-referrer" style="${s}">`
+    :`<span style="${s};display:flex;align-items:center;justify-content:center;background:var(--orange);color:#fff;font-family:var(--display);font-weight:800">${esc(initials(p&&p.name))}</span>`;
+}
+// Copy-to-clipboard with inline feedback on the clicked element.
+function copyText(ev,txt){ if(ev)ev.preventDefault(); const a=ev&&ev.currentTarget; const done=()=>{ if(a){ const o=a.innerHTML; a.innerHTML='disalin ✓'; setTimeout(()=>{a.innerHTML=o;},1200);} };
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done,()=>{fallbackCopy(txt);done();}); return; } }catch(e){}
+  fallbackCopy(txt); done();
+}
+function fallbackCopy(txt){ try{ const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.focus(); ta.select(); document.execCommand('copy'); ta.remove(); }catch(e){} }
+// Compact player cell (photo + name + level) for the approved list.
+function miniPlayer(p,idx){ if(!p) return "";
+  return `<div class="pcard" style="display:flex;align-items:center;gap:10px">${avatarBox(p,42)}
+    <div style="min-width:0"><div class="who" style="font-size:13px">${esc(p.name||"—")}</div>
+    <div style="margin-top:4px">${tierChip(p)||'<span class="chip" style="background:#F1F5F9">—</span>'}</div></div></div>`;
+}
+const APPROVED_STATUS=new Set(["approved","received","imported","final","accepted"]);
+// Detailed card (waiting list): full player details + payment proof + actions.
+function waitingCard(reg){
+  const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
+  const proof=reg.paymentProofUrl?`<div class="proof"><div class="note" style="margin:0 0 4px">Bukti transfer:</div><a href="${esc(reg.paymentProofUrl)}" target="_blank" rel="noopener"><img src="${esc(reg.paymentProofUrl)}" alt="bukti"></a></div>`:'<div class="note">Bukti transfer: <span class="chip">belum ada</span></div>';
+  return `<div class="reg">
+    <div class="reg-head"><div><b>${esc(reg.team||"—")}</b><div class="note" style="margin:2px 0 0">${esc(catText(d))} · ${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div></div>${statusChip(reg.status)}</div>
+    <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
+    <div class="divider"></div>${proof}
+    <div class="row" style="gap:8px;margin-top:12px">
+      <button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>
+      <button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button></div>
+  </div>`;
+}
+// Compact card (approved list): names + level + team + player-1 phone (copy).
+function approvedCard(reg){
+  const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
+  const phone=String(p1.phone||"").trim();
+  const phoneRow=phone
+    ? `<div class="note" style="margin-top:10px">HP Pemain 1: <a href="#" onclick="copyText(event,'${esc(phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(phone)} ⧉</a></div>`
+    : '<div class="note" style="margin-top:10px">HP Pemain 1: <span class="muted">—</span></div>';
+  return `<div class="reg">
+    <div class="reg-head"><div><b>${esc(reg.team||"—")}</b><div class="note" style="margin:2px 0 0">${esc(catText(d))}</div></div>${statusChip(reg.status)}</div>
+    <div class="pgrid">${miniPlayer(p1,1)}${miniPlayer(p2,2)}</div>
+    ${phoneRow}
+    <div class="row" style="gap:8px;margin-top:10px"><button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button></div>
+  </div>`;
+}
+function regSection(title,items,render,empty){
+  return `<div style="margin-top:8px"><h4 style="font-size:14px;margin:16px 0 8px">${title} <span class="muted">(${items.length})</span></h4>`+
+    (items.length?items.map(render).join(""):'<p class="muted" style="font-size:13px">'+empty+'</p>')+`</div>`;
 }
 async function loadRegs(){
   const host=document.getElementById("regList"); host.innerHTML='<p class="muted">Memuat…</p>';
   try{
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/registrations?token="+encodeURIComponent(TOKEN));
     const list=r.registrations||[];
-    const byStatus={}; list.forEach(x=>{ byStatus[x.status]=(byStatus[x.status]||0)+1; });
-    document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim`+(Object.keys(byStatus).length?` · `+Object.entries(byStatus).map(([s,n])=>`${esc(s)}: <b>${n}</b>`).join(" · "):"");
+    const approved=list.filter(x=>APPROVED_STATUS.has(x.status));
+    const waiting=list.filter(x=>!APPROVED_STATUS.has(x.status) && x.status!=="rejected" && x.status!=="cancelled");
+    const closed=list.filter(x=>x.status==="rejected"||x.status==="cancelled");
+    document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Waiting <b>${waiting.length}</b>`;
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
-    host.innerHTML=list.map(reg=>{
-      const d=reg.data||{}; const p1=d.player1||{}, p2=d.player2||{};
-      const proof=reg.paymentProofUrl?`<div class="proof"><div class="note" style="margin:0 0 4px">Bukti transfer:</div><a href="${esc(reg.paymentProofUrl)}" target="_blank" rel="noopener"><img src="${esc(reg.paymentProofUrl)}" alt="bukti"></a></div>`:'<div class="note">Bukti transfer: <span class="chip">belum ada</span></div>';
-      return `<div class="reg">
-        <div class="reg-head">
-          <div><b>${esc(reg.team||"—")}</b><div class="note" style="margin:2px 0 0">${esc(catText(d))} · ${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div></div>
-          ${statusChip(reg.status)}
-        </div>
-        <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
-        <div class="divider"></div>
-        ${proof}
-        ${(function(){ const s=reg.status, a=[];
-          if(s!=="approved") a.push('<button class="btn primary sm" onclick="approveReg(\''+esc(reg.regId)+'\')">✔ Approve</button>');
-          if(s!=="rejected") a.push('<button class="btn ghost sm" onclick="rejectReg(\''+esc(reg.regId)+'\')">✕ Reject</button>');
-          return a.length?'<div class="row" style="gap:8px;margin-top:12px">'+a.join("")+'</div>':""; })()}
-      </div>`;
-    }).join("");
+    host.innerHTML =
+      regSection("⏳ Waiting list — menunggu approval", waiting, waitingCard, "Tidak ada yang menunggu approval.") +
+      regSection("✅ Approved players", approved, approvedCard, "Belum ada yang di-approve.") +
+      (closed.length?regSection("✕ Ditolak / batal", closed, approvedCard, ""):"");
   }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
 }
 // Manual approval: approve → status approved + email peserta; reject → rejected.

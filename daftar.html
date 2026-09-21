@@ -156,7 +156,7 @@ function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Me
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k] || l; }
 function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); return lv ? (cl+" · "+lv) : cl; }
 
-const F = { eventId:qs(), data:null, step:0, catId:null,
+const F = { eventId:qs(), data:null, step:0, catId:null, teamName:"",
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
 function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,emailQ:"",emailErr:"",emailBusy:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
 
@@ -202,6 +202,7 @@ async function boot(){
     if(d){
       const catOk=(F.data.categories||[]).some(c=>c.tournamentId===d.catId);
       F.catId = catOk ? d.catId : "";
+      F.teamName = d.teamName||"";
       F.waiverA=!!d.waiverA; F.waiverB=!!d.waiverB; F.payFile=d.payFile||"";
       if(Array.isArray(d.players)) d.players.forEach((pd,i)=>{ if(F.players[i]) Object.assign(F.players[i], pd); });
       let step = Number.isInteger(d.step)? d.step : 0;
@@ -221,9 +222,9 @@ function loadDraft(){ try{ const s=localStorage.getItem(draftKey()); if(!s) retu
 function saveDraft(){
   if(!F.eventId || !F.started) return;
   const k=stepKeys()[F.step]; if(k==="done"||k==="info") return; // jangan simpan draft selesai
-  const hasContent = !!F.catId || (F.players||[]).some(p=>String(p.name||"").trim()); // jangan simpan draft kosong
+  const hasContent = !!F.catId || !!(F.teamName||"").trim() || (F.players||[]).some(p=>String(p.name||"").trim()); // jangan simpan draft kosong
   if(!hasContent){ return; }
-  const snap={ v:1, ts:Date.now(), eventId:F.eventId, catId:F.catId, step:F.step,
+  const snap={ v:1, ts:Date.now(), eventId:F.eventId, catId:F.catId, teamName:F.teamName||"", step:F.step,
     waiverA:!!F.waiverA, waiverB:!!F.waiverB, payFile:F.payFile||"",
     players:(F.players||[]).map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey,photo:p.photo||"",photoUrl:p.photoUrl||"",decision:p.decision})) };
   try{ localStorage.setItem(draftKey(), JSON.stringify(snap)); }
@@ -233,7 +234,7 @@ function saveDraft(){
 }
 let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveDraft, 400); }
 function clearDraft(){ try{ localStorage.removeItem(draftKey()); }catch(e){} }
-function resetDraft(){ clearDraft(); F.players=[blankP(),blankP()]; F.catId=""; F.step=0; F.waiverA=false; F.waiverB=false; F.payFile=""; F._restored=false; render(); }
+function resetDraft(){ clearDraft(); F.players=[blankP(),blankP()]; F.catId=""; F.teamName=""; F.step=0; F.waiverA=false; F.waiverB=false; F.payFile=""; F._restored=false; render(); }
 // Back to this event's public landing page (/<slug>).
 function eventPageHref(){
   const m=location.pathname.match(/\/daftar\/([^\/?#]+)/);
@@ -339,7 +340,7 @@ function allFilled(i){ const p=F.players[i], on=fieldsOn();
   return true;
 }
 function setF(i,k,v){ F.players[i][k]=v; updatePlayerNav(i); scheduleSave(); }
-function updatePlayerNav(i){ const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(F.players[i].decision && allFilled(i)); }
+function updatePlayerNav(i){ const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(F.players[i].decision && allFilled(i) && (i!==0 || (F.teamName||"").trim())); }
 function clearOtp(p){ p.cand=null; p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg=""; }
 function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.decision=null; p.checking=false; clearOtp(p);
   const r=document.getElementById("pres_"+i); if(r) r.innerHTML=(v||"").trim()?'<div class="note">akan cek saat berhenti mengetik…</div>':"";
@@ -511,11 +512,17 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
   } else {
     block=profileForm(i,on);
   }
-  const canNext = !!(p.decision && allFilled(i));
+  const canNext = !!(p.decision && allFilled(i) && (i!==0 || (F.teamName||"").trim()));
+  const teamField = i===0
+    ? `<label class="f"><span>Nama tim <span class="req">*</span></span>
+         <input id="teamName" value="${esc(F.teamName||"")}" oninput="F.teamName=this.value;updatePlayerNav(0);scheduleSave()" placeholder="mis. Smash Bros" autocomplete="off"></label>
+       <div class="note" style="margin:-4px 0 12px">Nama tim akan tampil di daftar peserta &amp; bracket.</div>`
+    : "";
   return `<div class="card">
     <div class="phead" style="margin-bottom:12px"><div class="avatar">${esc((p.name||('#'+(i+1))).charAt(0).toUpperCase())}</div>
       <div><div class="who">Pemain ${i+1}</div><div class="sub">${i===0?'mulai dari pemain 1':'lanjut ke pemain 2'}</div></div></div>
     <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+    ${teamField}
     ${block}
     <div class="nav"><button class="btn ghost" onclick="go('${i===0?'elig':'p1'}')">←</button>
       <button class="btn primary" id="pNext_${i}" ${canNext?'':'disabled'} onclick="go('${i===0?'p2':'summary'}')">Lanjut →</button></div></div>`;
@@ -594,7 +601,7 @@ function vPay(){
 async function pickPay(input){ F.payFile = await fileToDataUrl(input); render(); }
 async function submitReg(){
   const btn=document.getElementById("subBtn"); if(btn){ btn.disabled=true; btn.textContent="Mengirim…"; }
-  const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB,
+  const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB, teamName:(F.teamName||"").trim(),
     players:F.players.map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey})),
     photo1:F.players[0].photo||F.players[0].photoUrl||"", photo2:F.players[1].photo||F.players[1].photoUrl||"", paymentProof:isWL()?"":F.payFile };
   try{ const r=await api("reg/register/"+encodeURIComponent(F.eventId), {method:"POST", body});

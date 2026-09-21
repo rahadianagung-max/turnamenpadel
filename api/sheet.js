@@ -5640,11 +5640,12 @@ async function regRegisterPair(eventId, body) {
   const mkP = (p, photo, m, e) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
     nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo,
     match: m ? { name: m.name, elo: m.elo, tier: m.tier, claimed: m.verified, via: m.method } : null, isNew: !m, eligibility: e });
-  const data = { category: catId, level: cat.level || "", player1: mkP(p1, photo1, m1, e1), player2: mkP(p2, photo2, m2, e2),
+  const data = { category: catId, level: cat.level || "", teamName: String((body && body.teamName) || "").trim(),
+    player1: mkP(p1, photo1, m1, e1), player2: mkP(p2, photo2, m2, e2),
     teamEligibility: teamElig, waiver: !!body.waiver, infoTrue: !!body.infoTrue };
   const regId = regGenId("reg");
   const now = new Date().toISOString();
-  const teamName = `${data.player1.name} + ${data.player2.name}`;
+  const teamName = data.teamName || `${data.player1.name} + ${data.player2.name}`;
   const status = isWaitlist ? "waitlist" : "pending";
   // registrations: reg_id, form_id, timestamp, name, gender, phone, photo_url, payment_proof_url, data, linked_tournament(=category), status
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
@@ -6270,8 +6271,26 @@ async function regUpdateRegStatus(sheets, regRowIdx, status, dataObj) {
 async function regEventRegistrations(eventId) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const formId = regFormIdForEvent(eventId);
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const [res, pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  // Enrich each player with their Trekkr photo + current level (elo/tier).
+  const photoByName = {};
+  for (const pr of (pRes.data.values || [])) { const nm = normName(pr[0] || ""); if (nm && pr[6]) photoByName[nm] = pr[6]; }
+  const eMap = ddEloMap(eRes.data.values || []);
+  const enrich = (p) => {
+    if (!p) return;
+    const canon = (p.match && p.match.name) || p.name || "";
+    const em = eMap[String(canon).trim().toLowerCase()];
+    const elo = em ? em.elo : ((p.match && p.match.elo != null) ? p.match.elo : null);
+    if (!p.photoUrl) p.photoUrl = photoByName[normName(canon)] || "";
+    if (elo != null) { p.elo = elo; p.tier = getTierName(elo); }
+    else if (p.match && p.match.tier) { p.tier = p.match.tier; }
+  };
   const list = (res.data.values || []).filter((r) => r[1] === formId).map(regParseReg);
+  for (const reg of list) { if (reg.data) { enrich(reg.data.player1); enrich(reg.data.player2); } }
   return respond(200, { registrations: list, count: list.length });
 }
 // Kirim roster ke semua peserta (email) + buat/roster token. Best-effort email.
