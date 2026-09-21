@@ -33,6 +33,17 @@
   .chip{display:inline-flex;align-items:center;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--r-full);border:var(--bd)}
   .chip.ok{color:#065F46;border-color:var(--mint);background:var(--mint-20)}
   .chip.warn{color:var(--amber);border-color:var(--amber-bd);background:var(--amber-bg)}
+
+  /* ── Nightmode (inherited from the event's per-event theme, set in /engine).
+     Keeps the pay-link page consistent with a nightmode event. */
+  body[data-theme="nightmode"]{
+    --canvas:#0B1120; --card:#131C2E; --dark:#E5E9F0;
+    --slate-700:#CBD5E1; --slate-600:#AEBACD; --slate-500:#94A3B8;
+    --slate-400:#64748B; --slate-300:#475569; --slate-200:#334155;
+    --slate-100:#1E293B; --slate-50:#131C2E;
+    background:#0B1120; color:#E5E9F0;
+  }
+  body[data-theme="nightmode"] input{background:#131C2E}
 </style>
 </head>
 <body>
@@ -55,6 +66,9 @@ async function boot(){
   if(!P.eventId||!P.r||!P.t){ host.innerHTML='<p class="muted">Link pembayaran tidak valid.</p>'; return; }
   let info; try{ info=await api("reg/pay-info/"+encodeURIComponent(P.eventId)+"?r="+encodeURIComponent(P.r)+"&t="+encodeURIComponent(P.t)); }
   catch(e){ host.innerHTML='<p class="muted">'+esc(e.message)+'</p>'; return; }
+  // Per-event theme (set in /engine): match the event's nightmode.
+  if(info && info.theme==="nightmode") document.body.setAttribute("data-theme","nightmode");
+  else document.body.removeAttribute("data-theme");
   if(info.status==="received"||info.status==="imported"||info.status==="approved"||info.status==="final"){ host.innerHTML='<h2>Sudah dibayar</h2><p class="muted">Pembayaran untuk pendaftaran ini sudah tercatat.</p>'; return; }
   host.innerHTML=`<h2>Pembayaran</h2>
     <p class="muted" style="margin:0 0 12px">${esc(info.team)} · ${esc(info.category)} — ${esc(info.eventName)}</p>

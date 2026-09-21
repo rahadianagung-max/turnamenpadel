@@ -86,6 +86,41 @@
   .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:18px;z-index:50}
   .modal{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:20px;max-width:420px;width:100%;box-shadow:var(--sh-lg)}
   .modal h3{font-size:19px;margin-bottom:4px}
+
+  /* ── Nightmode (inherited from the event's per-event theme, set in /engine).
+     Carries the dark canvas through the whole registration wizard until done.
+     Retunes tp-theme tokens + darkens this page's hardcoded-white surfaces;
+     the orange brand + layout are untouched. */
+  body[data-theme="nightmode"]{
+    --canvas:#0B1120; --card:#131C2E; --dark:#E5E9F0;
+    --slate-700:#CBD5E1; --slate-600:#AEBACD; --slate-500:#94A3B8;
+    --slate-400:#64748B; --slate-300:#475569; --slate-200:#334155;
+    --slate-100:#1E293B; --slate-50:#0F172A; --inset:#1E293B;
+    background:#0B1120; color:#E5E9F0;
+  }
+  body[data-theme="nightmode"] .card,
+  body[data-theme="nightmode"] .dot,
+  body[data-theme="nightmode"] input,
+  body[data-theme="nightmode"] select,
+  body[data-theme="nightmode"] textarea,
+  body[data-theme="nightmode"] .btn,
+  body[data-theme="nightmode"] .chip,
+  body[data-theme="nightmode"] .opt,
+  body[data-theme="nightmode"] .pcard,
+  body[data-theme="nightmode"] .modal{background:#131C2E}
+  body[data-theme="nightmode"] .hero{background:rgba(255,87,34,.10)}
+  body[data-theme="nightmode"] .ev-head{background:rgba(11,17,32,.95)}
+  /* keep the brand-orange & tinted states that must stay coloured */
+  body[data-theme="nightmode"] .btn.primary{background:var(--orange);color:#fff}
+  body[data-theme="nightmode"] .snode.done .dot{background:var(--orange);color:#fff}
+  body[data-theme="nightmode"] .opt.sel{background:var(--orange-10)}
+  body[data-theme="nightmode"] .chip.ok{background:var(--mint-20)}
+  body[data-theme="nightmode"] .chip.warn{background:var(--amber-bg)}
+  /* Home pill stays a white chip with dark text (the local .btn override
+     would otherwise darken it into a dark-on-dark, invisible button). */
+  body[data-theme="nightmode"] #homeBtn{background:#fff;color:#0F172A}
+  body[data-theme="nightmode"] #homeBtn:hover{background:#E2E8F0}
+  body[data-theme="nightmode"] #homeBtn .material-symbols-outlined{color:#0F172A}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -155,6 +190,9 @@ async function boot(){
   }
   try{ F.data = await api("reg/public/"+encodeURIComponent(F.eventId)); }
   catch(e){ document.getElementById("host").innerHTML='<div class="card"><p class="empty" style="padding:20px 0">'+(e.status===404?"Pendaftaran belum tersedia untuk event ini.":esc(e.message))+'</p></div>'; return; }
+  // Per-event theme (set in /engine): carry nightmode through the whole wizard.
+  if(F.data && F.data.config && F.data.config.theme==="nightmode") document.body.setAttribute("data-theme","nightmode");
+  else document.body.removeAttribute("data-theme");
   // Come straight from the event landing's "Register now" → open the category
   // step directly (skip the intro). When registration is closed, fall back to
   // the info view so the closed state is shown.

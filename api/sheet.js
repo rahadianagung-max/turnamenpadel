@@ -6572,7 +6572,8 @@ async function regPayInfo(eventId, params) {
   if (!rp.data.payToken || rp.data.payToken !== token) return respond(403, { error: "Link tidak valid." });
   const cat = (config.categories || {})[rp.category] || {};
   return respond(200, { team: rp.team, category: cat.label || rp.category, fee: cat.fee || "",
-    account: (config.payment || {}).account || "", status: rp.status, eventName: frow[1] || "" });
+    account: (config.payment || {}).account || "", status: rp.status, eventName: frow[1] || "",
+    theme: config.theme === "nightmode" ? "nightmode" : "daylight" });
 }
 
 // ==============================================================
