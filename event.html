@@ -82,6 +82,15 @@
   var API="/api", TRK_ID_RE=/^(EV_|TM_)/;
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
+  // Google Drive "uc?export=view" links do not reliably hotlink inside <img>;
+  // the thumbnail endpoint does. Normalise any Drive URL to that form.
+  function imgSrc(u){
+    u=String(u||"");
+    var m=u.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);
+    return m ? ("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w2000") : u;
+  }
+  function phInner(name){ return '<div class="ph"><span class="material-symbols-outlined">sports_tennis</span><span>'+esc(name)+'</span></div>'; }
+  window.tpFlyerFail=function(img){ var f=img.closest(".flyer"); if(f){ f.className="flyer placeholder"; f.innerHTML=phInner(f.getAttribute("data-name")||""); } };
   function ref(){
     var m=location.pathname.match(/\/event\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]);
     var seg=location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
@@ -124,10 +133,10 @@
     // A friendly ref for the registration wizard link.
     var regRef=(ev&&ev.slug)?ev.slug:(eventId||RAW);
 
-    // Flyer (top)
+    // Flyer (top). Broken image → fall back to the branded placeholder.
     var flyer = cfg.flyer
-      ? '<div class="flyer"><img src="'+esc(cfg.flyer)+'" alt="Flyer '+esc(name)+'" onerror="this.closest(\'.flyer\').remove()"/></div>'
-      : '<div class="flyer placeholder"><div class="ph"><span class="material-symbols-outlined">sports_tennis</span><span>'+esc(name)+'</span></div></div>';
+      ? '<div class="flyer" data-name="'+esc(name)+'"><img src="'+esc(imgSrc(cfg.flyer))+'" alt="Flyer '+esc(name)+'" referrerpolicy="no-referrer" loading="eager" onerror="tpFlyerFail(this)"/></div>'
+      : '<div class="flyer placeholder">'+phInner(name)+'</div>';
 
     // Status chip
     var statusChip = open
