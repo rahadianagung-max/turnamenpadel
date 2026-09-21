@@ -5684,27 +5684,9 @@ async function regRegisterPair(eventId, body) {
     if (newElo.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: newElo } });
     for (const t of verifyTargets) { try { await regClaimStart({ playerName: t.name, email: t.email, eventId }); } catch (e) {} }
   } catch (e) { console.error("create new players:", e && e.message); }
-  // Email konfirmasi ke PESERTA 1 (best-effort).
-  try {
-    const evName = frow[1] || "";
-    const catName = cat.label || catId;
-    const p1n = data.player1.name, p2n = data.player2.name;
-    const passport = (nm) => `https://trekkr.online/player/${encodeURIComponent(nm)}`;
-    const passLinks = `<p style="margin:14px 0 4px">Sudah punya rekam jejak? Lihat <b>Player Passport</b> kamu di Trekkr:</p>
-      <p style="margin:4px 0">
-        <a href="${passport(p1n)}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:9px 16px;border-radius:8px;margin:4px 6px 4px 0">Passport ${escHtml(p1n)} →</a>
-        <a href="${passport(p2n)}" style="display:inline-block;background:#F1F5F9;color:#0F172A;font-weight:700;text-decoration:none;padding:9px 16px;border-radius:8px;border:2px solid #0F172A;margin:4px 0">Passport ${escHtml(p2n)} →</a>
-      </p>`;
-    const inner = isWaitlist
-      ? `<p>Hi <b>${escHtml(p1n)}</b>, thank you for registering for the <b>${escHtml(catName)}</b> category with <b>${escHtml(p1n)} &amp; ${escHtml(p2n)}</b> at <b>${escHtml(evName)}</b>.</p>
-         <p>The category quota is currently full, so your registration is on the <b>waitlist</b> and <b>no payment is required yet</b>. If a slot opens up, we'll email you to continue to payment.</p>
-         ${passLinks}`
-      : `<p>Hi <b>${escHtml(p1n)}</b>, thank you for registering for the <b>${escHtml(catName)}</b> category with <b>${escHtml(p1n)} &amp; ${escHtml(p2n)}</b> at <b>${escHtml(evName)}</b>.</p>
-         <p>Your registration has been received and is now <b>awaiting the committee's approval</b>. The committee will review your payment proof and confirm your spot. You'll get another email once you're approved.</p>
-         ${passLinks}
-         <p style="color:#64748b;font-size:13px;margin-top:14px">Registration status: waiting for committee approval.</p>`;
-    await regNotify([data.player1.email], `Registration received — ${evName}`, regEmailShell("Registration received", inner));
-  } catch (e) {}
+  // Menghemat kuota email Brevo: TIDAK ada email saat submit. Email peserta
+  // hanya dikirim saat admin meng-approve pendaftaran (lihat regApproveRegistration).
+  // Konfirmasi "pending" cukup ditampilkan di halaman akhir pendaftaran.
   return respond(200, { success: true, regId, status, waitlist: isWaitlist });
 }
 
