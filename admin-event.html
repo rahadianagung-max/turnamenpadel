@@ -103,9 +103,10 @@
 
     <div class="card">
       <div class="row" style="justify-content:space-between">
-        <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Sanggahan level lawan dari peserta.</div></div>
-        <button class="btn ghost sm" onclick="loadAppeals()">↻ Segarkan</button>
+        <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Kirim undangan ke peserta untuk meninjau roster & mengajukan banding (dengan bukti), lalu putuskan di sini.</div></div>
+        <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Segarkan</button></div>
       </div>
+      <div id="triggerMsg" class="note"></div>
       <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
     </div>
   </div>
@@ -218,6 +219,16 @@ async function loadAppeals(){
         ${actions}<div class="note" id="apMsg_${esc(a.appealId)}"></div></div>`;
     }).join("");
   }catch(e){ host.innerHTML=(e.status===401||e.status===403)?'<p class="muted">Sesi berakhir / tak berhak.</p>':('<p class="muted">Gagal memuat appeal: '+esc(e.message)+'</p>'); }
+}
+async function triggerAppeals(){
+  if(!confirm("Kirim email ke SEMUA peserta event ini berisi link roster + form ajukan appeal (beserta bukti)? Ini memicu proses appeal.")) return;
+  const btn=document.getElementById("btnTrigger"), msg=document.getElementById("triggerMsg");
+  btn.disabled=true; const old=btn.textContent; btn.textContent="Mengirim…"; if(msg) msg.textContent="";
+  try{ const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/roster-blast",{method:"POST",body:{token:TOKEN}});
+    if(msg) msg.innerHTML='<span style="color:var(--ok)">✓ Undangan terkirim ke '+(r.sent||0)+' dari '+(r.recipients||0)+' penerima. Link roster & jendela appeal aktif.</span>';
+    loadAppeals();
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">'+((e.status===401||e.status===403)?"Sesi berakhir / tak berhak.":("Gagal: "+esc(e.message)))+'</span>'; }
+  btn.disabled=false; btn.textContent=old;
 }
 async function decideAppeal(appealId, decision){
   const msg=document.getElementById("apMsg_"+appealId);

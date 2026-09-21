@@ -839,8 +839,9 @@ const netlifyHandler = async (event) => {
       return await regEventRegistrations(eid);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
-      if (!regGateOk(body, params)) return REG_UNAUTH;
-      return await regRosterBlast(decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", "")));
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
+      return await regRosterBlast(eid);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", ""));
