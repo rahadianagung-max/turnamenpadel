@@ -5581,6 +5581,31 @@ async function regRegisterPair(eventId, body) {
     if (m2 && data.player2.email) entries.push({ canonName: m2.name, email: data.player2.email, phone: data.player2.phone });
     if (entries.length) await regAttachContacts(sheets, prows, entries);
   } catch (e) { console.error("attach contacts:", e && e.message); }
+  // Pemain BARU (belum ada di Trekkr) → langsung buat profil Players saat submit
+  // (tanpa menunggu kurasi). Seed ELO ikut level kategori (regSeedElo; 0 bila
+  // tak ada dasar level). Lalu kirim email verifikasi (link klaim). Best-effort.
+  try {
+    const seedElo = regSeedElo(cat.level);
+    const localNames = new Set(prows.map((r) => normName(r[0] || "")));
+    const localEmails = new Set(prows.map((r) => normEmailLc(r[11] || "")).filter(Boolean));
+    const newPlayers = [], newElo = [], verifyTargets = [], now2 = new Date().toISOString();
+    const handleNew = (pp) => {
+      const nm = String(pp.name || "").trim(); if (!nm || localNames.has(normName(nm))) return;
+      let em = String(pp.email || "").trim();
+      if (em && localEmails.has(normEmailLc(em))) em = ""; // jaga keunikan email
+      const gv = String(pp.gender || "").toUpperCase();
+      const gender = (gv === "P" || gv === "F") ? "F" : (gv === "L" || gv === "M") ? "M" : "";
+      newPlayers.push([nm, "", "FALSE", pp.nick || nm, gender, pp.region || "", pp.photoUrl || "", "", now2, "", "", em, String(pp.phone || "").trim()]);
+      newElo.push(["INITIAL", nm, seedElo, 0, 0, 0, now2]);
+      localNames.add(normName(nm)); if (em) localEmails.add(normEmailLc(em));
+      if (String(pp.email || "").trim()) verifyTargets.push({ name: nm, email: String(pp.email).trim() });
+    };
+    if (!m1) handleNew(data.player1);
+    if (!m2) handleNew(data.player2);
+    if (newPlayers.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED", requestBody: { values: newPlayers } });
+    if (newElo.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: newElo } });
+    for (const t of verifyTargets) { try { await regClaimStart({ playerName: t.name, email: t.email, eventId }); } catch (e) {} }
+  } catch (e) { console.error("create new players:", e && e.message); }
   // Email konfirmasi ke PESERTA 1 (best-effort).
   try {
     const evName = frow[1] || "";
@@ -5617,6 +5642,13 @@ function levelBounds(level) {
   const n = parseInt(s, 10);
   if (!isNaN(n) && n > 0) return { floor: n, ceiling: null }; // level "Other" = angka ELO
   return { floor: null, ceiling: null };                       // open/tak dikenal → tanpa batas
+}
+// Seed ELO untuk pemain BARU saat submit: ikut ELO pendaftaran (floor level
+// kategori, mis. lower_bronze→1200) bila levelnya dikenal; bila tak ada dasar
+// level (open/tak dikenal) → 0 (dianggap belum bermain).
+function regSeedElo(level) {
+  const b = levelBounds(level);
+  return b.floor != null ? b.floor : 0;
 }
 // Aturan campur: ⛔ blok bila jelas di atas plafon; ⚠ flag bila di bawah syarat / pemain baru; else ✔.
 function eligibilityOf(elo, isNew, level) {
