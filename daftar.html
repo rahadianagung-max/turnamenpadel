@@ -185,6 +185,7 @@ function render(){
   const k = F.started ? stepKeys()[F.step] : "info";
   const host=document.getElementById("host");
   host.innerHTML = ({info:vInfo,cat:vCat,players:vPlayers,personal:vPersonal,waiver:vWaiver,pay:vPay,review:vReview,done:vDone}[k])();
+  if(k==='players') updatePlayersNav();
   window.scrollTo(0,0);
 }
 function go(k){ const list=stepKeys(); F.step=list.indexOf(k); render(); }
@@ -233,55 +234,77 @@ function vCat(){
       <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('players')">Lanjut →</button></div></div>`;
 }
 function vPlayers(){
-  const t=teamElig();
-  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Isi <b>nama lengkap</b> kedua pemain (wajib) + kontak, lalu <b>cek database</b> (nama · HP · email · IG).</p>
-    ${[0,1].map(i=>pIdent(i)).join("")}
-    ${t.label?`<div class="card" style="margin-top:12px;background:var(--inset)"><div class="row" style="justify-content:space-between;align-items:center"><b>Eligibility tim</b><span class="chip ${t.cls}">${esc(t.label)}</span></div></div>`:''}
+  return `<div class="card">
+    <p class="muted" style="margin:0 0 14px;font-size:13px">Ketik <b>nama lengkap</b> tiap pemain — kami cek otomatis di database Trekkr. Cocok? klik <b>Confirm</b>. Belum ada? lengkapi datanya lalu Confirm.</p>
+    ${[0,1].map(i=>pCard(i)).join("")}
     <div class="nav"><button class="btn ghost" onclick="go('cat')">←</button>
-      <button class="btn primary" ${(bothNamed()&&t.cls!=='block')?'':'disabled'} onclick="go('personal')">Lanjut →</button></div></div>`;
+      <button class="btn primary" id="playersNext" disabled onclick="go('personal')">Lanjut →</button></div></div>`;
 }
-function bothNamed(){ return F.players.every(p=>(p.name||"").trim()); }
+function pCard(i){ const p=F.players[i];
+  return `<div class="pcard">
+    <div class="phead"><div class="avatar">${esc((p.name||('#'+(i+1))).charAt(0).toUpperCase())}</div>
+      <div><div class="who">Pemain ${i+1}</div><div class="sub">nama dicek otomatis di Trekkr</div></div></div>
+    <label class="f"><span>Nama lengkap <span class="req">*</span></span>
+      <input id="pn_${i}" value="${esc(p.name)}" oninput="onName(${i},this.value)" placeholder="Nama lengkap" autocomplete="off"></label>
+    <div id="pres_${i}">${playerResultHTML(i)}</div>
+    <div class="grid2">
+      <label class="f"><span>No. HP</span><input id="pp_${i}" value="${esc(p.phone)}" oninput="F.players[${i}].phone=this.value" placeholder="0812..."></label>
+      <label class="f"><span>Email</span><input id="pe_${i}" value="${esc(p.email)}" oninput="F.players[${i}].email=this.value" placeholder="nama@mail.com"></label>
+    </div>
+    <label class="f"><span>Instagram</span><input id="pig_${i}" value="${esc(p.ig)}" oninput="F.players[${i}].ig=this.value" placeholder="@akun"></label>
+    <div id="pcf_${i}">${confirmBtnHTML(i)}</div>
+  </div>`;
+}
+// Result block below the name field: checking / found ("pakai data ini?") / new.
+function playerResultHTML(i){ const p=F.players[i], c=p.chk;
+  if(p.checking) return '<div class="note">⏳ Mengecek database Trekkr…</div>';
+  if(!c) return '';
+  if(c.found){
+    const e=c.eligibility||{}, block=e.state==='block';
+    if(p.confirmed) return `<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip ok">✔ Pakai profil Trekkr</span> <b>${esc(c.name)}</b> · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>`;
+    return `<div class="card" style="margin-top:10px;background:var(--inset)">
+      <div class="row" style="justify-content:space-between;align-items:center"><span>✔ <b>Ditemukan</b> via ${esc(c.method)}</span><span class="chip ${block||e.state==='flag'?'warn':'ok'}">${esc(e.msg||'')}</span></div>
+      <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>
+      <div class="note" style="margin-top:6px">${block?'⛔ Level di atas plafon kategori — tidak bisa daftar di kategori ini.':'Pakai data ini? Lengkapi kontak di atas bila perlu, lalu klik <b>Confirm</b>.'}</div>
+      ${c.enrolledInCategory?'<div style="margin-top:6px"><span class="chip warn">⚠ sudah terdaftar di kategori ini</span></div>':''}</div>`;
+  }
+  if(p.confirmed) return `<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip ok">✔ Pemain baru</span> <b>${esc(p.name)}</b> — level mengikuti kategori.</div>`;
+  return `<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip warn">🆕 Pemain baru</span> <span class="note">Belum ada di Trekkr — lengkapi data di atas, lalu klik <b>Confirm</b>.</span></div>`;
+}
+function confirmBtnHTML(i){ const p=F.players[i], c=p.chk;
+  const block = c&&c.found&&c.eligibility&&c.eligibility.state==='block';
+  if(p.confirmed) return `<button class="btn ghost" style="padding:8px 12px;font-size:12.5px" onclick="unconfirmPlayer(${i})">Ubah</button>`;
+  return `<button class="btn primary" style="padding:10px 14px" ${(!(p.name||'').trim()||block)?'disabled':''} onclick="confirmPlayer(${i})">Confirm</button>`;
+}
+function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.confirmed=false; p.checking=false;
+  refreshPlayer(i);
+  clearTimeout(p._t); if(!(v||'').trim()) return;
+  p._t=setTimeout(function(){ doCheck(i); }, 600);   // auto-check after the user stops typing
+}
+async function doCheck(i){ const p=F.players[i], c=cat(); if(!(p.name||'').trim()) return;
+  p.checking=true; refreshPlayer(i);
+  try{ p.chk = await api("reg/check-player",{method:"POST",body:{ name:p.name, phone:p.phone, email:p.email, ig:p.ig, eventId:F.eventId, category:F.catId, level:c?c.level:"" }}); }
+  catch(e){ p.chk={found:false, eligibility:{state:'flag',msg:'cek gagal'}}; }
+  p.checking=false; refreshPlayer(i);
+}
+function confirmPlayer(i){ const p=F.players[i]; if(!(p.name||'').trim()) return;
+  const c=p.chk; if(c&&c.found&&c.eligibility&&c.eligibility.state==='block') return;
+  p.confirmed=true; refreshPlayer(i);
+}
+function unconfirmPlayer(i){ F.players[i].confirmed=false; refreshPlayer(i); }
+// Update only this player's result + confirm button (keeps input focus), then the nav.
+function refreshPlayer(i){
+  const r=document.getElementById('pres_'+i); if(r) r.innerHTML=playerResultHTML(i);
+  const b=document.getElementById('pcf_'+i); if(b) b.innerHTML=confirmBtnHTML(i);
+  updatePlayersNav();
+}
 function teamElig(){
   const cs=F.players.map(p=>p.chk).filter(Boolean);
-  if(!cs.length) return {cls:"",label:""};
-  if(cs.some(c=>c.eligibility&&c.eligibility.state==="block")) return {cls:"warn",label:"⛔ Ada pemain di atas plafon — tak bisa lanjut"};
-  if(cs.some(c=>c.eligibility&&c.eligibility.state==="flag")) return {cls:"warn",label:"⚠ Ditandai untuk kurasi (boleh lanjut)"};
-  if(F.players.every(p=>p.chk&&p.chk.eligibility&&p.chk.eligibility.state==="ok")) return {cls:"ok",label:"✔ Tim memenuhi syarat"};
+  if(cs.some(c=>c.eligibility&&c.eligibility.state==="block")) return {cls:"warn",label:"⛔ Ada pemain di atas plafon"};
   return {cls:"",label:""};
 }
-function setP(i,k,v){ F.players[i][k]=v; F.players[i].chk=null; }
-function pIdent(i){ const p=F.players[i]; const c=p.chk;
-  let res="";
-  if(c){
-    if(c.found){ const e=c.eligibility||{}; const st=e.state==='block'?'warn':(e.state==='flag'?'warn':'ok');
-      const claimBit = c.claimed ? '<span class="chip ok">di-claim ✔</span>'
-        : (p.claimPending ? '<span class="chip warn">klaim ⏳ menunggu email</span>'
-           : `<button class="btn ghost" style="padding:6px 10px;font-size:12px" onclick="openClaim(${i})">Klaim profil ini</button>`);
-      res=`<div class="card" style="margin-top:10px;background:var(--inset)"><div class="row" style="justify-content:space-between"><span>✔ <b>Cocok</b> via ${esc(c.method)}</span><span class="chip ${st}">${esc(e.msg||'')}</span></div>
-        <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>
-        <div style="margin-top:8px">${claimBit}</div>
-        ${c.enrolledInCategory?'<div style="margin-top:6px"><span class="chip warn">⚠ sudah terdaftar di kategori ini — ditandai untuk admin</span></div>':''}</div>`;
-    } else {
-      res=`<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip warn">pemain baru</span> <span class="note">didaftarkan sebagai pemain baru — level mengikuti kategori.</span></div>`;
-    }
-  }
-  return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||(''+ (i+1))).charAt(0).toUpperCase())}</div><div><div class="who">Pemain ${i+1}</div><div class="sub">identitas untuk cek database</div></div></div>
-    <label class="f"><span>Nama lengkap <span class="req">*</span></span><input value="${esc(p.name)}" oninput="setP(${i},'name',this.value)" placeholder="Nama lengkap"></label>
-    <div class="grid2">
-      <label class="f"><span>No. HP</span><input value="${esc(p.phone)}" oninput="setP(${i},'phone',this.value)" placeholder="0812..."></label>
-      <label class="f"><span>Email</span><input value="${esc(p.email)}" oninput="setP(${i},'email',this.value)" placeholder="nama@mail.com"></label>
-    </div>
-    <label class="f"><span>Instagram</span><input value="${esc(p.ig)}" oninput="setP(${i},'ig',this.value)" placeholder="@akun"></label>
-    <button class="btn primary" style="padding:8px 12px;font-size:12.5px" onclick="doCheck(${i})">🔎 Cek database</button>
-    ${res}</div>`;
-}
-async function doCheck(i){
-  const p=F.players[i], c=cat();
-  if(!(p.name||"").trim()) return;
-  try{ p.chk = await api("reg/check-player", {method:"POST", body:{ name:p.name, phone:p.phone, email:p.email, ig:p.ig, eventId:F.eventId, category:F.catId, level:c?c.level:"" }}); }
-  catch(e){ p.chk = {found:false, eligibility:{state:"flag",msg:"cek gagal"}}; }
-  render();
-}
+function updatePlayersNav(){ const btn=document.getElementById('playersNext'); if(!btn) return;
+  btn.disabled = !(F.players.every(p=>p.confirmed) && teamElig().cls!=='block'); }
 function closeModal(){ document.getElementById("modalHost").innerHTML=""; }
 function openClaim(i){
   const p=F.players[i], c=p.chk||{};
