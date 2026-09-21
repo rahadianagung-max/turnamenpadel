@@ -5243,8 +5243,13 @@ async function regGetForm(id) {
 async function regUploadFlyer(dataUrl, name) {
   try { return await imgbbUpload(dataUrl, name); }
   catch (e) {
-    try { return await driveUploadImage(dataUrl, name + ".jpg", process.env.REG_DRIVE_FOLDER_ID || ""); }
-    catch (e2) { return ""; }
+    try {
+      // Drive's uc?export=view links don't reliably hotlink in <img>; store the
+      // thumbnail endpoint instead, which renders as an image.
+      const u = await driveUploadImage(dataUrl, name + ".jpg", process.env.REG_DRIVE_FOLDER_ID || "");
+      const m = String(u).match(/id=([-\w]+)/);
+      return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000` : u;
+    } catch (e2) { return ""; }
   }
 }
 async function regSaveForm(body) {

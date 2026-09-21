@@ -760,6 +760,13 @@ function shareSlug(){
   return String(state.event && state.event.name || "").toLowerCase().trim()
     .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80) || "event";
 }
+// Google Drive uc?export=view links don't hotlink in <img>; use the thumbnail
+// endpoint for previews.
+function driveImg(u){
+  u=String(u||"");
+  var m=u.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);
+  return m ? ("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w2000") : u;
+}
 function shareUrl(kind){
   if(!state.event){ toast("Pilih atau buat event dulu.", true); return; }
   var url;
@@ -1154,7 +1161,7 @@ function renderRegBuilder(cfg, status){
       <div class="f"><label>Flyer / poster (upload)</label>
         <input id="rb_flyer_file" type="file" accept="image/*" onchange="pickFlyer(this)">
         <input id="rb_flyer_url" type="hidden" value="${esc(cfg.flyer||"")}">
-        <div id="rb_flyer_prev" style="margin-top:8px">${cfg.flyer?`<img src="${esc(cfg.flyer)}" alt="flyer" style="max-height:170px;max-width:100%;border:1px solid var(--line);border-radius:10px;display:block">`:'<span class="muted" style="font-size:12px">Belum ada flyer.</span>'}</div>
+        <div id="rb_flyer_prev" style="margin-top:8px">${cfg.flyer?`<img src="${esc(driveImg(cfg.flyer))}" alt="flyer" referrerpolicy="no-referrer" style="max-height:170px;max-width:100%;border:1px solid var(--line);border-radius:10px;display:block">`:'<span class="muted" style="font-size:12px">Belum ada flyer.</span>'}</div>
       </div>
       <div class="f"><label>Deskripsi event</label>
         <textarea id="rb_description" rows="6" placeholder="Ceritakan turnamenmu — format, hadiah, fasilitas, sponsor, dll.">${esc(cfg.description||"")}</textarea></div>
