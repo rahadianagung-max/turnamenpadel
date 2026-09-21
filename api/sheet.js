@@ -5667,6 +5667,7 @@ function regNameCandidates(rows, eMap, name, level, enrolledSet) {
     const email = s.r[11] || "", phone = s.r[12] || "";
     out.push({ name: s.r[0] || "", elo, tier: getTierName(elo),
       enrolledInCategory: enrolledSet.has(key),
+      verified: String(s.r[2]).toUpperCase() === "TRUE",
       eligibility: eligibilityOf(elo, false, level),
       verify: { available: String(email).includes("@"), emailMask: maskEmail(email), phoneMask: maskPhone(phone) } });
     if (out.length >= 6) break;
@@ -5898,7 +5899,8 @@ async function regImportApply(body) {
 // ==============================================================
 // VERIFIKASI OTP — buka profil Trekkr (termasuk kontak sensitif) hanya setelah
 // pemilik memasukkan kode yang dikirim ke email terdaftar. Memakai tab
-// reg_claims (status "otp"). Tidak menyentuh flag verified/claim.
+// reg_claims (status "otp"). OTP berhasil MENANDAI profil terverifikasi
+// (Players col C=TRUE + email di col L) — bukti kepemilikan email (Tahap 2).
 // ==============================================================
 async function regVerifyStart(body) {
   const name = String((body && body.name) || "").trim();
@@ -5969,7 +5971,10 @@ async function regVerifyConfirm(body) {
   const eMap = ddEloMap(eRes.data.values || []);
   const hit = regLookupPlayer(pRes.data.values || [], eMap, { name: canonName });
   if (!hit) return respond(404, { error: "Profil tidak ditemukan." });
-  return respond(200, { verified: true, profile: hit.profile });
+  // Tahap 2: OTP berhasil = bukti kepemilikan email → tandai profil TERVERIFIKASI
+  // (Players col C=TRUE, col L=email). Best-effort; tak mematahkan verifikasi.
+  try { if (hit.profile && hit.profile.email) await regMarkPlayerClaimed(sheets, hit.name, hit.profile.email); } catch (e) { console.error("mark verified:", e && e.message); }
+  return respond(200, { verified: true, emailVerified: true, profile: hit.profile });
 }
 
 // ==============================================================
