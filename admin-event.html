@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Admin Event · TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
+<style>
+  :root{ --danger:#DC2626; --warn:#B45309; --ok:#065F46; --inset:#F1F5F9; --body:var(--sans); }
+  body{font-size:14px;line-height:1.5}
+  .wrap{max-width:920px;margin:0 auto;padding:16px;padding-block:16px 60px}
+  h1,h2,h3{font-family:var(--display);font-weight:900;letter-spacing:-.01em;margin:0}
+  h1{font-size:24px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500)}
+  .card{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:18px;box-shadow:var(--sh-sm)}
+  .card+.card{margin-top:14px}
+  .note{font-size:12px;color:var(--slate-500);margin-top:6px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .divider{height:2px;background:var(--slate-200);margin:14px 0}
+  label.f{display:block;margin-bottom:12px}
+  label.f>span{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin-bottom:6px}
+  input,select{width:100%;padding:11px 12px;border:var(--bd);border-radius:var(--r-lg);background:#fff;font:inherit;color:var(--dark)}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;border:var(--bd);background:#fff}
+  .chip.ok{background:#DCFCE7;color:var(--ok);border-color:#065F46}
+  .chip.warn{background:#FEF3C7;color:var(--warn);border-color:#B45309}
+  .chip.bad{background:#FEE2E2;color:var(--danger);border-color:var(--danger)}
+  .chip.wl{background:#DBEAFE;color:#1E40AF;border-color:#1E40AF}
+  .mono{font-family:var(--mono)} .muted{color:var(--slate-500)}
+  .hidden{display:none}
+  .btn.sm{padding:8px 14px}
+  .reg{border:var(--bd);border-radius:var(--r-lg);padding:14px;background:#fff;box-shadow:var(--sh-sm)}
+  .reg+.reg{margin-top:12px}
+  .reg-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+  @media(max-width:640px){.pgrid{grid-template-columns:1fr}}
+  .pcard{border:1px solid var(--slate-200);border-radius:var(--r-lg);padding:10px;background:var(--inset)}
+  .pcard .who{font-weight:800}
+  .kvs{font-size:12px;color:var(--slate-600);margin-top:4px;line-height:1.7}
+  .kvs b{color:var(--dark)}
+  .proof img{max-width:120px;max-height:120px;border:var(--bd);border-radius:10px;display:block}
+  .stat{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;margin-right:14px}
+  .act{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .act a{text-decoration:none}
+  .big-btn{display:flex;flex-direction:column;gap:2px;padding:14px 18px;border:var(--bd);border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh-sm);color:var(--dark);min-width:170px}
+  .big-btn b{font-family:var(--display);font-size:16px}
+  .big-btn span{font-size:12px;color:var(--slate-500)}
+  .big-btn.wheel{background:linear-gradient(120deg,#FF5722,#FF7A45);color:#fff} .big-btn.wheel span{color:rgba(255,255,255,.85)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Admin Event · TurnamenPadel</div>
+  <h1>Kelola Turnamen</h1>
+
+  <div class="card" id="loginCard" style="margin-top:16px">
+    <h3 style="font-size:16px">Masuk (admin event / superadmin)</h3>
+    <label class="f" style="margin-top:12px"><span>Username</span><input id="lu" autocomplete="username"></label>
+    <label class="f" style="margin-bottom:0"><span>Password</span><input id="lp" type="password" autocomplete="current-password"></label>
+    <div id="loginErr" class="note" style="color:var(--danger)"></div>
+    <div class="row" style="margin-top:12px"><button class="btn primary sm" id="btnLogin" onclick="doLogin()">Masuk →</button></div>
+  </div>
+
+  <div class="card hidden" id="authedBar">
+    <div class="row" style="justify-content:space-between">
+      <div class="note" style="margin:0">Masuk sebagai <b id="whoami"></b> <span class="chip ok" id="roleChip"></span></div>
+      <button class="btn ghost sm" onclick="doLogout()">Keluar</button>
+    </div>
+  </div>
+
+  <div id="pickCard" class="card hidden">
+    <h3 style="font-size:16px">Pilih event</h3>
+    <label class="f" style="margin-top:12px"><span>Event turnamen</span><select id="evSel" onchange="openEvent(this.value)"><option value="">— pilih event —</option></select></label>
+    <div class="note">Atau buka langsung <span class="mono">/kelola/&lt;id-event&gt;</span>.</div>
+  </div>
+
+  <div id="dashCard" class="hidden">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><div class="eyebrow">Event</div><h2 id="evName" style="font-size:20px">—</h2><div class="note" id="evMeta"></div></div>
+        <a class="note" href="#" onclick="event.preventDefault();backToPick()">↩ ganti event</a>
+      </div>
+      <div class="act">
+        <a class="big-btn wheel" id="btnWheel" href="#"><b>🎡 Spin the Wheel</b><span>Undian grup / draw</span></a>
+        <a class="big-btn" id="btnScorer" href="#"><b>🎯 Scorer Desk</b><span>Input skor per lapangan</span></a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
+        <button class="btn ghost sm" onclick="loadRegs()">↻ Segarkan</button>
+      </div>
+      <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+    </div>
+  </div>
+</div>
+<script>
+const API="/api";
+let TOKEN=""; try{ TOKEN=localStorage.getItem("tp_admin_token")||""; }catch(e){}
+let EVENTS=[], EVENT=null;
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+async function api(path,opts){
+  const res=await fetch(API+"/"+path,{method:(opts&&opts.method)||"GET",headers:{"Content-Type":"application/json"},body:opts&&opts.body?JSON.stringify(opts.body):undefined});
+  let d={};try{d=await res.json();}catch(e){}
+  if(!res.ok){const e=new Error(d.error||("HTTP "+res.status));e.status=res.status;throw e;}
+  return d;
+}
+function slugify(s){return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80);}
+function urlEventRef(){ const m=location.pathname.match(/\/kelola\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]); const e=new URLSearchParams(location.search).get("e"); return e||""; }
+
+async function doLogin(){
+  const btn=document.getElementById("btnLogin"), err=document.getElementById("loginErr");
+  const u=document.getElementById("lu").value.trim(), p=document.getElementById("lp").value;
+  err.textContent=""; if(!u||!p){ err.textContent="Isi username & password."; return; }
+  btn.disabled=true; btn.textContent="Masuk…";
+  try{ const r=await api("auth/login",{method:"POST",body:{username:u,password:p}});
+    const role=String(r.role||"").toLowerCase();
+    if(role!=="superadmin" && role!=="event_admin"){ err.textContent="Akun ini tidak berhak (butuh event_admin / superadmin)."; btn.disabled=false; btn.textContent="Masuk →"; return; }
+    TOKEN=r.token||""; try{ localStorage.setItem("tp_admin_token",TOKEN); localStorage.setItem("tp_admin_user",r.username||u); localStorage.setItem("tp_admin_role",role); }catch(e){}
+    afterAuth();
+  }catch(e){ err.textContent=e.status===401?"Username atau password salah.":("Gagal: "+e.message); }
+  btn.disabled=false; btn.textContent="Masuk →";
+}
+function doLogout(){ TOKEN=""; try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); localStorage.removeItem("tp_admin_role"); }catch(e){}
+  ["authedBar","pickCard","dashCard"].forEach(id=>document.getElementById(id).classList.add("hidden"));
+  document.getElementById("loginCard").classList.remove("hidden"); }
+async function afterAuth(){
+  document.getElementById("loginCard").classList.add("hidden");
+  document.getElementById("authedBar").classList.remove("hidden");
+  let u="admin",role=""; try{ u=localStorage.getItem("tp_admin_user")||"admin"; role=localStorage.getItem("tp_admin_role")||""; }catch(e){}
+  document.getElementById("whoami").textContent=u; document.getElementById("roleChip").textContent=role;
+  // load events for the picker + slug resolution
+  try{ const d=await api("tournament/events"); EVENTS=d.events||[]; }catch(e){ EVENTS=[]; }
+  const sel=document.getElementById("evSel");
+  sel.innerHTML='<option value="">— pilih event —</option>'+EVENTS.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
+  const ref=urlEventRef();
+  if(ref){ const ev=resolveEvent(ref); if(ev){ openEvent(ev.eventId); return; } }
+  backToPick();
+}
+function resolveEvent(ref){
+  if(/^(EV_|TM_)/.test(ref)) return EVENTS.find(e=>e.eventId===ref)||{eventId:ref,name:ref};
+  const want=slugify(ref);
+  const hits=EVENTS.filter(e=>((e.slug&&String(e.slug).toLowerCase())||slugify(e.name))===want);
+  return hits.length?hits[hits.length-1]:null;
+}
+function backToPick(){ document.getElementById("dashCard").classList.add("hidden"); document.getElementById("pickCard").classList.remove("hidden"); }
+function openEvent(eventId){
+  if(!eventId) return;
+  EVENT=EVENTS.find(e=>e.eventId===eventId)||{eventId,name:eventId};
+  document.getElementById("pickCard").classList.add("hidden");
+  document.getElementById("dashCard").classList.remove("hidden");
+  document.getElementById("evName").textContent=EVENT.name||eventId;
+  document.getElementById("evMeta").textContent=[EVENT.venue,EVENT.date].filter(Boolean).join(" · ");
+  // action links (both pages have their own pickers; preset scorer's event)
+  document.getElementById("btnWheel").setAttribute("href","/draw");
+  const scorer=document.getElementById("btnScorer");
+  scorer.setAttribute("href","/scorerdesk");
+  scorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
+  try{ history.replaceState(null,"","/kelola/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
+  loadRegs();
+}
+function statusChip(s){ return s==="waitlist"?'<span class="chip wl">waitlist</span>':s==="rejected"?'<span class="chip bad">ditolak</span>':s==="cancelled"?'<span class="chip bad">batal</span>':s==="verified"||s==="approved"||s==="accepted"?'<span class="chip ok">'+esc(s)+'</span>':'<span class="chip">'+esc(s||"received")+'</span>'; }
+function eligChip(e){ if(!e) return ""; const s=e.state; return s==="ok"?'<span class="chip ok">eligible</span>':s==="block"?'<span class="chip bad">'+esc(e.msg||"block")+'</span>':'<span class="chip warn">'+esc(e.msg||"flag")+'</span>'; }
+function playerCard(p,idx){ if(!p) return ""; const k=[];
+  if(p.nick) k.push(`Alias: <b>${esc(p.nick)}</b>`);
+  if(p.gender) k.push(`Gender: <b>${esc(p.gender)}</b>`);
+  if(p.phone) k.push(`HP: <b>${esc(p.phone)}</b>`);
+  if(p.email) k.push(`Email: <b>${esc(p.email)}</b>`);
+  if(p.region) k.push(`Region: <b>${esc(p.region)}</b>`);
+  if(p.jersey) k.push(`Jersey: <b>${esc(p.jersey)}</b>`);
+  if(p.dob) k.push(`Lahir: <b>${esc(p.dob)}</b>`);
+  const photo=p.photoUrl?`<a href="${esc(p.photoUrl)}" target="_blank" rel="noopener"><img src="${esc(p.photoUrl)}" alt="" style="width:44px;height:44px;object-fit:cover;border:var(--bd);border-radius:8px"></a>`:"";
+  return `<div class="pcard"><div class="row" style="justify-content:space-between"><div class="who">Pemain ${idx}: ${esc(p.name||"—")} ${eligChip(p.eligibility)}</div>${photo}</div>
+    <div class="kvs">${k.join(" · ")||'<span class="muted">tak ada detail tambahan</span>'}</div></div>`;
+}
+async function loadRegs(){
+  const host=document.getElementById("regList"); host.innerHTML='<p class="muted">Memuat…</p>';
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/registrations?token="+encodeURIComponent(TOKEN));
+    const list=r.registrations||[];
+    const byStatus={}; list.forEach(x=>{ byStatus[x.status]=(byStatus[x.status]||0)+1; });
+    document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim`+(Object.keys(byStatus).length?` · `+Object.entries(byStatus).map(([s,n])=>`${esc(s)}: <b>${n}</b>`).join(" · "):"");
+    if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
+    host.innerHTML=list.map(reg=>{
+      const d=reg.data||{}; const p1=d.player1||{}, p2=d.player2||{};
+      const proof=reg.paymentProofUrl?`<div class="proof"><div class="note" style="margin:0 0 4px">Bukti transfer:</div><a href="${esc(reg.paymentProofUrl)}" target="_blank" rel="noopener"><img src="${esc(reg.paymentProofUrl)}" alt="bukti"></a></div>`:'<div class="note">Bukti transfer: <span class="chip">belum ada</span></div>';
+      return `<div class="reg">
+        <div class="reg-head">
+          <div><b>${esc(reg.team||"—")}</b><div class="note" style="margin:2px 0 0">${esc(catText(d))} · ${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div></div>
+          ${statusChip(reg.status)}
+        </div>
+        <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
+        <div class="divider"></div>
+        ${proof}
+      </div>`;
+    }).join("");
+  }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
+}
+function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }
+function catText(d){ const cl=catLabel(d.categoryLabel||d.category); const lv=levelLabel(d.level); return [cl,lv].filter(Boolean).join(" · ")||esc(d.category||"Kategori"); }
+// init
+(function(){ if(TOKEN) afterAuth(); })();
+</script>
+</body>
+</html>
