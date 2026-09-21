@@ -144,7 +144,18 @@ async function boot(){
   }
   try{ F.data = await api("reg/public/"+encodeURIComponent(F.eventId)); }
   catch(e){ document.getElementById("host").innerHTML='<div class="card"><p class="empty" style="padding:20px 0">'+(e.status===404?"Pendaftaran belum tersedia untuk event ini.":esc(e.message))+'</p></div>'; return; }
+  // Come straight from the event landing's "Register now" → open the category
+  // step directly (skip the intro). When registration is closed, fall back to
+  // the info view so the closed state is shown.
+  F.started = !!(F.data && F.data.status === "open");
   render();
+}
+// Back to this event's public landing page (/<slug>).
+function eventPageHref(){
+  const m=location.pathname.match(/\/daftar\/([^\/?#]+)/);
+  if(m) return "/"+m[1];
+  const e=new URLSearchParams(location.search).get("e");
+  return e?("/"+encodeURIComponent(e)):"/";
 }
 function head(){
   const h=document.getElementById("head");
@@ -178,12 +189,11 @@ function vInfo(){
       ${ev.venue?`<div class="kv"><span class="ic">📍</span><div><b>${esc(ev.venue)}</b>${cfg.address?'<br><span class="muted">'+esc(cfg.address)+'</span>':''}${cfg.maps?' · <a href="'+esc(cfg.maps)+'" target="_blank" rel="noopener">Maps</a>':''}</div></div>`:""}
       ${ev.date?`<div class="kv"><span class="ic">📅</span><div><b>${esc(ev.date)}</b>${ev.startTime?' · mulai '+esc(ev.startTime):''}</div></div>`:""}
     </div>
-    <div class="card"><div class="eyebrow">Kategori · hadiah · kuota</div>
+    <div class="card"><div class="eyebrow">Kategori · biaya</div>
       <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px">
       ${cats.map(c=>`<div class="opt ${catFull(c)?'full':''}" style="cursor:default;flex-wrap:wrap">
         <div class="grow"><b>${esc(c.label)} · ${esc(c.level)}</b>
-          <div class="meta">${rupiah(c.fee)}${c.req?' · syarat '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
-        ${c.prize?`<div class="prize"><small>Prize</small>${esc(c.prize)}</div>`:''}</div>`).join("")}
+          <div class="meta">${rupiah(c.fee)}${c.req?' · syarat '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div></div>`).join("")}
       </div>
       ${cfg.rules?`<div class="divider"></div><div class="eyebrow">Aturan main</div><p class="muted" style="margin:8px 0 0;font-size:13px;white-space:pre-line">${esc(cfg.rules)}</p>`:''}
     </div>
@@ -203,11 +213,10 @@ function vCat(){
     ${cats.map(c=>`<label class="opt ${F.catId===c.tournamentId?'sel':''} ${catFull(c)?'full':''}" style="flex-wrap:wrap">
       <input type="radio" name="cat" ${F.catId===c.tournamentId?'checked':''} onchange="F.catId='${esc(c.tournamentId)}';render()">
       <div class="grow"><b>${esc(c.label)} · ${esc(c.level)}</b><div class="meta">${rupiah(c.fee)}${c.req?' · '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
-      ${c.prize?`<div class="prize"><small>Prize</small>${esc(c.prize)}</div>`:''}
     </label>`).join("")}
     </div>
     ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
-    <div class="nav"><button class="btn ghost" onclick="F.started=false;render()">←</button>
+    <div class="nav"><a class="btn ghost" href="${eventPageHref()}">←</a>
       <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('players')">Lanjut →</button></div></div>`;
 }
 function vPlayers(){
