@@ -429,15 +429,34 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
 }
 
 // Step 4: rangkuman kategori + pemain 1 & 2 → Confirm → disclaimer.
+function editSummary(i,flag){ F.players[i]._editSum=flag; render(); }
 function vSummary(){
-  const c=cat(), wl=isWL();
-  const pl=i=>{const p=F.players[i]; return esc(p.name||'—');};
+  const c=cat(), wl=isWL(), on=fieldsOn();
+  const showNick=on("nick"), showJersey=on("jersey");
+  const pl=(i)=>{ const p=F.players[i], editing=!!p._editSum;
+    let extra="";
+    if(showNick||showJersey){
+      if(editing){
+        const parts=[];
+        if(showNick) parts.push(`<label class="f" style="margin:0"><span>Nama alias</span><input value="${esc(p.nick)}" oninput="setF(${i},'nick',this.value)" placeholder="nama panggilan"></label>`);
+        if(showJersey) parts.push(`<label class="f" style="margin:0"><span>Ukuran jersey</span><select onchange="setF(${i},'jersey',this.value)"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(sz=>`<option ${p.jersey===sz?'selected':''}>${sz}</option>`).join("")}</select></label>`);
+        extra=`<div class="grid2" style="margin-top:8px">${parts.join("")}</div>
+          <div style="margin-top:8px"><button class="btn ghost" onclick="editSummary(${i},false)">✔ Selesai</button></div>`;
+      } else {
+        const bits=[];
+        if(showNick) bits.push(`Alias: <b>${esc(p.nick||'—')}</b>`);
+        if(showJersey) bits.push(`Jersey: <b>${esc(p.jersey||'—')}</b>`);
+        extra=`<div class="note" style="margin-top:4px">${bits.join(" · ")} · <a href="#" onclick="event.preventDefault();editSummary(${i},true)">✏ revisi</a></div>`;
+      }
+    }
+    return `<div class="kv"><span class="ic">🎾</span><div><div class="note">Pemain ${i+1}</div><b>${esc(p.name||'—')}</b>${extra}</div></div>`;
+  };
   return `<div class="card">
     <div class="eyebrow">Rangkuman pendaftaran</div>
     ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin:10px 0;background:var(--inset)"><b class="mono" style="color:var(--warn)">⏳ Kuota penuh — masuk waitlist</b><div class="note">Belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
     <div class="kv" style="margin-top:10px"><span class="ic">🏆</span><div><div class="note">Kategori</div><b>${esc(catText(c))}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
-    <div class="kv"><span class="ic">🎾</span><div><div class="note">Pemain 1</div><b>${pl(0)}</b></div></div>
-    <div class="kv"><span class="ic">🎾</span><div><div class="note">Pemain 2</div><b>${pl(1)}</b></div></div>
+    ${pl(0)}
+    ${pl(1)}
     <div class="nav" style="margin-top:14px"><button class="btn ghost" onclick="go('p2')">←</button>
       <button class="btn primary" onclick="go('waiver')">Confirm →</button></div></div>`;
 }
