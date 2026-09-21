@@ -817,6 +817,8 @@ const netlifyHandler = async (event) => {
     if (path === "reg/verify/start" && method === "POST") return await regVerifyStart(body);
     if (path === "reg/verify/confirm" && method === "POST") return await regVerifyConfirm(body);
     if (path === "reg/profile/basic" && method === "POST") return await regProfileBasic(body);
+    if (path === "reg/import/preview" && method === "POST") return await regImportPreview(body);
+    if (path === "reg/import/apply" && method === "POST") return await regImportApply(body);
     if (path === "reg/diag" && method === "GET") return respond(200, {
       brevo: !!(String(process.env.BREVO_API_KEY || "").trim() && String(process.env.BREVO_SENDER_EMAIL || "").trim()),
       senderSet: !!String(process.env.BREVO_SENDER_EMAIL || "").trim(),
@@ -5662,6 +5664,77 @@ async function regProfileBasic(body) {
   const pf = hit.profile || {};
   return respond(200, { found: true, profile: { name: hit.name, alias: pf.alias || "", gender: pf.gender || "",
     region: pf.region || "", photoUrl: pf.photoUrl || "", elo: hit.elo, tier: hit.tier } });
+}
+// ==============================================================
+// IMPOR KONTAK MASSAL — cocokkan {nama,email,no hp} eksternal ke tab Players
+// lewat ddSim, lalu isi kolom email(L)/HP(M) yang MASIH KOSONG. Nilai yang
+// sudah ada tidak ditimpa (dilaporkan sebagai konflik); baris tak cocok jadi
+// pemain baru (ELO awal 1350). Dua fase: preview (klasifikasi) → apply
+// (eksekusi sesuai keputusan admin). Gerbang admin (REG_ADMIN_KEY).
+// ==============================================================
+function normEmailLc(s) { return String(s || "").trim().toLowerCase(); }
+function normPhoneDigits(s) { return String(s || "").replace(/\D/g, ""); }
+async function regImportPreview(body) {
+  if (!regAdminOk(body && body.key)) return REG_UNAUTH;
+  const rows = Array.isArray(body && body.rows) ? body.rows : [];
+  const sheets = getSheets();
+  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const players = (pRes.data.values || []).map((r, idx) => ({ row: idx + 2, name: r[0] || "", email: r[11] || "", phone: r[12] || "" }));
+  const out = rows.map((row, i) => {
+    const name = String(row.name || "").trim(), email = String(row.email || "").trim(), phone = String(row.phone || "").trim();
+    if (!name) return { i, name, email, phone, status: "invalid", candidates: [] };
+    const scored = players.map((p) => ({ p, s: ddSim(name, p.name) })).filter((x) => x.s >= 0.6).sort((a, b) => b.s - a.s).slice(0, 5);
+    const best = scored[0];
+    const status = best && best.s >= 0.92 ? "auto" : (best && best.s >= 0.75 ? "review" : "new");
+    const candidates = scored.map((x) => ({ name: x.p.name, score: Math.round(x.s * 100) / 100,
+      hasEmail: !!String(x.p.email).trim(), hasPhone: !!String(x.p.phone).trim(),
+      emailConflict: !!(email && String(x.p.email).trim() && normEmailLc(x.p.email) !== normEmailLc(email)),
+      phoneConflict: !!(phone && String(x.p.phone).trim() && normPhoneDigits(x.p.phone) !== normPhoneDigits(phone)) }));
+    return { i, name, email, phone, status, target: best ? best.p.name : null, candidates };
+  });
+  const summary = { total: rows.length,
+    auto: out.filter((r) => r.status === "auto").length,
+    review: out.filter((r) => r.status === "review").length,
+    "new": out.filter((r) => r.status === "new").length,
+    invalid: out.filter((r) => r.status === "invalid").length };
+  return respond(200, { summary, rows: out });
+}
+async function regImportApply(body) {
+  if (!regAdminOk(body && body.key)) return REG_UNAUTH;
+  const decisions = Array.isArray(body && body.decisions) ? body.decisions : [];
+  const sheets = getSheets();
+  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const players = (pRes.data.values || []).map((r, idx) => ({ row: idx + 2, name: r[0] || "", email: r[11] || "", phone: r[12] || "" }));
+  const byName = new Map(); players.forEach((p) => { const k = normName(p.name); if (!byName.has(k)) byName.set(k, p); });
+  const updates = [], newPlayers = [], newElo = [], now = new Date().toISOString();
+  const res = { updated: 0, created: 0, skipped: 0, filledEmail: 0, filledPhone: 0, conflicts: [] };
+  for (const d of decisions) {
+    const name = String((d && d.name) || "").trim(), email = String((d && d.email) || "").trim(), phone = String((d && d.phone) || "").trim();
+    const action = (d && d.action) || "skip";
+    if (action === "skip" || !name) { res.skipped++; continue; }
+    if (action === "new") {
+      newPlayers.push([name, "", "FALSE", name, "M", "", "", "", now, "", "", email, phone]);
+      newElo.push(["INITIAL", name, 1350, 0, 0, 0, now]);
+      res.created++;
+      continue;
+    }
+    // action === "update": isi hanya sel yang kosong; jangan timpa.
+    const tp = byName.get(normName((d && d.target) || name));
+    if (!tp) { res.skipped++; continue; }
+    if (email) {
+      if (!String(tp.email).trim()) { updates.push({ range: `${TABS.players}!L${tp.row}`, values: [[email]] }); tp.email = email; res.filledEmail++; }
+      else if (normEmailLc(tp.email) !== normEmailLc(email)) res.conflicts.push({ name: tp.name, field: "email", existing: tp.email, incoming: email });
+    }
+    if (phone) {
+      if (!String(tp.phone).trim()) { updates.push({ range: `${TABS.players}!M${tp.row}`, values: [[phone]] }); tp.phone = phone; res.filledPhone++; }
+      else if (normPhoneDigits(tp.phone) !== normPhoneDigits(phone)) res.conflicts.push({ name: tp.name, field: "phone", existing: tp.phone, incoming: phone });
+    }
+    res.updated++;
+  }
+  if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
+  if (newPlayers.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED", requestBody: { values: newPlayers } });
+  if (newElo.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: newElo } });
+  return respond(200, res);
 }
 // ==============================================================
 // VERIFIKASI OTP — buka profil Trekkr (termasuk kontak sensitif) hanya setelah
