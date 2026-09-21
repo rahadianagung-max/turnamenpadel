@@ -65,6 +65,21 @@
   .state{text-align:center;padding:60px 16px;color:var(--slate-500)}
   .state .material-symbols-outlined{font-size:44px;color:var(--slate-300);display:block;margin:0 auto 12px}
   [hidden]{display:none!important}
+
+  /* ── Nightmode (per-event theme, set by superadmin in /engine) ──
+     Dark background variant. Retunes tp-theme tokens so cards, text,
+     borders and the brutal shadows stay legible on a dark canvas;
+     the orange brand + layout are untouched. */
+  body[data-theme="nightmode"]{
+    --canvas:#0B1120; --card:#131C2E; --dark:#E5E9F0;
+    --slate-700:#CBD5E1; --slate-600:#AEBACd; --slate-500:#94A3B8;
+    --slate-400:#64748B; --slate-300:#475569; --slate-200:#334155;
+    --slate-100:#1E293B; --slate-50:#0F172A;
+    background:#0B1120; color:#E5E9F0;
+  }
+  body[data-theme="nightmode"] .ev-head{background:rgba(11,17,32,.95)}
+  body[data-theme="nightmode"] .flyer{background:#131C2E}
+  body[data-theme="nightmode"] .cat{background:#131C2E}
 </style>
 </head>
 <body>
@@ -127,6 +142,9 @@
 
   function render(ev, pub, eventId, err){
     ev=ev||{}; pub=pub||{}; var cfg=pub.config||{};
+    // Per-event theme (set by superadmin in /engine): "daylight" (default) or "nightmode".
+    if(cfg.theme==="nightmode") document.body.setAttribute("data-theme","nightmode");
+    else document.body.removeAttribute("data-theme");
     var name=pub.name||ev.name||"Tournament";
     var venue=(ev.venue||cfg.address||"");
     var date=ev.date||"";
