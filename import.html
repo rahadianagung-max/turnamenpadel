@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Impor Kontak Pemain · TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
+<style>
+  :root{ --danger:#DC2626; --warn:#B45309; --ok:#065F46; --inset:#F1F5F9; --body:var(--sans); }
+  body{font-size:14px;line-height:1.5}
+  .wrap{max-width:900px;margin:0 auto;padding:16px;padding-block:16px 60px}
+  h1,h2,h3{font-family:var(--display);font-weight:900;letter-spacing:-.01em;margin:0}
+  h1{font-size:26px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500)}
+  .card{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:18px;box-shadow:var(--sh-sm)}
+  .card+.card{margin-top:14px}
+  .note{font-size:12px;color:var(--slate-500);margin-top:6px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .divider{height:2px;background:var(--slate-200);margin:14px 0}
+  label.f{display:block;margin-bottom:12px}
+  label.f>span{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin-bottom:6px}
+  input,select{width:100%;padding:11px 12px;border:var(--bd);border-radius:var(--r-lg);background:#fff;font:inherit;color:var(--dark)}
+  input[type=file]{padding:8px}
+  .chip{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;border:var(--bd);background:#fff}
+  .chip.ok{background:#DCFCE7;color:var(--ok);border-color:#065F46}
+  .chip.warn{background:#FEF3C7;color:var(--warn);border-color:#B45309}
+  .chip.new{background:#DBEAFE;color:#1E40AF;border-color:#1E40AF}
+  .chip.bad{background:#FEE2E2;color:var(--danger);border-color:var(--danger)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--slate-200);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--slate-500)}
+  .tbl-wrap{overflow-x:auto;margin-top:12px;border:var(--bd);border-radius:var(--r-lg)}
+  .mono{font-family:var(--mono)}
+  .stat{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;margin-right:14px}
+  .hidden{display:none}
+  select.mini{padding:6px 8px;font-size:12px;width:auto;min-width:150px}
+  .muted{color:var(--slate-500)}
+  .btn.sm{padding:8px 14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Admin · Trekkr</div>
+  <h1>Impor Kontak Pemain</h1>
+  <p class="muted" style="margin:6px 0 0">Cocokkan daftar <b>nama · email · no HP</b> ke database pemain, isi email/HP yang masih kosong, dan tambahkan pemain baru untuk yang belum ada.</p>
+
+  <div class="card" style="margin-top:16px">
+    <label class="f"><span>Kunci admin</span><input id="key" type="password" placeholder="REG_ADMIN_KEY" autocomplete="off"></label>
+    <label class="f"><span>File CSV (kolom: nama, email, no hp)</span><input id="file" type="file" accept=".csv,text/csv,text/plain"></label>
+    <div class="note">Baris pertama boleh header (mis. <span class="mono">nama,email,no hp</span>) — akan dideteksi otomatis. Tanpa header, urutan dianggap: nama, email, no HP.</div>
+    <div id="parseInfo" class="note"></div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn primary sm" id="btnPreview" disabled onclick="doPreview()">Cek &amp; cocokkan →</button>
+    </div>
+  </div>
+
+  <div id="previewCard" class="card hidden">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <span class="stat">📋 <b id="stTotal">0</b> baris</span>
+        <span class="stat" style="color:var(--ok)">✓ <b id="stAuto">0</b> cocok</span>
+        <span class="stat" style="color:var(--warn)">⚠ <b id="stReview">0</b> perlu cek</span>
+        <span class="stat" style="color:#1E40AF">🆕 <b id="stNew">0</b> baru</span>
+        <span class="stat" style="color:var(--danger)">✕ <b id="stBad">0</b> invalid</span>
+      </div>
+    </div>
+    <div class="note">Untuk baris ⚠ <b>perlu cek</b>, pilih pemain yang cocok atau "buat baru". Baris ✓ dan 🆕 sudah diputuskan otomatis — bisa kamu ubah.</div>
+    <div class="tbl-wrap"><table id="tbl"><thead><tr>
+      <th>#</th><th>Nama (impor)</th><th>Email</th><th>No HP</th><th>Status</th><th>Tindakan</th>
+    </tr></thead><tbody id="tbody"></tbody></table></div>
+    <div class="divider"></div>
+    <div class="row" style="justify-content:space-between">
+      <div class="note" id="applyHint">Isi hanya sel kosong · tidak menimpa data yang sudah ada.</div>
+      <button class="btn primary" id="btnApply" onclick="doApply()">Terapkan ke database →</button>
+    </div>
+    <div id="applyResult"></div>
+  </div>
+</div>
+<script>
+const API="/api";
+let ROWS=[];        // parsed input rows [{name,email,phone}]
+let PREVIEW=[];     // server preview rows
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+async function api(path,opts){
+  const res=await fetch(API+"/"+path,{method:(opts&&opts.method)||"GET",headers:{"Content-Type":"application/json"},body:opts&&opts.body?JSON.stringify(opts.body):undefined});
+  let d={};try{d=await res.json();}catch(e){}
+  if(!res.ok){const e=new Error(d.error||("HTTP "+res.status));e.status=res.status;throw e;}
+  return d;
+}
+// --- CSV parsing (handles quotes, commas, CRLF) ---
+function parseCSV(text){
+  const rows=[]; let row=[], cur="", q=false;
+  for(let i=0;i<text.length;i++){ const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c==='"') q=true; else if(c===','){ row.push(cur); cur=""; }
+      else if(c==='\n'){ row.push(cur); rows.push(row); row=[]; cur=""; }
+      else if(c==='\r'){ /* skip */ } else cur+=c; } }
+  if(cur.length||row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r=>r.some(x=>String(x).trim()!==""));
+}
+function detectCols(header){
+  const h=header.map(x=>String(x).toLowerCase().trim());
+  const find=(...keys)=>{ for(let i=0;i<h.length;i++){ if(keys.some(k=>h[i]===k||h[i].includes(k))) return i; } return -1; };
+  return { name: find("nama lengkap","nama","name","full name"),
+           email: find("email","e-mail","surel"),
+           phone: find("no hp","nohp","no. hp","hp","phone","telp","telepon","whatsapp","wa","no wa","nomor") };
+}
+function fromRows(grid){
+  if(!grid.length) return [];
+  const map=detectCols(grid[0]);
+  let start=0, idx=map;
+  const hasHeader = map.name>=0 || map.email>=0 || map.phone>=0;
+  if(hasHeader){ start=1; } else { idx={name:0,email:1,phone:2}; }
+  const out=[];
+  for(let i=start;i<grid.length;i++){ const g=grid[i];
+    const name=(idx.name>=0?g[idx.name]:"")||""; const email=(idx.email>=0?g[idx.email]:"")||""; const phone=(idx.phone>=0?g[idx.phone]:"")||"";
+    if(!String(name).trim() && !String(email).trim() && !String(phone).trim()) continue;
+    out.push({name:String(name).trim(),email:String(email).trim(),phone:String(phone).trim()}); }
+  return out;
+}
+document.getElementById("file").addEventListener("change",function(){
+  const f=this.files&&this.files[0]; const info=document.getElementById("parseInfo"); const btn=document.getElementById("btnPreview");
+  if(!f){ ROWS=[]; info.textContent=""; btn.disabled=true; return; }
+  const rd=new FileReader();
+  rd.onload=()=>{ try{ ROWS=fromRows(parseCSV(String(rd.result))); info.innerHTML=ROWS.length?('✔ Terbaca <b>'+ROWS.length+'</b> baris.'):'<span style="color:var(--danger)">Tidak ada baris terbaca.</span>'; btn.disabled=!ROWS.length; }
+    catch(e){ info.innerHTML='<span style="color:var(--danger)">Gagal membaca CSV: '+esc(e.message)+'</span>'; btn.disabled=true; } };
+  rd.readAsText(f);
+});
+function key(){ return document.getElementById("key").value.trim(); }
+async function doPreview(){
+  const btn=document.getElementById("btnPreview"); btn.disabled=true; btn.textContent="Mencocokkan…";
+  try{ const r=await api("reg/import/preview",{method:"POST",body:{key:key(),rows:ROWS}});
+    PREVIEW=r.rows||[]; renderPreview(r.summary||{}); document.getElementById("previewCard").classList.remove("hidden");
+  }catch(e){ alert(e.status===401?"Kunci admin salah.":("Gagal: "+e.message)); }
+  btn.disabled=false; btn.textContent="Cek & cocokkan →";
+}
+function statusChip(s){ return {auto:'<span class="chip ok">cocok</span>',review:'<span class="chip warn">perlu cek</span>','new':'<span class="chip new">baru</span>',invalid:'<span class="chip bad">invalid</span>'}[s]||s; }
+function actionSelect(r){
+  if(r.status==="invalid") return '<span class="muted">—</span>';
+  const opts=[];
+  (r.candidates||[]).forEach(c=>{ const conf=(c.emailConflict||c.phoneConflict)?' ⚠konflik':''; const has=(c.hasEmail?'✉':'')+(c.hasPhone?'📞':''); opts.push('<option value="use:'+esc(c.name)+'"'+((r.status!=="new"&&r.target===c.name)?' selected':'')+'>Pakai: '+esc(c.name)+' ('+(Math.round(c.score*100))+'%'+(has?' '+has:'')+conf+')</option>'); });
+  opts.push('<option value="new"'+(r.status==="new"?' selected':'')+'>🆕 Buat pemain baru</option>');
+  opts.push('<option value="skip">Lewati</option>');
+  return '<select class="mini" data-i="'+r.i+'">'+opts.join("")+'</select>';
+}
+function renderPreview(sum){
+  document.getElementById("stTotal").textContent=sum.total||0;
+  document.getElementById("stAuto").textContent=sum.auto||0;
+  document.getElementById("stReview").textContent=sum.review||0;
+  document.getElementById("stNew").textContent=sum["new"]||0;
+  document.getElementById("stBad").textContent=sum.invalid||0;
+  const tb=document.getElementById("tbody");
+  tb.innerHTML=PREVIEW.map(r=>`<tr>
+    <td class="mono">${r.i+1}</td>
+    <td>${esc(r.name)||'<span class="muted">(kosong)</span>'}</td>
+    <td class="mono">${esc(r.email)}</td>
+    <td class="mono">${esc(r.phone)}</td>
+    <td>${statusChip(r.status)}</td>
+    <td>${actionSelect(r)}</td></tr>`).join("");
+}
+async function doApply(){
+  const btn=document.getElementById("btnApply"); btn.disabled=true; btn.textContent="Menyimpan…";
+  const sels={}; document.querySelectorAll("#tbody select").forEach(s=>{ sels[s.getAttribute("data-i")]=s.value; });
+  const decisions=PREVIEW.filter(r=>r.status!=="invalid").map(r=>{ const v=sels[String(r.i)]||"skip";
+    if(v==="new") return {name:r.name,email:r.email,phone:r.phone,action:"new"};
+    if(v==="skip") return {name:r.name,email:r.email,phone:r.phone,action:"skip"};
+    const target=v.replace(/^use:/,""); return {name:r.name,email:r.email,phone:r.phone,action:"update",target}; });
+  try{ const res=await api("reg/import/apply",{method:"POST",body:{key:key(),decisions}});
+    const cf=(res.conflicts||[]);
+    document.getElementById("applyResult").innerHTML=`<div class="card" style="margin-top:12px;background:var(--inset)">
+      <b>Selesai ✓</b>
+      <div class="note" style="margin-top:6px">Pemain diperbarui: <b>${res.updated||0}</b> · email terisi: <b>${res.filledEmail||0}</b> · HP terisi: <b>${res.filledPhone||0}</b> · pemain baru: <b>${res.created||0}</b> · dilewati: <b>${res.skipped||0}</b>.</div>
+      ${cf.length?`<div class="divider"></div><div class="note"><b>${cf.length} konflik (tidak ditimpa):</b></div><div class="tbl-wrap" style="margin-top:6px"><table><thead><tr><th>Pemain</th><th>Field</th><th>Di DB</th><th>Impor</th></tr></thead><tbody>${cf.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.field)}</td><td class="mono">${esc(c.existing)}</td><td class="mono">${esc(c.incoming)}</td></tr>`).join("")}</tbody></table></div>`:''}
+    </div>`;
+  }catch(e){ alert(e.status===401?"Kunci admin salah.":("Gagal: "+e.message)); }
+  btn.disabled=false; btn.textContent="Terapkan ke database →";
+}
+</script>
+</body>
+</html>
