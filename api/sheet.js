@@ -5568,6 +5568,7 @@ async function regPublic(eventId) {
       rules: config.rules || "", waiver: config.waiver || "", timeline: config.timeline || {},
       payment: config.payment || {}, fields: config.fields || {},
       flyer: config.flyer || "", description: config.description || "",
+      eligibility: config.eligibility || "",
       theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
     categories: cats });
 }
