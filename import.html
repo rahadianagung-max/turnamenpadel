@@ -158,7 +158,7 @@ function renderPreview(sum){
     <td>${esc(r.name)||'<span class="muted">(kosong)</span>'}</td>
     <td class="mono">${esc(r.email)}</td>
     <td class="mono">${esc(r.phone)}</td>
-    <td>${statusChip(r.status)}</td>
+    <td>${statusChip(r.status)}${r.emailTakenBy?`<div class="note" style="color:var(--danger);margin-top:4px">✕ email dipakai: ${esc(r.emailTakenBy)}</div>`:''}</td>
     <td>${actionSelect(r)}</td></tr>`).join("");
 }
 async function doApply(){
