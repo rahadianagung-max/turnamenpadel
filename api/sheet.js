@@ -861,6 +861,8 @@ const netlifyHandler = async (event) => {
       if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regFinalizeCategory(decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", "")), body);
     }
+    if (path.startsWith("reg/roster-public/") && method === "GET")
+      return await regRosterPublic(decodeURIComponent(path.replace("reg/roster-public/", "")));
     if (path.startsWith("reg/roster/") && method === "GET")
       return await regRoster(decodeURIComponent(path.replace("reg/roster/", "")), params);
     if (path === "reg/appeal" && method === "POST") return await regAppealSubmit(body);
@@ -6344,6 +6346,27 @@ async function regRoster(eventId, params) {
   const appealOpen = dms ? (Date.now() < dms) : true;
   return respond(200, { eventId, name: frow[1] || "", categories,
     appealDeadline: (config.timeline && config.timeline.appealDeadline) || "", appealOpen });
+}
+// Public roster: joined players per category (name + photo only, no contact
+// data). Powers the public "players who joined" page. No token required.
+async function regRosterPublic(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const frow = await regFindFormRow(sheets, formId);
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const cats = config.categories || {};
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const regs = (rRes.data.values || []).filter((r) => r[1] === formId).map(regParseReg)
+    .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && r.status !== "waitlist");
+  const byCat = {};
+  for (const r of regs) {
+    const pub = (p) => ({ name: (p && p.name) || "", photoUrl: (p && p.photoUrl) || "" });
+    (byCat[r.category] = byCat[r.category] || []).push({ label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
+  }
+  const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
+  return respond(200, { eventId, name: frow[1] || "", categories,
+    theme: config.theme === "nightmode" ? "nightmode" : "daylight" });
 }
 async function regAppealSubmit(body) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
