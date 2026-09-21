@@ -4,82 +4,81 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pendaftaran · TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
 <style>
   :root{
-    --bg:#0A0A0B; --panel:#141416; --panel2:#1B1B1F; --line:#2A2A2E;
-    --text:#F5F5F7; --muted:#A1A1AA; --faint:#6B6B72;
-    --accent:#FF6A00; --accent2:#FFB000; --press:#FF7D1F;
-    --danger:#ff6f60; --warn:#ffd166; --ok:#3ad19b;
-    --r:16px; --r-sm:11px;
-    --display:'Saira Condensed','Arial Narrow',sans-serif;
-    --body:'Plus Jakarta Sans',system-ui,sans-serif;
-    --mono:'Space Mono',ui-monospace,monospace;
-    --grad:linear-gradient(120deg,var(--accent),var(--accent2));
-    color-scheme:dark;
+    --accent:var(--orange); --accent2:var(--orange); --press:var(--orange-hover);
+    --danger:#DC2626; --warn:#B45309; --ok:#065F46;
+    --r:var(--r-2xl); --r-sm:var(--r-lg);
+    --body:var(--sans);
+    --grad:linear-gradient(120deg,#FF5722,#FF7A45);
+    --inset:#F1F5F9;
   }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5;
-    background-image:radial-gradient(900px 460px at 88% -12%,rgba(255,106,0,.16),transparent 62%);background-attachment:fixed;}
-  .wrap{max-width:470px;margin:0 auto;padding:16px;padding-block:16px 52px;}
-  h1,h2,h3,h4{font-family:var(--display);font-weight:700;letter-spacing:-.01em;margin:0;}
-  a{color:var(--accent2)} .muted{color:var(--muted)} .faint{color:var(--faint)} .mono{font-family:var(--mono)}
-  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);}
-  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 10px 30px -18px rgba(0,0,0,.9);}
+  body{font-size:14px;line-height:1.5}
+  .wrap{max-width:490px;margin:0 auto;padding:16px;padding-block:16px 52px;}
+  h1,h2,h3,h4{font-family:var(--display);font-weight:900;letter-spacing:-.01em;margin:0;}
+  a{color:var(--orange);font-weight:600} .faint{color:var(--slate-400)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500);}
+  .card{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:18px;box-shadow:var(--sh-sm);}
   .card+.card{margin-top:14px}
-  .row{display:flex;gap:10px;flex-wrap:wrap} .divider{height:1px;background:var(--line);margin:14px 0}
-  .note{font-size:12px;color:var(--faint);margin-top:6px}
-  .hero{position:relative;overflow:hidden;border-radius:var(--r);border:1px solid var(--line);background:linear-gradient(150deg,#1c1207,#141416 60%);padding:20px;margin-bottom:14px}
-  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(255,106,0,.28),transparent 70%)}
-  .hero .eyebrow{color:var(--accent2)} .hero h1{font-size:28px;margin:6px 0 10px;line-height:1.05}
+  .row{display:flex;gap:10px;flex-wrap:wrap} .divider{height:2px;background:var(--slate-200);margin:14px 0}
+  .note{font-size:12px;color:var(--slate-500);margin-top:6px}
+  .hero{position:relative;overflow:hidden;border-radius:var(--r-2xl);border:var(--bd);background:rgba(254,243,199,.5);padding:20px;margin-bottom:14px;box-shadow:var(--sh)}
+  .hero .eyebrow{color:var(--orange)} .hero h1{font-size:28px;margin:6px 0 10px;line-height:1.05}
   .prog{display:flex;align-items:center;gap:8px;margin-bottom:14px}
   .stepper{display:flex;align-items:center;flex:1}
   .snode{display:flex;align-items:center;flex:1}.snode:last-child{flex:0}
-  .dot{width:24px;height:24px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700;border:1.5px solid var(--line);background:var(--panel2);color:var(--faint)}
-  .snode.done .dot{background:var(--grad);border-color:transparent;color:#0A0A0B}
-  .snode.cur .dot{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px rgba(255,106,0,.14)}
-  .seg-line{flex:1;height:2px;background:var(--line);margin:0 4px}.snode.done .seg-line{background:var(--grad)}
-  .steplbl{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}
-  label.f{display:block;margin-bottom:12px}label.f>span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
-  .req{color:var(--accent)}
-  input,select,textarea{width:100%;background:#0e0e10;border:1px solid var(--line);color:var(--text);border-radius:var(--r-sm);padding:11px 12px;font-family:var(--body);font-size:14px}
-  input:focus,select:focus,textarea:focus{outline:2px solid rgba(255,106,0,.5);outline-offset:1px;border-color:transparent}
+  .dot{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--mono);font-size:11px;font-weight:700;border:var(--bd);background:#fff;color:var(--slate-400)}
+  .snode.done .dot{background:var(--orange);border-color:var(--dark);color:#fff}
+  .snode.cur .dot{border-color:var(--orange);color:var(--orange);box-shadow:0 0 0 4px rgba(255,87,34,.18)}
+  .seg-line{flex:1;height:2px;background:var(--slate-300);margin:0 4px}.snode.done .seg-line{background:var(--orange)}
+  .steplbl{font-family:var(--mono);font-size:11px;color:var(--slate-500);white-space:nowrap}
+  label.f{display:block;margin-bottom:12px}label.f>span{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin-bottom:6px}
+  .req{color:var(--orange)}
+  input,select,textarea{width:100%;background:#fff;border:var(--bd);color:var(--dark);border-radius:var(--r-lg);padding:11px 12px;font-family:var(--sans);font-size:14px;box-shadow:var(--sh-sm)}
+  input:focus,select:focus,textarea:focus{outline:none;box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.35)}
   textarea{min-height:70px;resize:vertical}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:430px){.grid2{grid-template-columns:1fr}}
-  .btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-family:var(--body);font-weight:700;font-size:14px;padding:12px 16px;border-radius:var(--r-sm);cursor:pointer;transition:.15s}
-  .btn:hover{border-color:#3a3a40}.btn.primary{background:var(--grad);border-color:transparent;color:#0A0A0B}
-  .btn.ghost{background:transparent}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn{appearance:none;border:var(--bd);background:#fff;color:var(--dark);font-family:var(--display);font-weight:800;font-size:14px;padding:12px 16px;border-radius:var(--r-lg);cursor:pointer;box-shadow:var(--sh-sm);transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translate(2px,2px);box-shadow:none}.btn.primary{background:var(--orange);color:#fff}
+  .btn.ghost{background:var(--slate-100)}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:var(--sh-sm)}
   .nav{display:flex;gap:10px;margin-top:18px}.nav .btn{flex:1}.nav .btn.ghost{flex:0 0 auto}
-  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
-  .chip.ok{color:var(--ok);border-color:rgba(58,209,155,.35);background:rgba(58,209,155,.08)}
-  .chip.warn{color:var(--warn);border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.08)}
-  .elo{font-family:var(--mono);color:var(--accent);font-weight:700}
-  .summary{display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,106,0,.07);border:1px solid rgba(255,106,0,.28);border-radius:var(--r-sm);padding:9px 13px;margin-bottom:14px}
-  .summary .s-fee{font-family:var(--mono);font-weight:700;color:var(--accent2)}
-  .opt{display:flex;gap:12px;align-items:center;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px;cursor:pointer;background:var(--panel)}
-  .opt.sel{border-color:var(--accent);background:rgba(255,106,0,.06);box-shadow:0 0 0 3px rgba(255,106,0,.1)}
-  .opt.full{border-style:dashed} .opt input{width:auto;margin:0} .opt .grow{flex:1}
-  .opt .meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:4px}
-  .opt .prize{font-family:var(--display);font-size:20px;color:var(--accent2);line-height:1;text-align:right}
-  .opt .prize small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase;margin-bottom:2px}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--r-full);border:var(--bd);background:#fff}
+  .chip.ok{color:#065F46;border-color:var(--mint);background:var(--mint-20)}
+  .chip.warn{color:var(--warn);border-color:var(--amber-bd);background:var(--amber-bg)}
+  .elo{font-family:var(--mono);color:var(--orange);font-weight:800}
+  .summary{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--orange-10);border:2px solid var(--orange);border-radius:var(--r-lg);padding:9px 13px;margin-bottom:14px}
+  .summary .s-fee{font-family:var(--mono);font-weight:800;color:var(--orange)}
+  .opt{display:flex;gap:12px;align-items:center;border:var(--bd);border-radius:var(--r-lg);padding:14px;cursor:pointer;background:#fff;box-shadow:var(--sh-sm)}
+  .opt.sel{border-color:var(--orange);background:var(--orange-10);box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.15)}
+  .opt.full{border-style:dashed} .opt input{width:auto;margin:0;box-shadow:none} .opt .grow{flex:1}
+  .opt .meta{font-family:var(--mono);font-size:11.5px;color:var(--slate-500);margin-top:4px}
+  .opt .prize{font-family:var(--display);font-weight:900;font-size:20px;color:var(--orange);line-height:1;text-align:right}
+  .opt .prize small{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--slate-400);text-transform:uppercase;margin-bottom:2px}
   .quota{display:flex;align-items:center;gap:8px;margin-top:8px}
-  .qbar{flex:1;height:6px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);overflow:hidden}
-  .qbar i{display:block;height:100%;background:var(--grad)}
-  .qnum{font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap}.qnum.full{color:var(--danger)}
-  .wltag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid rgba(255,209,102,.4);background:rgba(255,209,102,.08);border-radius:6px;padding:2px 7px;margin-top:6px}
-  .kv{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid rgba(42,42,46,.55);font-size:13.5px}.kv:last-child{border:0}
-  .kv .ic{width:24px;height:24px;flex:none;display:grid;place-items:center;border-radius:7px;background:#0e0e10;border:1px solid var(--line)}
-  .pcard{border:1px solid var(--line);border-radius:var(--r-sm);padding:15px;background:var(--panel)}.pcard+.pcard{margin-top:13px}
-  .avatar{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:16px;color:#0A0A0B;background:var(--grad)}
-  .phead{display:flex;align-items:center;gap:11px;margin-bottom:12px}.phead .who{font-family:var(--display);font-size:16px}.phead .sub{font-size:11.5px;color:var(--muted)}
+  .qbar{flex:1;height:8px;border-radius:99px;background:var(--slate-200);border:1px solid var(--dark);overflow:hidden}
+  .qbar i{display:block;height:100%;background:var(--orange)}
+  .qnum{font-family:var(--mono);font-size:11px;color:var(--slate-500);white-space:nowrap}.qnum.full{color:var(--danger)}
+  .wltag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);border:1px solid var(--amber-bd);background:var(--amber-bg);border-radius:6px;padding:2px 7px;margin-top:6px}
+  .kv{display:flex;gap:11px;padding:10px 0;border-bottom:1px solid var(--slate-200);font-size:13.5px}.kv:last-child{border:0}
+  .kv .ic{width:26px;height:26px;flex:none;display:grid;place-items:center;border-radius:8px;background:var(--slate-100);border:var(--bd)}
+  .pcard{border:var(--bd);border-radius:var(--r-lg);padding:15px;background:#fff;box-shadow:var(--sh-sm)}.pcard+.pcard{margin-top:13px}
+  .avatar{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:16px;color:#fff;background:var(--orange);border:var(--bd)}
+  .phead{display:flex;align-items:center;gap:11px;margin-bottom:12px}.phead .who{font-family:var(--display);font-weight:800;font-size:16px}.phead .sub{font-size:11.5px;color:var(--slate-500)}
   .timeline{list-style:none;margin:8px 0 0;padding:0}
-  .timeline li{position:relative;padding:0 0 12px 20px;font-size:13px;color:var(--muted)}
-  .timeline li::before{content:"";position:absolute;left:3px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--grad)}
-  .timeline li b{color:var(--text)}
-  .logo{font-family:var(--display);font-weight:800;font-size:22px}.logo .dot{color:var(--accent)}
+  .timeline li{position:relative;padding:0 0 12px 20px;font-size:13px;color:var(--slate-600)}
+  .timeline li::before{content:"";position:absolute;left:3px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--orange)}
+  .timeline li b{color:var(--dark)}
+  .logo{display:inline-flex;align-items:center;gap:10px}
+  .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
+  .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
   .done-hero{text-align:center;padding:8px 0}.done-hero .big{font-size:46px}
-  .empty{color:var(--faint);text-align:center;padding:40px 0}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:grid;place-items:center;padding:18px;z-index:50}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:400px;width:100%}
+  .empty{color:var(--slate-400);text-align:center;padding:40px 0}
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:18px;z-index:50}
+  .modal{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:20px;max-width:420px;width:100%;box-shadow:var(--sh-lg)}
   .modal h3{font-size:19px;margin-bottom:4px}
   [hidden]{display:none!important}
 </style>
@@ -87,7 +86,7 @@
 <body>
 <div class="wrap">
   <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
-    <span class="logo">turnamen<span class="dot">.</span>padel</span>
+    <span class="logo"><span class="glyph">P</span><span class="name">TURNAMEN<b>PADEL</b></span></span>
   </div>
   <div id="head"></div>
   <div id="host"><p class="empty">Memuat…</p></div>
@@ -195,7 +194,7 @@ function vPlayers(){
   const t=teamElig();
   return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Isi <b>nama lengkap</b> kedua pemain (wajib) + kontak, lalu <b>cek database</b> (nama · HP · email · IG).</p>
     ${[0,1].map(i=>pIdent(i)).join("")}
-    ${t.label?`<div class="card" style="margin-top:12px;background:#0e0e10"><div class="row" style="justify-content:space-between;align-items:center"><b>Eligibility tim</b><span class="chip ${t.cls}">${esc(t.label)}</span></div></div>`:''}
+    ${t.label?`<div class="card" style="margin-top:12px;background:var(--inset)"><div class="row" style="justify-content:space-between;align-items:center"><b>Eligibility tim</b><span class="chip ${t.cls}">${esc(t.label)}</span></div></div>`:''}
     <div class="nav"><button class="btn ghost" onclick="go('cat')">←</button>
       <button class="btn primary" ${(bothNamed()&&t.cls!=='block')?'':'disabled'} onclick="go('personal')">Lanjut →</button></div></div>`;
 }
@@ -216,12 +215,12 @@ function pIdent(i){ const p=F.players[i]; const c=p.chk;
       const claimBit = c.claimed ? '<span class="chip ok">di-claim ✔</span>'
         : (p.claimPending ? '<span class="chip warn">klaim ⏳ menunggu email</span>'
            : `<button class="btn ghost" style="padding:6px 10px;font-size:12px" onclick="openClaim(${i})">Klaim profil ini</button>`);
-      res=`<div class="card" style="margin-top:10px;background:#0e0e10"><div class="row" style="justify-content:space-between"><span>✔ <b>Cocok</b> via ${esc(c.method)}</span><span class="chip ${st}">${esc(e.msg||'')}</span></div>
+      res=`<div class="card" style="margin-top:10px;background:var(--inset)"><div class="row" style="justify-content:space-between"><span>✔ <b>Cocok</b> via ${esc(c.method)}</span><span class="chip ${st}">${esc(e.msg||'')}</span></div>
         <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>
         <div style="margin-top:8px">${claimBit}</div>
         ${c.enrolledInCategory?'<div style="margin-top:6px"><span class="chip warn">⚠ sudah terdaftar di kategori ini — ditandai untuk admin</span></div>':''}</div>`;
     } else {
-      res=`<div class="card" style="margin-top:10px;background:#0e0e10"><span class="chip warn">pemain baru</span> <span class="note">didaftarkan sebagai pemain baru — level mengikuti kategori.</span></div>`;
+      res=`<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip warn">pemain baru</span> <span class="note">didaftarkan sebagai pemain baru — level mengikuti kategori.</span></div>`;
     }
   }
   return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||(''+ (i+1))).charAt(0).toUpperCase())}</div><div><div class="who">Pemain ${i+1}</div><div class="sub">identitas untuk cek database</div></div></div>
@@ -292,7 +291,7 @@ function pPersonal(i,on){ const p=F.players[i];
 async function pickPhoto(i,input){ F.players[i].photo = await fileToDataUrl(input); }
 function vWaiver(){
   const w=F.data.config.waiver||"Dengan mendaftar, peserta menyetujui ketentuan penyelenggara.";
-  return `<div class="card"><div class="card" style="max-height:180px;overflow:auto;background:#0e0e10"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
+  return `<div class="card"><div class="card" style="max-height:180px;overflow:auto;background:var(--inset)"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
     <label style="display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverA?'checked':''} onchange="F.waiverA=this.checked;render()"><span>Kami setuju atas <b>waiver &amp; disclaimer</b>.</span></label>
     <label style="display:flex;gap:11px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverB?'checked':''} onchange="F.waiverB=this.checked;render()"><span>Seluruh informasi yang kami berikan <b>benar</b>.</span></label>
     <div class="nav"><button class="btn ghost" onclick="go('personal')">←</button>
@@ -300,7 +299,7 @@ function vWaiver(){
 }
 function vPay(){
   const c=cat(), acct=(F.data.config.payment||{}).account||"—";
-  return `<div class="card"><div class="card" style="background:#0e0e10">
+  return `<div class="card"><div class="card" style="background:var(--inset)">
       <div class="row" style="justify-content:space-between;align-items:center"><span class="muted">Total (${esc(c.label)})</span><b class="elo" style="font-size:20px">${rupiah(c.fee)}</b></div>
       <div class="divider"></div><div class="muted" style="font-size:13px">Transfer ke:</div><div class="mono" style="margin-top:4px">${esc(acct)}</div></div>
     <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"></label>
@@ -313,7 +312,7 @@ function vReview(){
   const c=cat(), wl=isWL();
   const pl=i=>{const p=F.players[i]; return esc(p.name||'—');};
   return `<div class="card">
-    ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin-bottom:12px;background:#0e0e10"><b class="mono" style="color:var(--warn)">⏳ Pendaftaran waitlist</b><div class="note">Kuota penuh — belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
+    ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin-bottom:12px;background:var(--inset)"><b class="mono" style="color:var(--warn)">⏳ Pendaftaran waitlist</b><div class="note">Kuota penuh — belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
     <div class="kv"><span class="ic">🏆</span><div><b>${esc(c.label)} · ${esc(c.level)}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
     <div class="kv"><span class="ic">🎾</span><div>P1 ${pl(0)}<br>P2 ${pl(1)}</div></div>
     <div class="kv"><span class="ic">✅</span><div>Waiver disetujui${wl?'':' · bukti bayar terunggah'}</div></div>
@@ -336,7 +335,7 @@ function vDone(){
   return `<div class="card"><div class="done-hero"><div class="big">${wl?'⏳':'🎉'}</div>
       <h2 style="font-size:24px;margin-top:6px">Pendaftaran terkirim!</h2>
       <span class="chip warn" style="margin-top:8px">Status: ${wl?'masuk waitlist (antrean)':'menunggu kurasi'}</span></div>
-    ${wl?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4);background:#0e0e10"><div class="note" style="margin:0">Kuota penuh — kamu di antrean waitlist dan belum membayar. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
+    ${wl?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4);background:var(--inset)"><div class="note" style="margin:0">Kuota penuh — kamu di antrean waitlist dan belum membayar. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
     ${(tl.curationStart||tl.tmDate||tl.oopDate)?`<div class="divider"></div><div class="eyebrow">Langkah berikutnya</div><ul class="timeline" style="margin-top:8px">${tl.curationStart?'<li><b>'+esc(tl.curationStart)+'</b> — kurasi</li>':''}${tl.tmDate?'<li><b>'+esc(tl.tmDate)+'</b> — Technical Meeting + grup</li>':''}${tl.oopDate?'<li><b>'+esc(tl.oopDate)+'</b> — order of play</li>':''}</ul>`:''}
     <p class="note">Simpan halaman ini sebagai bukti pendaftaran.</p></div>`;
 }

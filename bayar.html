@@ -4,31 +4,40 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Pembayaran · TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
 <style>
-  :root{--bg:#0A0A0B;--panel:#141416;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--accent:#FF6A00;--accent2:#FFB000;--ok:#3ad19b;--danger:#ff6f60;--r:16px;--r-sm:11px;
-    --display:'Saira Condensed','Arial Narrow',sans-serif;--body:'Plus Jakarta Sans',system-ui,sans-serif;--mono:'Space Mono',ui-monospace,monospace;
-    --grad:linear-gradient(120deg,var(--accent),var(--accent2));color-scheme:dark;}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);min-height:100vh;display:grid;place-items:center;padding:18px;
-    background-image:radial-gradient(700px 380px at 80% -10%,rgba(255,106,0,.16),transparent 60%);}
-  .card{max-width:440px;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:22px;box-shadow:0 20px 60px -24px #000}
-  .logo{font-family:var(--display);font-weight:800;font-size:22px;margin-bottom:12px}.logo .dot{color:var(--accent)}
-  h2{font-family:var(--display);font-size:22px;margin:0 0 10px} .muted{color:var(--muted)} .mono{font-family:var(--mono)} .note{font-size:12px;color:#6B6B72;margin-top:8px}
-  .box{background:#0e0e10;border:1px solid var(--line);border-radius:var(--r-sm);padding:14px;margin-bottom:14px}
+  body{min-height:100vh;display:grid;place-items:center;padding:18px}
+  .card{max-width:460px;width:100%}
+  .logo{display:inline-flex;align-items:center;gap:10px;margin-bottom:16px}
+  .logo .glyph{width:34px;height:34px;border-radius:var(--r-lg);background:var(--orange);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:15px;border:var(--bd)}
+  .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}
+  .logo .name b{color:var(--orange)}
+  h2{font-family:var(--display);font-weight:900;font-size:24px;margin:0 0 10px}
+  .muted{color:var(--slate-600)} .note{font-size:12px;color:var(--slate-500);margin-top:8px}
+  .box{background:var(--slate-50);border:var(--bd);border-radius:var(--r-xl);padding:16px;margin-bottom:14px}
   .row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-  .elo{font-family:var(--mono);color:var(--accent);font-weight:700;font-size:20px}
-  .divider{height:1px;background:var(--line);margin:12px 0}
-  label span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
-  input{width:100%;background:#0e0e10;border:1px solid var(--line);color:var(--text);border-radius:var(--r-sm);padding:11px 12px;font-family:var(--body);font-size:14px}
-  .btn{appearance:none;border:0;background:var(--grad);color:#0A0A0B;font-family:var(--body);font-weight:800;font-size:15px;padding:13px;border-radius:var(--r-sm);cursor:pointer;width:100%}
-  .btn:disabled{opacity:.4;cursor:not-allowed}
-  .chip{display:inline-flex;font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line)}
-  .chip.ok{color:var(--ok);border-color:rgba(58,209,155,.35);background:rgba(58,209,155,.08)}
-  .chip.warn{color:#ffd166;border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.08)}
+  .elo{font-family:var(--mono);color:var(--orange);font-weight:800;font-size:22px}
+  .divider{height:2px;background:var(--slate-200);margin:12px 0}
+  label span{display:block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--slate-600);margin-bottom:6px;text-transform:uppercase}
+  input{width:100%;background:#fff;border:var(--bd);color:var(--dark);border-radius:var(--r-lg);padding:11px 12px;font-family:var(--sans);font-size:14px;box-shadow:var(--sh-sm)}
+  input[type=file]{padding:9px}
+  .btn{appearance:none;width:100%;font-family:var(--display);font-weight:900;font-size:14px;text-transform:uppercase;
+    letter-spacing:.04em;padding:14px;border:var(--bd);border-radius:var(--r-xl);background:var(--orange);color:#fff;
+    cursor:pointer;box-shadow:var(--sh);transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translate(2px,2px);box-shadow:var(--sh-sm)}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:var(--sh-sm)}
+  .chip{display:inline-flex;align-items:center;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--r-full);border:var(--bd)}
+  .chip.ok{color:#065F46;border-color:var(--mint);background:var(--mint-20)}
+  .chip.warn{color:var(--amber);border-color:var(--amber-bd);background:var(--amber-bg)}
 </style>
 </head>
 <body>
 <div class="card">
-  <div class="logo">turnamen<span class="dot">.</span>padel</div>
+  <div class="logo"><span class="glyph">P</span><span class="name">TURNAMEN<b>PADEL</b></span></div>
   <div id="host"><p class="muted">Memuat…</p></div>
 </div>
 <script>

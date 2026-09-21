@@ -4,45 +4,49 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Roster Peserta · TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
 <style>
-  :root{--bg:#0A0A0B;--panel:#141416;--panel2:#1B1B1F;--line:#2A2A2E;--text:#F5F5F7;--muted:#A1A1AA;--faint:#6B6B72;
-    --accent:#FF6A00;--accent2:#FFB000;--ok:#3ad19b;--warn:#ffd166;--danger:#ff6f60;--r:16px;--r-sm:11px;
-    --display:'Saira Condensed','Arial Narrow',sans-serif;--body:'Plus Jakarta Sans',system-ui,sans-serif;--mono:'Space Mono',ui-monospace,monospace;
-    --grad:linear-gradient(120deg,var(--accent),var(--accent2));color-scheme:dark;}
-  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:var(--body);font-size:14px;line-height:1.5;
-    background-image:radial-gradient(900px 460px at 88% -12%,rgba(255,106,0,.16),transparent 62%);background-attachment:fixed;}
-  .wrap{max-width:520px;margin:0 auto;padding:16px;padding-block:16px 52px}
-  h1,h2,h3{font-family:var(--display);font-weight:700;margin:0} .muted{color:var(--muted)} .faint{color:var(--faint)} .mono{font-family:var(--mono)}
-  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
-  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:0 10px 30px -18px rgba(0,0,0,.9)}
+  :root{--warn:#B45309;--danger:#DC2626;--accent2:var(--orange);--ok:#065F46}
+  body{font-size:14px}
+  .wrap{max-width:560px;margin:0 auto;padding:16px;padding-block:16px 52px}
+  h1,h2,h3{font-family:var(--display);font-weight:900;margin:0} .faint{color:var(--slate-400)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500);display:inline-flex}
+  .card{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:16px;box-shadow:var(--sh-sm)}
   .card+.card{margin-top:12px}
-  .hero{position:relative;overflow:hidden;border-radius:var(--r);border:1px solid var(--line);background:linear-gradient(150deg,#1c1207,#141416 60%);padding:20px;margin-bottom:14px}
-  .hero h1{font-size:24px;margin:6px 0} .hero .eyebrow{color:var(--accent2)}
-  .row{display:flex;gap:10px;flex-wrap:wrap} .note{font-size:12px;color:var(--faint);margin-top:6px}
-  label.f{display:block;margin-bottom:12px} label.f>span{display:block;font-size:12px;color:var(--muted);margin-bottom:5px} .req{color:var(--accent)}
-  input,select,textarea{width:100%;background:#0e0e10;border:1px solid var(--line);color:var(--text);border-radius:var(--r-sm);padding:11px 12px;font-family:var(--body);font-size:14px}
+  .hero{position:relative;overflow:hidden;border-radius:var(--r-2xl);border:var(--bd);
+    background:rgba(254,243,199,.5);padding:20px;margin-bottom:14px;box-shadow:var(--sh)}
+  .hero h1{font-size:26px;margin:6px 0} .hero .eyebrow{color:var(--orange)}
+  .row{display:flex;gap:10px;flex-wrap:wrap} .note{font-size:12px;color:var(--slate-500);margin-top:6px}
+  label.f{display:block;margin-bottom:12px} label.f>span{display:block;font-family:var(--mono);font-size:12px;font-weight:700;color:var(--slate-600);margin-bottom:6px;text-transform:uppercase} .req{color:var(--orange)}
+  input,select,textarea{width:100%;background:#fff;border:var(--bd);color:var(--dark);border-radius:var(--r-lg);padding:11px 12px;font-family:var(--sans);font-size:14px;box-shadow:var(--sh-sm)}
   textarea{min-height:80px;resize:vertical}
-  .btn{appearance:none;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-family:var(--body);font-weight:700;font-size:14px;padding:11px 15px;border-radius:var(--r-sm);cursor:pointer}
-  .btn.primary{background:var(--grad);border-color:transparent;color:#0A0A0B}.btn.ghost{background:transparent}.btn.sm{padding:7px 11px;font-size:12.5px}.btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn{appearance:none;border:var(--bd);background:#fff;color:var(--dark);font-family:var(--display);font-weight:800;font-size:14px;padding:11px 15px;border-radius:var(--r-lg);cursor:pointer;box-shadow:var(--sh-sm);transition:transform .15s,box-shadow .15s}
+  .btn:hover{transform:translate(2px,2px);box-shadow:none}
+  .btn.primary{background:var(--orange);color:#fff}.btn.ghost{background:var(--slate-100)}.btn.sm{padding:7px 11px;font-size:12.5px}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:var(--sh-sm)}
   .nav{display:flex;gap:10px;margin-top:16px}
-  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
-  .chip.ok{color:var(--ok);border-color:rgba(58,209,155,.35);background:rgba(58,209,155,.08)}
-  .chip.warn{color:var(--warn);border-color:rgba(255,209,102,.35);background:rgba(255,209,102,.08)}
-  .chip.block{color:var(--danger);border-color:rgba(255,111,96,.4);background:rgba(255,111,96,.09)}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;font-weight:700;padding:4px 10px;border-radius:var(--r-full);border:var(--bd);background:#fff}
+  .chip.ok{color:#065F46;border-color:var(--mint);background:var(--mint-20)}
+  .chip.warn{color:var(--warn);border-color:var(--amber-bd);background:var(--amber-bg)}
+  .chip.block{color:var(--danger);border-color:var(--danger);background:rgba(220,38,38,.08)}
   .phead{display:flex;align-items:center;gap:11px}
-  .avatar{width:36px;height:36px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:800;font-size:16px;color:#0A0A0B;background:var(--grad);overflow:hidden}
+  .avatar{width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:16px;color:#fff;background:var(--orange);border:var(--bd);overflow:hidden}
   .avatar img{width:100%;height:100%;object-fit:cover}
-  .who{font-family:var(--display);font-size:15px;line-height:1.1}.sub{font-size:11.5px;color:var(--muted)}
-  .logo{font-family:var(--display);font-weight:800;font-size:22px}.logo .dot{color:var(--accent)}
-  .empty{color:var(--faint);text-align:center;padding:40px 0}
-  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:grid;place-items:center;padding:18px;z-index:50}
-  .modal{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:20px;max-width:400px;width:100%;max-height:88vh;overflow:auto}
+  .who{font-family:var(--display);font-weight:800;font-size:15px;line-height:1.1}.sub{font-size:11.5px;color:var(--slate-500)}
+  .logo{display:inline-flex;align-items:center;gap:10px}
+  .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
+  .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
+  .empty{color:var(--slate-400);text-align:center;padding:40px 0}
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:18px;z-index:50}
+  .modal{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:20px;max-width:420px;width:100%;max-height:88vh;overflow:auto;box-shadow:var(--sh-lg)}
   [hidden]{display:none!important}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="logo" style="margin-bottom:12px">turnamen<span class="dot">.</span>padel</div>
+  <div class="logo" style="margin-bottom:12px"><span class="glyph">P</span><span class="name">TURNAMEN<b>PADEL</b></span></div>
   <div id="host"><p class="empty">Memuat…</p></div>
 </div>
 <div id="modalHost"></div>
@@ -71,7 +75,7 @@ function render(){
   document.getElementById("host").innerHTML=`
     <div class="hero"><div class="eyebrow">Kurasi peserta · roster</div><h1>${esc(d.name||"")}</h1>
       <p class="muted" style="margin:8px 0 0;font-size:13px">Periksa peserta lain di kelasmu. Jika ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p></div>
-    <div class="card ${open?'':''}" style="border-color:${open?'rgba(255,209,102,.4)':'rgba(255,111,96,.4)'}">
+    <div class="card ${open?'':''}" style="border-color:${open?'var(--amber-bd)':'var(--danger)'}">
       ${open?`<b class="mono" style="color:var(--warn)">⏳ Appeal dibuka${d.appealDeadline?' s/d '+esc(d.appealDeadline):''}</b>`
              :`<b class="mono" style="color:var(--danger)">🔒 Batas appeal berakhir — roster final</b>`}</div>
     <label class="f" style="margin-top:12px"><span>Kategori</span><select onchange="R.cat=this.value;render()">

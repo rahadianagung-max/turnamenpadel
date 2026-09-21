@@ -4,39 +4,40 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Mexicano · TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root{ --bg:#0a090d; --card:#17151d; --card2:#1e1b26; --line:#2f2a38; --text:#f3eef8; --muted:#a79fb2; --faint:#7a7286;
-    --orange:#FF6A00; --accent2:#FFB000; --green:#38d39f; --danger:#ff5a4d; }
+  :root{ --bg:#F8FAFC; --card:#FFFFFF; --card2:#F1F5F9; --line:#E2E8F0; --text:#0F172A; --muted:#64748B; --faint:#94A3B8;
+    --orange:#FF5722; --accent2:#B45309; --green:#10B981; --danger:#DC2626; }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,'Plus Jakarta Sans',sans-serif;-webkit-font-smoothing:antialiased}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
   .wrap{max-width:720px;margin:0 auto;padding:16px 14px 60px}
   a{color:inherit}
   .top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px}
-  .brand{font-family:'Saira Condensed',system-ui;font-weight:800;font-style:italic;text-transform:uppercase;font-size:20px;color:var(--orange);text-decoration:none;letter-spacing:.01em}
+  .brand{font-family:'Plus Jakarta Sans',system-ui;font-weight:800;font-style:italic;text-transform:uppercase;font-size:20px;color:var(--orange);text-decoration:none;letter-spacing:.01em}
   .brand small{color:var(--muted);font-style:normal;font-weight:600;font-size:11px;margin-left:6px;letter-spacing:.06em}
   .lnk{font-size:12.5px;color:var(--muted);text-decoration:none}.lnk:hover{color:var(--text)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
-  .h{font-family:'Saira Condensed',system-ui;font-weight:800;text-transform:uppercase;font-size:17px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+  .h{font-family:'Plus Jakarta Sans',system-ui;font-weight:800;text-transform:uppercase;font-size:17px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
   .h .pill{font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--accent2);background:rgba(255,176,0,.12);border-radius:6px;padding:3px 8px}
   label.lbl{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px}
   label.lbl:first-child{margin-top:0}
   .in{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:14px;background:var(--card2);color:var(--text);outline:none}
   .in:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,106,0,.14)}
   .row2{display:flex;gap:10px}.row2>div{flex:1;min-width:0}
-  .btn{border:none;border-radius:11px;padding:12px 16px;font:inherit;font-weight:800;font-size:13.5px;color:#160b04;background:var(--orange);cursor:pointer}
+  .btn{border:none;border-radius:11px;padding:12px 16px;font:inherit;font-weight:800;font-size:13.5px;color:#fff;background:var(--orange);cursor:pointer}
   .btn:disabled{opacity:.45;cursor:default}
   .btn.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
   .btn.block{width:100%;margin-top:14px}
   .btn.sm{padding:8px 12px;font-size:12.5px}
   .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .seg button{border:none;background:var(--card2);color:var(--muted);font:inherit;font-weight:700;font-size:13px;padding:9px 16px;cursor:pointer}
-  .seg button.on{background:var(--orange);color:#160b04}
+  .seg button.on{background:var(--orange);color:#fff}
   .pairbuild{border:1px solid var(--line);border-radius:12px;background:var(--card2);padding:12px;margin-top:8px}
   .slot{display:flex;gap:8px;align-items:center;margin-bottom:9px}
   .slot .tag{font-family:ui-monospace,monospace;font-size:11px;color:var(--faint);width:20px;flex:0 0 auto;text-align:center}
   .slot .in{flex:1}
   .slot .hint{flex:0 0 auto;min-width:60px;display:flex;justify-content:flex-end}
-  .eloin{width:74px;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:13px;font-family:ui-monospace,monospace;background:#0d0c10;color:var(--text);text-align:right;outline:none}
+  .eloin{width:74px;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;font-size:13px;font-family:ui-monospace,monospace;background:#FFFFFF;color:var(--text);text-align:right;outline:none}
   .eloin:focus{border-color:var(--orange)}
   .elo{font-family:ui-monospace,monospace;font-size:12px;font-weight:800;color:var(--accent2);background:rgba(255,176,0,.12);border-radius:6px;padding:5px 9px;white-space:nowrap}
   .elo.na{color:var(--faint);background:rgba(120,110,130,.12);font-weight:600}
@@ -49,7 +50,7 @@
   .prow .x{cursor:pointer;color:var(--faint);font-weight:800;font-size:16px;line-height:1;flex:0 0 auto;padding:2px 4px}.prow .x:hover{color:var(--danger)}
   .tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
   .tabs button{font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--muted);padding:8px 13px;border-radius:9px}
-  .tabs button.on{background:var(--orange);border-color:var(--orange);color:#160b04}
+  .tabs button.on{background:var(--orange);border-color:var(--orange);color:#fff}
   .rnav{display:flex;align-items:center;gap:8px;margin-bottom:12px}
   .rnav .who{font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);margin:0 4px}
   .court{border:1px solid var(--line);border-radius:12px;background:var(--card2);padding:12px;margin-bottom:10px}
@@ -60,9 +61,9 @@
   .team .seed{font-family:ui-monospace,monospace;font-size:10px;color:var(--faint);margin-top:2px}
   .team.win .pn{color:var(--green)}
   .step{display:flex;align-items:center;gap:0;flex:0 0 auto}
-  .step button{width:30px;height:34px;border:1px solid var(--line);background:#111015;color:var(--text);font-size:18px;font-weight:800;cursor:pointer}
+  .step button{width:30px;height:34px;border:1px solid var(--line);background:#F1F5F9;color:var(--text);font-size:18px;font-weight:800;cursor:pointer}
   .step button:first-child{border-radius:9px 0 0 9px}.step button:last-child{border-radius:0 9px 9px 0}
-  .step .val{width:38px;height:34px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#0d0c10;font-family:ui-monospace,monospace;font-size:17px;font-weight:800}
+  .step .val{width:38px;height:34px;display:flex;align-items:center;justify-content:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#FFFFFF;font-family:ui-monospace,monospace;font-size:17px;font-weight:800}
   .vs{text-align:center;font-family:ui-monospace,monospace;font-size:10px;color:var(--faint);letter-spacing:.1em;margin:2px 0}
   .byes{font-size:12.5px;color:var(--muted);margin-top:4px}.byes b{color:var(--accent2)}
   table{width:100%;border-collapse:collapse}
@@ -81,9 +82,9 @@
   .lrow .lb{font-weight:700;font-size:13px;flex:0 0 auto}
   .lrow .lu{flex:1;min-width:0;font-family:ui-monospace,monospace;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .lrow a.lu:hover{color:var(--text)}
-  .cbtn{flex:0 0 auto;border:1px solid var(--line);background:#111015;color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+  .cbtn{flex:0 0 auto;border:1px solid var(--line);background:#F1F5F9;color:var(--text);border-radius:8px;padding:7px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
   .cbtn:hover{border-color:var(--orange)}
-  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#241a12;border:1px solid var(--line);border-left:3px solid var(--orange);color:var(--text);padding:11px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;max-width:90%;z-index:50}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#FFFFFF;border:1px solid var(--line);border-left:3px solid var(--orange);color:var(--text);padding:11px 16px;border-radius:10px;font-size:13px;opacity:0;transition:.2s;pointer-events:none;max-width:90%;z-index:50}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 </style>
 </head>

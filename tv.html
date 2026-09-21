@@ -6,12 +6,12 @@
 <title>Trekkr · TV Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,600;0,700;0,800;1,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 <style>
   :root{
     --bg:#000000; --panel:#121110; --panel2:#171513; --line:#332a24;
     --text:#fdf4ee; --muted:#bfa091; --faint:#856a5d;
-    --accent:#FF6A00; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d;
+    --accent:#FF5722; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d;
     --grad:linear-gradient(90deg,#FF3830,#FFB000);
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -21,10 +21,10 @@
   /* top bar */
   .bar{display:grid; grid-template-columns:1fr auto 1fr; align-items:start; flex:0 0 auto; margin-bottom:1.2vh;}
   .ev{grid-column:2; text-align:center;}
-  .ev .nm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(34px,5vw,92px); line-height:1; letter-spacing:-.02em;
+  .ev .nm{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(34px,5vw,92px); line-height:1; letter-spacing:-.02em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
   .title{grid-column:3; justify-self:end; text-align:right; font-family:'Space Mono',monospace;}
-  .title .tt{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(16px,1.8vw,34px); line-height:1.05; letter-spacing:-.01em; color:var(--text);}
+  .title .tt{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(16px,1.8vw,34px); line-height:1.05; letter-spacing:-.01em; color:var(--text);}
   .title .td{font-size:clamp(10px,.9vw,16px); color:var(--muted); letter-spacing:.06em; margin-top:.5vh;}
   .title .l{font-size:clamp(9px,.8vw,13px); color:var(--accent); letter-spacing:.12em; margin-top:.6vh; animation:liveblink 1.4s steps(1,end) infinite;}
   .qr{grid-column:1; justify-self:start; display:flex; align-items:center; gap:.7vw;}
@@ -48,7 +48,7 @@
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
     background:linear-gradient(135deg,#3a241b,#1c120c); border:1px solid var(--line);}
   .av img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .av i{ font-style:normal; font-family:'Saira Condensed',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
+  .av i{ font-style:normal; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
   /* now playing cards — one readable row per court (scales to many simultaneous matches) */
   #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:.8vh;}
   .np-card{flex:1 1 0; min-height:0; overflow:hidden; display:flex; flex-direction:row; align-items:center; gap:1vw;
@@ -72,7 +72,7 @@
   .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
   /* remote-navigable event picker (short URL /tv or /led, no slug typing) */
   .tvpick-ov{position:fixed; inset:0; z-index:100; background:radial-gradient(1100px 600px at 84% -12%,rgba(255,106,0,.10),transparent 55%),#000; padding:5vh 6vw; overflow:auto; display:flex; flex-direction:column;}
-  .tvpick-brand{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(22px,3vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:.6vh;}
+  .tvpick-brand{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(22px,3vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:.6vh;}
   .tvpick-h{font-family:'Space Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--accent2); font-size:clamp(11px,1.1vw,18px); margin-bottom:3vh;}
   .tvpick-h b{color:var(--accent);}
   .tvpick-list{display:flex; flex-direction:column; gap:1.4vh; max-width:min(94vw,1000px);}
@@ -80,7 +80,7 @@
   .tvpick-row.on{border-color:var(--accent); background:linear-gradient(180deg,rgba(255,122,26,.18),rgba(255,122,26,.04)); box-shadow:0 0 0 3px rgba(255,122,26,.22);}
   .tvpick-n{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--muted); border-radius:9px; padding:.5vh 1.1vw; font-size:clamp(15px,1.5vw,26px); min-width:2.2em; text-align:center;}
   .tvpick-row.on .tvpick-n{background:var(--accent);}
-  .tvpick-nm{flex:1 1 auto; min-width:0; font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(22px,2.6vw,46px); line-height:1.02; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tvpick-nm{flex:1 1 auto; min-width:0; font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(22px,2.6vw,46px); line-height:1.02; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .tvpick-mt{flex:0 0 auto; font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(12px,1.15vw,20px); white-space:nowrap;}
   .tvpick-cd{margin-top:2.4vh; font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(12px,1.1vw,18px);}
   .tvpick-cd b{color:var(--accent2);}
@@ -97,7 +97,7 @@
   .fit{--sfz:15px; display:flex; flex-direction:column; gap:calc(var(--sfz)*.9); align-content:start;}
   .cat-block{display:flex; flex-direction:column;}
   .cat-block + .cat-block{margin-top:calc(var(--sfz)*.5);}
-  .cat-head{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
+  .cat-head{flex:0 0 auto; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
   .cat-cap{font-family:'Space Mono',monospace; font-weight:400; font-size:calc(var(--sfz)*.7); color:var(--muted); letter-spacing:.02em;}
   .grp-grid{display:grid; gap:calc(var(--sfz)*.55) calc(var(--sfz)*.6); align-content:start;}
   .grp{overflow:hidden; border:1px solid var(--line); border-radius:calc(var(--sfz)*.7); background:var(--panel); padding:calc(var(--sfz)*.5) calc(var(--sfz)*.6); display:flex; flex-direction:column;}
@@ -120,12 +120,12 @@
   /* footer */
   .footer{flex:0 0 auto; display:flex; justify-content:flex-end; align-items:baseline; gap:.6vw; margin-top:1.2vh;}
   .footer .pwr{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); color:var(--faint); letter-spacing:.1em; text-transform:uppercase;}
-  .footer .logo-sm{font-family:'Saira Condensed',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
+  .footer .logo-sm{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
   /* playoff bracket — mobile-style cards, laid out as left→right round columns for TV */
   .bracket-block{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
   .bracket-block + .bracket-block{margin-top:1.4vh;}
-  .bt{flex:0 0 auto; font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.8vh;}
+  .bt{flex:0 0 auto; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.8vh;}
   /* podium row: Champion / Runner-up / 3rd — same as mobile */
   .bpodium{flex:0 0 auto; display:flex; gap:.9vw; margin-bottom:1.4vh;}
   .bpod{flex:1; min-width:0; border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:1vh 1vw;}
@@ -175,7 +175,7 @@
   .bteam.proj{color:var(--muted); font-style:italic;}
   /* provisional qualification strip */
   .qpanel{flex:0 0 auto; margin-bottom:1.2vh;}
-  .qh{font-family:'Saira Condensed',sans-serif; font-weight:700; font-size:clamp(14px,1.4vw,24px); margin-bottom:.7vh;}
+  .qh{font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:clamp(14px,1.4vw,24px); margin-bottom:.7vh;}
   .qh .qsub{font-family:'Space Mono',monospace; font-weight:400; font-size:clamp(9px,.8vw,14px); color:var(--muted); margin-left:.6vw;}
   .qchips{display:grid; grid-template-columns:repeat(4,1fr); gap:.6vw .6vw;}
   .qchip{display:flex; align-items:center; gap:.4vw; border:1px solid var(--line); border-radius:8px; padding:.5vh .6vw; min-width:0;}
@@ -192,7 +192,7 @@
   .win-row .wlabel{font-family:'Space Mono',monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-size:clamp(10px,.9vw,15px);}
   .win-row .wpair{display:flex; justify-content:center;}
   .win-row .wpair .av{margin-left:-8px; box-shadow:0 0 0 3px #000;} .win-row .wpair .av:first-child{margin-left:0;}
-  .win-row .wnames{font-family:'Saira Condensed',sans-serif; font-weight:800; line-height:1.1;}
+  .win-row .wnames{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; line-height:1.1;}
   .win-row.champ .wlabel{color:var(--accent); font-size:clamp(14px,1.3vw,24px);}
   .win-row.champ .wpair .av{box-shadow:0 0 0 3px #000, 0 0 26px rgba(255,122,26,.55);}
   .win-row.champ .wnames{font-size:clamp(20px,2.1vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
@@ -787,7 +787,7 @@ function applyTvTheme(t){
   for(const k in map){ if(hex(t[k])) root.style.setProperty(map[k], t[k]); }
   if(hex(t.panel)) root.style.setProperty('--panel2', t.panel);
   if(hex(t.accent)||hex(t.accent2)){
-    const a=hex(t.accent)?t.accent:(getComputedStyle(root).getPropertyValue('--accent').trim()||'#FF6A00');
+    const a=hex(t.accent)?t.accent:(getComputedStyle(root).getPropertyValue('--accent').trim()||'#FF5722');
     const b=hex(t.accent2)?t.accent2:(getComputedStyle(root).getPropertyValue('--accent2').trim()||'#FFB000');
     root.style.setProperty('--grad','linear-gradient(90deg,'+a+','+b+')');
   }

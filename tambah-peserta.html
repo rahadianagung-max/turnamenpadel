@@ -4,59 +4,61 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Tambah Peserta — TurnamenPadel</title>
-<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:ital,wght@0,800;0,900;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
 <style>
-:root{--bg:#0A0A0B;--s1:#141416;--s2:#1B1B1F;--bd:#2A2A2E;--bd2:#37373d;--tx:#F5F5F7;--mu:#A1A1AA;--or:#FF6A00;--amb:#FFB000;--grn:#22C55E;--red:#FF4A3D;--grad:linear-gradient(90deg,#FF3830,#FFB000)}
-*{box-sizing:border-box}
-html,body{margin:0;padding:0}
-body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--tx);min-height:100dvh;-webkit-tap-highlight-color:transparent;background-image:radial-gradient(620px 300px at 80% -10%,rgba(255,106,0,.16),transparent 60%)}
-.wrap{max-width:620px;margin:0 auto;padding:20px 16px 60px}
-.brand{font-family:'Saira Condensed',sans-serif;font-style:italic;font-weight:900;font-size:20px;text-transform:uppercase;margin-bottom:6px}
-.brand b{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-h1{font-family:'Saira Condensed',sans-serif;font-weight:900;text-transform:uppercase;font-size:clamp(28px,8vw,38px);margin:6px 0 4px}
-.k{font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--or)}
-.hint{color:var(--mu);font-size:13.5px;line-height:1.55;margin:8px 0 20px}
-.card{background:var(--s1);border:1px solid var(--bd);border-radius:16px;padding:18px 16px;margin-bottom:16px}
-.sec{font-family:'Saira Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:16px;letter-spacing:.02em;color:var(--amb);margin:0 0 12px;display:flex;align-items:center;gap:8px}
-.sec .num{width:22px;height:22px;border-radius:50%;background:var(--or);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans';font-weight:800}
-label{display:block;font-size:12px;font-weight:700;color:var(--mu);margin:0 0 5px}
+:root{--mu:var(--slate-500);--or:var(--orange);--amb:var(--orange);--grn:#10B981;--red:#DC2626}
+.wrap{max-width:640px;margin:0 auto;padding:20px 16px 60px}
+.brand{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}
+.brand .glyph{width:34px;height:34px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:15px;border:var(--bd)}
+.brand .name{font-family:var(--display);font-weight:900;font-size:18px;letter-spacing:-.01em}.brand .name b{color:var(--orange)}
+h1{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(28px,8vw,38px);margin:6px 0 4px}
+.k{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange)}
+.hint{color:var(--slate-600);font-size:13.5px;line-height:1.55;margin:8px 0 20px}
+.card{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:18px 16px;margin-bottom:16px;box-shadow:var(--sh-sm)}
+.sec{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:16px;letter-spacing:.02em;color:var(--orange);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.sec .num{width:24px;height:24px;border-radius:50%;background:var(--orange);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;border:var(--bd)}
+label{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin:0 0 6px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 @media(max-width:440px){.row{grid-template-columns:1fr}}
 .field{margin-bottom:13px}
-input,select,textarea{width:100%;padding:12px 13px;border:1px solid var(--bd2);border-radius:12px;background:var(--s2);color:var(--tx);font:inherit;font-size:15px}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--or)}
+input,select,textarea{width:100%;padding:12px 13px;border:var(--bd);border-radius:var(--r-lg);background:#fff;color:var(--dark);font:inherit;font-size:15px;box-shadow:var(--sh-sm)}
+input:focus,select:focus,textarea:focus{outline:none;box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.35)}
 select{font-weight:700;cursor:pointer}
-textarea{min-height:150px;resize:vertical;font-family:'Space Mono',ui-monospace,monospace;font-size:13px;line-height:1.6;white-space:pre}
-.pair{border:1px dashed var(--bd2);border-radius:12px;padding:12px;margin-bottom:12px}
-.pair .pl{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--or);margin-bottom:8px}
-.btn{width:100%;padding:14px;border:none;border-radius:12px;background:var(--grad);color:#fff;font:inherit;font-weight:800;font-size:16px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer}
-.btn:disabled{opacity:.5;cursor:not-allowed}
-.btn.ghost{background:var(--s2);color:var(--tx);border:1px solid var(--bd2)}
+textarea{min-height:150px;resize:vertical;font-family:var(--mono);font-size:13px;line-height:1.6;white-space:pre}
+.pair{border:2px dashed var(--slate-400);border-radius:var(--r-lg);padding:12px;margin-bottom:12px}
+.pair .pl{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);margin-bottom:8px}
+.btn{width:100%;padding:14px;border:var(--bd);border-radius:var(--r-xl);background:var(--orange);color:#fff;font-family:var(--display);font-weight:900;font-size:16px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;box-shadow:var(--sh);transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translate(2px,2px);box-shadow:var(--sh-sm)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:var(--sh-sm)}
+.btn.ghost{background:#fff;color:var(--dark)}
 .tabs{display:flex;gap:8px;margin-bottom:16px}
-.tab{flex:1;padding:11px;border:1px solid var(--bd2);border-radius:12px;background:var(--s2);color:var(--mu);font:inherit;font-weight:800;font-size:13.5px;text-transform:uppercase;letter-spacing:.02em;cursor:pointer}
-.tab.on{background:var(--grad);color:#fff;border-color:transparent}
+.tab{flex:1;padding:11px;border:var(--bd);border-radius:var(--r-lg);background:#fff;color:var(--slate-500);font-family:var(--display);font-weight:800;font-size:13.5px;text-transform:uppercase;letter-spacing:.02em;cursor:pointer;box-shadow:var(--sh-sm)}
+.tab.on{background:var(--orange);color:#fff}
 .added{margin-top:8px}
-.added .it{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:14px}
-.count{background:var(--grn);color:#04210f;border-radius:20px;padding:2px 9px;font-size:12px;font-weight:800}
-.msg{padding:11px 13px;border-radius:10px;font-size:13.5px;font-weight:600;margin-bottom:14px;display:none}
-.msg.ok{display:block;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);color:var(--grn)}
-.msg.err{display:block;background:rgba(255,74,61,.12);border:1px solid rgba(255,74,61,.4);color:var(--red)}
-.note{background:rgba(255,176,0,.08);border:1px solid rgba(255,176,0,.35);border-radius:12px;padding:13px 14px;color:var(--amb);font-size:13px;line-height:1.55;margin-top:6px}
-.legend{background:var(--s2);border:1px solid var(--bd);border-radius:10px;padding:10px 12px;font-size:12.5px;color:var(--mu);line-height:1.6;margin-bottom:12px}
-.legend b{color:var(--tx)}
-.tblwrap{overflow-x:auto;border:1px solid var(--bd);border-radius:12px;margin:12px 0}
+.added .it{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--slate-50);border:var(--bd);border-radius:var(--r-lg);padding:10px 12px;margin-bottom:8px;font-size:14px}
+.count{background:var(--mint);color:var(--dark);border:var(--bd);border-radius:20px;padding:2px 9px;font-size:12px;font-weight:800}
+.msg{padding:11px 13px;border-radius:var(--r-lg);font-size:13.5px;font-weight:600;margin-bottom:14px;display:none}
+.msg.ok{display:block;background:var(--mint-20);border:2px solid var(--mint);color:#065F46}
+.msg.err{display:block;background:rgba(220,38,38,.1);border:2px solid var(--red);color:var(--red)}
+.note{background:var(--amber-bg);border:2px solid var(--amber-bd);border-radius:var(--r-lg);padding:13px 14px;color:var(--amber);font-size:13px;line-height:1.55;margin-top:6px}
+.legend{background:var(--slate-50);border:var(--bd);border-radius:var(--r-lg);padding:10px 12px;font-size:12.5px;color:var(--slate-600);line-height:1.6;margin-bottom:12px}
+.legend b{color:var(--dark)}
+.tblwrap{overflow-x:auto;border:var(--bd);border-radius:var(--r-lg);margin:12px 0}
 table{border-collapse:collapse;width:100%;font-size:13px;min-width:420px}
-th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd)}
-th{background:var(--s2);color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--slate-200)}
+th{background:var(--slate-100);color:var(--slate-600);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
 tr:last-child td{border-bottom:none}
-.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--grn);color:#04210f;font-weight:800;padding:12px 20px;border-radius:30px;opacity:0;transition:.3s;z-index:50}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--mint);color:var(--dark);border:var(--bd);font-weight:800;padding:12px 20px;border-radius:30px;opacity:0;transition:.3s;z-index:50;box-shadow:var(--sh)}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .hidden{display:none}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="brand">Turnamen<b>Padel</b></div>
+  <div class="brand"><span class="glyph">P</span><span class="name">TURNAMEN<b>PADEL</b></span></div>
   <div class="k">Registrasi</div>
   <h1>Tambah Peserta</h1>
   <p class="hint">Tambahkan pasangan pemain — datanya langsung tersimpan. Setelah selesai, buka <b>Engine → Import dari Form</b> untuk memasukkannya ke bracket.</p>
