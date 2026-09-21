@@ -662,8 +662,8 @@ const netlifyHandler = async (event) => {
 
     if (path === "players" && method === "GET") return await getPlayers(params);
     if (path === "landing-stats" && method === "GET") return await getLandingStats();
-    if (path === "players" && method === "POST") return await addPlayer(body);
-    if (path === "players/update" && method === "PUT") return await updatePlayer(body);
+    if (path === "players" && method === "POST") { if (!regGateOk(body, params)) return REG_UNAUTH; return await addPlayer(body); }
+    if (path === "players/update" && method === "PUT") { if (!regGateOk(body, params)) return REG_UNAUTH; return await updatePlayer(body); }
     if (path === "players/claim" && method === "POST") return await claimProfile(body);
     if (path === "players/checkin" && method === "POST") return await playerCheckin(body);
     if (path === "players/sync-clubs" && method === "POST") return await syncPlayerClubs();
@@ -831,34 +831,34 @@ const netlifyHandler = async (event) => {
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
     if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET") {
-      if (!regAdminOk(params.key)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regEventRegistrations(decodeURIComponent(path.replace("reg/event/", "").replace("/registrations", "")));
     }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
-      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regRosterBlast(decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", "")));
     }
     if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET") {
-      if (!regAdminOk(params.key)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regEventAppeals(decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", "")));
     }
     if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST") {
-      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regFinalizeCategory(decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", "")), body);
     }
     if (path.startsWith("reg/roster/") && method === "GET")
       return await regRoster(decodeURIComponent(path.replace("reg/roster/", "")), params);
     if (path === "reg/appeal" && method === "POST") return await regAppealSubmit(body);
     if (path.startsWith("reg/appeal/") && path.endsWith("/decision") && method === "POST") {
-      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body);
     }
     if (path.startsWith("reg/appeal/") && path.endsWith("/apply-level") && method === "POST") {
-      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regApplyLevel(decodeURIComponent(path.replace("reg/appeal/", "").replace("/apply-level", "")), body);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/invite-pay") && method === "POST") {
-      if (!regAdminOk(body && body.adminKey)) return REG_UNAUTH;
+      if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regInvitePay(decodeURIComponent(path.replace("reg/event/", "").replace("/invite-pay", "")), body);
     }
     if (path.startsWith("reg/pay-info/") && method === "GET")
@@ -5960,7 +5960,15 @@ function regAdminOk(provided) {
   if (!need) return true;
   return String(provided || "").trim() === need;
 }
-const REG_UNAUTH = respond(401, { error: "Butuh kunci admin (REG_ADMIN_KEY)." });
+// Gerbang gabungan: terima token SUPERADMIN terverifikasi ATAU kunci bersama
+// (REG_ADMIN_KEY). Mendukung migrasi bertahap dari kunci ke login superadmin —
+// token diprioritaskan, kunci tetap jalan sebagai fallback.
+function regGateOk(body, params) {
+  if (isSuperadmin(body, params)) return true;
+  const key = (params && params.key) || (body && body.adminKey) || (body && body.key) || "";
+  return regAdminOk(key);
+}
+const REG_UNAUTH = respond(401, { error: "Butuh login superadmin atau kunci admin." });
 // Batas waktu (datetime-local tanpa zona) diperlakukan sebagai Asia/Jakarta (+07:00).
 function regDeadlineMs(iso) {
   const s = String(iso || "").trim();
