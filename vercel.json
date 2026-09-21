@@ -34,6 +34,7 @@
     { "source": "/bayar/:id", "destination": "/bayar.html" },
     { "source": "/rules", "destination": "/rules/index.html" },
     { "source": "/engine", "destination": "/engine/index.html" },
-    { "source": "/:slug", "destination": "/daftar.html" }
+    { "source": "/event/:slug", "destination": "/event.html" },
+    { "source": "/:slug", "destination": "/event.html" }
   ]
 }
