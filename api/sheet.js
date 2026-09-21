@@ -843,6 +843,11 @@ const netlifyHandler = async (event) => {
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
       return await regRosterBlast(eid);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/appeal-deadline") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/appeal-deadline", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH;
+      return await regSetAppealDeadline(eid, body);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
@@ -6232,6 +6237,31 @@ async function regEventRegistrations(eventId) {
   return respond(200, { registrations: list, count: list.length });
 }
 // Kirim roster ke semua peserta (email) + buat/roster token. Best-effort email.
+// Format ISO datetime-local → teks Indonesia ringkas ("4 Okt 2026 · 23:59").
+function formatDeadlineID(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || "").trim());
+  if (!m) return String(iso || "");
+  const mon = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+  return parseInt(m[3], 10) + " " + mon[parseInt(m[2], 10) - 1] + " " + m[1] + " · " + m[4] + ":" + m[5];
+}
+// Atur/perpanjang batas waktu appeal (event_admin/superadmin). Menyimpan ISO
+// (auto-tutup) + teks tampilan. Memastikan rosterToken ada agar link tetap sah.
+async function regSetAppealDeadline(eventId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const res0 = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
+  const forms = res0.data.values || [];
+  const idx = forms.findIndex((x) => x[0] === regFormIdForEvent(eventId));
+  if (idx < 0) return respond(404, { error: "Formulir pendaftaran belum dibuat untuk event ini." });
+  let config = {}; try { config = JSON.parse(forms[idx][4] || "{}"); } catch (e) {}
+  config.timeline = config.timeline || {};
+  const iso = String((body && body.iso) || "").trim();
+  config.timeline.appealDeadlineISO = iso;
+  config.timeline.appealDeadline = (body && body.text) ? String(body.text) : (iso ? formatDeadlineID(iso) : "");
+  if (!config.rosterToken) config.rosterToken = require("crypto").randomBytes(9).toString("hex");
+  await regUpdateFormConfig(sheets, idx, config);
+  const dms = regDeadlineMs(iso);
+  return respond(200, { success: true, appealDeadlineISO: iso, appealDeadline: config.timeline.appealDeadline, appealOpen: dms ? (Date.now() < dms) : true });
+}
 async function regRosterBlast(eventId) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const res0 = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
