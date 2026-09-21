@@ -17,6 +17,9 @@
   .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
   .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
   .logo .sub{display:block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500);margin-top:2px}
+  .ev-title{font-family:var(--display);font-weight:900;letter-spacing:-.01em;line-height:1.1;
+    font-size:clamp(17px,3.6vw,24px);color:var(--dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72%}
+  #homeBtn{flex:none}
 
   .wrap{max-width:820px;margin:0 auto;padding:20px 16px 96px;position:relative}
   .wrap .dots{position:absolute;inset:0 0 auto 0;height:340px;opacity:.10;pointer-events:none;z-index:0}
@@ -66,8 +69,8 @@
 </head>
 <body>
 <header class="ev-head"><div class="inner">
-  <a class="logo" href="/"><span class="glyph">P</span><span><span class="name">TURNAMEN<b>PADEL</b></span><span class="sub">Tournament</span></span></a>
-  <a class="btn btn--white btn--sm" href="/"><span class="material-symbols-outlined" style="font-size:16px">home</span>Home</a>
+  <span class="ev-title" id="evTitle"></span>
+  <a class="btn btn--white btn--sm" id="homeBtn" href="#"><span class="material-symbols-outlined" style="font-size:16px">home</span>Home</a>
 </div></header>
 
 <div class="wrap">
@@ -160,18 +163,14 @@
       ? '<a class="btn btn--primary btn--pop btn--upper reg-btn" href="/daftar/'+encodeURIComponent(regRef)+'"><span class="material-symbols-outlined">how_to_reg</span>Register now</a>'
       : '<span class="btn btn--ghost btn--upper reg-btn" style="cursor:default;opacity:.7">'+(status==="closed"?"Pendaftaran ditutup":"Pendaftaran belum dibuka")+'</span>';
 
+    // Header: event title replaces the logo; Home points to this event's page.
+    var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
+    var homeEl=document.getElementById("homeBtn"); if(homeEl) homeEl.setAttribute("href","/"+encodeURIComponent(regRef));
+
     host.innerHTML =
       flyer +
-      '<div class="titlecard">'+
-        '<span class="eyebrow"><span class="dot"></span>Padel Tournament</span>'+
-        '<h1 class="title">'+esc(name)+'</h1>'+
-        '<div class="meta">'+statusChip+chip("location_on",venue)+chip("calendar_month",date)+chip("public",region)+'</div>'+
-      '</div>'+
-      '<div class="desc"><h2><span class="material-symbols-outlined">description</span>Tentang event</h2><div class="body">'+descBody+'</div></div>'+
-      (cats?'<div class="cats">'+cats+'</div>':'')+
-      '<div class="cta-wrap">'+cta+
-        (open?'<span class="note">Gratis dibuka · daftar berpasangan · konfirmasi instan</span>':'')+
-      '</div>';
+      '<div class="desc"><h2><span class="material-symbols-outlined">description</span>About event</h2><div class="body">'+descBody+'</div></div>'+
+      '<div class="cta-wrap">'+statusChip+cta+'</div>';
     document.title = name+" · TurnamenPadel";
   }
 })();
