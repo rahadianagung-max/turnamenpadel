@@ -5567,7 +5567,8 @@ async function regPublic(eventId) {
     config: { address: config.address || "", maps: config.maps || "", region: config.region || "",
       rules: config.rules || "", waiver: config.waiver || "", timeline: config.timeline || {},
       payment: config.payment || {}, fields: config.fields || {},
-      flyer: config.flyer || "", description: config.description || "" },
+      flyer: config.flyer || "", description: config.description || "",
+      theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
     categories: cats });
 }
 async function regRegisterPair(eventId, body) {
