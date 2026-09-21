@@ -172,8 +172,8 @@ function fileToDataUrl(input){ return new Promise(r=>{ const f=input.files&&inpu
 function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId); }
 function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
 function isWL(){ return catFull(cat()); }
-const STEP_NAME=["Kategori","Pemain 1","Pemain 2","Rangkuman","Persetujuan","Pembayaran"];
-function stepKeys(){ return isWL()? ["cat","p1","p2","summary","waiver","done"] : ["cat","p1","p2","summary","waiver","pay","done"]; }
+const STEP_NAME=["Kategori","Eligibility","Pemain 1","Pemain 2","Rangkuman","Persetujuan","Pembayaran"];
+function stepKeys(){ return isWL()? ["cat","elig","p1","p2","summary","waiver","done"] : ["cat","elig","p1","p2","summary","waiver","pay","done"]; }
 function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
 
 async function boot(){
@@ -257,7 +257,7 @@ function render(){
   head();
   const k = F.started ? stepKeys()[F.step] : "info";
   const host=document.getElementById("host");
-  let html = ({info:vInfo,cat:vCat,p1:()=>vPlayer(0),p2:()=>vPlayer(1),summary:vSummary,waiver:vWaiver,pay:vPay,done:vDone}[k])();
+  let html = ({info:vInfo,cat:vCat,elig:vElig,p1:()=>vPlayer(0),p2:()=>vPlayer(1),summary:vSummary,waiver:vWaiver,pay:vPay,done:vDone}[k])();
   if(F._restored && k!=="done" && k!=="info")
     html = `<div class="card" style="background:#DCFCE7;border-color:#065F46;margin-bottom:12px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><span class="note" style="margin:0;color:#065F46">✓ Pendaftaranmu yang tertunda dipulihkan — lanjutkan dari sini.</span><a href="#" onclick="event.preventDefault();resetDraft()" class="note" style="white-space:nowrap">Mulai dari awal</a></div></div>` + html;
   host.innerHTML = html;
@@ -303,12 +303,28 @@ function vCat(){
     <div style="display:flex;flex-direction:column;gap:11px">
     ${cats.map(c=>`<label class="opt ${F.catId===c.tournamentId?'sel':''} ${catFull(c)?'full':''}" style="flex-wrap:wrap">
       <input type="radio" name="cat" ${F.catId===c.tournamentId?'checked':''} onchange="F.catId='${esc(c.tournamentId)}';render()">
-      <div class="grow"><b>${esc(catText(c))}</b><div class="meta">${rupiah(c.fee)}${c.req?' · '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
+      <div class="grow"><b>${esc(catText(c))}</b><div class="meta">${c.fee?`Registration fee: ${rupiah(c.fee)},- / pair`:'Registration fee: —'}${c.req?' · '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
     </label>`).join("")}
     </div>
     ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
     <div class="nav"><a class="btn ghost" href="${eventPageHref()}">←</a>
-      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('p1')">Lanjut →</button></div></div>`;
+      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('elig')">Lanjut →</button></div></div>`;
+}
+/* ---------- STEP: players eligibility (konten dari /engine) ---------- */
+function vElig(){
+  const cfg=F.data.config||{};
+  const body = cfg.eligibility
+    ? `<div style="white-space:pre-line;color:var(--slate-700);font-size:14px;line-height:1.7">${esc(cfg.eligibility)}</div>`
+    : `<p class="muted" style="margin:0">No specific eligibility requirements for this category.</p>`;
+  return `<div class="card">
+      <div class="eyebrow" style="color:var(--orange)">Eligibility</div>
+      <h3 style="margin:6px 0 12px;font-size:20px">Players eligibility</h3>
+      ${body}
+      <div class="divider"></div>
+      <p class="note" style="margin:0;font-size:13px"><b>Read carefully</b> and make sure you and your partner are eligible with the requirements above.</p>
+    </div>
+    <div class="nav"><button class="btn ghost" onclick="go('cat')">←</button>
+      <button class="btn primary" onclick="go('p1')">Yes, we are eligible →</button></div>`;
 }
 /* ---------- STEP: per-player (Pemain 1 lalu Pemain 2) ---------- */
 function fieldsOn(){ const f=(F.data.config&&F.data.config.fields)||{}; return function(k){ const d=(k!=="jersey"); return f[k]===undefined?d:!!f[k]; }; }
@@ -501,7 +517,7 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
       <div><div class="who">Pemain ${i+1}</div><div class="sub">${i===0?'mulai dari pemain 1':'lanjut ke pemain 2'}</div></div></div>
     <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     ${block}
-    <div class="nav"><button class="btn ghost" onclick="go('${i===0?'cat':'p1'}')">←</button>
+    <div class="nav"><button class="btn ghost" onclick="go('${i===0?'elig':'p1'}')">←</button>
       <button class="btn primary" id="pNext_${i}" ${canNext?'':'disabled'} onclick="go('${i===0?'p2':'summary'}')">Lanjut →</button></div></div>`;
 }
 
