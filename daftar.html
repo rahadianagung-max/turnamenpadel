@@ -123,7 +123,7 @@ function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); r
 
 const F = { eventId:qs(), data:null, step:0, catId:null,
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
-function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false}; }
+function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
 
 async function api(path, opts){
   const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
@@ -248,6 +248,7 @@ function allFilled(i){ const p=F.players[i], on=fieldsOn();
 function setF(i,k,v){ F.players[i][k]=v; updatePlayerNav(i); }
 function updatePlayerNav(i){ const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(F.players[i].decision && allFilled(i)); }
 function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.decision=null; p.checking=false;
+  p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg="";
   const r=document.getElementById("pres_"+i); if(r) r.innerHTML=(v||"").trim()?'<div class="note">akan cek saat berhenti mengetik…</div>':"";
   clearTimeout(p._t); if(!(v||"").trim()) return; p._t=setTimeout(function(){ doCheck(i); }, 600);
 }
@@ -259,19 +260,58 @@ async function doCheck(i){ const p=F.players[i], c=cat(); if(!(p.name||"").trim(
   if(p.chk && !p.chk.found) p.decision="new";   // no match → straight to the new-player form
   render();
 }
-function useExisting(i){ const p=F.players[i], pr=(p.chk&&p.chk.profile)||{};
+// "Pakai data yang tersedia" → verifikasi OTP dulu (data kontak sensitif).
+async function startOtp(i){ const p=F.players[i]; if(!(p.name||"").trim()) return;
+  p.otpBusy=true; p.otpErr=""; render();
+  let r; try{ r=await api("reg/verify/start",{method:"POST",body:{name:p.name,eventId:F.eventId}}); }
+  catch(e){ p.otpBusy=false; p.otpErr="Gagal mengirim kode. Coba lagi."; render(); return; }
+  p.otpBusy=false;
+  if(!r.available){ p.otpStage="unavail"; p.otpMsg=r.message||"Tidak ada email terdaftar untuk profil ini."; render(); return; }
+  p.otpStage="sent"; p.otpMask=r.emailMask||""; p.otpCode="";
+  p.otpErr = r.sent===false ? ("Email gagal terkirim"+(r.message?": "+r.message:"")+". Coba kirim ulang atau pilih Buat baru.") : "";
+  render();
+}
+async function confirmOtp(i){ const p=F.players[i]; const code=String(p.otpCode||"").replace(/\D/g,"");
+  if(!/^\d{6}$/.test(code)){ p.otpErr="Masukkan 6 digit kode."; render(); return; }
+  p.otpBusy=true; p.otpErr=""; render();
+  let r; try{ r=await api("reg/verify/confirm",{method:"POST",body:{name:p.name,code:code}}); }
+  catch(e){ p.otpBusy=false; p.otpErr=(e&&e.message)||"Kode salah atau kedaluwarsa."; render(); return; }
+  p.otpBusy=false;
+  const pr=r.profile||{};
   p.name=pr.name||p.name; p.nick=pr.alias||""; p.gender=pr.gender||""; p.region=pr.region||"";
   p.phone=pr.phone||""; p.email=pr.email||""; p.photoUrl=pr.photoUrl||""; p.photo="";
-  p.decision="use"; render();
+  p.decision="use"; p.otpStage=null; p.otpErr=""; p.otpCode=""; p.otpMask="";
+  render();
 }
 function buatBaru(i){ const p=F.players[i];
   p.nick="";p.gender="";p.dob="";p.region="";p.jersey="";p.phone="";p.email="";p.photo="";p.photoUrl="";
+  p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpMsg="";
   p.decision="new"; render();
 }
-function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false; render(); }
+function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false;
+  p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg=""; render(); }
 async function pickPhoto(i,input){ const p=F.players[i]; p.photo=await fileToDataUrl(input);
   const ph=document.getElementById("ph_"+i); if(ph&&p.photo) ph.innerHTML='<img src="'+p.photo+'" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">';
   updatePlayerNav(i);
+}
+function otpBlock(i){ const p=F.players[i];
+  if(p.otpStage==="unavail"){
+    return `<div class="note" style="margin-top:8px">🔒 ${esc(p.otpMsg||"Tidak ada email terdaftar untuk profil ini.")} Data hanya bisa dibuka lewat verifikasi email.</div>
+      <div class="nav" style="margin-top:8px"><button class="btn ghost" onclick="buatBaru(${i})">Buat baru</button></div>`;
+  }
+  if(p.otpStage==="sent"){
+    return `<div class="note" style="margin:8px 0 6px">🔐 Kami kirim <b>kode 6 digit</b> ke <b>${esc(p.otpMask)}</b>. Masukkan kode untuk membuka datamu.</div>
+      <label class="f"><span>Kode verifikasi <span class="req">*</span></span>
+        <input id="otp_${i}" value="${esc(p.otpCode||"")}" oninput="F.players[${i}].otpCode=this.value" inputmode="numeric" maxlength="6" placeholder="______" autocomplete="one-time-code" style="letter-spacing:6px;font-weight:700;text-align:center"></label>
+      ${p.otpErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.otpErr)}</div>`:""}
+      <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="confirmOtp(${i})">${p.otpBusy?'Memverifikasi…':'Verifikasi & pakai data'}</button>
+        <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">Kirim ulang</button></div>
+      <div style="margin-top:6px"><a href="#" onclick="event.preventDefault();buatBaru(${i})" class="note">atau buat data baru</a></div>`;
+  }
+  return `<div class="note" style="margin:8px 0 4px">Untuk melindungi data pribadi, kami akan mengirim <b>kode verifikasi ke email terdaftar</b> sebelum data dibuka.</div>
+    ${p.otpErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.otpErr)}</div>`:""}
+    <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">${p.otpBusy?'Mengirim kode…':'Pakai data yang tersedia'}</button>
+      <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="buatBaru(${i})">Buat baru</button></div>`;
 }
 function profileForm(i,on){ const p=F.players[i];
   const src = p.decision==="use"
@@ -302,8 +342,7 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
         <div class="row" style="justify-content:space-between;align-items:center"><span>✔ <b>Ditemukan</b> via ${esc(p.chk.method)}</span><span class="chip ${blk||e.state==='flag'?'warn':'ok'}">${esc(e.msg||'')}</span></div>
         <div style="margin-top:6px">${esc(p.chk.name)} · <span class="elo">${esc(p.chk.tier)} ${p.chk.elo}</span></div>
         ${blk?'<div class="note" style="margin-top:6px">⛔ Level di atas plafon kategori — tidak bisa daftar di kategori ini.</div>'
-             :`<div class="note" style="margin:8px 0 4px">Pakai data yang tersimpan di Trekkr, atau buat data baru?</div>
-               <div class="nav" style="margin-top:8px"><button class="btn primary" onclick="useExisting(${i})">Pakai data yang tersedia</button><button class="btn ghost" onclick="buatBaru(${i})">Buat baru</button></div>`}
+             : otpBlock(i)}
       </div>`;
     }
     block=`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span>

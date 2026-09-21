@@ -814,6 +814,8 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("reg/register/") && method === "POST")
       return await regRegisterPair(decodeURIComponent(path.replace("reg/register/", "")), body);
     if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
+    if (path === "reg/verify/start" && method === "POST") return await regVerifyStart(body);
+    if (path === "reg/verify/confirm" && method === "POST") return await regVerifyConfirm(body);
     if (path === "reg/diag" && method === "GET") return respond(200, {
       brevo: !!(String(process.env.BREVO_API_KEY || "").trim() && String(process.env.BREVO_SENDER_EMAIL || "").trim()),
       senderSet: !!String(process.env.BREVO_SENDER_EMAIL || "").trim(),
@@ -5578,9 +5580,97 @@ async function regCheckPlayer(body) {
     }
   }
   if (!hit) return respond(200, { found: false, eligibility: eligibilityOf(null, true, level) });
+  // Data kontak sensitif (email/HP) TIDAK dikembalikan mentah. Frontend harus
+  // memverifikasi via OTP ke email terdaftar sebelum profil lengkap dibuka
+  // (lihat regVerifyStart / regVerifyConfirm).
+  const pf = hit.profile || {};
+  const hasEmail = !!String(pf.email || "").includes("@");
   return respond(200, { found: true, name: hit.name, ig: hit.ig, elo: hit.elo, tier: hit.tier,
     method: hit.method, claimed: hit.verified, enrolledInCategory: enrolled, eligibility: eligibilityOf(hit.elo, false, level),
-    profile: hit.profile });
+    // Pratinjau non-sensitif + petunjuk tersamar; bukan profil penuh.
+    preview: { name: pf.name || hit.name || "", alias: pf.alias || "", photoUrl: pf.photoUrl || "" },
+    verify: { available: hasEmail, emailMask: maskEmail(pf.email), phoneMask: maskPhone(pf.phone) } });
+}
+// Penyamaran PII untuk pratinjau sebelum verifikasi.
+function maskEmail(e) {
+  const s = String(e || "").trim();
+  const at = s.indexOf("@");
+  if (at < 1) return "";
+  const user = s.slice(0, at), dom = s.slice(at + 1);
+  const head = user.slice(0, Math.min(2, user.length));
+  return head + "•".repeat(Math.max(2, user.length - head.length)) + "@" + dom;
+}
+function maskPhone(p) {
+  const d = String(p || "").replace(/\D/g, "");
+  if (d.length < 4) return "";
+  return d.slice(0, 3) + "•".repeat(Math.max(2, d.length - 5)) + d.slice(-2);
+}
+// ==============================================================
+// VERIFIKASI OTP — buka profil Trekkr (termasuk kontak sensitif) hanya setelah
+// pemilik memasukkan kode yang dikirim ke email terdaftar. Memakai tab
+// reg_claims (status "otp"). Tidak menyentuh flag verified/claim.
+// ==============================================================
+async function regVerifyStart(body) {
+  const name = String((body && body.name) || "").trim();
+  const eventId = String((body && body.eventId) || "").trim();
+  if (!name) return respond(400, { error: "Nama pemain wajib." });
+  const sheets = getSheets();
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const hit = regLookupPlayer(pRes.data.values || [], eMap, { name });
+  const email = hit && hit.profile ? String(hit.profile.email || "").trim() : "";
+  if (!hit || !email.includes("@"))
+    return respond(200, { available: false, message: "Tidak ada email terdaftar untuk profil ini. Silakan pilih Buat baru." });
+  await ensureRegTabs(sheets);
+  const code = String(Math.floor(100000 + Math.random() * 900000)); // 6 digit
+  const now = Date.now();
+  const expires = new Date(now + 10 * 60 * 1000).toISOString(); // 10 menit
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A:H`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[code, hit.name, email, eventId, "otp", new Date(now).toISOString(), expires, ""]] } });
+  const html = regEmailShell("Kode verifikasi", `
+    <p>Halo <b>${escHtml(hit.name)}</b>, gunakan kode berikut untuk membuka data profilmu saat pendaftaran turnamen:</p>
+    <p style="font-size:30px;font-weight:800;letter-spacing:6px;color:#0F172A;background:#F1F5F9;border:2px solid #0F172A;border-radius:10px;padding:14px 18px;text-align:center;margin:14px 0">${code}</p>
+    <p style="color:#64748b;font-size:13px">Kode berlaku 10 menit. Abaikan email ini jika kamu tidak sedang mendaftar.</p>`);
+  try {
+    await sendBrevoEmail(email, "Kode verifikasi — TurnamenPadel", html);
+    return respond(200, { available: true, sent: true, emailMask: maskEmail(email) });
+  } catch (e) {
+    return respond(200, { available: true, sent: false, emailMask: maskEmail(email), message: e.message });
+  }
+}
+async function regVerifyConfirm(body) {
+  const name = String((body && body.name) || "").trim();
+  const code = String((body && body.code) || "").replace(/\D/g, "");
+  if (!name || !code) return respond(400, { error: "Nama & kode wajib." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const cRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A2:H` });
+  const rows = cRes.data.values || [];
+  const nm = normName(name);
+  let match = -1;
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    if ((r[4] || "") !== "otp") continue;
+    if (String(r[0] || "").trim() !== code) continue;
+    if (normName(r[1] || "") !== nm) continue;
+    if (r[6] && Date.now() > Date.parse(r[6])) continue;
+    match = i; // pakai yang paling akhir (kode terbaru)
+  }
+  if (match < 0) return respond(400, { error: "Kode salah atau kedaluwarsa." });
+  // Tandai terpakai.
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!E${match + 2}:H${match + 2}`,
+    valueInputOption: "USER_ENTERED", requestBody: { values: [["otp_used", rows[match][5] || "", rows[match][6] || "", new Date().toISOString()]] } });
+  // Ambil profil lengkap sekarang (setelah verifikasi berhasil).
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const hit = regLookupPlayer(pRes.data.values || [], eMap, { name });
+  if (!hit) return respond(404, { error: "Profil tidak ditemukan." });
+  return respond(200, { verified: true, profile: hit.profile });
 }
 
 // ==============================================================
