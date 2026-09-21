@@ -126,6 +126,35 @@ async function imgbbUpload(dataUrl, name) {
   return j.data.display_url || j.data.url || (j.data.image && j.data.image.url) || "";
 }
 
+// Upload a base64 image data URL to Supabase Storage (our own infra — no
+// third-party rate limits). Uses the service key over the Storage REST API
+// (no SDK). Ensures a public bucket exists, then returns the public URL.
+async function supabaseUpload(dataUrl, name) {
+  const base = String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const key = process.env.SUPABASE_SERVICE_KEY;
+  if (!base || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_KEY not set");
+  const m = /^data:(image\/[\w.+-]+);base64,([\s\S]+)$/.exec(String(dataUrl || ""));
+  if (!m) throw new Error("invalid image data");
+  const mime = m[1], buf = Buffer.from(m[2], "base64");
+  const ext = (mime.split("/")[1] || "jpg").replace("jpeg", "jpg").replace("+xml", "").replace("svg", "svg");
+  const bucket = process.env.SUPABASE_BUCKET || "uploads";
+  const safe = String(name || "img").replace(/\.[a-z0-9]+$/i, "").replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 60) || "img";
+  const objectPath = `${safe}_${Date.now()}.${ext}`;
+  const hdr = { Authorization: `Bearer ${key}`, apikey: key };
+  const put = () => fetch(`${base}/storage/v1/object/${bucket}/${objectPath}`, {
+    method: "POST", headers: { ...hdr, "Content-Type": mime, "x-upsert": "true", "cache-control": "31536000" }, body: buf,
+  });
+  let res = await put();
+  if (res.status === 400 || res.status === 404) {
+    // Bucket likely missing → create a public bucket, then retry once.
+    await fetch(`${base}/storage/v1/bucket`, { method: "POST", headers: { ...hdr, "Content-Type": "application/json" },
+      body: JSON.stringify({ id: bucket, name: bucket, public: true, file_size_limit: 15728640 }) }).catch(() => {});
+    res = await put();
+  }
+  if (!res.ok) { const t = await res.text().catch(() => ""); throw new Error(`supabase storage ${res.status}: ${t.slice(0, 200)}`); }
+  return `${base}/storage/v1/object/public/${bucket}/${objectPath}`;
+}
+
 // Send a transactional email via Brevo (https://api.brevo.com). Uses global fetch.
 async function sendBrevoEmail(to, subject, htmlContent) {
   const key = String(process.env.BREVO_API_KEY || "").trim();
@@ -5238,18 +5267,16 @@ async function regGetForm(id) {
   let config = {}; try { config = JSON.parse(r[4] || "{}"); } catch (e) {}
   return respond(200, { formId: r[0], name: r[1], status: r[2] || "active", linkedTournament: r[3] || "", config });
 }
-// Upload an image data URL to the best available host. Prefers imgbb (returns a
-// hotlinkable URL) and retries it a few times for transient failures/rate limits;
-// falls back to Google Drive only if imgbb is exhausted. NOTE: a bare service
-// account has no Drive storage quota, so Drive uploads fail unless
-// REG_DRIVE_FOLDER_ID points at a Shared Drive folder — imgbb is the reliable
-// path. Drive URLs are normalised to the thumbnail endpoint so they render in
-// <img>. Throws only if every attempt fails.
+// Upload an image data URL to our own Supabase Storage (reliable, no third-party
+// rate limits). Retries a few times for transient errors, then falls back to
+// Google Drive only if Supabase is unavailable (imgbb is no longer used for new
+// uploads). Drive URLs are normalised to the thumbnail endpoint so they render
+// in <img>. Throws only if every attempt fails.
 async function uploadImageSmart(dataUrl, name, folderId) {
   let lastErr;
   for (let i = 0; i < 3; i++) {
-    try { return await imgbbUpload(dataUrl, name); }
-    catch (e) { lastErr = e; if (i < 2) await new Promise((r) => setTimeout(r, 400 * (i + 1))); }
+    try { return await supabaseUpload(dataUrl, name); }
+    catch (e) { lastErr = e; if (i < 2) await new Promise((r) => setTimeout(r, 300 * (i + 1))); }
   }
   try {
     const drive = driveUploadImage; // aliased so callers can be routed here uniformly
