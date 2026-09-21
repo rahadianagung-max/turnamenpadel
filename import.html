@@ -39,6 +39,11 @@
   select.mini{padding:6px 8px;font-size:12px;width:auto;min-width:150px}
   .muted{color:var(--slate-500)}
   .btn.sm{padding:8px 14px}
+  .cov-lbl{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--mono);font-size:12px;text-transform:uppercase;color:var(--slate-600)}
+  .cov-lbl b{font-family:var(--display);font-size:20px;color:var(--dark)}
+  .bar{height:12px;border:var(--bd);border-radius:999px;background:#fff;overflow:hidden;margin-top:5px}
+  .bar>i{display:block;height:100%;background:var(--orange);transition:width .5s}
+  .bar>i.bar-v{background:#065F46} .bar>i.bar-p{background:#1E40AF}
 </style>
 </head>
 <body>
@@ -48,8 +53,38 @@
   <p class="muted" style="margin:6px 0 0">Cocokkan daftar <b>nama · email · no HP</b> ke database pemain, isi email/HP yang masih kosong, dan tambahkan pemain baru untuk yang belum ada.</p>
 
   <div class="card" style="margin-top:16px">
-    <label class="f"><span>Kunci admin</span><input id="key" type="password" placeholder="REG_ADMIN_KEY" autocomplete="off"></label>
-    <label class="f"><span>File CSV (kolom: nama, email, no hp)</span><input id="file" type="file" accept=".csv,text/csv,text/plain"></label>
+    <label class="f" style="margin-bottom:0"><span>Kunci admin</span><input id="key" type="password" placeholder="REG_ADMIN_KEY" autocomplete="off"></label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn ghost sm" id="btnCoverage" onclick="loadCoverage()">📊 Cakupan email</button>
+    </div>
+  </div>
+
+  <div id="coverageCard" class="card hidden">
+    <div class="row" style="justify-content:space-between"><h3 style="font-size:16px">Cakupan kontak pemain</h3><a href="#" onclick="event.preventDefault();loadCoverage()" class="note">↻ segarkan</a></div>
+    <div style="margin-top:12px">
+      <div class="cov-lbl"><span>Punya email</span><b id="covEmailPct">–</b></div>
+      <div class="bar"><i id="covEmailBar" style="width:0%"></i></div>
+      <div class="note" id="covEmailNum"></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="cov-lbl"><span>Terverifikasi</span><b id="covVerPct">–</b></div>
+      <div class="bar"><i id="covVerBar" class="bar-v" style="width:0%"></i></div>
+      <div class="note" id="covVerNum"></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="cov-lbl"><span>Punya no HP</span><b id="covPhonePct">–</b></div>
+      <div class="bar"><i id="covPhoneBar" class="bar-p" style="width:0%"></i></div>
+      <div class="note" id="covPhoneNum"></div>
+    </div>
+    <div class="row" style="margin-top:14px;gap:8px">
+      <button class="btn ghost sm" id="btnDlNoEmail" onclick="downloadNoEmail()" disabled>⬇ Unduh CSV pemain tanpa email</button>
+    </div>
+    <div id="dupWrap"></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="font-size:16px">Impor kontak dari CSV</h3>
+    <label class="f" style="margin-top:12px"><span>File CSV (kolom: nama, email, no hp)</span><input id="file" type="file" accept=".csv,text/csv,text/plain"></label>
     <div class="note">Baris pertama boleh header (mis. <span class="mono">nama,email,no hp</span>) — akan dideteksi otomatis. Tanpa header, urutan dianggap: nama, email, no HP.</div>
     <div id="parseInfo" class="note"></div>
     <div class="row" style="margin-top:12px">
@@ -130,6 +165,35 @@ document.getElementById("file").addEventListener("change",function(){
   rd.readAsText(f);
 });
 function key(){ return document.getElementById("key").value.trim(); }
+let NOEMAIL=[];
+async function loadCoverage(){
+  const btn=document.getElementById("btnCoverage"); const old=btn.textContent; btn.disabled=true; btn.textContent="Memuat…";
+  try{ const c=await api("reg/import/coverage",{method:"POST",body:{key:key()}});
+    document.getElementById("coverageCard").classList.remove("hidden");
+    document.getElementById("covEmailPct").textContent=c.coveragePct+"%";
+    document.getElementById("covEmailBar").style.width=c.coveragePct+"%";
+    document.getElementById("covEmailNum").textContent=`${c.withEmail} dari ${c.total} pemain punya email · ${c.withoutEmail} belum`;
+    document.getElementById("covVerPct").textContent=c.verifiedPct+"%";
+    document.getElementById("covVerBar").style.width=c.verifiedPct+"%";
+    document.getElementById("covVerNum").textContent=`${c.verified} pemain terverifikasi`;
+    document.getElementById("covPhonePct").textContent=c.phonePct+"%";
+    document.getElementById("covPhoneBar").style.width=c.phonePct+"%";
+    document.getElementById("covPhoneNum").textContent=`${c.withPhone} pemain punya no HP`;
+    NOEMAIL=c.noEmailNames||[];
+    document.getElementById("btnDlNoEmail").disabled=!NOEMAIL.length;
+    const dup=c.duplicates||[];
+    document.getElementById("dupWrap").innerHTML = dup.length
+      ? `<div class="divider"></div><div class="note" style="color:var(--danger)"><b>⚠ ${c.duplicateEmailCount} email dipakai lebih dari satu pemain</b> (${c.duplicatePlayerCount} pemain) — perlu digabung agar email jadi identitas unik:</div>
+         <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Email</th><th>Pemain</th></tr></thead><tbody>${dup.map(d=>`<tr><td class="mono">${esc(d.email)}</td><td>${d.players.map(esc).join(" · ")}</td></tr>`).join("")}</tbody></table></div>`
+      : `<div class="divider"></div><div class="note" style="color:var(--ok)">✓ Tidak ada email ganda — setiap email dipakai maksimal satu pemain.</div>`;
+  }catch(e){ alert(e.status===401?"Kunci admin salah.":("Gagal: "+e.message)); }
+  btn.disabled=false; btn.textContent=old;
+}
+function downloadNoEmail(){
+  const csv="nama\n"+NOEMAIL.map(n=>'"'+String(n).replace(/"/g,'""')+'"').join("\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="pemain-tanpa-email.csv"; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
 async function doPreview(){
   const btn=document.getElementById("btnPreview"); btn.disabled=true; btn.textContent="Mencocokkan…";
   try{ const r=await api("reg/import/preview",{method:"POST",body:{key:key(),rows:ROWS}});

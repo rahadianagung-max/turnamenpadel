@@ -819,6 +819,7 @@ const netlifyHandler = async (event) => {
     if (path === "reg/profile/basic" && method === "POST") return await regProfileBasic(body);
     if (path === "reg/import/preview" && method === "POST") return await regImportPreview(body);
     if (path === "reg/import/apply" && method === "POST") return await regImportApply(body);
+    if (path === "reg/import/coverage" && method === "POST") return await regImportCoverage(body);
     if (path === "reg/diag" && method === "GET") return respond(200, {
       brevo: !!(String(process.env.BREVO_API_KEY || "").trim() && String(process.env.BREVO_SENDER_EMAIL || "").trim()),
       senderSet: !!String(process.env.BREVO_SENDER_EMAIL || "").trim(),
@@ -5701,6 +5702,33 @@ async function regAttachContacts(sheets, prows, entries) {
     if (phone && !String(tp.phone).trim()) { updates.push({ range: `${TABS.players}!M${tp.row}`, values: [[phone]] }); tp.phone = phone; }
   }
   if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
+}
+// Statistik cakupan kontak: berapa pemain sudah punya email/HP, berapa
+// terverifikasi, dan email mana yang dipakai lebih dari satu pemain (harus
+// digabung karena email = identitas unik). Nama pemain tanpa email dikembalikan
+// (nama publik) agar admin bisa mengejar kelengkapannya. Gerbang admin.
+async function regImportCoverage(body) {
+  if (!regAdminOk(body && body.key)) return REG_UNAUTH;
+  const sheets = getSheets();
+  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const rows = (pRes.data.values || []).filter((r) => r[0]);
+  let withEmail = 0, withPhone = 0, verified = 0;
+  const emailMap = new Map(); const noEmail = [];
+  for (const r of rows) {
+    const name = r[0] || "", email = String(r[11] || "").trim(), phone = String(r[12] || "").trim();
+    if (email) { withEmail++; const k = normEmailLc(email); if (!emailMap.has(k)) emailMap.set(k, []); emailMap.get(k).push(name); }
+    else noEmail.push(name);
+    if (phone) withPhone++;
+    if (String(r[2]).toUpperCase() === "TRUE") verified++;
+  }
+  const total = rows.length;
+  const duplicates = [...emailMap.entries()].filter(([, ns]) => ns.length > 1)
+    .map(([email, players]) => ({ email, players, count: players.length })).sort((a, b) => b.count - a.count);
+  return respond(200, { total, withEmail, withoutEmail: total - withEmail, withPhone, verified,
+    coveragePct: total ? Math.round(withEmail / total * 100) : 0, phonePct: total ? Math.round(withPhone / total * 100) : 0,
+    verifiedPct: total ? Math.round(verified / total * 100) : 0,
+    duplicates, duplicateEmailCount: duplicates.length, duplicatePlayerCount: duplicates.reduce((s, d) => s + d.count, 0),
+    noEmailNames: noEmail });
 }
 async function regImportPreview(body) {
   if (!regAdminOk(body && body.key)) return REG_UNAUTH;
