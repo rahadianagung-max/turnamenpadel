@@ -5238,22 +5238,25 @@ async function regGetForm(id) {
   let config = {}; try { config = JSON.parse(r[4] || "{}"); } catch (e) {}
   return respond(200, { formId: r[0], name: r[1], status: r[2] || "active", linkedTournament: r[3] || "", config });
 }
-// Upload a flyer/poster data URL to a hotlinkable host (imgbb first, Drive
-// fallback). Returns "" if neither is configured so a save never fails on it.
 // Upload an image data URL to the best available host. Prefers imgbb (returns a
-// hotlinkable URL); falls back to Google Drive only if imgbb is unavailable.
-// NOTE: a bare service account has no Drive storage quota, so Drive uploads fail
-// unless REG_DRIVE_FOLDER_ID points at a Shared Drive folder — imgbb is the
-// reliable path here. Drive URLs are normalised to the thumbnail endpoint so
-// they render inside <img>. Throws only if every host fails.
+// hotlinkable URL) and retries it a few times for transient failures/rate limits;
+// falls back to Google Drive only if imgbb is exhausted. NOTE: a bare service
+// account has no Drive storage quota, so Drive uploads fail unless
+// REG_DRIVE_FOLDER_ID points at a Shared Drive folder — imgbb is the reliable
+// path. Drive URLs are normalised to the thumbnail endpoint so they render in
+// <img>. Throws only if every attempt fails.
 async function uploadImageSmart(dataUrl, name, folderId) {
-  try { return await imgbbUpload(dataUrl, name); }
-  catch (e) {
+  let lastErr;
+  for (let i = 0; i < 3; i++) {
+    try { return await imgbbUpload(dataUrl, name); }
+    catch (e) { lastErr = e; if (i < 2) await new Promise((r) => setTimeout(r, 400 * (i + 1))); }
+  }
+  try {
     const drive = driveUploadImage; // aliased so callers can be routed here uniformly
     const u = await drive(dataUrl, /\.(jpg|jpeg|png|webp|gif)$/i.test(name) ? name : (name + ".jpg"), folderId || process.env.REG_DRIVE_FOLDER_ID || "");
     const m = String(u).match(/id=([-\w]+)/);
     return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000` : u;
-  }
+  } catch (e2) { throw lastErr || e2; }
 }
 // Flyer/poster upload for the public event page. Never throws (a save must not
 // fail on the flyer); returns "" when no host is available.
@@ -5266,26 +5269,27 @@ async function regSaveForm(body) {
   if (!name) return respond(400, { error: "name required" });
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const now = new Date().toISOString();
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
+  const rows = res.data.values || [];
+  const existingRow = formId ? rows.find((x) => x[0] === formId) : null;
+  let existingFlyer = ""; try { existingFlyer = JSON.parse((existingRow && existingRow[4]) || "{}").flyer || ""; } catch (e) {}
+
   // A freshly-picked flyer arrives as a base64 data URL; upload it and keep the
-  // hosted URL (base64 would blow the sheet cell limit). Existing URLs pass through.
+  // hosted URL. If the upload fails, KEEP the previously-stored flyer so a
+  // transient host error never wipes a good flyer.
   let cfg = config || {};
   console.log("[flyer] incoming:", cfg.flyer ? (/^data:image\//.test(String(cfg.flyer)) ? ("dataURL " + String(cfg.flyer).length + "b") : ("url " + String(cfg.flyer).slice(0, 70))) : "EMPTY");
   if (cfg.flyer && /^data:image\//.test(String(cfg.flyer))) {
     const url = await regUploadFlyer(cfg.flyer, `flyer_${String(name || "event").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 40)}_${Date.now()}`);
-    cfg = Object.assign({}, cfg, { flyer: url });
-    console.log("[flyer] stored:", String(cfg.flyer || "").slice(0, 90) || "EMPTY (upload returned nothing)");
+    cfg = Object.assign({}, cfg, { flyer: url || existingFlyer });
+    console.log("[flyer] stored:", String(cfg.flyer || "").slice(0, 90) || "EMPTY", url ? "(uploaded)" : (existingFlyer ? "(kept existing)" : "(no host)"));
   }
   const cfgStr = JSON.stringify(cfg);
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
-  const rows = res.data.values || [];
-  if (formId) {
-    const ri = rows.findIndex((x) => x[0] === formId);
-    if (ri >= 0) {
-      const sr = ri + 2, c = rows[ri];
-      await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A${sr}:G${sr}`, valueInputOption: "USER_ENTERED",
-        requestBody: { values: [[formId, name, status || c[2] || "active", linkedTournament || "", cfgStr, c[5] || now, now]] } });
-      return respond(200, { success: true, formId });
-    }
+  if (existingRow) {
+    const sr = rows.indexOf(existingRow) + 2, c = existingRow;
+    await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A${sr}:G${sr}`, valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[formId, name, status || c[2] || "active", linkedTournament || "", cfgStr, c[5] || now, now]] } });
+    return respond(200, { success: true, formId });
   }
   const id = formId || regGenId("form");
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A:G`, valueInputOption: "USER_ENTERED",
