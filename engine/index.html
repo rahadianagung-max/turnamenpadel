@@ -1202,8 +1202,7 @@ function renderRegBuilder(cfg, status){
       ${status==="open"?'<button type="button" class="btn btn-ghost" onclick="saveRegForm(\'closed\')">Tutup pendaftaran</button>':''}
     </div>
     <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-      <div class="f" style="max-width:320px"><label>Kunci admin <span class="muted" style="font-weight:400">(REG_ADMIN_KEY — kalau endpoint dikunci)</span></label>
-        <input id="rb_adminKey" type="password" value="${esc(regAdminKey())}" oninput="setRegAdminKey(this.value)" placeholder="kosongkan bila belum dikunci"></div>
+      <div id="rb_authArea">${regAuthAreaHtml()}</div>
       <div class="actions">
         <button type="button" class="btn btn-ghost" onclick="openCuration()">📋 Pendaftar &amp; kurasi</button>
         <button type="button" class="btn btn-ghost" onclick="rosterBlast()">✉ Kirim roster ke peserta</button>
@@ -1213,7 +1212,37 @@ function renderRegBuilder(cfg, status){
 }
 function regAdminKey(){ try{ return localStorage.getItem("tp_reg_admin_key")||""; }catch(e){ return ""; } }
 function setRegAdminKey(v){ try{ localStorage.setItem("tp_reg_admin_key", v||""); }catch(e){} }
-function regKeyQ(){ const k=regAdminKey(); return k?("?key="+encodeURIComponent(k)):""; }
+/* Login superadmin (token bertanda tangan) — dipakai bersama /import via
+   localStorage tp_admin_token. Token diprioritaskan; kunci admin tetap fallback. */
+function regAdminToken(){ try{ return localStorage.getItem("tp_admin_token")||""; }catch(e){ return ""; } }
+function regAdminUser(){ try{ return localStorage.getItem("tp_admin_user")||""; }catch(e){ return ""; } }
+function regKeyQ(){ const parts=[]; const t=regAdminToken(); const k=regAdminKey();
+  if(t) parts.push("token="+encodeURIComponent(t)); if(k) parts.push("key="+encodeURIComponent(k));
+  return parts.length?("?"+parts.join("&")):""; }
+function regAuthAreaHtml(){
+  const u=regAdminUser(), tok=regAdminToken();
+  if(tok){ return `<div class="row" style="align-items:center;gap:10px"><span class="chip on">✔ superadmin: ${esc(u||"admin")}</span><button type="button" class="btn btn-ghost" onclick="regSuperLogout()">Keluar</button></div>
+    <div class="muted" style="font-size:12px;margin-top:4px">Endpoint admin dipanggil dengan token superadmin.</div>`; }
+  return `<div class="f" style="max-width:380px"><label>Login superadmin <span class="muted" style="font-weight:400">(disarankan untuk data sensitif)</span></label>
+      <div class="row" style="gap:8px;flex-wrap:wrap"><input id="rb_suUser" placeholder="username" style="max-width:150px" autocomplete="username"><input id="rb_suPass" type="password" placeholder="password" style="max-width:150px" autocomplete="current-password"><button type="button" class="btn btn-primary" onclick="regSuperLogin()">Masuk</button></div>
+      <div id="rb_suStatus" class="muted" style="font-size:12px;margin-top:4px"></div></div>
+    <div class="f" style="max-width:320px;margin-top:10px"><label>Kunci admin <span class="muted" style="font-weight:400">(REG_ADMIN_KEY — fallback)</span></label>
+      <input id="rb_adminKey" type="password" value="${esc(regAdminKey())}" oninput="setRegAdminKey(this.value)" placeholder="kosongkan bila belum dikunci"></div>`;
+}
+function refreshRegAuthArea(){ const el=document.getElementById("rb_authArea"); if(el) el.innerHTML=regAuthAreaHtml(); }
+function regAuthBody(extra){ const b=Object.assign({}, extra||{}); const t=regAdminToken(); if(t) b.token=t; const k=regAdminKey(); if(k) b.adminKey=k; return b; }
+async function regSuperLogin(){
+  const u=(document.getElementById("rb_suUser")||{}).value, p=(document.getElementById("rb_suPass")||{}).value;
+  const st=document.getElementById("rb_suStatus");
+  if(!u||!p){ if(st) st.textContent="Isi username & password."; return; }
+  if(st) st.textContent="Masuk…";
+  try{ const r=await api("auth/login",{method:"POST",body:{username:u,password:p}});
+    if(String(r.role||"").toLowerCase()!=="superadmin"){ if(st) st.textContent="Akun ini bukan superadmin."; return; }
+    try{ localStorage.setItem("tp_admin_token", r.token||""); localStorage.setItem("tp_admin_user", r.username||u); }catch(e){}
+    refreshRegAuthArea();
+  }catch(e){ if(st) st.textContent=(e.status===401?"Username/password salah.":("Gagal: "+e.message)); }
+}
+function regSuperLogout(){ try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); }catch(e){} refreshRegAuthArea(); }
 /* ---- Kurasi (Fase 5b) ---- */
 async function openCuration(){
   const host=document.getElementById("regCuration"); if(!state.event) return;
@@ -1283,14 +1312,14 @@ async function rosterBlast(){
   if(!state.event) return;
   if(!confirm("Kirim email roster ke semua peserta event ini?")) return;
   try{
-    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/roster-blast",{method:"POST",body:{adminKey:regAdminKey()}});
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/roster-blast",{method:"POST",body:regAuthBody()});
     toast("Roster dikirim · "+(r.sent||0)+"/"+(r.recipients||0)+" email"+(r.sent===0?" (Brevo belum aktif?)":""));
   }catch(e){ toast(e.message, true); }
 }
 async function finalizeCat(tid){
   if(!confirm("Finalisasi kategori ini → dorong semua pasangan Terkonfirmasi ke daftar peserta (entrants)?")) return;
   try{
-    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/finalize",{method:"POST",body:{category:tid,adminKey:regAdminKey()}});
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/finalize",{method:"POST",body:regAuthBody({category:tid})});
     toast("Finalisasi OK · "+(r.finalized||0)+" pasangan ke entrants.");
     openCuration();
   }catch(e){ toast(e.message, true); }
@@ -1298,7 +1327,7 @@ async function finalizeCat(tid){
 async function invitePay(regId){
   if(!confirm("Undang pendaftar waitlist ini untuk membayar? Email berisi link pembayaran akan dikirim.")) return;
   try{
-    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/invite-pay",{method:"POST",body:{regId,adminKey:regAdminKey()}});
+    const r=await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/invite-pay",{method:"POST",body:regAuthBody({regId})});
     toast("Undangan bayar dikirim"+(r.sent?" ("+r.sent+" email)":" (Brevo belum aktif — link tetap dibuat)")+".");
     openCuration();
   }catch(e){ toast(e.message, true); }
@@ -1308,7 +1337,7 @@ async function appealDecide(appealId, decision){
   if(decision==="levelup") note=prompt("Catatan koreksi level (mis. bukti, level baru yang sesuai):","")||"";
   if((decision==="reject"||decision==="levelup") && !confirm("Keputusan '"+decision+"' akan mengeluarkan pasangan dari kategori ini dan membuka slot. Lanjut?")) return;
   try{
-    await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{decision, note, adminKey:regAdminKey()}});
+    await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:regAuthBody({decision, note})});
     toast("Keputusan appeal disimpan.");
     openCuration();
   }catch(e){ toast(e.message, true); }
@@ -1330,7 +1359,7 @@ async function applyLevel(appealId){
   if(!names.length) return toast("Pilih minimal satu pemain", true);
   if(!confirm("Naikkan level "+names.join(", ")+" → "+(LEVEL_LABEL[targetLevel]||targetLevel)+" di passport Trekkr?\nIni menulis penyesuaian ELO (ber-audit, hanya menaikkan). Lanjut?")) return;
   try{
-    const r=await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body:{targetLevel, players:names, adminKey:regAdminKey()}});
+    const r=await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body:regAuthBody({targetLevel, players:names})});
     const done=(r.applied||[]).map(x=>x.skipped?(x.name+": "+x.skipped):(x.name+" "+x.from+"→"+x.to)).join(" · ");
     toast("Koreksi level diterapkan. "+done);
     openCuration();
