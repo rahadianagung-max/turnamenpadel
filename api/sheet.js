@@ -832,7 +832,7 @@ const netlifyHandler = async (event) => {
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
     if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET") {
-      if (!regGateOk(body, params)) return REG_UNAUTH;
+      if (!regEventViewOk(body, params)) return REG_UNAUTH; // superadmin ATAU event_admin ATAU kunci
       return await regEventRegistrations(decodeURIComponent(path.replace("reg/event/", "").replace("/registrations", "")));
     }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
@@ -6085,6 +6085,14 @@ function regAdminOk(provided) {
 // token diprioritaskan, kunci tetap jalan sebagai fallback.
 function regGateOk(body, params) {
   if (isSuperadmin(body, params)) return true;
+  const key = (params && params.key) || (body && body.adminKey) || (body && body.key) || "";
+  return regAdminOk(key);
+}
+// Gerbang LIHAT event (dashboard admin per-event): superadmin ATAU event_admin
+// ATAU kunci. event_admin hanya boleh MELIHAT (bukan alat superadmin lain).
+function regEventViewOk(body, params) {
+  const p = authPrincipal(body, params);
+  if (p) { const r = String(p.r || "").toLowerCase(); if (r === "superadmin" || r === "event_admin") return true; }
   const key = (params && params.key) || (body && body.adminKey) || (body && body.key) || "";
   return regAdminOk(key);
 }
