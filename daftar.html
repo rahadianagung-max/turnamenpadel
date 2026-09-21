@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="/tp-theme.css"/>
 <style>
   :root{
@@ -75,6 +76,11 @@
   .logo{display:inline-flex;align-items:center;gap:10px}
   .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
   .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
+  /* Sticky header — consistent with the event page (/&lt;slug&gt;) */
+  .ev-head{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:var(--bd)}
+  .ev-head .inner{max-width:490px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .ev-title{font-family:var(--display);font-weight:900;letter-spacing:-.01em;line-height:1.1;font-size:clamp(17px,3.6vw,22px);color:var(--dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72%}
+  #homeBtn{flex:none}
   .done-hero{text-align:center;padding:8px 0}.done-hero .big{font-size:46px}
   .empty{color:var(--slate-400);text-align:center;padding:40px 0}
   .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:18px;z-index:50}
@@ -84,10 +90,11 @@
 </style>
 </head>
 <body>
+<header class="ev-head"><div class="inner">
+  <span class="ev-title" id="evTitle"></span>
+  <a class="btn btn--white btn--sm" id="homeBtn" href="#"><span class="material-symbols-outlined" style="font-size:16px">home</span>Home</a>
+</div></header>
 <div class="wrap">
-  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
-    <span class="logo"><span class="glyph">P</span><span class="name">TURNAMEN<b>PADEL</b></span></span>
-  </div>
   <div id="head"></div>
   <div id="host"><p class="empty">Memuat…</p></div>
 </div>
@@ -109,6 +116,10 @@ function qs(){
   return new URLSearchParams(location.search).get("e")||"";
 }
 function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
+// Full category names / levels (avoid codes like MD/WD/MIXED and raw levels).
+function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k] || c; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k] || l; }
+function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); return lv ? (cl+" · "+lv) : cl; }
 
 const F = { eventId:qs(), data:null, step:0, catId:null,
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
@@ -164,10 +175,12 @@ function head(){
   const {idx,total,cur}=stepNum();
   let nodes=""; for(let n=1;n<=total;n++){ const cls=n<idx?"done":(n===idx?"cur":""); nodes+=`<div class="snode ${cls}"><div class="dot">${n<idx?"✓":n}</div>${n<total?'<div class="seg-line"></div>':''}</div>`; }
   const c=cat();
-  const sum=c?`<div class="summary"><span>${esc(c.label)} · ${esc(c.level)}${isWL()?' · waitlist':''}</span><span class="s-fee">${isWL()?'bayar nanti':rupiah(c.fee)}</span></div>`:"";
+  const sum=c?`<div class="summary"><span>${esc(catText(c))}${isWL()?' · waitlist':''}</span><span class="s-fee">${isWL()?'bayar nanti':rupiah(c.fee)}</span></div>`:"";
   h.innerHTML=`<div class="prog"><div class="stepper">${nodes}</div><span class="steplbl">${idx}/${total}</span></div>${sum}`;
 }
 function render(){
+  const t=document.getElementById("evTitle"); if(t) t.textContent=(F.data&&(F.data.name||(F.data.event&&F.data.event.name)))||"Pendaftaran";
+  const hb=document.getElementById("homeBtn"); if(hb) hb.setAttribute("href", eventPageHref());
   head();
   const k = F.started ? stepKeys()[F.step] : "info";
   const host=document.getElementById("host");
@@ -192,7 +205,7 @@ function vInfo(){
     <div class="card"><div class="eyebrow">Kategori · biaya</div>
       <div style="display:flex;flex-direction:column;gap:9px;margin-top:10px">
       ${cats.map(c=>`<div class="opt ${catFull(c)?'full':''}" style="cursor:default;flex-wrap:wrap">
-        <div class="grow"><b>${esc(c.label)} · ${esc(c.level)}</b>
+        <div class="grow"><b>${esc(catText(c))}</b>
           <div class="meta">${rupiah(c.fee)}${c.req?' · syarat '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div></div>`).join("")}
       </div>
       ${cfg.rules?`<div class="divider"></div><div class="eyebrow">Aturan main</div><p class="muted" style="margin:8px 0 0;font-size:13px;white-space:pre-line">${esc(cfg.rules)}</p>`:''}
@@ -212,7 +225,7 @@ function vCat(){
     <div style="display:flex;flex-direction:column;gap:11px">
     ${cats.map(c=>`<label class="opt ${F.catId===c.tournamentId?'sel':''} ${catFull(c)?'full':''}" style="flex-wrap:wrap">
       <input type="radio" name="cat" ${F.catId===c.tournamentId?'checked':''} onchange="F.catId='${esc(c.tournamentId)}';render()">
-      <div class="grow"><b>${esc(c.label)} · ${esc(c.level)}</b><div class="meta">${rupiah(c.fee)}${c.req?' · '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
+      <div class="grow"><b>${esc(catText(c))}</b><div class="meta">${rupiah(c.fee)}${c.req?' · '+esc(c.req):''}</div>${quotaBar(c)}${catFull(c)?'<span class="wltag">penuh · masuk waitlist</span>':''}</div>
     </label>`).join("")}
     </div>
     ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
@@ -329,7 +342,7 @@ function vWaiver(){
 function vPay(){
   const c=cat(), acct=(F.data.config.payment||{}).account||"—";
   return `<div class="card"><div class="card" style="background:var(--inset)">
-      <div class="row" style="justify-content:space-between;align-items:center"><span class="muted">Total (${esc(c.label)})</span><b class="elo" style="font-size:20px">${rupiah(c.fee)}</b></div>
+      <div class="row" style="justify-content:space-between;align-items:center"><span class="muted">Total (${esc(catLabel(c.label))})</span><b class="elo" style="font-size:20px">${rupiah(c.fee)}</b></div>
       <div class="divider"></div><div class="muted" style="font-size:13px">Transfer ke:</div><div class="mono" style="margin-top:4px">${esc(acct)}</div></div>
     <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"></label>
     ${F.payFile?'<span class="chip ok">bukti terpilih ✔</span>':'<span class="chip">belum ada bukti</span>'}
@@ -342,7 +355,7 @@ function vReview(){
   const pl=i=>{const p=F.players[i]; return esc(p.name||'—');};
   return `<div class="card">
     ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin-bottom:12px;background:var(--inset)"><b class="mono" style="color:var(--warn)">⏳ Pendaftaran waitlist</b><div class="note">Kuota penuh — belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
-    <div class="kv"><span class="ic">🏆</span><div><b>${esc(c.label)} · ${esc(c.level)}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
+    <div class="kv"><span class="ic">🏆</span><div><b>${esc(catText(c))}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
     <div class="kv"><span class="ic">🎾</span><div>P1 ${pl(0)}<br>P2 ${pl(1)}</div></div>
     <div class="kv"><span class="ic">✅</span><div>Waiver disetujui${wl?'':' · bukti bayar terunggah'}</div></div>
     <div id="subErr"></div>
