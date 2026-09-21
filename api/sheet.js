@@ -6356,12 +6356,26 @@ async function regRosterPublic(eventId) {
   if (!frow) return respond(404, { error: "Form tidak ditemukan." });
   let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
   const cats = config.categories || {};
-  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const [rRes, pRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+  ]);
+  // Trekkr profile photos, by normalized name — used as a fallback when a
+  // registration has no photo of its own (players who registered by matching
+  // an existing Trekkr account keep an empty registration photo).
+  const profilePhoto = {};
+  for (const pr of (pRes.data.values || [])) {
+    const nm = normName(pr[0] || ""); if (nm && pr[6]) profilePhoto[nm] = pr[6];
+  }
   const regs = (rRes.data.values || []).filter((r) => r[1] === formId).map(regParseReg)
     .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && r.status !== "waitlist");
   const byCat = {};
   for (const r of regs) {
-    const pub = (p) => ({ name: (p && p.name) || "", photoUrl: (p && p.photoUrl) || "" });
+    const pub = (p) => {
+      p = p || {};
+      const photo = p.photoUrl || profilePhoto[normName((p.match && p.match.name) || p.name || "")] || "";
+      return { name: p.name || "", photoUrl: photo };
+    };
     (byCat[r.category] = byCat[r.category] || []).push({ label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
   }
   const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
