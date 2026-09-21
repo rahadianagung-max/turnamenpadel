@@ -1091,7 +1091,9 @@ async function saveLevel(){
 // 1 formulir per event. formId = "evt:<eventId>". Konfigurasi lengkap disimpan
 // di RegForms.config (JSON). Data event/kategori diambil dari state.
 function regFormId(){ return state.event ? "evt:"+state.event.eventId : ""; }
-function regPublicLink(){ return location.origin + "/daftar/" + encodeURIComponent((state.event&&state.event.eventId)||""); }
+// Friendly public link based on the event slug set at setup (e.g.
+// turnamenpadel.com/nama-event). Falls back to the eventId path if no event.
+function regPublicLink(){ return state.event ? (location.origin + "/" + shareSlug()) : (location.origin + "/daftar"); }
 function setRegOpt(n){
   document.getElementById("regOpt1").hidden = n!==1;
   document.getElementById("regOpt2").hidden = n!==2;
