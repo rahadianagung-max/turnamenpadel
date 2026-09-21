@@ -5238,12 +5238,28 @@ async function regGetForm(id) {
   let config = {}; try { config = JSON.parse(r[4] || "{}"); } catch (e) {}
   return respond(200, { formId: r[0], name: r[1], status: r[2] || "active", linkedTournament: r[3] || "", config });
 }
+// Upload a flyer/poster data URL to a hotlinkable host (imgbb first, Drive
+// fallback). Returns "" if neither is configured so a save never fails on it.
+async function regUploadFlyer(dataUrl, name) {
+  try { return await imgbbUpload(dataUrl, name); }
+  catch (e) {
+    try { return await driveUploadImage(dataUrl, name + ".jpg", process.env.REG_DRIVE_FOLDER_ID || ""); }
+    catch (e2) { return ""; }
+  }
+}
 async function regSaveForm(body) {
   const { formId, name, status, linkedTournament, config } = body;
   if (!name) return respond(400, { error: "name required" });
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const now = new Date().toISOString();
-  const cfgStr = JSON.stringify(config || {});
+  // A freshly-picked flyer arrives as a base64 data URL; upload it and keep the
+  // hosted URL (base64 would blow the sheet cell limit). Existing URLs pass through.
+  let cfg = config || {};
+  if (cfg.flyer && /^data:image\//.test(String(cfg.flyer))) {
+    const url = await regUploadFlyer(cfg.flyer, `flyer_${String(name || "event").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 40)}_${Date.now()}`);
+    cfg = Object.assign({}, cfg, { flyer: url });
+  }
+  const cfgStr = JSON.stringify(cfg);
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
   const rows = res.data.values || [];
   if (formId) {
@@ -5370,7 +5386,8 @@ async function regPublic(eventId) {
   return respond(200, { eventId, status, event: ev, name: frow[1] || (ev && ev.name) || "",
     config: { address: config.address || "", maps: config.maps || "", region: config.region || "",
       rules: config.rules || "", waiver: config.waiver || "", timeline: config.timeline || {},
-      payment: config.payment || {}, fields: config.fields || {} },
+      payment: config.payment || {}, fields: config.fields || {},
+      flyer: config.flyer || "", description: config.description || "" },
     categories: cats });
 }
 async function regRegisterPair(eventId, body) {
