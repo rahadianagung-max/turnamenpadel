@@ -73,7 +73,7 @@
   <div id="pickCard" class="card hidden">
     <h3 style="font-size:16px">Pilih event</h3>
     <label class="f" style="margin-top:12px"><span>Event turnamen</span><select id="evSel" onchange="openEvent(this.value)"><option value="">— pilih event —</option></select></label>
-    <div class="note">Atau buka langsung <span class="mono">/kelola/&lt;id-event&gt;</span>.</div>
+    <div class="note">Atau buka langsung <span class="mono">/admin/&lt;id-event&gt;</span>.</div>
   </div>
 
   <div id="dashCard" class="hidden">
@@ -100,7 +100,8 @@
 <script>
 const API="/api";
 let TOKEN=""; try{ TOKEN=localStorage.getItem("tp_admin_token")||""; }catch(e){}
-let EVENTS=[], EVENT=null;
+let EVENTS=[], EVENT=null, ALLOWED=null; // ALLOWED=null → superadmin (semua event)
+function eventListOf(v){ return String(v||"").split(/[,;]+/).map(s=>s.trim()).filter(Boolean); }
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 async function api(path,opts){
   const res=await fetch(API+"/"+path,{method:(opts&&opts.method)||"GET",headers:{"Content-Type":"application/json"},body:opts&&opts.body?JSON.stringify(opts.body):undefined});
@@ -109,7 +110,7 @@ async function api(path,opts){
   return d;
 }
 function slugify(s){return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80);}
-function urlEventRef(){ const m=location.pathname.match(/\/kelola\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]); const e=new URLSearchParams(location.search).get("e"); return e||""; }
+function urlEventRef(){ const m=location.pathname.match(/\/(?:admin|kelola)\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]); const e=new URLSearchParams(location.search).get("e"); return e||""; }
 
 async function doLogin(){
   const btn=document.getElementById("btnLogin"), err=document.getElementById("loginErr");
@@ -119,29 +120,34 @@ async function doLogin(){
   try{ const r=await api("auth/login",{method:"POST",body:{username:u,password:p}});
     const role=String(r.role||"").toLowerCase();
     if(role!=="superadmin" && role!=="event_admin"){ err.textContent="Akun ini tidak berhak (butuh event_admin / superadmin)."; btn.disabled=false; btn.textContent="Masuk →"; return; }
-    TOKEN=r.token||""; try{ localStorage.setItem("tp_admin_token",TOKEN); localStorage.setItem("tp_admin_user",r.username||u); localStorage.setItem("tp_admin_role",role); }catch(e){}
+    TOKEN=r.token||""; try{ localStorage.setItem("tp_admin_token",TOKEN); localStorage.setItem("tp_admin_user",r.username||u); localStorage.setItem("tp_admin_role",role); localStorage.setItem("tp_admin_events",r.venue||""); }catch(e){}
     afterAuth();
   }catch(e){ err.textContent=e.status===401?"Username atau password salah.":("Gagal: "+e.message); }
   btn.disabled=false; btn.textContent="Masuk →";
 }
-function doLogout(){ TOKEN=""; try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); localStorage.removeItem("tp_admin_role"); }catch(e){}
+function doLogout(){ TOKEN=""; try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); localStorage.removeItem("tp_admin_role"); localStorage.removeItem("tp_admin_events"); }catch(e){}
   ["authedBar","pickCard","dashCard"].forEach(id=>document.getElementById(id).classList.add("hidden"));
   document.getElementById("loginCard").classList.remove("hidden"); }
 async function afterAuth(){
   document.getElementById("loginCard").classList.add("hidden");
   document.getElementById("authedBar").classList.remove("hidden");
-  let u="admin",role=""; try{ u=localStorage.getItem("tp_admin_user")||"admin"; role=localStorage.getItem("tp_admin_role")||""; }catch(e){}
+  let u="admin",role="",evStr=""; try{ u=localStorage.getItem("tp_admin_user")||"admin"; role=localStorage.getItem("tp_admin_role")||""; evStr=localStorage.getItem("tp_admin_events")||""; }catch(e){}
   document.getElementById("whoami").textContent=u; document.getElementById("roleChip").textContent=role;
+  ALLOWED = role==="event_admin" ? eventListOf(evStr) : null; // superadmin → semua
   // load events for the picker + slug resolution
   try{ const d=await api("tournament/events"); EVENTS=d.events||[]; }catch(e){ EVENTS=[]; }
+  if(ALLOWED){ EVENTS = EVENTS.filter(e=>ALLOWED.includes(e.eventId)); }
   const sel=document.getElementById("evSel");
   sel.innerHTML='<option value="">— pilih event —</option>'+EVENTS.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
+  if(ALLOWED && !EVENTS.length){ document.getElementById("pickCard").classList.remove("hidden"); document.getElementById("evSel").insertAdjacentHTML("afterend",'<div class="note" style="color:var(--warn)">Belum ada event yang ditugaskan ke akunmu. Hubungi superadmin.</div>'); return; }
   const ref=urlEventRef();
   if(ref){ const ev=resolveEvent(ref); if(ev){ openEvent(ev.eventId); return; } }
+  if(ALLOWED && EVENTS.length===1){ openEvent(EVENTS[0].eventId); return; } // satu event → langsung buka
   backToPick();
 }
 function resolveEvent(ref){
-  if(/^(EV_|TM_)/.test(ref)) return EVENTS.find(e=>e.eventId===ref)||{eventId:ref,name:ref};
+  // event_admin hanya boleh event dalam ALLOWED (EVENTS sudah difilter).
+  if(/^(EV_|TM_)/.test(ref)){ const ev=EVENTS.find(e=>e.eventId===ref); if(ev) return ev; return ALLOWED?null:{eventId:ref,name:ref}; }
   const want=slugify(ref);
   const hits=EVENTS.filter(e=>((e.slug&&String(e.slug).toLowerCase())||slugify(e.name))===want);
   return hits.length?hits[hits.length-1]:null;
@@ -159,7 +165,7 @@ function openEvent(eventId){
   const scorer=document.getElementById("btnScorer");
   scorer.setAttribute("href","/scorerdesk");
   scorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
-  try{ history.replaceState(null,"","/kelola/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
+  try{ history.replaceState(null,"","/admin/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
   loadRegs();
 }
 function statusChip(s){ return s==="waitlist"?'<span class="chip wl">waitlist</span>':s==="rejected"?'<span class="chip bad">ditolak</span>':s==="cancelled"?'<span class="chip bad">batal</span>':s==="verified"||s==="approved"||s==="accepted"?'<span class="chip ok">'+esc(s)+'</span>':'<span class="chip">'+esc(s||"received")+'</span>'; }

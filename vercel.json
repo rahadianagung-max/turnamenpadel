@@ -35,6 +35,8 @@
     { "source": "/rules", "destination": "/rules/index.html" },
     { "source": "/engine", "destination": "/engine/index.html" },
     { "source": "/import", "destination": "/import.html" },
+    { "source": "/admin", "destination": "/admin-event.html" },
+    { "source": "/admin/:id", "destination": "/admin-event.html" },
     { "source": "/kelola", "destination": "/admin-event.html" },
     { "source": "/kelola/:id", "destination": "/admin-event.html" },
     { "source": "/event/:slug", "destination": "/event.html" },

@@ -358,6 +358,16 @@
 </style>
 </head>
 <body>
+<div id="suGate" style="position:fixed;inset:0;z-index:9999;background:#0F172A;display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border:2px solid #0F172A;border-radius:16px;box-shadow:6px 6px 0 0 #FF5722;max-width:380px;width:100%;padding:22px;font-family:'Plus Jakarta Sans',sans-serif">
+    <div style="font-weight:900;font-size:20px;color:#0F172A">Engine · Superadmin</div>
+    <div style="color:#64748b;font-size:13px;margin:6px 0 14px">Halaman ini hanya untuk <b>superadmin</b>. Silakan login.</div>
+    <input id="su_u" placeholder="username" autocomplete="username" style="width:100%;padding:11px;border:2px solid #0F172A;border-radius:10px;margin-bottom:8px;box-sizing:border-box">
+    <input id="su_p" type="password" placeholder="password" autocomplete="current-password" style="width:100%;padding:11px;border:2px solid #0F172A;border-radius:10px;box-sizing:border-box" onkeydown="if(event.key==='Enter')engineGateLogin()">
+    <div id="su_err" style="color:#DC2626;font-size:12px;margin-top:6px"></div>
+    <button onclick="engineGateLogin()" style="margin-top:12px;width:100%;padding:11px;border:2px solid #0F172A;border-radius:10px;background:#FF5722;color:#fff;font-weight:800;cursor:pointer">Masuk →</button>
+  </div>
+</div>
 <div class="wrap">
   <header>
     <div class="brand">
@@ -707,14 +717,16 @@
     </div>
     <div class="row">
       <div class="f"><label>Role</label>
-        <select id="naRole">
+        <select id="naRole" onchange="onAdminRole()">
+          <option value="event_admin">Event admin (kelola event tertentu)</option>
           <option value="tournament_admin">Tournament admin</option>
           <option value="venue_admin">Venue admin</option>
           <option value="superadmin">Superadmin</option>
         </select>
       </div>
-      <div class="f"><label>Venue (opsional)</label><input id="naVenue" autocomplete="off" placeholder="—" /></div>
+      <div class="f" id="naVenueWrap"><label>Venue (opsional)</label><input id="naVenue" autocomplete="off" placeholder="—" /></div>
     </div>
+    <div class="f" id="naEventsWrap" style="display:none"><label>Event yang boleh dikelola</label><div id="naEvents" class="adm-events" style="max-height:180px;overflow:auto;border:2px solid var(--line);border-radius:10px;padding:8px"></div></div>
     <p class="err-line" id="naErr"></p>
     <div class="actions" style="margin-top:4px;">
       <button type="button" class="btn btn-primary" onclick="addNewAdmin()">Tambah admin</button>
@@ -724,10 +736,10 @@
 </div>
 
 <script>
-// Require a signed-in admin session; otherwise bounce to the login page.
+// /engine hanya untuk SUPERADMIN. Gerbang login superadmin ditangani in-page
+// (engineGateInit/engineGateLogin) — tak lagi bounce ke /admin.html.
 let SESSION = null;
 try{ SESSION = JSON.parse(sessionStorage.getItem("tp_session") || localStorage.getItem("tp_session") || "null"); }catch(e){}
-if (!SESSION || !SESSION.username) { location.replace("/admin.html"); }
 const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
 const state = { event:null, tournament:null, format:"SINGLE", events:[], tournaments:[], entrantNames:{}, session:SESSION };
 
@@ -1238,11 +1250,28 @@ async function regSuperLogin(){
   if(st) st.textContent="Masuk…";
   try{ const r=await api("auth/login",{method:"POST",body:{username:u,password:p}});
     if(String(r.role||"").toLowerCase()!=="superadmin"){ if(st) st.textContent="Akun ini bukan superadmin."; return; }
-    try{ localStorage.setItem("tp_admin_token", r.token||""); localStorage.setItem("tp_admin_user", r.username||u); }catch(e){}
+    try{ localStorage.setItem("tp_admin_token", r.token||""); localStorage.setItem("tp_admin_user", r.username||u); localStorage.setItem("tp_admin_role","superadmin"); }catch(e){}
     refreshRegAuthArea();
   }catch(e){ if(st) st.textContent=(e.status===401?"Username/password salah.":("Gagal: "+e.message)); }
 }
-function regSuperLogout(){ try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); }catch(e){} refreshRegAuthArea(); }
+function regSuperLogout(){ try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); localStorage.removeItem("tp_admin_role"); }catch(e){} refreshRegAuthArea(); engineShowGate(); }
+/* ---- Gerbang superadmin untuk /engine ---- */
+function engineIsSuper(){ try{ return (localStorage.getItem("tp_admin_role")||"")==="superadmin" && !!localStorage.getItem("tp_admin_token"); }catch(e){ return false; } }
+function engineShowGate(){ var g=document.getElementById("suGate"); if(g) g.style.display="flex"; }
+function engineHideGate(){ var g=document.getElementById("suGate"); if(g) g.style.display="none"; }
+function engineApplyGateSession(){ try{ const u=localStorage.getItem("tp_admin_user")||"admin"; state.session=Object.assign({}, state.session, {username:u, role:"superadmin"}); applySession(state.session); }catch(e){} }
+function engineGateInit(){ if(engineIsSuper()){ engineHideGate(); engineApplyGateSession(); } else engineShowGate(); }
+async function engineGateLogin(){
+  var u=(document.getElementById("su_u")||{}).value, p=(document.getElementById("su_p")||{}).value, err=document.getElementById("su_err");
+  if(err) err.textContent=""; if(!u||!p){ if(err) err.textContent="Isi username & password."; return; }
+  try{ var r=await api("auth/login",{method:"POST",body:{username:(u||"").trim(),password:p}});
+    if(String(r.role||"").toLowerCase()!=="superadmin"){ if(err) err.textContent="Akun ini bukan superadmin."; return; }
+    try{ localStorage.setItem("tp_admin_token",r.token||""); localStorage.setItem("tp_admin_user",r.username||u); localStorage.setItem("tp_admin_role","superadmin"); }catch(e){}
+    engineHideGate(); engineApplyGateSession();
+    try{ refreshRegAuthArea&&refreshRegAuthArea(); }catch(e){}
+    loadEvents(); loadArchivedEvents&&loadArchivedEvents();
+  }catch(e){ if(err) err.textContent=(e.status===401?"Username/password salah.":("Gagal: "+e.message)); }
+}
 /* ---- Kurasi (Fase 5b) ---- */
 async function openCuration(){
   const host=document.getElementById("regCuration"); if(!state.event) return;
@@ -2235,23 +2264,24 @@ function renderEloResults(r){
 
 /* ---- AUTH / SESSION ---- */
 function roleLabel(r){
-  return ({superadmin:"Superadmin", venue_admin:"Venue admin", tournament_admin:"Tournament admin"})[r] || (r||"admin");
+  return ({superadmin:"Superadmin", venue_admin:"Venue admin", tournament_admin:"Tournament admin", event_admin:"Event admin"})[r] || (r||"admin");
 }
 function applySession(s){
   if(!s) return;
   document.getElementById("whoName").textContent = s.username;
   document.getElementById("whoRole").textContent = roleLabel(s.role) + (s.venue ? " · " + s.venue : "");
   document.getElementById("whoAvatar").textContent = (s.username[0] || "?").toUpperCase();
-  document.getElementById("manageAdminsBtn").style.display = (s.role === "superadmin") ? "" : "none";
+  document.getElementById("manageAdminsBtn").style.display = (s.role === "superadmin" || engineIsSuper()) ? "" : "none";
 }
 function logout(){
-  try{ sessionStorage.removeItem("tp_auth"); sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session"); }catch(e){}
-  location.replace("/admin.html");
+  try{ sessionStorage.removeItem("tp_auth"); sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session");
+    localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); localStorage.removeItem("tp_admin_role"); }catch(e){}
+  location.reload(); // kembali ke gerbang superadmin
 }
 
 /* ---- ASSIGN EVENT ADMIN (superadmin) ---- */
 let ADMINS = null;
-async function ensureAdmins(){ if(ADMINS) return ADMINS; try{ const r = await api("admins"); ADMINS = (r && r.admins) || []; }catch(e){ ADMINS = []; } return ADMINS; }
+async function ensureAdmins(){ if(ADMINS) return ADMINS; try{ const r = await api("admins"+regKeyQ()); ADMINS = (r && r.admins) || []; }catch(e){ ADMINS = []; } return ADMINS; }
 async function fillAssignAdmin(){
   const box = document.getElementById("assignAdminBox");
   const isSuper = (state.session && state.session.role) === "superadmin";
@@ -2277,29 +2307,72 @@ async function assignAdmin(){
   }catch(e){ toast(e.message || "Gagal assign admin", true); }
 }
 /* ---- MANAGE ADMINS (superadmin) ---- */
-function openAdmins(){ document.getElementById("adminsOverlay").classList.add("show"); loadAdmins(); }
+function openAdmins(){ document.getElementById("adminsOverlay").classList.add("show"); onAdminRole(); loadAdmins(); }
 function closeAdmins(){ document.getElementById("adminsOverlay").classList.remove("show"); }
+function eventChecksHtml(containerId, selected){
+  const sel = new Set((selected||[]).map(String));
+  const evs = state.events||[];
+  if(!evs.length) return '<span class="muted" style="font-size:12px">Belum ada event. Buat event dulu.</span>';
+  return evs.map(e=>`<label style="display:flex;gap:8px;align-items:center;padding:3px 0;font-size:13px"><input type="checkbox" data-ev="${esc(e.eventId)}" ${sel.has(String(e.eventId))?"checked":""} style="width:auto"> ${esc(e.name)}${e.date?' · '+esc(e.date):''}</label>`).join("");
+}
+function readEventChecks(containerId){ return [...document.querySelectorAll("#"+containerId+" input[type=checkbox]:checked")].map(x=>x.getAttribute("data-ev")); }
+function onAdminRole(){
+  const role=document.getElementById("naRole").value;
+  const ev=role==="event_admin";
+  document.getElementById("naEventsWrap").style.display = ev?"":"none";
+  document.getElementById("naVenueWrap").style.display = ev?"none":"";
+  if(ev) document.getElementById("naEvents").innerHTML = eventChecksHtml("naEvents", []);
+}
 async function loadAdmins(){
   const wrap = document.getElementById("admList");
   try{
-    const { admins } = await api("admins");
+    const { admins } = await api("admins"+regKeyQ());
     if(!admins || !admins.length){ wrap.innerHTML = '<p class="empty">Belum ada admin.</p>'; return; }
-    wrap.innerHTML = `<table><thead><tr><th>Username</th><th>Role</th><th>Venue</th></tr></thead><tbody>` +
-      admins.map(a=>`<tr><td><b>${esc(a.username)}</b></td>
+    const evName=(id)=>{ const e=(state.events||[]).find(x=>x.eventId===id); return e?e.name:id; };
+    wrap.innerHTML = `<table><thead><tr><th>Username</th><th>Role</th><th>Event / Venue</th><th></th></tr></thead><tbody>` +
+      admins.map(a=>{ const scope = a.role==="event_admin" ? ((a.events||[]).map(evName).join(", ")||'<span class="muted">— belum ada event —</span>') : esc(a.venue||"—");
+        const edit = a.role==="event_admin" ? `<button type="button" class="btn btn-ghost btn-sm" onclick="editAdminEvents('${esc(a.username)}')">Ubah event</button>` : "";
+        return `<tr><td><b>${esc(a.username)}</b></td>
         <td><span class="rolebadge ${a.role==='superadmin'?'super':''}">${esc(roleLabel(a.role))}</span></td>
-        <td>${esc(a.venue||"—")}</td></tr>`).join("") + `</tbody></table>`;
-  }catch(e){ wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+        <td>${scope}</td>
+        <td style="white-space:nowrap">${edit} <button type="button" class="btn btn-ghost btn-sm" onclick="delAdmin('${esc(a.username)}')">Hapus</button></td></tr>
+        <tr id="edrow_${esc(a.username)}" style="display:none"><td colspan="4"><div id="ed_${esc(a.username)}" style="border:2px solid var(--line);border-radius:10px;padding:8px;max-height:180px;overflow:auto"></div><div style="margin-top:6px"><button type="button" class="btn btn-primary btn-sm" onclick="saveAdminEvents('${esc(a.username)}')">Simpan event</button></div></td></tr>`;
+      }).join("") + `</tbody></table>`;
+  }catch(e){ wrap.innerHTML = `<p class="empty">${e.status===401||e.status===403?"Perlu login superadmin.":esc(e.message)}</p>`; }
+}
+function editAdminEvents(username){
+  const row=document.getElementById("edrow_"+username); if(!row) return;
+  const open=row.style.display!=="none";
+  if(open){ row.style.display="none"; return; }
+  ensureAdmins().then(admins=>{ const a=(admins||[]).find(x=>x.username===username)||{};
+    document.getElementById("ed_"+username).innerHTML = eventChecksHtml("ed_"+username, a.events||[]);
+    row.style.display="";
+  });
+}
+async function saveAdminEvents(username){
+  const events = readEventChecks("ed_"+username);
+  try{ await api("admins/update", { method:"POST", body:regAuthBody({ username, events }) });
+    toast("Event admin diperbarui"); ADMINS=null; loadAdmins();
+  }catch(e){ toast(e.status===401||e.status===403?"Perlu login superadmin.":e.message, true); }
+}
+async function delAdmin(username){
+  if(!confirm('Hapus admin "'+username+'"?')) return;
+  try{ await api("admins/delete", { method:"POST", body:regAuthBody({ username }) });
+    toast("Admin dihapus"); ADMINS=null; loadAdmins();
+  }catch(e){ toast(e.status===400?e.message:(e.status===401||e.status===403?"Perlu login superadmin.":e.message), true); }
 }
 async function addNewAdmin(){
   const err = document.getElementById("naErr"); err.textContent = "";
-  const username = val("naUser"), password = val("naPass"),
-        role = document.getElementById("naRole").value, venue = val("naVenue");
+  const username = val("naUser"), password = val("naPass"), role = document.getElementById("naRole").value;
   if(!username || !password){ err.textContent = "Isi username dan password."; return; }
+  const extra = { username, password, role };
+  if(role==="event_admin"){ extra.events = readEventChecks("naEvents"); if(!extra.events.length){ err.textContent="Pilih minimal satu event untuk event admin."; return; } }
+  else extra.venue = val("naVenue");
   try{
-    await api("admins", { method:"POST", body:{ username, password, role, venue, actorRole: (state.session && state.session.role) || "" } });
-    toast("Admin ditambahkan");
+    await api("admins", { method:"POST", body:regAuthBody(extra) });
+    toast("Admin ditambahkan"); ADMINS=null;
     document.getElementById("naUser").value = ""; document.getElementById("naPass").value = ""; document.getElementById("naVenue").value = "";
-    loadAdmins();
+    onAdminRole(); loadAdmins();
   }catch(e){ err.textContent = e.status === 409 ? "Username sudah dipakai." : (e.status === 403 ? "Hanya superadmin yang bisa menambah admin." : e.message); }
 }
 
@@ -2368,6 +2441,7 @@ function stepPrev(){ if(TP_CUR_STEP>1) showStep(TP_CUR_STEP-1); }
 function stepNext(){ var nx=TP_CUR_STEP+1; if(nx>TP_NSTEP) return; showStep(nx); }
 
 /* init */
+engineGateInit();   // /engine hanya untuk superadmin — tampilkan gerbang bila belum login
 applySession(state.session);
 buildStepNav();
 showStep(1);

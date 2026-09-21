@@ -697,8 +697,10 @@ const netlifyHandler = async (event) => {
 
     if (path === "parse" && method === "POST") return await parseAmericanoUrl(body);
 
-    if (path === "admins" && method === "GET") return await getAdmins();
-    if (path === "admins" && method === "POST") return await addAdmin(body);
+    if (path === "admins" && method === "GET") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await getAdmins(); }
+    if (path === "admins" && method === "POST") return await addAdmin(body); // bootstrap-aware (di dalam)
+    if (path === "admins/update" && method === "POST") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await adminUpdate(body); }
+    if (path === "admins/delete" && method === "POST") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await adminDelete(body); }
 
     // --- TOURNAMENT ROUTES (Phase 1) ---
     if (path === "tournament/event" && method === "POST") return await tCreateEvent(body);
@@ -832,8 +834,9 @@ const netlifyHandler = async (event) => {
     if (path === "reg/claim/start" && method === "POST") return await regClaimStart(body);
     if (path === "reg/claim/confirm" && method === "POST") return await regClaimConfirm(body);
     if (path.startsWith("reg/event/") && path.endsWith("/registrations") && method === "GET") {
-      if (!regEventViewOk(body, params)) return REG_UNAUTH; // superadmin ATAU event_admin ATAU kunci
-      return await regEventRegistrations(decodeURIComponent(path.replace("reg/event/", "").replace("/registrations", "")));
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/registrations", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
+      return await regEventRegistrations(eid);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
       if (!regGateOk(body, params)) return REG_UNAUTH;
@@ -1842,33 +1845,64 @@ async function getAdmins() {
   await ensureAdminsTab(sheets);
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
   const rows = res.data.values || [];
-  const admins = rows.map((r) => ({
-    username: r[0], role: String(r[2] || "venue_admin").toLowerCase().trim(), venue: r[3] || "", createdAt: r[4] || "",
-  }));
+  const admins = rows.map((r) => { const role = String(r[2] || "venue_admin").toLowerCase().trim();
+    return { username: r[0], role, venue: r[3] || "", events: role === "event_admin" ? eventListOf(r[3]) : [], createdAt: r[4] || "" }; });
   return respond(200, { admins });
 }
-
+// Kolom venue (D) menyimpan: nama venue (venue_admin) ATAU daftar eventId
+// (event_admin, dipisah koma). Password DI-HASH.
+function adminVenueField(body, fallback) {
+  if (Array.isArray(body.events)) return body.events.filter(Boolean).join(",");
+  if (body.venue != null) return String(body.venue);
+  return fallback || "";
+}
 async function addAdmin(body) {
-  const { username, password, role, venue } = body;
+  const { username, password, role } = body;
   if (!username || !password) return respond(400, { error: "username and password required" });
   const sheets = getSheets();
   await ensureAdminsTab(sheets);
   const existing = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
   const rows = existing.data.values || [];
-  // Allow bootstrapping the very first admin as superadmin, but once admins exist
-  // only a superadmin caller may add more (guards against open self-service signup).
   const wantRole = String(role || "venue_admin").toLowerCase().trim();
-  if (rows.length > 0 && String(body.actorRole || "").toLowerCase().trim() !== "superadmin") {
-    return respond(403, { error: "Only a superadmin can add admins" });
-  }
-  if (rows.some((r) => (r[0] || "").trim() === username.trim())) {
-    return respond(409, { error: "Username already exists" });
-  }
+  // Bootstrap: admin pertama boleh tanpa auth; selanjutnya wajib token superadmin.
+  if (rows.length > 0 && !isSuperadmin(body)) return respond(403, { error: "Hanya superadmin yang bisa menambah admin." });
+  if (rows.some((r) => (r[0] || "").trim() === username.trim())) return respond(409, { error: "Username sudah ada." });
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.admins}!A:E`, valueInputOption: "USER_ENTERED",
-    requestBody: { values: [[username.trim(), password, wantRole, venue || "", now]] },
+    requestBody: { values: [[username.trim(), hashPassword(password), wantRole, adminVenueField(body, ""), now]] },
   });
+  return respond(200, { success: true });
+}
+async function adminUpdate(body) {
+  const username = String((body && body.username) || "").trim();
+  if (!username) return respond(400, { error: "username wajib" });
+  const sheets = getSheets(); await ensureAdminsTab(sheets);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
+  const rows = res.data.values || [];
+  const idx = rows.findIndex((r) => (r[0] || "").trim() === username);
+  if (idx < 0) return respond(404, { error: "Admin tidak ditemukan." });
+  const sr = idx + 2, c = rows[idx];
+  const role = body.role != null ? String(body.role).toLowerCase().trim() : String(c[2] || "venue_admin");
+  const venue = adminVenueField(body, c[3] || "");
+  const pw = body.password ? hashPassword(body.password) : (c[1] || "");
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A${sr}:E${sr}`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[username, pw, role, venue, c[4] || new Date().toISOString()]] } });
+  return respond(200, { success: true });
+}
+async function adminDelete(body) {
+  const username = String((body && body.username) || "").trim();
+  if (!username) return respond(400, { error: "username wajib" });
+  const sheets = getSheets(); await ensureAdminsTab(sheets);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
+  const rows = res.data.values || [];
+  const idx = rows.findIndex((r) => (r[0] || "").trim() === username);
+  if (idx < 0) return respond(404, { error: "Admin tidak ditemukan." });
+  const isSuper = (r) => String(r[2] || "").toLowerCase().trim() === "superadmin";
+  if (isSuper(rows[idx]) && rows.filter(isSuper).length <= 1) return respond(400, { error: "Tidak bisa menghapus superadmin terakhir." });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID, fields: "sheets(properties(sheetId,title))" });
+  const sh = (meta.data.sheets || []).find((s) => s.properties.title === TABS.admins);
+  if (sh) await sheets.spreadsheets.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { requests: [{ deleteDimension: { range: { sheetId: sh.properties.sheetId, dimension: "ROWS", startIndex: idx + 1, endIndex: idx + 2 } } } ] } });
   return respond(200, { success: true });
 }
 async function getSettings() {
@@ -6088,11 +6122,17 @@ function regGateOk(body, params) {
   const key = (params && params.key) || (body && body.adminKey) || (body && body.key) || "";
   return regAdminOk(key);
 }
-// Gerbang LIHAT event (dashboard admin per-event): superadmin ATAU event_admin
-// ATAU kunci. event_admin hanya boleh MELIHAT (bukan alat superadmin lain).
-function regEventViewOk(body, params) {
+// Daftar event yang diizinkan untuk event_admin (disimpan di kolom venue,
+// dipisah koma/titik-koma).
+function eventListOf(v) { return String(v || "").split(/[,;]+/).map((s) => s.trim()).filter(Boolean); }
+// Gerbang dashboard admin per-event (/admin): superadmin (semua event) ATAU
+// event_admin YANG event-nya diizinkan ATAU kunci. Alat superadmin lain tetap
+// superadmin-only.
+function regEventScopeOk(body, params, eventId) {
   const p = authPrincipal(body, params);
-  if (p) { const r = String(p.r || "").toLowerCase(); if (r === "superadmin" || r === "event_admin") return true; }
+  if (p) { const r = String(p.r || "").toLowerCase();
+    if (r === "superadmin") return true;
+    if (r === "event_admin") return eventListOf(p.v).includes(String(eventId)); }
   const key = (params && params.key) || (body && body.adminKey) || (body && body.key) || "";
   return regAdminOk(key);
 }
