@@ -977,19 +977,74 @@ async function ensureAdminsTab(sheets) {
   });
 }
 
+// ==============================================================
+// AUTH — token BERTANDA TANGAN (HMAC) + password ter-HASH.
+// AUTH_SECRET wajib di-set agar token tak bisa dipalsukan; fallback ke
+// REG_ADMIN_KEY supaya tetap bertanda tangan bila AUTH_SECRET belum di-set.
+// Token lama (base64 tanpa titik, tak bertanda tangan) TIDAK diterima lagi —
+// admin cukup login ulang sekali.
+// ==============================================================
+const AUTH_SECRET = String(process.env.AUTH_SECRET || process.env.REG_ADMIN_KEY || "").trim();
+function b64url(buf) { return Buffer.from(buf).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+function authHmac(data) { return b64url(require("crypto").createHmac("sha256", AUTH_SECRET || "trekkr-unset-secret").update(data).digest()); }
+function signToken(payload) { const body = b64url(JSON.stringify(payload)); return body + "." + authHmac(body); }
+function verifyToken(tok) {
+  if (!tok || typeof tok !== "string" || tok.indexOf(".") < 0) return null;
+  const i = tok.indexOf("."), body = tok.slice(0, i), sig = tok.slice(i + 1);
+  if (!body || !sig) return null;
+  const expect = authHmac(body);
+  const a = Buffer.from(sig), b = Buffer.from(expect);
+  if (a.length !== b.length || !require("crypto").timingSafeEqual(a, b)) return null;
+  let p; try { p = JSON.parse(Buffer.from(body.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")); } catch (e) { return null; }
+  if (p && p.exp && Date.now() > p.exp) return null;
+  return p;
+}
+function hashPassword(pw) {
+  const crypto = require("crypto");
+  const salt = crypto.randomBytes(16).toString("hex");
+  const h = crypto.scryptSync(String(pw), salt, 32).toString("hex");
+  return `scrypt$${salt}$${h}`;
+}
+function verifyPassword(pw, stored) {
+  const s = String(stored || "");
+  if (s.startsWith("scrypt$")) {
+    const parts = s.split("$"); const salt = parts[1], h = parts[2];
+    if (!salt || !h) return false;
+    const crypto = require("crypto");
+    const calc = crypto.scryptSync(String(pw), salt, 32).toString("hex");
+    const a = Buffer.from(h, "hex"), b = Buffer.from(calc, "hex");
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  return s !== "" && s === String(pw); // legacy plaintext (akan di-hash saat login)
+}
+// Verifikasi token superadmin dari body.token / params.token. Server membaca
+// role DARI token terverifikasi (bukan dari query param kiriman klien).
+function authPrincipal(body, params) {
+  const tok = (body && body.token) || (params && params.token) || "";
+  return verifyToken(tok);
+}
+function isSuperadmin(body, params) {
+  const p = authPrincipal(body, params);
+  return !!(p && String(p.r || "").toLowerCase() === "superadmin");
+}
 async function login({ username, password }) {
   if (!username || !password) return respond(400, { error: "Username and password required" });
   const sheets = getSheets();
   await ensureAdminsTab(sheets);
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!A2:E` });
   const rows = res.data.values || [];
-  const match = rows.find((r) => (r[0] || "").trim() === username.trim() && (r[1] || "") === password);
-  if (!match) return respond(401, { error: "Invalid credentials" });
-
+  const idx = rows.findIndex((r) => (r[0] || "").trim() === username.trim() && verifyPassword(password, r[1]));
+  if (idx < 0) return respond(401, { error: "Invalid credentials" });
+  const match = rows[idx];
   // Normalize role so sheet-entered values like "Superadmin" / " superadmin " still match.
   const role = String(match[2] || "venue_admin").toLowerCase().trim();
   const venue = match[3] || "";
-  const token = Buffer.from(`${username}:${role}:${venue}:${Date.now()}`).toString("base64");
+  // Migrasi: bila password masih plaintext, ganti jadi hash saat login berhasil.
+  if (!String(match[1] || "").startsWith("scrypt$")) {
+    try { await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.admins}!B${idx + 2}`, valueInputOption: "RAW", requestBody: { values: [[hashPassword(password)]] } }); } catch (e) { console.error("pw migrate:", e && e.message); }
+  }
+  const now = Date.now(), exp = now + 7 * 24 * 3600 * 1000; // token berlaku 7 hari
+  const token = signToken({ u: username.trim(), r: role, v: venue, iat: now, exp });
   return respond(200, { token, role, venue, username });
 }
 
@@ -5707,8 +5762,9 @@ async function regAttachContacts(sheets, prows, entries) {
 // terverifikasi, dan email mana yang dipakai lebih dari satu pemain (harus
 // digabung karena email = identitas unik). Nama pemain tanpa email dikembalikan
 // (nama publik) agar admin bisa mengejar kelengkapannya. Gerbang admin.
+const NEED_SUPER = respond(403, { error: "Perlu login superadmin." });
 async function regImportCoverage(body) {
-  if (!regAdminOk(body && body.key)) return REG_UNAUTH;
+  if (!isSuperadmin(body)) return NEED_SUPER;
   const sheets = getSheets();
   const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
   const rows = (pRes.data.values || []).filter((r) => r[0]);
@@ -5731,7 +5787,7 @@ async function regImportCoverage(body) {
     noEmailNames: noEmail });
 }
 async function regImportPreview(body) {
-  if (!regAdminOk(body && body.key)) return REG_UNAUTH;
+  if (!isSuperadmin(body)) return NEED_SUPER;
   const rows = Array.isArray(body && body.rows) ? body.rows : [];
   const sheets = getSheets();
   const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
@@ -5760,7 +5816,7 @@ async function regImportPreview(body) {
   return respond(200, { summary, rows: out });
 }
 async function regImportApply(body) {
-  if (!regAdminOk(body && body.key)) return REG_UNAUTH;
+  if (!isSuperadmin(body)) return NEED_SUPER;
   const decisions = Array.isArray(body && body.decisions) ? body.decisions : [];
   const sheets = getSheets();
   const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });

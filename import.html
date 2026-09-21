@@ -52,10 +52,22 @@
   <h1>Impor Kontak Pemain</h1>
   <p class="muted" style="margin:6px 0 0">Cocokkan daftar <b>nama · email · no HP</b> ke database pemain, isi email/HP yang masih kosong, dan tambahkan pemain baru untuk yang belum ada.</p>
 
-  <div class="card" style="margin-top:16px">
-    <label class="f" style="margin-bottom:0"><span>Kunci admin</span><input id="key" type="password" placeholder="REG_ADMIN_KEY" autocomplete="off"></label>
-    <div class="row" style="margin-top:12px">
-      <button class="btn ghost sm" id="btnCoverage" onclick="loadCoverage()">📊 Cakupan email</button>
+  <div class="card" id="loginCard" style="margin-top:16px">
+    <h3 style="font-size:16px">Masuk sebagai superadmin</h3>
+    <div class="note">Alat ini menyentuh data pribadi & database inti — wajib login superadmin.</div>
+    <label class="f" style="margin-top:12px"><span>Username</span><input id="lu" autocomplete="username"></label>
+    <label class="f" style="margin-bottom:0"><span>Password</span><input id="lp" type="password" autocomplete="current-password"></label>
+    <div id="loginErr" class="note" style="color:var(--danger)"></div>
+    <div class="row" style="margin-top:12px"><button class="btn primary sm" id="btnLogin" onclick="doLogin()">Masuk →</button></div>
+  </div>
+
+  <div class="card hidden" id="authedBar">
+    <div class="row" style="justify-content:space-between">
+      <div class="note" style="margin:0">Masuk sebagai <b id="whoami"></b> <span class="chip ok">superadmin</span></div>
+      <div class="row" style="gap:8px">
+        <button class="btn ghost sm" id="btnCoverage" onclick="loadCoverage()">📊 Cakupan email</button>
+        <button class="btn ghost sm" onclick="doLogout()">Keluar</button>
+      </div>
     </div>
   </div>
 
@@ -82,7 +94,7 @@
     <div id="dupWrap"></div>
   </div>
 
-  <div class="card" style="margin-top:14px">
+  <div class="card hidden" id="importCard" style="margin-top:14px">
     <h3 style="font-size:16px">Impor kontak dari CSV</h3>
     <label class="f" style="margin-top:12px"><span>File CSV (kolom: nama, email, no hp)</span><input id="file" type="file" accept=".csv,text/csv,text/plain"></label>
     <div class="note">Baris pertama boleh header (mis. <span class="mono">nama,email,no hp</span>) — akan dideteksi otomatis. Tanpa header, urutan dianggap: nama, email, no HP.</div>
@@ -164,11 +176,33 @@ document.getElementById("file").addEventListener("change",function(){
     catch(e){ info.innerHTML='<span style="color:var(--danger)">Gagal membaca CSV: '+esc(e.message)+'</span>'; btn.disabled=true; } };
   rd.readAsText(f);
 });
-function key(){ return document.getElementById("key").value.trim(); }
+let TOKEN=""; try{ TOKEN=localStorage.getItem("tp_admin_token")||""; }catch(e){}
+function showAuthed(username){
+  document.getElementById("loginCard").classList.add("hidden");
+  document.getElementById("authedBar").classList.remove("hidden");
+  document.getElementById("importCard").classList.remove("hidden");
+  document.getElementById("whoami").textContent=username||"admin";
+}
+async function doLogin(){
+  const btn=document.getElementById("btnLogin"), err=document.getElementById("loginErr");
+  const u=document.getElementById("lu").value.trim(), p=document.getElementById("lp").value;
+  err.textContent=""; if(!u||!p){ err.textContent="Isi username & password."; return; }
+  btn.disabled=true; btn.textContent="Masuk…";
+  try{ const r=await api("auth/login",{method:"POST",body:{username:u,password:p}});
+    if(String(r.role||"").toLowerCase()!=="superadmin"){ err.textContent="Akun ini bukan superadmin."; btn.disabled=false; btn.textContent="Masuk →"; return; }
+    TOKEN=r.token||""; try{ localStorage.setItem("tp_admin_token",TOKEN); localStorage.setItem("tp_admin_user",r.username||u); }catch(e){}
+    showAuthed(r.username||u);
+  }catch(e){ err.textContent=e.status===401?"Username atau password salah.":("Gagal: "+e.message); }
+  btn.disabled=false; btn.textContent="Masuk →";
+}
+function doLogout(){ TOKEN=""; try{ localStorage.removeItem("tp_admin_token"); localStorage.removeItem("tp_admin_user"); }catch(e){}
+  document.getElementById("authedBar").classList.add("hidden"); document.getElementById("importCard").classList.add("hidden");
+  document.getElementById("coverageCard").classList.add("hidden"); document.getElementById("previewCard").classList.add("hidden");
+  document.getElementById("loginCard").classList.remove("hidden"); }
 let NOEMAIL=[];
 async function loadCoverage(){
   const btn=document.getElementById("btnCoverage"); const old=btn.textContent; btn.disabled=true; btn.textContent="Memuat…";
-  try{ const c=await api("reg/import/coverage",{method:"POST",body:{key:key()}});
+  try{ const c=await api("reg/import/coverage",{method:"POST",body:{token:TOKEN}});
     document.getElementById("coverageCard").classList.remove("hidden");
     document.getElementById("covEmailPct").textContent=c.coveragePct+"%";
     document.getElementById("covEmailBar").style.width=c.coveragePct+"%";
@@ -186,7 +220,7 @@ async function loadCoverage(){
       ? `<div class="divider"></div><div class="note" style="color:var(--danger)"><b>⚠ ${c.duplicateEmailCount} email dipakai lebih dari satu pemain</b> (${c.duplicatePlayerCount} pemain) — perlu digabung agar email jadi identitas unik:</div>
          <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>Email</th><th>Pemain</th></tr></thead><tbody>${dup.map(d=>`<tr><td class="mono">${esc(d.email)}</td><td>${d.players.map(esc).join(" · ")}</td></tr>`).join("")}</tbody></table></div>`
       : `<div class="divider"></div><div class="note" style="color:var(--ok)">✓ Tidak ada email ganda — setiap email dipakai maksimal satu pemain.</div>`;
-  }catch(e){ alert(e.status===401?"Kunci admin salah.":("Gagal: "+e.message)); }
+  }catch(e){ if(e.status===403||e.status===401){ alert("Sesi berakhir / bukan superadmin. Silakan login lagi."); doLogout(); } else alert("Gagal: "+e.message); }
   btn.disabled=false; btn.textContent=old;
 }
 function downloadNoEmail(){
@@ -196,9 +230,9 @@ function downloadNoEmail(){
 }
 async function doPreview(){
   const btn=document.getElementById("btnPreview"); btn.disabled=true; btn.textContent="Mencocokkan…";
-  try{ const r=await api("reg/import/preview",{method:"POST",body:{key:key(),rows:ROWS}});
+  try{ const r=await api("reg/import/preview",{method:"POST",body:{token:TOKEN,rows:ROWS}});
     PREVIEW=r.rows||[]; renderPreview(r.summary||{}); document.getElementById("previewCard").classList.remove("hidden");
-  }catch(e){ alert(e.status===401?"Kunci admin salah.":("Gagal: "+e.message)); }
+  }catch(e){ if(e.status===403||e.status===401){ alert("Sesi berakhir / bukan superadmin. Silakan login lagi."); doLogout(); } else alert("Gagal: "+e.message); }
   btn.disabled=false; btn.textContent="Cek & cocokkan →";
 }
 function statusChip(s){ return {auto:'<span class="chip ok">cocok</span>',review:'<span class="chip warn">perlu cek</span>','new':'<span class="chip new">baru</span>',invalid:'<span class="chip bad">invalid</span>'}[s]||s; }
@@ -232,16 +266,18 @@ async function doApply(){
     if(v==="new") return {name:r.name,email:r.email,phone:r.phone,action:"new"};
     if(v==="skip") return {name:r.name,email:r.email,phone:r.phone,action:"skip"};
     const target=v.replace(/^use:/,""); return {name:r.name,email:r.email,phone:r.phone,action:"update",target}; });
-  try{ const res=await api("reg/import/apply",{method:"POST",body:{key:key(),decisions}});
+  try{ const res=await api("reg/import/apply",{method:"POST",body:{token:TOKEN,decisions}});
     const cf=(res.conflicts||[]);
     document.getElementById("applyResult").innerHTML=`<div class="card" style="margin-top:12px;background:var(--inset)">
       <b>Selesai ✓</b>
       <div class="note" style="margin-top:6px">Pemain diperbarui: <b>${res.updated||0}</b> · email terisi: <b>${res.filledEmail||0}</b> · HP terisi: <b>${res.filledPhone||0}</b> · pemain baru: <b>${res.created||0}</b> · dilewati: <b>${res.skipped||0}</b>.</div>
       ${cf.length?`<div class="divider"></div><div class="note"><b>${cf.length} konflik (tidak ditimpa):</b></div><div class="tbl-wrap" style="margin-top:6px"><table><thead><tr><th>Pemain</th><th>Field</th><th>Di DB</th><th>Impor</th></tr></thead><tbody>${cf.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.field)}</td><td class="mono">${esc(c.existing)}</td><td class="mono">${esc(c.incoming)}</td></tr>`).join("")}</tbody></table></div>`:''}
     </div>`;
-  }catch(e){ alert(e.status===401?"Kunci admin salah.":("Gagal: "+e.message)); }
+  }catch(e){ if(e.status===403||e.status===401){ alert("Sesi berakhir / bukan superadmin. Silakan login lagi."); doLogout(); } else alert("Gagal: "+e.message); }
   btn.disabled=false; btn.textContent="Terapkan ke database →";
 }
+// Pulihkan sesi bila token tersimpan (verifikasi asli tetap di server per-request).
+(function(){ if(TOKEN){ let u="admin"; try{ u=localStorage.getItem("tp_admin_user")||"admin"; }catch(e){} showAuthed(u); } })();
 </script>
 </body>
 </html>
