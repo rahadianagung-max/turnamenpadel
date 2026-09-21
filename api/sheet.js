@@ -5475,8 +5475,15 @@ async function regRegisterPair(eventId, body) {
   const ts = Date.now();
   const safe = (s) => String(s || "").replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").slice(0, 30) || "p";
   let photo1 = "", photo2 = "", payUrl = "";
-  try { if (body.photo1) photo1 = await uploadImageSmart(body.photo1, `reg_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo1:", e.message); }
-  try { if (body.photo2) photo2 = await uploadImageSmart(body.photo2, `reg_${safe(p2.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo2:", e.message); }
+  // A photo may be a fresh base64 data URL (upload it) or an already-hosted URL
+  // reused from the player's Trekkr profile (keep as-is).
+  const resolvePhoto = async (v, nm) => {
+    if (!v) return "";
+    if (/^data:/.test(String(v))) { try { return await uploadImageSmart(v, `reg_${safe(nm)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo:", e.message); return ""; } }
+    return String(v);
+  };
+  photo1 = await resolvePhoto(body.photo1, p1.name);
+  photo2 = await resolvePhoto(body.photo2, p2.name);
   if (!isWaitlist) { try { if (body.paymentProof) payUrl = await uploadImageSmart(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
 
   const mkP = (p, photo, m, e) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
@@ -5544,7 +5551,8 @@ function regLookupPlayer(rows, eMap, ident) {
   if (!hit) return null;
   const em2 = eMap[String(hit[0] || "").toLowerCase()] || {};
   const elo = em2.elo == null ? 1350 : em2.elo;
-  return { name: hit[0] || "", ig: hit[1] || "", verified: String(hit[2]).toUpperCase() === "TRUE", elo, tier: getTierName(elo), method };
+  return { name: hit[0] || "", ig: hit[1] || "", verified: String(hit[2]).toUpperCase() === "TRUE", elo, tier: getTierName(elo), method,
+    profile: { name: hit[0] || "", alias: hit[3] || "", gender: hit[4] || "", region: hit[5] || "", photoUrl: hit[6] || "", email: hit[11] || "", phone: hit[12] || "" } };
 }
 async function regCheckPlayer(body) {
   const sheets = getSheets();
@@ -5571,7 +5579,8 @@ async function regCheckPlayer(body) {
   }
   if (!hit) return respond(200, { found: false, eligibility: eligibilityOf(null, true, level) });
   return respond(200, { found: true, name: hit.name, ig: hit.ig, elo: hit.elo, tier: hit.tier,
-    method: hit.method, claimed: hit.verified, enrolledInCategory: enrolled, eligibility: eligibilityOf(hit.elo, false, level) });
+    method: hit.method, claimed: hit.verified, enrolledInCategory: enrolled, eligibility: eligibilityOf(hit.elo, false, level),
+    profile: hit.profile });
 }
 
 // ==============================================================

@@ -123,7 +123,7 @@ function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); r
 
 const F = { eventId:qs(), data:null, step:0, catId:null,
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
-function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:""}; }
+function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false}; }
 
 async function api(path, opts){
   const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
@@ -137,8 +137,8 @@ function fileToDataUrl(input){ return new Promise(r=>{ const f=input.files&&inpu
 function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId); }
 function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
 function isWL(){ return catFull(cat()); }
-const STEP_NAME=["Kategori","Pemain","Data pribadi","Persetujuan","Pembayaran","Review"];
-function stepKeys(){ return isWL()? ["cat","players","personal","waiver","review","done"] : ["cat","players","personal","waiver","pay","review","done"]; }
+const STEP_NAME=["Kategori","Pemain 1","Pemain 2","Persetujuan","Pembayaran","Review"];
+function stepKeys(){ return isWL()? ["cat","p1","p2","waiver","review","done"] : ["cat","p1","p2","waiver","pay","review","done"]; }
 function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
 
 async function boot(){
@@ -184,8 +184,8 @@ function render(){
   head();
   const k = F.started ? stepKeys()[F.step] : "info";
   const host=document.getElementById("host");
-  host.innerHTML = ({info:vInfo,cat:vCat,players:vPlayers,personal:vPersonal,waiver:vWaiver,pay:vPay,review:vReview,done:vDone}[k])();
-  if(k==='players') updatePlayersNav();
+  host.innerHTML = ({info:vInfo,cat:vCat,p1:()=>vPlayer(0),p2:()=>vPlayer(1),waiver:vWaiver,pay:vPay,review:vReview,done:vDone}[k])();
+  if(k==='p1') updatePlayerNav(0); if(k==='p2') updatePlayerNav(1);
   window.scrollTo(0,0);
 }
 function go(k){ const list=stepKeys(); F.step=list.indexOf(k); render(); }
@@ -231,135 +231,104 @@ function vCat(){
     </div>
     ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
     <div class="nav"><a class="btn ghost" href="${eventPageHref()}">←</a>
-      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('players')">Lanjut →</button></div></div>`;
+      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('p1')">Lanjut →</button></div></div>`;
 }
-function vPlayers(){
-  return `<div class="card">
-    <p class="muted" style="margin:0 0 14px;font-size:13px">Ketik <b>nama lengkap</b> tiap pemain — kami cek otomatis di database Trekkr. Cocok? klik <b>Confirm</b>. Belum ada? lengkapi datanya lalu Confirm.</p>
-    ${[0,1].map(i=>pCard(i)).join("")}
-    <div class="nav"><button class="btn ghost" onclick="go('cat')">←</button>
-      <button class="btn primary" id="playersNext" disabled onclick="go('personal')">Lanjut →</button></div></div>`;
+/* ---------- STEP: per-player (Pemain 1 lalu Pemain 2) ---------- */
+function fieldsOn(){ const f=(F.data.config&&F.data.config.fields)||{}; return function(k){ const d=(k!=="jersey"); return f[k]===undefined?d:!!f[k]; }; }
+function allFilled(i){ const p=F.players[i], on=fieldsOn();
+  if(!(p.name||"").trim()||!(p.email||"").trim()||!(p.phone||"").trim()) return false;
+  if(on("nick") && !(p.nick||"").trim()) return false;
+  if(on("gender") && !(p.gender||"").trim()) return false;
+  if(on("dob") && !(p.dob||"").trim()) return false;
+  if(on("region") && !(p.region||"").trim()) return false;
+  if(on("jersey") && !(p.jersey||"").trim()) return false;
+  if(on("photo") && !(p.photo||p.photoUrl)) return false;
+  return true;
 }
-function pCard(i){ const p=F.players[i];
-  return `<div class="pcard">
-    <div class="phead"><div class="avatar">${esc((p.name||('#'+(i+1))).charAt(0).toUpperCase())}</div>
-      <div><div class="who">Pemain ${i+1}</div><div class="sub">nama dicek otomatis di Trekkr</div></div></div>
-    <label class="f"><span>Nama lengkap <span class="req">*</span></span>
-      <input id="pn_${i}" value="${esc(p.name)}" oninput="onName(${i},this.value)" placeholder="Nama lengkap" autocomplete="off"></label>
-    <div id="pres_${i}">${playerResultHTML(i)}</div>
-    <div class="grid2">
-      <label class="f"><span>No. HP</span><input id="pp_${i}" value="${esc(p.phone)}" oninput="F.players[${i}].phone=this.value" placeholder="0812..."></label>
-      <label class="f"><span>Email</span><input id="pe_${i}" value="${esc(p.email)}" oninput="F.players[${i}].email=this.value" placeholder="nama@mail.com"></label>
-    </div>
-    <label class="f"><span>Instagram</span><input id="pig_${i}" value="${esc(p.ig)}" oninput="F.players[${i}].ig=this.value" placeholder="@akun"></label>
-    <div id="pcf_${i}">${confirmBtnHTML(i)}</div>
-  </div>`;
+function setF(i,k,v){ F.players[i][k]=v; updatePlayerNav(i); }
+function updatePlayerNav(i){ const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(F.players[i].decision && allFilled(i)); }
+function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.decision=null; p.checking=false;
+  const r=document.getElementById("pres_"+i); if(r) r.innerHTML=(v||"").trim()?'<div class="note">akan cek saat berhenti mengetik…</div>':"";
+  clearTimeout(p._t); if(!(v||"").trim()) return; p._t=setTimeout(function(){ doCheck(i); }, 600);
 }
-// Result block below the name field: checking / found ("pakai data ini?") / new.
-function playerResultHTML(i){ const p=F.players[i], c=p.chk;
-  if(p.checking) return '<div class="note">⏳ Mengecek database Trekkr…</div>';
-  if(!c) return '';
-  if(c.found){
-    const e=c.eligibility||{}, block=e.state==='block';
-    if(p.confirmed) return `<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip ok">✔ Pakai profil Trekkr</span> <b>${esc(c.name)}</b> · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>`;
-    return `<div class="card" style="margin-top:10px;background:var(--inset)">
-      <div class="row" style="justify-content:space-between;align-items:center"><span>✔ <b>Ditemukan</b> via ${esc(c.method)}</span><span class="chip ${block||e.state==='flag'?'warn':'ok'}">${esc(e.msg||'')}</span></div>
-      <div style="margin-top:6px">${esc(c.name)} · <span class="elo">${esc(c.tier)} ${c.elo}</span></div>
-      <div class="note" style="margin-top:6px">${block?'⛔ Level di atas plafon kategori — tidak bisa daftar di kategori ini.':'Pakai data ini? Lengkapi kontak di atas bila perlu, lalu klik <b>Confirm</b>.'}</div>
-      ${c.enrolledInCategory?'<div style="margin-top:6px"><span class="chip warn">⚠ sudah terdaftar di kategori ini</span></div>':''}</div>`;
-  }
-  if(p.confirmed) return `<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip ok">✔ Pemain baru</span> <b>${esc(p.name)}</b> — level mengikuti kategori.</div>`;
-  return `<div class="card" style="margin-top:10px;background:var(--inset)"><span class="chip warn">🆕 Pemain baru</span> <span class="note">Belum ada di Trekkr — lengkapi data di atas, lalu klik <b>Confirm</b>.</span></div>`;
+async function doCheck(i){ const p=F.players[i], c=cat(); if(!(p.name||"").trim()) return;
+  p.checking=true; const r=document.getElementById("pres_"+i); if(r) r.innerHTML='<div class="note">⏳ Mengecek database Trekkr…</div>';
+  try{ p.chk=await api("reg/check-player",{method:"POST",body:{name:p.name,eventId:F.eventId,category:F.catId,level:c?c.level:""}}); }
+  catch(e){ p.chk={found:false,eligibility:{state:"flag",msg:"cek gagal"}}; }
+  p.checking=false;
+  if(p.chk && !p.chk.found) p.decision="new";   // no match → straight to the new-player form
+  render();
 }
-function confirmBtnHTML(i){ const p=F.players[i], c=p.chk;
-  const block = c&&c.found&&c.eligibility&&c.eligibility.state==='block';
-  if(p.confirmed) return `<button class="btn ghost" style="padding:8px 12px;font-size:12.5px" onclick="unconfirmPlayer(${i})">Ubah</button>`;
-  return `<button class="btn primary" style="padding:10px 14px" ${(!(p.name||'').trim()||block)?'disabled':''} onclick="confirmPlayer(${i})">Confirm</button>`;
+function useExisting(i){ const p=F.players[i], pr=(p.chk&&p.chk.profile)||{};
+  p.name=pr.name||p.name; p.nick=pr.alias||""; p.gender=pr.gender||""; p.region=pr.region||"";
+  p.phone=pr.phone||""; p.email=pr.email||""; p.photoUrl=pr.photoUrl||""; p.photo="";
+  p.decision="use"; render();
 }
-function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.confirmed=false; p.checking=false;
-  refreshPlayer(i);
-  clearTimeout(p._t); if(!(v||'').trim()) return;
-  p._t=setTimeout(function(){ doCheck(i); }, 600);   // auto-check after the user stops typing
+function buatBaru(i){ const p=F.players[i];
+  p.nick="";p.gender="";p.dob="";p.region="";p.jersey="";p.phone="";p.email="";p.photo="";p.photoUrl="";
+  p.decision="new"; render();
 }
-async function doCheck(i){ const p=F.players[i], c=cat(); if(!(p.name||'').trim()) return;
-  p.checking=true; refreshPlayer(i);
-  try{ p.chk = await api("reg/check-player",{method:"POST",body:{ name:p.name, phone:p.phone, email:p.email, ig:p.ig, eventId:F.eventId, category:F.catId, level:c?c.level:"" }}); }
-  catch(e){ p.chk={found:false, eligibility:{state:'flag',msg:'cek gagal'}}; }
-  p.checking=false; refreshPlayer(i);
+function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false; render(); }
+async function pickPhoto(i,input){ const p=F.players[i]; p.photo=await fileToDataUrl(input);
+  const ph=document.getElementById("ph_"+i); if(ph&&p.photo) ph.innerHTML='<img src="'+p.photo+'" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">';
+  updatePlayerNav(i);
 }
-function confirmPlayer(i){ const p=F.players[i]; if(!(p.name||'').trim()) return;
-  const c=p.chk; if(c&&c.found&&c.eligibility&&c.eligibility.state==='block') return;
-  p.confirmed=true; refreshPlayer(i);
-}
-function unconfirmPlayer(i){ F.players[i].confirmed=false; refreshPlayer(i); }
-// Update only this player's result + confirm button (keeps input focus), then the nav.
-function refreshPlayer(i){
-  const r=document.getElementById('pres_'+i); if(r) r.innerHTML=playerResultHTML(i);
-  const b=document.getElementById('pcf_'+i); if(b) b.innerHTML=confirmBtnHTML(i);
-  updatePlayersNav();
-}
-function teamElig(){
-  const cs=F.players.map(p=>p.chk).filter(Boolean);
-  if(cs.some(c=>c.eligibility&&c.eligibility.state==="block")) return {cls:"warn",label:"⛔ Ada pemain di atas plafon"};
-  return {cls:"",label:""};
-}
-function updatePlayersNav(){ const btn=document.getElementById('playersNext'); if(!btn) return;
-  btn.disabled = !(F.players.every(p=>p.confirmed) && teamElig().cls!=='block'); }
-function closeModal(){ document.getElementById("modalHost").innerHTML=""; }
-function openClaim(i){
-  const p=F.players[i], c=p.chk||{};
-  document.getElementById("modalHost").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()">
-    <div class="modal"><h3>Klaim profil</h3>
-      <p class="muted" style="margin:2px 0 12px;font-size:13px">${esc(c.name||p.name)} · ${esc(c.tier||'')} ${c.elo||''}</p>
-      <div id="claimBody">
-        <label class="f"><span>Email verifikasi</span><input id="claimEmail" value="${esc(p.email||'')}" placeholder="email@mail.com"></label>
-        <button class="btn primary" style="width:100%" onclick="claimStart(${i})">Kirim verifikasi</button>
-        <p class="note">Link konfirmasi dikirim ke email. Kamu boleh <b>lanjut mendaftar dulu</b> — klaim selesai saat link diklik.</p>
-      </div></div></div>`;
-}
-async function claimStart(i){
-  const p=F.players[i];
-  const email=(document.getElementById("claimEmail").value||"").trim();
-  if(!email){ alert("Isi email dulu."); return; }
-  const cb=document.getElementById("claimBody"); cb.innerHTML='<p class="muted">Mengirim…</p>';
-  try{
-    const r=await api("reg/claim/start",{method:"POST",body:{playerName:(p.chk&&p.chk.name)||p.name, email, eventId:F.eventId}});
-    p.claimPending=true; p.email=p.email||email;
-    cb.innerHTML = r.sent
-      ? '<div class="chip ok">📧 Email terkirim</div><p class="note">Cek inbox & klik konfirmasi. Kamu bisa lanjut mendaftar.</p><button class="btn primary" style="width:100%;margin-top:8px" onclick="closeModal();render()">Lanjut daftar</button>'
-      : '<div class="chip warn">Email belum terkirim</div><p class="note">'+esc(r.message||'Layanan email belum aktif.')+'</p><button class="btn" style="width:100%;margin-top:8px" onclick="closeModal();render()">Tutup</button>';
-  }catch(e){ cb.innerHTML='<div class="chip warn">Gagal: '+esc(e.message)+'</div><button class="btn" style="width:100%;margin-top:8px" onclick="closeModal()">Tutup</button>'; }
-}
-function vPersonal(){
-  const f=F.data.config.fields||{};
-  const on=(k,d)=> f[k]===undefined? d : !!f[k];
-  return `<div class="card"><p class="muted" style="margin:0 0 14px;font-size:13px">Data pribadi tiap pemain.</p>
-    <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
-    ${[0,1].map(i=>pPersonal(i,on)).join("")}
-    <div class="nav"><button class="btn ghost" onclick="go('players')">←</button>
-      <button class="btn primary" onclick="go('waiver')">Lanjut →</button></div></div>`;
-}
-function pPersonal(i,on){ const p=F.players[i];
-  const fld=[];
-  if(on('nick',true)) fld.push(`<label class="f"><span>Nama panggilan</span><input value="${esc(p.nick)}" oninput="F.players[${i}].nick=this.value"></label>`);
+function profileForm(i,on){ const p=F.players[i];
+  const src = p.decision==="use"
+    ? '<div class="chip ok" style="margin-bottom:12px">✔ Memakai data Trekkr — lengkapi yang masih kosong</div>'
+    : '<div class="chip warn" style="margin-bottom:12px">🆕 Pemain baru — isi semua data</div>';
+  const rows=[];
+  rows.push(`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span><input value="${esc(p.name)}" oninput="setF(${i},'name',this.value)" placeholder="Nama lengkap sesuai KTP"></label>`);
+  if(on("nick")) rows.push(`<label class="f"><span>Nama alias <span class="req">*</span></span><input value="${esc(p.nick)}" oninput="setF(${i},'nick',this.value)" placeholder="nama panggilan"></label>`);
+  rows.push(`<div class="grid2"><label class="f"><span>No. HP <span class="req">*</span></span><input value="${esc(p.phone)}" oninput="setF(${i},'phone',this.value)" placeholder="0812..."></label><label class="f"><span>Email <span class="req">*</span></span><input value="${esc(p.email)}" oninput="setF(${i},'email',this.value)" placeholder="nama@mail.com"></label></div>`);
   const dg=[];
-  if(on('dob',true)) dg.push(`<label class="f"><span>Tanggal lahir</span><input type="date" value="${esc(p.dob)}" oninput="F.players[${i}].dob=this.value"></label>`);
-  if(on('gender',true)) dg.push(`<label class="f"><span>Jenis kelamin</span><select onchange="F.players[${i}].gender=this.value"><option value="">—</option><option ${p.gender==='L'?'selected':''}>L</option><option ${p.gender==='P'?'selected':''}>P</option></select></label>`);
-  if(dg.length) fld.push(`<div class="grid2">${dg.join("")}</div>`);
-  if(on('region',true)) fld.push(`<label class="f"><span>Kota / region</span><input list="cities" value="${esc(p.region)}" oninput="F.players[${i}].region=this.value" placeholder="ketik kota…"></label>`);
-  const pj=[];
-  if(on('photo',true)) pj.push(`<label class="f"><span>Foto pemain</span><input type="file" accept="image/*" onchange="pickPhoto(${i},this)"></label>`);
-  if(on('jersey',false)) pj.push(`<label class="f"><span>Ukuran jersey <span class="faint">(opsional)</span></span><select onchange="F.players[${i}].jersey=this.value"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(s=>`<option ${p.jersey===s?'selected':''}>${s}</option>`).join("")}</select></label>`);
-  if(pj.length) fld.push(`<div class="grid2">${pj.join("")}</div>`);
-  return `<div class="pcard"><div class="phead"><div class="avatar">${esc((p.name||'?').charAt(0).toUpperCase())}</div><div><div class="who">${esc(p.name||('Pemain '+(i+1)))}</div><div class="sub">${esc(p.phone||'')}</div></div></div>${fld.join("")}</div>`;
+  if(on("gender")) dg.push(`<label class="f"><span>Gender <span class="req">*</span></span><select onchange="setF(${i},'gender',this.value)"><option value="">—</option><option ${p.gender==='L'?'selected':''}>L</option><option ${p.gender==='P'?'selected':''}>P</option></select></label>`);
+  if(on("dob")) dg.push(`<label class="f"><span>Tanggal lahir <span class="req">*</span></span><input type="date" value="${esc(p.dob)}" oninput="setF(${i},'dob',this.value)"></label>`);
+  if(dg.length) rows.push(`<div class="grid2">${dg.join("")}</div>`);
+  if(on("region")) rows.push(`<label class="f"><span>Region / kota <span class="req">*</span></span><input list="cities" value="${esc(p.region)}" oninput="setF(${i},'region',this.value)" placeholder="ketik kota…"></label>`);
+  if(on("jersey")) rows.push(`<label class="f"><span>Ukuran jersey <span class="req">*</span></span><select onchange="setF(${i},'jersey',this.value)"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(sz=>`<option ${p.jersey===sz?'selected':''}>${sz}</option>`).join("")}</select></label>`);
+  if(on("photo")){ const cur=(p.photo||p.photoUrl)?`<img src="${esc(p.photo||p.photoUrl)}" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">`:'<span class="chip">belum ada</span>';
+    rows.push(`<label class="f"><span>Foto <span class="req">*</span></span><div class="row" style="align-items:center;gap:12px"><div id="ph_${i}">${cur}</div><input type="file" accept="image/*" onchange="pickPhoto(${i},this)" style="flex:1"></div></label>`); }
+  rows.push(`<div style="margin-top:2px"><a href="#" onclick="event.preventDefault();resetPlayer(${i})" class="note">↩ Ganti nama / cek ulang</a></div>`);
+  return src+rows.join("");
 }
-async function pickPhoto(i,input){ F.players[i].photo = await fileToDataUrl(input); }
+function vPlayer(i){ const p=F.players[i], on=fieldsOn();
+  let block;
+  if(!p.decision){
+    let res="";
+    if(p.checking) res='<div class="note">⏳ Mengecek database Trekkr…</div>';
+    else if(p.chk&&p.chk.found){ const e=p.chk.eligibility||{}, blk=e.state==='block';
+      res=`<div class="card" style="margin-top:10px;background:var(--inset)">
+        <div class="row" style="justify-content:space-between;align-items:center"><span>✔ <b>Ditemukan</b> via ${esc(p.chk.method)}</span><span class="chip ${blk||e.state==='flag'?'warn':'ok'}">${esc(e.msg||'')}</span></div>
+        <div style="margin-top:6px">${esc(p.chk.name)} · <span class="elo">${esc(p.chk.tier)} ${p.chk.elo}</span></div>
+        ${blk?'<div class="note" style="margin-top:6px">⛔ Level di atas plafon kategori — tidak bisa daftar di kategori ini.</div>'
+             :`<div class="note" style="margin:8px 0 4px">Pakai data yang tersimpan di Trekkr, atau buat data baru?</div>
+               <div class="nav" style="margin-top:8px"><button class="btn primary" onclick="useExisting(${i})">Pakai data yang tersedia</button><button class="btn ghost" onclick="buatBaru(${i})">Buat baru</button></div>`}
+      </div>`;
+    }
+    block=`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span>
+        <input id="pn_${i}" value="${esc(p.name)}" oninput="onName(${i},this.value)" placeholder="Nama lengkap sesuai KTP" autocomplete="off"></label>
+      <div class="note">📇 Tulis <b>nama lengkap sesuai KTP</b> — panitia dapat mengecek KTP saat registrasi di lokasi.</div>
+      <div id="pres_${i}">${res}</div>`;
+  } else {
+    block=profileForm(i,on);
+  }
+  const canNext = !!(p.decision && allFilled(i));
+  return `<div class="card">
+    <div class="phead" style="margin-bottom:12px"><div class="avatar">${esc((p.name||('#'+(i+1))).charAt(0).toUpperCase())}</div>
+      <div><div class="who">Pemain ${i+1}</div><div class="sub">${i===0?'mulai dari pemain 1':'lanjut ke pemain 2'}</div></div></div>
+    <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
+    ${block}
+    <div class="nav"><button class="btn ghost" onclick="go('${i===0?'cat':'p1'}')">←</button>
+      <button class="btn primary" id="pNext_${i}" ${canNext?'':'disabled'} onclick="go('${i===0?'p2':'waiver'}')">Lanjut →</button></div></div>`;
+}
+
 function vWaiver(){
   const w=F.data.config.waiver||"Dengan mendaftar, peserta menyetujui ketentuan penyelenggara.";
   return `<div class="card"><div class="card" style="max-height:180px;overflow:auto;background:var(--inset)"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
     <label style="display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverA?'checked':''} onchange="F.waiverA=this.checked;render()"><span>Kami setuju atas <b>waiver &amp; disclaimer</b>.</span></label>
     <label style="display:flex;gap:11px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverB?'checked':''} onchange="F.waiverB=this.checked;render()"><span>Seluruh informasi yang kami berikan <b>benar</b>.</span></label>
-    <div class="nav"><button class="btn ghost" onclick="go('personal')">←</button>
+    <div class="nav"><button class="btn ghost" onclick="go('p2')">←</button>
       <button class="btn primary" ${F.waiverA&&F.waiverB?'':'disabled'} onclick="go(isWL()?'review':'pay')">Lanjut →</button></div></div>`;
 }
 function vPay(){
@@ -389,7 +358,7 @@ async function submitReg(){
   const btn=document.getElementById("subBtn"); if(btn){ btn.disabled=true; btn.textContent="Mengirim…"; }
   const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB,
     players:F.players.map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey})),
-    photo1:F.players[0].photo||"", photo2:F.players[1].photo||"", paymentProof:isWL()?"":F.payFile };
+    photo1:F.players[0].photo||F.players[0].photoUrl||"", photo2:F.players[1].photo||F.players[1].photoUrl||"", paymentProof:isWL()?"":F.payFile };
   try{ const r=await api("reg/register/"+encodeURIComponent(F.eventId), {method:"POST", body});
     F.result=r; go("done");
   }catch(e){ const el=document.getElementById("subErr"); if(el) el.innerHTML='<div class="chip warn" style="margin-top:10px">Gagal: '+esc(e.message)+'</div>'; if(btn){ btn.disabled=false; btn.textContent="✅ Kirim pendaftaran"; } }
