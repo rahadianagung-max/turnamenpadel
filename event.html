@@ -196,14 +196,14 @@
     function datesBody(tl){
       tl=tl||{};
       var rows=[
-        ["Buka pendaftaran", tl.openStart],
-        ["Tutup pendaftaran", tl.openEnd],
-        ["Kurasi mulai", tl.curationStart],
-        ["Batas appeal", tl.appealDeadline],
+        ["Registration opens", tl.openStart],
+        ["Registration closes", tl.openEnd],
+        ["Curation starts", tl.curationStart],
+        ["Appeal deadline", tl.appealDeadline],
         ["Technical Meeting", tl.tmDate],
-        ["Order of play rilis", tl.oopDate]
+        ["Order of play released", tl.oopDate]
       ].filter(function(r){ return r[1]; });
-      if(!rows.length) return '<span class="empty">Belum ada jadwal penting.</span>';
+      if(!rows.length) return '<span class="empty">No important dates yet.</span>';
       return '<ul class="dates">'+rows.map(function(r){
         return '<li><span class="dlabel">'+esc(r[0])+'</span><span class="dval">'+esc(r[1])+'</span></li>';
       }).join("")+'</ul>';
