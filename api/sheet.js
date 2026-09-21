@@ -5682,7 +5682,9 @@ async function regRegisterPair(eventId, body) {
     if (!m2) handleNew(data.player2);
     if (newPlayers.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED", requestBody: { values: newPlayers } });
     if (newElo.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: newElo } });
-    for (const t of verifyTargets) { try { await regClaimStart({ playerName: t.name, email: t.email, eventId }); } catch (e) {} }
+    // NB: TIDAK mengirim email verifikasi/klaim di sini (hemat kuota Brevo).
+    // Link verifikasi profil untuk pemain baru dikirim menyatu dengan email
+    // "You're in!" saat admin approve — lihat regApproveRegistration.
   } catch (e) { console.error("create new players:", e && e.message); }
   // Menghemat kuota email Brevo: TIDAK ada email saat submit. Email peserta
   // hanya dikirim saat admin meng-approve pendaftaran (lihat regApproveRegistration).
@@ -6176,6 +6178,17 @@ function regEmailShell(title, bodyHtml) {
     <div style="background:#0A0A0B;color:#fff;padding:14px 18px;font-weight:800;font-size:18px">turnamen<span style="color:#FF6A00">.</span>padel</div>
     <div style="padding:18px"><h2 style="color:#FF6A00;margin:0 0 10px">${escHtml(title)}</h2>${bodyHtml}</div></div>`;
 }
+// Create a profile-claim token row (reg_claims) and return the claim URL,
+// WITHOUT sending an email. Used to embed a verify link in the approval email
+// so brand-new players verify their Trekkr profile without a separate email.
+async function regCreateClaimToken(sheets, playerName, email, eventId) {
+  const token = require("crypto").randomBytes(16).toString("hex");
+  const now = Date.now();
+  const expires = new Date(now + 7 * 24 * 3600 * 1000).toISOString();
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A:H`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[token, playerName, email, eventId, "pending", new Date(now).toISOString(), expires, ""]] } });
+  return `${REG_PUBLIC_BASE}/klaim?token=${token}`;
+}
 async function regClaimStart(body) {
   const playerName = String((body && body.playerName) || "").trim();
   const email = String((body && body.email) || "").trim();
@@ -6425,12 +6438,32 @@ async function regApproveRegistration(eventId, body, params) {
     const drow = (lbl, v) => v ? `<tr><td style="padding:4px 14px 4px 0;color:#64748b;white-space:nowrap">${lbl}</td><td style="padding:4px 0;font-weight:700">${escHtml(v)}</td></tr>` : "";
     const dates = [["Registration opens", tl.openStart], ["Registration closes", tl.openEnd], ["Curation starts", tl.curationStart], ["Appeal deadline", tl.appealDeadline], ["Technical Meeting", tl.tmDate], ["Order of play released", tl.oopDate]].map(([l, v]) => drow(l, v)).join("");
     const datesBlock = dates ? `<p style="margin:16px 0 6px"><b>Important dates:</b></p><table style="border-collapse:collapse;font-size:14px">${dates}</table>` : "";
-    const inner = `<p>Congratulations <b>${escHtml(p1.name || "")}</b> &amp; <b>${escHtml(p2.name || "")}</b>! 🎉</p>
-      <p>You are now officially registered in <b>${escHtml(evName)}</b> — category <b>${escHtml(catName)}</b>.</p>
-      ${datesBlock}
-      <p style="margin-top:16px">You'll be invited to the participants' <b>WhatsApp group</b> by the committee soon. See you on court!</p>`;
-    const emails = [p1.email, p2.email].filter(Boolean);
-    if (emails.length) await regNotify(emails, `You're in! — ${evName}`, regEmailShell("You're in!", inner));
+    // Group by email so partners sharing one address get a single email; a
+    // brand-new player gets a "Verify your Trekkr profile" button folded in
+    // (no separate claim email — saves Brevo quota).
+    const byEmail = new Map();
+    for (const p of [p1, p2]) {
+      const em = String((p && p.email) || "").trim(); if (!em) continue;
+      const k = em.toLowerCase(); if (!byEmail.has(k)) byEmail.set(k, { email: em, players: [] });
+      byEmail.get(k).players.push(p);
+    }
+    for (const grp of byEmail.values()) {
+      let verify = "";
+      for (const p of grp.players) {
+        if (p && p.isNew && p.name) {
+          try {
+            const url = await regCreateClaimToken(sheets, p.name, grp.email, eventId);
+            verify += `<p style="margin:14px 0 4px">Verify your Trekkr profile for <b>${escHtml(p.name)}</b> so your stats &amp; ranking stay linked to you:</p>
+              <p><a href="${url}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:8px">Verify my profile →</a></p>`;
+          } catch (e) {}
+        }
+      }
+      const inner = `<p>Congratulations <b>${escHtml(p1.name || "")}</b> &amp; <b>${escHtml(p2.name || "")}</b>! 🎉</p>
+        <p>Your team <b>${escHtml(rp.team || "")}</b> is now officially registered in <b>${escHtml(evName)}</b> — category <b>${escHtml(catName)}</b>.</p>
+        ${datesBlock}${verify}
+        <p style="margin-top:16px">You'll be invited to the participants' <b>WhatsApp group</b> by the committee soon. See you on court!</p>`;
+      await regNotify([grp.email], `You're in! — ${evName}`, regEmailShell("You're in!", inner));
+    }
   } catch (e) { console.error("approve email:", e && e.message); }
   return respond(200, { success: true, status: "approved" });
 }
