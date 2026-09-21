@@ -1125,12 +1125,19 @@ async function getPlayerDetail(name) {
 async function addPlayer(body) {
   const { name, gender, ig, displayName, region, photoUrl, clubs } = body;
   if (!name) return respond(400, { error: "Name is required" });
+  // Tahap 5: pemain baru WAJIB email (email = identitas unik).
+  const email = String(body.email || "").trim(), phone = String(body.phone || "").trim();
+  if (!/.+@.+\..+/.test(email)) return respond(400, { error: "Email wajib untuk pemain baru (email = identitas pemain)." });
   const startElo = parseInt(body.elo) || 1350;
   const sheets = getSheets();
+  // Keunikan email.
+  const chk = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const ne = normEmailLc(email);
+  if ((chk.data.values || []).some((r) => normEmailLc(r[11]) === ne)) return respond(409, { error: "Email sudah dipakai pemain lain." });
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SHEET_ID, range: `${TABS.players}!A:I`, valueInputOption: "USER_ENTERED",
-    requestBody: { values: [[ name, ig || "", ig ? "TRUE" : "FALSE", displayName || name, (gender || "M").toUpperCase(), region || "", photoUrl || "", clubs || "", now ]] },
+    spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[ name, ig || "", ig ? "TRUE" : "FALSE", displayName || name, (gender || "M").toUpperCase(), region || "", photoUrl || "", clubs || "", now, "", "", email, phone ]] },
   });
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
@@ -5513,6 +5520,10 @@ async function regRegisterPair(eventId, body) {
   const p1 = players[0] || {}, p2 = players[1] || {};
   if (!String(p1.name || "").trim() || !String(p2.name || "").trim())
     return respond(400, { error: "Nama lengkap kedua pemain wajib diisi." });
+  // Tahap 5: email kedua pemain WAJIB (email = identitas pemain di Trekkr).
+  const okEmail = (e) => /.+@.+\..+/.test(String(e || "").trim());
+  if (!okEmail(p1.email) || !okEmail(p2.email))
+    return respond(400, { error: "Email kedua pemain wajib diisi." });
 
   // Cek DB + eligibility (campur) — otoritatif di server. Blok keras ditolak.
   const [pRes, eRes] = await Promise.all([
@@ -5896,12 +5907,14 @@ async function regImportApply(body) {
   // Peta kepemilikan email (email = identitas UNIK) → nama-normal pemilik.
   const emailOwner = new Map(); players.forEach((p) => { const e = normEmailLc(p.email); if (e && !emailOwner.has(e)) emailOwner.set(e, normName(p.name)); });
   const updates = [], newPlayers = [], newElo = [], now = new Date().toISOString();
-  const res = { updated: 0, created: 0, skipped: 0, filledEmail: 0, filledPhone: 0, conflicts: [] };
+  const res = { updated: 0, created: 0, skipped: 0, filledEmail: 0, filledPhone: 0, conflicts: [], noEmailSkipped: [] };
   for (const d of decisions) {
     const name = String((d && d.name) || "").trim(), email = String((d && d.email) || "").trim(), phone = String((d && d.phone) || "").trim();
     const action = (d && d.action) || "skip";
     if (action === "skip" || !name) { res.skipped++; continue; }
     if (action === "new") {
+      // Tahap 5: pemain baru WAJIB email (email = identitas unik).
+      if (!/.+@.+\..+/.test(email)) { res.skipped++; res.noEmailSkipped.push(name); continue; }
       // Uniqueness: email sudah dimiliki pemain lain → jangan buat duplikat identitas.
       const nE = normEmailLc(email);
       if (nE && emailOwner.has(nE)) { res.skipped++; res.conflicts.push({ name, field: "email", existing: "dipakai: " + (emailOwner.get(nE) || ""), incoming: email }); continue; }
@@ -6579,13 +6592,18 @@ async function ddApply(body) {
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!D${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[finalName]] } });
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!K${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[action === "link" ? "linked" : "seeded"]] } });
   if (action !== "link") {
-    const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:A` });
-    const exists = (pRes.data.values || []).some((r) => (r[0] || "").toLowerCase() === finalName.toLowerCase());
+    const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+    const prows = pRes.data.values || [];
+    const exists = prows.some((r) => (r[0] || "").toLowerCase() === finalName.toLowerCase());
     if (!exists) {
       const now = new Date().toISOString();
       const gender = (row[4] || "M").toUpperCase().startsWith("F") ? "F" : "M";
-      await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:I`, valueInputOption: "USER_ENTERED",
-        requestBody: { values: [[finalName, "", "FALSE", finalName, gender, "", row[6] || "", "", now]] } });
+      // Tahap 5: bawa email/HP pendaftar ke baris pemain baru (email=identitas).
+      let email = "", phone = "";
+      try { const d = JSON.parse(row[8] || "{}"); [d.player1, d.player2].forEach((pp) => { if (pp && normName(pp.name) === normName(finalName)) { if (pp.email) email = String(pp.email).trim(); if (pp.phone) phone = String(pp.phone).trim(); } }); } catch (e) {}
+      if (email) { const ne = normEmailLc(email); if (prows.some((r) => normEmailLc(r[11]) === ne)) email = ""; } // jaga keunikan
+      await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED",
+        requestBody: { values: [[finalName, "", "FALSE", finalName, gender, "", row[6] || "", "", now, "", "", email, phone]] } });
       await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
         requestBody: { values: [["INITIAL", finalName, parseInt(seed) || 1350, 0, 0, 0, now]] } });
     }
