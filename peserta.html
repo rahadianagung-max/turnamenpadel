@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Players · TurnamenPadel</title>
+<meta name="description" content="Daftar pemain yang sudah bergabung — TurnamenPadel."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
+<style>
+  /* Header — identical to the event page (/<slug>) */
+  .ev-head{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:var(--bd)}
+  .ev-head .inner{max-width:920px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .ev-title{font-family:var(--display);font-weight:900;letter-spacing:-.01em;line-height:1.1;
+    font-size:clamp(17px,3.6vw,24px);color:var(--dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72%}
+  #homeBtn{flex:none}
+
+  .wrap{max-width:920px;margin:0 auto;padding:20px 16px 96px}
+  .pagehead{margin:4px 0 20px}
+  .eyebrow{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--orange);display:inline-flex;align-items:center;gap:8px}
+  .eyebrow .dot{width:8px;height:8px;border-radius:var(--r-full);background:var(--orange)}
+  h1.title{font-family:var(--display);font-weight:900;letter-spacing:-.02em;line-height:1.05;
+    font-size:clamp(26px,5vw,40px);margin:8px 0 0}
+
+  .catsec{margin-bottom:26px}
+  .catbar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .catname{font-family:var(--display);font-weight:900;font-size:19px}
+  .catcount{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--slate-500);white-space:nowrap}
+
+  .pairs{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:12px}
+  .pair{display:flex;align-items:center;gap:8px;background:var(--card);border:var(--bd);
+    border-radius:var(--r-2xl);box-shadow:var(--sh-sm);padding:12px}
+  .pair .plus{font-family:var(--display);font-weight:900;color:var(--orange);flex:none}
+  .pl{display:flex;align-items:center;gap:9px;text-decoration:none;flex:1;min-width:0}
+  .pl:hover .pname{color:var(--orange);text-decoration:underline}
+  .av{width:40px;height:40px;border-radius:var(--r-full);flex:none;object-fit:cover;border:var(--bd);
+    background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:900;font-size:15px;overflow:hidden}
+  .av img{width:100%;height:100%;object-fit:cover;display:block}
+  .pname{font-family:var(--sans);font-weight:700;font-size:14px;color:var(--dark);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .empty{color:var(--slate-400);font-size:14px;padding:6px 0}
+  .state{text-align:center;padding:60px 16px;color:var(--slate-500)}
+  .state .material-symbols-outlined{font-size:44px;color:var(--slate-300);display:block;margin:0 auto 12px}
+  [hidden]{display:none!important}
+
+  /* ── Nightmode (inherited from the event's per-event theme, set in /engine) ── */
+  body[data-theme="nightmode"]{
+    --canvas:#0B1120; --card:#131C2E; --dark:#E5E9F0;
+    --slate-700:#CBD5E1; --slate-600:#AEBACD; --slate-500:#94A3B8;
+    --slate-400:#64748B; --slate-300:#475569; --slate-200:#334155;
+    --slate-100:#1E293B; --slate-50:#0F172A;
+    background:#0B1120; color:#E5E9F0;
+  }
+  body[data-theme="nightmode"] .ev-head{background:rgba(11,17,32,.95)}
+  body[data-theme="nightmode"] #homeBtn{background:#fff;color:#0F172A}
+  body[data-theme="nightmode"] #homeBtn .material-symbols-outlined{color:#0F172A}
+</style>
+</head>
+<body>
+<header class="ev-head"><div class="inner">
+  <span class="ev-title" id="evTitle"></span>
+  <a class="btn btn--white btn--sm" id="homeBtn" href="#"><span class="material-symbols-outlined" style="font-size:16px">home</span>Home</a>
+</div></header>
+
+<div class="wrap">
+  <div class="pagehead">
+    <span class="eyebrow"><span class="dot"></span>Registered players</span>
+    <h1 class="title">Players who joined</h1>
+  </div>
+  <div id="host">
+    <div class="state"><span class="material-symbols-outlined">progress_activity</span>Loading…</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var API="/api", TRK_ID_RE=/^(EV_|TM_)/, TREKKR="https://trekkr.online";
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
+  function imgSrc(u){
+    u=String(u||"");
+    var m=u.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);
+    return m ? ("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w400") : u;
+  }
+  function levelLabel(l){ var k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_");
+    return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l; }
+  function catLabel(c){ var k=String(c||"").trim().toUpperCase();
+    return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c; }
+  function ref(){
+    var m=location.pathname.match(/\/(?:peserta|players)\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]);
+    var seg=location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
+    if(seg.length===1 && seg[0].indexOf(".")<0) return decodeURIComponent(seg[0]);
+    return new URLSearchParams(location.search).get("e")||"";
+  }
+  function api(path){
+    return fetch(API+"/"+path).then(function(r){ return r.json().then(function(d){ if(!r.ok){var e=new Error((d&&d.error)||("HTTP "+r.status));e.status=r.status;throw e;} return d; }); });
+  }
+  var host=document.getElementById("host");
+  function fail(msg){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">group_off</span>'+esc(msg)+'</div>'; }
+
+  function initials(nm){ var p=String(nm||"").trim().split(/\s+/); return ((p[0]||"")[0]||"")+((p[1]||"")[0]||"")||"?"; }
+  function avatar(p){
+    if(p.photoUrl) return '<span class="av"><img src="'+esc(imgSrc(p.photoUrl))+'" alt="'+esc(p.name)+'" referrerpolicy="no-referrer" loading="lazy" onerror="this.parentNode.textContent=\''+esc(initials(p.name).toUpperCase())+'\'"/></span>';
+    return '<span class="av">'+esc(initials(p.name).toUpperCase())+'</span>';
+  }
+  function playerLink(p){
+    var nm=String(p.name||"").trim();
+    if(!nm) return '<span class="pl">'+avatar(p)+'<span class="pname">—</span></span>';
+    return '<a class="pl" href="'+TREKKR+'/player/'+encodeURIComponent(nm)+'" target="_blank" rel="noopener" title="'+esc(nm)+' — lihat player passport di Trekkr">'+
+      avatar(p)+'<span class="pname">'+esc(nm)+'</span></a>';
+  }
+
+  var RAW=ref();
+  if(!RAW){ fail("Event tidak ditemukan."); return; }
+
+  api("tournament/events").then(function(d){
+    var events=(d&&d.events)||[];
+    var ev;
+    if(TRK_ID_RE.test(RAW)) ev=events.filter(function(e){return e.eventId===RAW;})[0];
+    if(!ev){ var s=slugify(RAW); var hits=events.filter(function(e){return ((e.slug&&String(e.slug).toLowerCase())||slugify(e.name))===s;}); ev=hits[hits.length-1]; }
+    var eventId=(ev&&ev.eventId)||(TRK_ID_RE.test(RAW)?RAW:"");
+    if(!eventId){ fail("Event \""+esc(RAW)+"\" tidak ditemukan."); return; }
+    // Header + Home button point back to this event's landing page.
+    var regRef=(ev&&ev.slug)?ev.slug:(eventId||RAW);
+    var homeEl=document.getElementById("homeBtn"); if(homeEl) homeEl.setAttribute("href","/"+encodeURIComponent(regRef));
+    return api("reg/roster-public/"+encodeURIComponent(eventId)).then(function(pub){ render(ev, pub); },
+      function(err){ fail(err.status===404?"Belum ada pendaftaran untuk event ini.":"Gagal memuat daftar pemain."); });
+  }).catch(function(){ fail("Gagal memuat data event."); });
+
+  function render(ev, pub){
+    ev=ev||{}; pub=pub||{};
+    if(pub.theme==="nightmode") document.body.setAttribute("data-theme","nightmode");
+    else document.body.removeAttribute("data-theme");
+    var name=pub.name||ev.name||"Tournament";
+    var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
+    document.title="Players · "+name;
+
+    var cats=(pub.categories||[]).filter(function(c){ return (c.pairs||[]).length; });
+    if(!cats.length){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">groups</span>Belum ada pemain yang bergabung.</div>'; return; }
+
+    host.innerHTML = cats.map(function(c){
+      var title=catLabel(c.label)+(c.level?' · '+levelLabel(c.level):'');
+      var n=(c.pairs||[]).length;
+      var pairs=(c.pairs||[]).map(function(pr){
+        return '<div class="pair">'+playerLink(pr.p1||{})+'<span class="plus">+</span>'+playerLink(pr.p2||{})+'</div>';
+      }).join("");
+      return '<section class="catsec"><div class="catbar"><span class="catname">'+esc(title)+'</span>'+
+        '<span class="catcount">'+n+' pair'+(n>1?'s':'')+'</span></div>'+
+        '<div class="pairs">'+pairs+'</div></section>';
+    }).join("");
+  }
+})();
+</script>
+</body>
+</html>
