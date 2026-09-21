@@ -295,10 +295,11 @@ async function doApply(){
     if(v==="skip") return {name:r.name,email:r.email,phone:r.phone,action:"skip"};
     const target=v.replace(/^use:/,""); return {name:r.name,email:r.email,phone:r.phone,action:"update",target}; });
   try{ const res=await api("reg/import/apply",{method:"POST",body:{token:TOKEN,decisions}});
-    const cf=(res.conflicts||[]);
+    const cf=(res.conflicts||[]); const ne=(res.noEmailSkipped||[]);
     document.getElementById("applyResult").innerHTML=`<div class="card" style="margin-top:12px;background:var(--inset)">
       <b>Selesai ✓</b>
       <div class="note" style="margin-top:6px">Pemain diperbarui: <b>${res.updated||0}</b> · email terisi: <b>${res.filledEmail||0}</b> · HP terisi: <b>${res.filledPhone||0}</b> · pemain baru: <b>${res.created||0}</b> · dilewati: <b>${res.skipped||0}</b>.</div>
+      ${ne.length?`<div class="note" style="color:var(--warn);margin-top:6px">⚠ ${ne.length} baris "buat baru" dilewati karena <b>tanpa email</b> (pemain baru wajib email): ${ne.slice(0,20).map(esc).join(", ")}${ne.length>20?', …':''}</div>`:''}
       ${cf.length?`<div class="divider"></div><div class="note"><b>${cf.length} konflik (tidak ditimpa):</b></div><div class="tbl-wrap" style="margin-top:6px"><table><thead><tr><th>Pemain</th><th>Field</th><th>Di DB</th><th>Impor</th></tr></thead><tbody>${cf.map(c=>`<tr><td>${esc(c.name)}</td><td>${esc(c.field)}</td><td class="mono">${esc(c.existing)}</td><td class="mono">${esc(c.incoming)}</td></tr>`).join("")}</tbody></table></div>`:''}
     </div>`;
   }catch(e){ if(e.status===403||e.status===401){ alert("Sesi berakhir / bukan superadmin. Silakan login lagi."); doLogout(); } else alert("Gagal: "+e.message); }
