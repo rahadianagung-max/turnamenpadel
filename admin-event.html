@@ -89,11 +89,24 @@
     </div>
 
     <div class="card">
+      <h3 style="font-size:16px">Jumlah peserta per kategori</h3>
+      <div id="catList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+    </div>
+
+    <div class="card">
       <div class="row" style="justify-content:space-between">
         <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
         <button class="btn ghost sm" onclick="loadRegs()">↻ Segarkan</button>
       </div>
       <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Sanggahan level lawan dari peserta.</div></div>
+        <button class="btn ghost sm" onclick="loadAppeals()">↻ Segarkan</button>
+      </div>
+      <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
     </div>
   </div>
 </div>
@@ -166,7 +179,58 @@ function openEvent(eventId){
   scorer.setAttribute("href","/scorerdesk");
   scorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
   try{ history.replaceState(null,"","/admin/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
-  loadRegs();
+  loadRegs(); loadCategories(); loadAppeals();
+}
+async function loadCategories(){
+  const host=document.getElementById("catList"); host.innerHTML='<p class="muted">Memuat…</p>';
+  try{
+    const d=await api("reg/public/"+encodeURIComponent(EVENT.eventId));
+    const cats=(d&&d.categories)||[];
+    if(!cats.length){ host.innerHTML='<p class="muted">Belum ada kategori / formulir pendaftaran.</p>'; return; }
+    host.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Kategori</th><th>Terisi</th><th>Kuota</th><th>Status</th></tr></thead><tbody>`+
+      cats.map(c=>{ const filled=c.filled||0, quota=c.quota||0; const full=quota>0&&filled>=quota;
+        const st= quota? (full?'<span class="chip bad">penuh</span>':'<span class="chip ok">'+(quota-filled)+' slot</span>') : '<span class="chip">tanpa kuota</span>';
+        return `<tr><td><b>${esc(catLabel(c.label||c.category))}</b>${c.level?' · '+esc(levelLabel(c.level)):''}</td><td class="mono"><b>${filled}</b></td><td class="mono">${quota||'—'}</td><td>${st}</td></tr>`; }).join("")+
+      `</tbody></table></div>`;
+  }catch(e){ host.innerHTML=e.status===404?'<p class="muted">Belum ada formulir pendaftaran untuk event ini.</p>':('<p class="muted">Gagal memuat kategori: '+esc(e.message)+'</p>'); }
+}
+const LEVELS=[["beginner","Beginner"],["upper_beginner","Upper Beginner"],["lower_bronze","Lower Bronze"],["bronze","Bronze"],["upper_bronze","Upper Bronze"],["silver","Silver"],["gold","Gold"],["platinum","Platinum"]];
+async function loadAppeals(){
+  const host=document.getElementById("appealList"); host.innerHTML='<p class="muted">Memuat…</p>';
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/appeals?token="+encodeURIComponent(TOKEN));
+    const list=r.appeals||[];
+    if(!list.length){ host.innerHTML='<p class="muted">Belum ada appeal.</p>'; return; }
+    host.innerHTML=list.map(a=>{
+      const decided=a.decision&&a.decision!=="";
+      const dchip = a.status==="applied"?'<span class="chip ok">koreksi diterapkan</span>':decided?('<span class="chip '+(a.decision==="reject"?"bad":"ok")+'">'+esc({lolos:"diloloskan",reject:"ditolak",levelup:"koreksi level"}[a.decision]||a.decision)+'</span>'):'<span class="chip warn">menunggu</span>';
+      const proof=a.proofUrl?` · <a href="${esc(a.proofUrl)}" target="_blank" rel="noopener">bukti</a>`:"";
+      const players=(a.players||[]).map(p=>esc(p.name)+(p.elo!=null?` (${esc(p.tier)} ${p.elo})`:"")).join(", ");
+      const actions = decided ? "" : `<div class="row" style="margin-top:8px;gap:8px">
+          <button class="btn ghost sm" onclick="decideAppeal('${esc(a.appealId)}','lolos')">✔ Loloskan</button>
+          <button class="btn ghost sm" onclick="decideAppeal('${esc(a.appealId)}','reject')">✕ Tolak</button>
+          <span class="row" style="gap:6px"><select id="lv_${esc(a.appealId)}" class="mono" style="width:auto;padding:6px 8px">${LEVELS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join("")}</select>
+          <button class="btn primary sm" onclick="decideAppeal('${esc(a.appealId)}','levelup')">Koreksi level →</button></span>
+        </div>`;
+      return `<div class="reg"><div class="reg-head"><div><b>${esc(a.appellantName||"—")}</b> <span class="note">banding thd</span> <b>${esc(a.againstLabel||a.againstRegId||"—")}</b>
+          <div class="note" style="margin:2px 0 0">${esc(catLabel(a.category))} · ${esc(new Date(a.createdAt).toLocaleString('id-ID'))}${proof}</div></div>${dchip}</div>
+        <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
+        ${actions}<div class="note" id="apMsg_${esc(a.appealId)}"></div></div>`;
+    }).join("");
+  }catch(e){ host.innerHTML=(e.status===401||e.status===403)?'<p class="muted">Sesi berakhir / tak berhak.</p>':('<p class="muted">Gagal memuat appeal: '+esc(e.message)+'</p>'); }
+}
+async function decideAppeal(appealId, decision){
+  const msg=document.getElementById("apMsg_"+appealId);
+  let note="";
+  if(decision==="reject"){ note=prompt("Alasan penolakan (opsional):","")||""; }
+  if(msg) msg.textContent="Menyimpan…";
+  try{
+    await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{token:TOKEN,decision,note}});
+    if(decision==="levelup"){ const lv=(document.getElementById("lv_"+appealId)||{}).value||"";
+      try{ await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body:{token:TOKEN,targetLevel:lv}}); }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--warn)">Keputusan tersimpan, koreksi level gagal: '+esc(e.message)+'</span>'; }
+    }
+    loadAppeals();
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc((e&&e.message)||e)+'</span>'; }
 }
 function statusChip(s){ return s==="waitlist"?'<span class="chip wl">waitlist</span>':s==="rejected"?'<span class="chip bad">ditolak</span>':s==="cancelled"?'<span class="chip bad">batal</span>':s==="verified"||s==="approved"||s==="accepted"?'<span class="chip ok">'+esc(s)+'</span>':'<span class="chip">'+esc(s||"received")+'</span>'; }
 function eligChip(e){ if(!e) return ""; const s=e.state; return s==="ok"?'<span class="chip ok">eligible</span>':s==="block"?'<span class="chip bad">'+esc(e.msg||"block")+'</span>':'<span class="chip warn">'+esc(e.msg||"flag")+'</span>'; }

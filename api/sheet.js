@@ -843,8 +843,9 @@ const netlifyHandler = async (event) => {
       return await regRosterBlast(decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", "")));
     }
     if (path.startsWith("reg/event/") && path.endsWith("/appeals") && method === "GET") {
-      if (!regGateOk(body, params)) return REG_UNAUTH;
-      return await regEventAppeals(decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", "")));
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/appeals", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
+      return await regEventAppeals(eid);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST") {
       if (!regGateOk(body, params)) return REG_UNAUTH;
@@ -854,12 +855,10 @@ const netlifyHandler = async (event) => {
       return await regRoster(decodeURIComponent(path.replace("reg/roster/", "")), params);
     if (path === "reg/appeal" && method === "POST") return await regAppealSubmit(body);
     if (path.startsWith("reg/appeal/") && path.endsWith("/decision") && method === "POST") {
-      if (!regGateOk(body, params)) return REG_UNAUTH;
-      return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body);
+      return await regAppealDecision(decodeURIComponent(path.replace("reg/appeal/", "").replace("/decision", "")), body, params);
     }
     if (path.startsWith("reg/appeal/") && path.endsWith("/apply-level") && method === "POST") {
-      if (!regGateOk(body, params)) return REG_UNAUTH;
-      return await regApplyLevel(decodeURIComponent(path.replace("reg/appeal/", "").replace("/apply-level", "")), body);
+      return await regApplyLevel(decodeURIComponent(path.replace("reg/appeal/", "").replace("/apply-level", "")), body, params);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/invite-pay") && method === "POST") {
       if (!regGateOk(body, params)) return REG_UNAUTH;
@@ -6341,7 +6340,7 @@ async function regEventAppeals(eventId) {
 // Terapkan koreksi level (audit): naikkan ELO pemain pasangan yang appeal-nya
 // terbukti (decision=levelup) ke level target, lewat baris ELO_Log audit.
 // Hanya MENAIKKAN; tercermin di passport. Ber-audit & idempoten.
-async function regApplyLevel(appealId, body) {
+async function regApplyLevel(appealId, body, params) {
   const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
   const targetLevel = String((body && body.targetLevel) || "").trim();
   if (!targetLevel) return respond(400, { error: "Level target wajib dipilih." });
@@ -6351,6 +6350,7 @@ async function regApplyLevel(appealId, body) {
   const ai = aRows.findIndex((r) => r[0] === appealId);
   if (ai < 0) return respond(404, { error: "Appeal tidak ditemukan." });
   const a = aRows[ai], asr = ai + 2;
+  if (!regEventScopeOk(body, params, a[1])) return REG_UNAUTH; // scope ke event appeal ini
   if ((a[12] || "") !== "levelup") return respond(400, { error: "Hanya untuk appeal berkeputusan 'Koreksi level'." });
   if ((a[11] || "") === "applied") return respond(400, { error: "Koreksi level sudah pernah diterapkan." });
   // Nama pemain target dari registrasi yang di-appeal.
@@ -6377,7 +6377,7 @@ async function regApplyLevel(appealId, body) {
     requestBody: { values: [["applied", "levelup", a[13] || now, note]] } });
   return respond(200, { success: true, targetLevel, targetElo, applied });
 }
-async function regAppealDecision(appealId, body) {
+async function regAppealDecision(appealId, body, params) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const decision = String((body && body.decision) || "").trim(); // lolos | reject | levelup
   if (!["lolos", "reject", "levelup"].includes(decision)) return respond(400, { error: "Keputusan tidak valid." });
@@ -6386,6 +6386,7 @@ async function regAppealDecision(appealId, body) {
   const ai = aRows.findIndex((r) => r[0] === appealId);
   if (ai < 0) return respond(404, { error: "Appeal tidak ditemukan." });
   const a = aRows[ai], asr = ai + 2;
+  if (!regEventScopeOk(body, params, a[1])) return REG_UNAUTH; // scope ke event appeal ini
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!L${asr}:O${asr}`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[decision, decision, new Date().toISOString(), String((body && body.note) || "")]] } });
   // reject / levelup → keluarkan pasangan target dari kelas ini (buka slot).
