@@ -52,12 +52,20 @@
 
   .tabbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
   .tab{font-family:var(--display);font-weight:800;font-size:13px;cursor:pointer;
-    border:var(--bd);background:var(--card);color:var(--slate-600);border-radius:var(--r-full);
+    border:var(--bd);background:#fff;color:var(--dark);border-radius:var(--r-full);
     padding:9px 16px;box-shadow:var(--sh-sm);transition:transform .12s,box-shadow .12s,background .12s,color .12s}
   .tab:hover{transform:translate(2px,2px);box-shadow:none}
   .tab.is-active{background:var(--orange);color:#fff;border-color:var(--dark)}
   .tabpanel{display:none}
   .tabpanel.is-active{display:block}
+
+  /* important dates */
+  .dates{list-style:none;margin:0;padding:0}
+  .dates li{display:flex;justify-content:space-between;gap:14px;align-items:baseline;
+    padding:11px 0;border-bottom:1px solid var(--slate-200);font-size:14px}
+  .dates li:last-child{border-bottom:0}
+  .dates .dlabel{color:var(--slate-600);font-weight:600}
+  .dates .dval{font-family:var(--mono);font-weight:700;color:var(--dark);text-align:right;white-space:nowrap}
 
   /* categories mini */
   .cats{display:flex;flex-wrap:wrap;gap:8px}
@@ -92,6 +100,10 @@
   /* Home button keeps its white pill → force dark text so it stays legible. */
   body[data-theme="nightmode"] #homeBtn{color:#0F172A}
   body[data-theme="nightmode"] #homeBtn .material-symbols-outlined{color:#0F172A}
+  /* Tab buttons: white chips + dark text so they stand out on the dark card
+     (default token would make text light-on-white and vanish). Active = orange. */
+  body[data-theme="nightmode"] .tab{background:#fff;color:#0F172A}
+  body[data-theme="nightmode"] .tab.is-active{background:var(--orange);color:#fff}
 </style>
 </head>
 <body>
@@ -178,19 +190,36 @@
           ? '<span class="chip chip--amber chip--pill">PENDAFTARAN DITUTUP</span>'
           : '<span class="chip chip--pill">PENDAFTARAN BELUM DIBUKA</span>');
 
-    // Tab bodies: About (description) is the default; Players eligibility and
-    // Game Rules are content authored per-event in /engine.
+    // Tab bodies: About (description) is the default; Players eligibility,
+    // Game Rules and Important Date are authored per-event in /engine.
     function panelBody(text, empty){ return text ? esc(text) : '<span class="empty">'+empty+'</span>'; }
+    function datesBody(tl){
+      tl=tl||{};
+      var rows=[
+        ["Buka pendaftaran", tl.openStart],
+        ["Tutup pendaftaran", tl.openEnd],
+        ["Kurasi mulai", tl.curationStart],
+        ["Batas appeal", tl.appealDeadline],
+        ["Technical Meeting", tl.tmDate],
+        ["Order of play rilis", tl.oopDate]
+      ].filter(function(r){ return r[1]; });
+      if(!rows.length) return '<span class="empty">Belum ada jadwal penting.</span>';
+      return '<ul class="dates">'+rows.map(function(r){
+        return '<li><span class="dlabel">'+esc(r[0])+'</span><span class="dval">'+esc(r[1])+'</span></li>';
+      }).join("")+'</ul>';
+    }
     var tabs =
       '<div class="desc">'+
         '<div class="tabbar" role="tablist">'+
           '<button type="button" class="tab is-active" data-tab="about" role="tab">About</button>'+
           '<button type="button" class="tab" data-tab="elig" role="tab">Players eligibility</button>'+
           '<button type="button" class="tab" data-tab="rules" role="tab">Game Rules</button>'+
+          '<button type="button" class="tab" data-tab="dates" role="tab">Important Date</button>'+
         '</div>'+
         '<div class="tabpanel is-active" data-panel="about"><div class="body">'+panelBody(cfg.description,'Belum ada deskripsi untuk event ini.')+'</div></div>'+
         '<div class="tabpanel" data-panel="elig"><div class="body">'+panelBody(cfg.eligibility,'Belum ada info kelayakan peserta.')+'</div></div>'+
         '<div class="tabpanel" data-panel="rules"><div class="body">'+panelBody(cfg.rules,'Belum ada aturan permainan.')+'</div></div>'+
+        '<div class="tabpanel" data-panel="dates"><div class="body">'+datesBody(cfg.timeline)+'</div></div>'+
       '</div>';
 
     // Categories (optional, compact)
