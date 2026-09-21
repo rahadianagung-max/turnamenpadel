@@ -321,6 +321,7 @@ function candList(i){ const p=F.players[i]; const cs=(p.chk&&p.chk.candidates)||
   const rows=cs.map((c,idx)=>{ const e=c.eligibility||{}, blk=e.state==='block';
     return `<div class="opt" style="align-items:center;${blk?'opacity:.6':''}">
       <div class="grow"><b>${esc(c.name)}</b> <span class="elo">${esc(c.tier)} ${c.elo}</span>
+        ${c.verified?'<span class="chip ok" style="margin-left:6px">✔ terverifikasi</span>':''}
         ${c.enrolledInCategory?'<span class="chip warn" style="margin-left:6px">sudah terdaftar di kategori ini</span>':''}
         ${blk?'<div class="note" style="margin-top:4px">⛔ Level di atas plafon kategori</div>':(e.msg?`<div class="note" style="margin-top:4px">${esc(e.msg)}</div>`:'')}</div>
       <button class="btn ${blk?'ghost':'primary'}" ${blk?'disabled':''} onclick="chooseCandidate(${i},${idx})">Ini saya</button></div>`;}).join("");
