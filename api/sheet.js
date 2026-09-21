@@ -814,6 +814,7 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("reg/register/") && method === "POST")
       return await regRegisterPair(decodeURIComponent(path.replace("reg/register/", "")), body);
     if (path === "reg/check-player" && method === "POST") return await regCheckPlayer(body);
+    if (path === "reg/lookup-email" && method === "POST") return await regLookupEmail(body);
     if (path === "reg/verify/start" && method === "POST") return await regVerifyStart(body);
     if (path === "reg/verify/confirm" && method === "POST") return await regVerifyConfirm(body);
     if (path === "reg/profile/basic" && method === "POST") return await regProfileBasic(body);
@@ -5673,6 +5674,43 @@ function regNameCandidates(rows, eMap, name, level, enrolledSet) {
     if (out.length >= 6) break;
   }
   return out;
+}
+// Tahap 4: pencarian "email dulu". Email = identitas unik, jadi kecocokan
+// email langsung menunjuk satu akun (tanpa fuzzy nama). Data kontak tetap
+// TIDAK dibuka di sini — pendaftar harus lolos OTP (kode dikirim ke email itu)
+// sebelum profil di-prefill. Hanya mengembalikan info non-sensitif + petunjuk.
+async function regLookupEmail(body) {
+  const email = String((body && body.email) || "").trim();
+  const level = (body && body.level) || "";
+  if (!email.includes("@")) return respond(400, { error: "Email tidak valid." });
+  const sheets = getSheets();
+  const [pRes, eRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+  ]);
+  const eMap = ddEloMap(eRes.data.values || []);
+  const rows = pRes.data.values || [];
+  const ne = normEmailLc(email);
+  const r = rows.find((x) => normEmailLc(x[11]) === ne);
+  if (!r) return respond(200, { found: false });
+  const name = r[0] || "";
+  const em = eMap[name.toLowerCase()] || {}; const elo = em.elo == null ? 1350 : em.elo;
+  let enrolled = false;
+  if (body && body.eventId && body.category) {
+    const formId = regFormIdForEvent(body.eventId);
+    const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+    for (const rr of (rRes.data.values || [])) {
+      if (rr[1] !== formId) continue;
+      const st = rr[10] || ""; if (st === "rejected" || st === "cancelled") continue;
+      let d = {}; try { d = JSON.parse(rr[8] || "{}"); } catch (e) {}
+      if ((d.category || rr[9]) !== body.category) continue;
+      const names = [d.player1 && d.player1.name, d.player2 && d.player2.name].map((x) => normName(x || ""));
+      if (names.includes(normName(name))) { enrolled = true; break; }
+    }
+  }
+  return respond(200, { found: true, name, elo, tier: getTierName(elo),
+    verified: String(r[2]).toUpperCase() === "TRUE", enrolledInCategory: enrolled,
+    eligibility: eligibilityOf(elo, false, level), emailMask: maskEmail(email) });
 }
 async function regCheckPlayer(body) {
   const sheets = getSheets();

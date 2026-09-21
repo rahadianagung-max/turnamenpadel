@@ -123,7 +123,7 @@ function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); r
 
 const F = { eventId:qs(), data:null, step:0, catId:null,
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
-function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
+function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,emailQ:"",emailErr:"",emailBusy:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
 
 async function api(path, opts){
   const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
@@ -259,6 +259,18 @@ async function doCheck(i){ const p=F.players[i], c=cat(); if(!(p.name||"").trim(
   p.checking=false;
   render();   // tampilkan daftar kandidat (atau opsi buat baru bila kosong)
 }
+// Tahap 4: cari akun lewat EMAIL (identitas unik) → langsung verifikasi OTP.
+async function lookupEmail(i){ const p=F.players[i]; const email=String(p.emailQ||"").trim();
+  if(!/.+@.+\..+/.test(email)){ p.emailErr="Masukkan email yang valid."; render(); return; }
+  p.emailBusy=true; p.emailErr=""; render();
+  let r; try{ r=await api("reg/lookup-email",{method:"POST",body:{email:email,eventId:F.eventId,category:F.catId,level:(cat()||{}).level||""}}); }
+  catch(e){ p.emailBusy=false; p.emailErr="Gagal mencari. Coba lagi."; render(); return; }
+  p.emailBusy=false;
+  if(!r.found){ p.emailErr="Email belum terdaftar di Trekkr. Cari dengan nama di bawah, atau buat data baru."; render(); return; }
+  const e=r.eligibility||{}; if(e.state==='block'){ p.emailErr="⛔ Level akun ini di atas plafon kategori — tidak bisa daftar di kategori ini."; render(); return; }
+  p.cand={ name:r.name, verified:r.verified, verify:{ available:true, emailMask:r.emailMask||"" } };
+  p.emailErr=""; startOtp(i);   // kirim OTP ke email tsb (yang ada di profil)
+}
 // Pendaftar memilih salah satu kandidat → verifikasi OTP (data kontak sensitif).
 function chooseCandidate(i,idx){ const p=F.players[i]; const list=(p.chk&&p.chk.candidates)||[];
   const c=list[idx]; if(!c) return; const e=c.eligibility||{}; if(e.state==='block') return;
@@ -390,7 +402,14 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
       let res="";
       if(p.checking) res='<div class="note">⏳ Mencari nama mirip di Trekkr…</div>';
       else if(p.chk) res=candList(i);
-      block=`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span>
+      const emailBox=`<div class="card" style="background:var(--inset);margin-bottom:12px">
+          <div class="note" style="margin:0 0 6px"><b>Pernah main di turnamen Trekkr?</b> Masukkan email untuk menemukan akunmu (tercepat &amp; paling akurat).</div>
+          <div class="row" style="gap:8px"><input id="em_${i}" type="email" value="${esc(p.emailQ||"")}" oninput="F.players[${i}].emailQ=this.value" placeholder="email@kamu.com" style="flex:1" autocomplete="email">
+            <button class="btn primary" ${p.emailBusy?'disabled':''} onclick="lookupEmail(${i})">${p.emailBusy?'Mencari…':'Cari akun'}</button></div>
+          ${p.emailErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.emailErr)}</div>`:""}
+        </div>
+        <div class="note" style="text-align:center;margin:0 0 10px">— atau cari dengan nama —</div>`;
+      block=emailBox+`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span>
           <input id="pn_${i}" value="${esc(p.name)}" oninput="onName(${i},this.value)" placeholder="Nama lengkap sesuai KTP" autocomplete="off"></label>
         <div class="note">📇 Tulis <b>nama lengkap sesuai KTP</b> — panitia dapat mengecek KTP saat registrasi di lokasi.</div>
         <div id="pres_${i}">${res}</div>`;
