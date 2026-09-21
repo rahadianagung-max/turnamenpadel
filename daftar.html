@@ -612,17 +612,17 @@ function vDone(){
       <a class="btn primary" href="${esc(passportUrl(p1.name))}" target="_blank" rel="noopener">🎾 ${esc(p1.name||'Pemain 1')} →</a>
       <a class="btn ghost" href="${esc(passportUrl(p2.name))}" target="_blank" rel="noopener">🎾 ${esc(p2.name||'Pemain 2')} →</a></div>`;
   return `<div class="card"><div class="done-hero"><div class="big">${wl?'⏳':'🎉'}</div>
-      <h2 style="font-size:24px;margin-top:6px">Terima kasih sudah mendaftar!</h2>
-      <span class="chip ${wl?'warn':'ok'}" style="margin-top:8px">Status: ${wl?'masuk waitlist (antrean)':'menunggu kurasi'}</span></div>
+      <h2 style="font-size:24px;margin-top:6px">${wl?'You\'re on the waitlist':'Registration successful!'}</h2>
+      <span class="chip ${wl?'warn':'ok'}" style="margin-top:8px">Status: ${wl?'waitlist':'waiting for committee approval'}</span></div>
     <div class="card" style="margin-top:12px;background:var(--inset)">
-      <div class="note" style="margin:0">Kamu mendaftar <b>${esc(catText(c))}</b> dengan pemain <b>${esc(p1.name||'—')}</b> &amp; <b>${esc(p2.name||'—')}</b>${wl?'':' dan pembayaran sudah kami terima'}.</div>
+      <div class="note" style="margin:0">You registered for <b>${esc(catText(c))}</b> with <b>${esc(p1.name||'—')}</b> &amp; <b>${esc(p2.name||'—')}</b>.</div>
       ${wl
-        ? '<div class="note" style="margin-top:8px">Kuota penuh — kamu di antrean waitlist dan belum membayar. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div>'
-        : '<div class="note" style="margin-top:8px">📧 Email konfirmasi sudah dikirim ke Pemain 1. Selanjutnya, <b>nomor WhatsApp kamu akan mendapatkan undangan ke grup WhatsApp (WAG) peserta</b>.</div>'}
+        ? '<div class="note" style="margin-top:8px">The quota is full — you are on the waitlist and no payment is required yet. If a slot opens up, the committee will email you to continue to payment.</div>'
+        : '<div class="note" style="margin-top:8px"><b>Please wait for the committee\'s approval.</b> The committee will review your payment proof and confirm your spot. Once approved, you\'ll receive a confirmation email and be invited to the participants\' WhatsApp group (WAG).</div>'}
     </div>
     <div class="divider"></div>${passBtns}
-    ${(tl.curationStart||tl.tmDate||tl.oopDate)?`<div class="divider"></div><div class="eyebrow">Langkah berikutnya</div><ul class="timeline" style="margin-top:8px">${tl.curationStart?'<li><b>'+esc(tl.curationStart)+'</b> — kurasi</li>':''}${tl.tmDate?'<li><b>'+esc(tl.tmDate)+'</b> — Technical Meeting + grup</li>':''}${tl.oopDate?'<li><b>'+esc(tl.oopDate)+'</b> — order of play</li>':''}</ul>`:''}
-    <p class="note">Simpan halaman ini sebagai bukti pendaftaran.</p></div>`;
+    ${(tl.curationStart||tl.tmDate||tl.oopDate)?`<div class="divider"></div><div class="eyebrow">What's next</div><ul class="timeline" style="margin-top:8px">${tl.curationStart?'<li><b>'+esc(tl.curationStart)+'</b> — curation</li>':''}${tl.tmDate?'<li><b>'+esc(tl.tmDate)+'</b> — Technical Meeting + group</li>':''}${tl.oopDate?'<li><b>'+esc(tl.oopDate)+'</b> — order of play</li>':''}</ul>`:''}
+    <p class="note">Keep this page as your registration receipt.</p></div>`;
 }
 boot();
 </script>

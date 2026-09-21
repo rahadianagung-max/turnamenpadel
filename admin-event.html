@@ -279,7 +279,12 @@ async function decideAppeal(appealId, decision){
     loadAppeals();
   }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc((e&&e.message)||e)+'</span>'; }
 }
-function statusChip(s){ return s==="waitlist"?'<span class="chip wl">waitlist</span>':s==="rejected"?'<span class="chip bad">ditolak</span>':s==="cancelled"?'<span class="chip bad">batal</span>':s==="verified"||s==="approved"||s==="accepted"?'<span class="chip ok">'+esc(s)+'</span>':'<span class="chip">'+esc(s||"received")+'</span>'; }
+function statusChip(s){
+  const map={ pending:["warn","menunggu approval"], waitlist:["wl","waitlist"], rejected:["bad","ditolak"], cancelled:["bad","batal"],
+    approved:["ok","disetujui ✔"], verified:["ok","verified"], accepted:["ok","accepted"], invited:["warn","diundang"], final:["ok","final"],
+    received:["","received"], imported:["","imported"] };
+  const m=map[s]||["", s||"received"]; return '<span class="chip '+m[0]+'">'+esc(m[1])+'</span>';
+}
 function eligChip(e){ if(!e) return ""; const s=e.state; return s==="ok"?'<span class="chip ok">eligible</span>':s==="block"?'<span class="chip bad">'+esc(e.msg||"block")+'</span>':'<span class="chip warn">'+esc(e.msg||"flag")+'</span>'; }
 function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.nick) k.push(`Alias: <b>${esc(p.nick)}</b>`);
@@ -312,9 +317,26 @@ async function loadRegs(){
         <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
         <div class="divider"></div>
         ${proof}
+        ${(function(){ const s=reg.status, a=[];
+          if(s!=="approved") a.push('<button class="btn primary sm" onclick="approveReg(\''+esc(reg.regId)+'\')">✔ Approve</button>');
+          if(s!=="rejected") a.push('<button class="btn ghost sm" onclick="rejectReg(\''+esc(reg.regId)+'\')">✕ Reject</button>');
+          return a.length?'<div class="row" style="gap:8px;margin-top:12px">'+a.join("")+'</div>':""; })()}
       </div>`;
     }).join("");
   }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
+}
+// Manual approval: approve → status approved + email peserta; reject → rejected.
+async function approveReg(regId){
+  if(!confirm("Approve pendaftaran ini? Peserta akan menerima email konfirmasi (selamat bergabung + jadwal penting).")) return;
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/approve",{method:"POST",body:{token:TOKEN,regId}});
+    await loadRegs(); if(typeof loadCategories==="function") loadCategories();
+  }catch(e){ alert("Gagal approve: "+((e&&e.message)||e)); }
+}
+async function rejectReg(regId){
+  if(!confirm("Tolak pendaftaran ini? Peserta tidak akan tampil di daftar pemain.")) return;
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/reject",{method:"POST",body:{token:TOKEN,regId}});
+    await loadRegs(); if(typeof loadCategories==="function") loadCategories();
+  }catch(e){ alert("Gagal reject: "+((e&&e.message)||e)); }
 }
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }
