@@ -327,6 +327,10 @@ function otpBlock(i){ const p=F.players[i]; const nm=candName(p);
       <div class="note" style="margin-top:8px">🔒 ${esc(p.otpMsg||"Tidak ada email terdaftar untuk profil ini.")} Data hanya bisa dibuka lewat verifikasi email.</div>
       <div class="nav" style="margin-top:8px"><button class="btn primary" onclick="buatBaru(${i})">Buat baru</button></div></div>`;
   }
+  // Jalan keluar: email terdaftar ternyata bukan miliknya → buat akun baru saja.
+  const notMine=`<div class="divider" style="margin:12px 0"></div>
+    <div class="note">Email di atas <b>bukan punyamu</b>? Berarti ini bukan profilmu.</div>
+    <div class="nav" style="margin-top:6px"><button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="buatBaru(${i})">Buat data baru</button></div>`;
   if(p.otpStage==="sent"){
     return `<div class="card" style="margin-top:10px;background:var(--inset)">${head}
       <div class="note" style="margin:8px 0 6px">🔐 Kami kirim <b>kode 6 digit</b> ke <b>${esc(p.otpMask)}</b> (berlaku 24 jam). Masukkan kode untuk membuka datamu.</div>
@@ -334,12 +338,14 @@ function otpBlock(i){ const p=F.players[i]; const nm=candName(p);
         <input id="otp_${i}" value="${esc(p.otpCode||"")}" oninput="F.players[${i}].otpCode=this.value" inputmode="numeric" maxlength="6" placeholder="______" autocomplete="one-time-code" style="letter-spacing:6px;font-weight:700;text-align:center"></label>
       ${p.otpErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.otpErr)}</div>`:""}
       <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="confirmOtp(${i})">${p.otpBusy?'Memverifikasi…':'Verifikasi & pakai data'}</button>
-        <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">Kirim ulang</button></div></div>`;
+        <button class="btn ghost" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">Kirim ulang</button></div>
+      ${notMine}</div>`;
   }
   return `<div class="card" style="margin-top:10px;background:var(--inset)">${head}
-    <div class="note" style="margin:8px 0 4px">Untuk melindungi data pribadi, kami kirim <b>kode ke email terdaftar</b> sebelum data dibuka.</div>
+    <div class="note" style="margin:8px 0 4px">Untuk melindungi data pribadi, kami kirim <b>kode ke email terdaftar${p.cand&&p.cand.verify&&p.cand.verify.emailMask?' ('+esc(p.cand.verify.emailMask)+')':''}</b> sebelum data dibuka.</div>
     ${p.otpErr?`<div class="note" style="color:#DC2626;margin-top:6px">${esc(p.otpErr)}</div>`:""}
-    <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">${p.otpBusy?'Mengirim kode…':'Kirim kode verifikasi'}</button></div></div>`;
+    <div class="nav" style="margin-top:8px"><button class="btn primary" ${p.otpBusy?'disabled':''} onclick="startOtp(${i})">${p.otpBusy?'Mengirim kode…':'Kirim kode verifikasi'}</button></div>
+    ${notMine}</div>`;
 }
 function profileForm(i,on){ const p=F.players[i];
   const src = p.decision==="use"
