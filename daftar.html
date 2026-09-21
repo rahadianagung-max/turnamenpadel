@@ -137,8 +137,8 @@ function fileToDataUrl(input){ return new Promise(r=>{ const f=input.files&&inpu
 function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId); }
 function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
 function isWL(){ return catFull(cat()); }
-const STEP_NAME=["Kategori","Pemain 1","Pemain 2","Persetujuan","Pembayaran","Review"];
-function stepKeys(){ return isWL()? ["cat","p1","p2","waiver","review","done"] : ["cat","p1","p2","waiver","pay","review","done"]; }
+const STEP_NAME=["Kategori","Pemain 1","Pemain 2","Rangkuman","Persetujuan","Pembayaran"];
+function stepKeys(){ return isWL()? ["cat","p1","p2","summary","waiver","done"] : ["cat","p1","p2","summary","waiver","pay","done"]; }
 function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
 
 async function boot(){
@@ -184,7 +184,7 @@ function render(){
   head();
   const k = F.started ? stepKeys()[F.step] : "info";
   const host=document.getElementById("host");
-  host.innerHTML = ({info:vInfo,cat:vCat,p1:()=>vPlayer(0),p2:()=>vPlayer(1),waiver:vWaiver,pay:vPay,review:vReview,done:vDone}[k])();
+  host.innerHTML = ({info:vInfo,cat:vCat,p1:()=>vPlayer(0),p2:()=>vPlayer(1),summary:vSummary,waiver:vWaiver,pay:vPay,done:vDone}[k])();
   if(k==='p1') updatePlayerNav(0); if(k==='p2') updatePlayerNav(1);
   window.scrollTo(0,0);
 }
@@ -385,40 +385,61 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
     <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     ${block}
     <div class="nav"><button class="btn ghost" onclick="go('${i===0?'cat':'p1'}')">←</button>
-      <button class="btn primary" id="pNext_${i}" ${canNext?'':'disabled'} onclick="go('${i===0?'p2':'waiver'}')">Lanjut →</button></div></div>`;
+      <button class="btn primary" id="pNext_${i}" ${canNext?'':'disabled'} onclick="go('${i===0?'p2':'summary'}')">Lanjut →</button></div></div>`;
 }
 
-function vWaiver(){
-  const w=F.data.config.waiver||"Dengan mendaftar, peserta menyetujui ketentuan penyelenggara.";
-  return `<div class="card"><div class="card" style="max-height:180px;overflow:auto;background:var(--inset)"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
-    <label style="display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverA?'checked':''} onchange="F.waiverA=this.checked;render()"><span>Kami setuju atas <b>waiver &amp; disclaimer</b>.</span></label>
-    <label style="display:flex;gap:11px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverB?'checked':''} onchange="F.waiverB=this.checked;render()"><span>Seluruh informasi yang kami berikan <b>benar</b>.</span></label>
-    <div class="nav"><button class="btn ghost" onclick="go('p2')">←</button>
-      <button class="btn primary" ${F.waiverA&&F.waiverB?'':'disabled'} onclick="go(isWL()?'review':'pay')">Lanjut →</button></div></div>`;
-}
-function vPay(){
-  const c=cat(), acct=(F.data.config.payment||{}).account||"—";
-  return `<div class="card"><div class="card" style="background:var(--inset)">
-      <div class="row" style="justify-content:space-between;align-items:center"><span class="muted">Total (${esc(catLabel(c.label))})</span><b class="elo" style="font-size:20px">${rupiah(c.fee)}</b></div>
-      <div class="divider"></div><div class="muted" style="font-size:13px">Transfer ke:</div><div class="mono" style="margin-top:4px">${esc(acct)}</div></div>
-    <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"></label>
-    ${F.payFile?'<span class="chip ok">bukti terpilih ✔</span>':'<span class="chip">belum ada bukti</span>'}
-    <div class="nav"><button class="btn ghost" onclick="go('waiver')">←</button>
-      <button class="btn primary" ${F.payFile?'':'disabled'} onclick="go('review')">Lanjut →</button></div></div>`;
-}
-async function pickPay(input){ F.payFile = await fileToDataUrl(input); render(); }
-function vReview(){
+// Step 4: rangkuman kategori + pemain 1 & 2 → Confirm → disclaimer.
+function vSummary(){
   const c=cat(), wl=isWL();
   const pl=i=>{const p=F.players[i]; return esc(p.name||'—');};
   return `<div class="card">
-    ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin-bottom:12px;background:var(--inset)"><b class="mono" style="color:var(--warn)">⏳ Pendaftaran waitlist</b><div class="note">Kuota penuh — belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
-    <div class="kv"><span class="ic">🏆</span><div><b>${esc(catText(c))}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
-    <div class="kv"><span class="ic">🎾</span><div>P1 ${pl(0)}<br>P2 ${pl(1)}</div></div>
-    <div class="kv"><span class="ic">✅</span><div>Waiver disetujui${wl?'':' · bukti bayar terunggah'}</div></div>
-    <div id="subErr"></div>
-    <div class="nav"><button class="btn ghost" onclick="go(isWL()?'waiver':'pay')">←</button>
-      <button class="btn primary" id="subBtn" onclick="submitReg()">✅ Kirim pendaftaran</button></div></div>`;
+    <div class="eyebrow">Rangkuman pendaftaran</div>
+    ${wl?`<div class="card" style="border-color:rgba(255,209,102,.4);margin:10px 0;background:var(--inset)"><b class="mono" style="color:var(--warn)">⏳ Kuota penuh — masuk waitlist</b><div class="note">Belum ada pembayaran. Kamu diundang membayar via email jika ada slot.</div></div>`:''}
+    <div class="kv" style="margin-top:10px"><span class="ic">🏆</span><div><div class="note">Kategori</div><b>${esc(catText(c))}</b> · ${wl?'bayar nanti':rupiah(c.fee)}</div></div>
+    <div class="kv"><span class="ic">🎾</span><div><div class="note">Pemain 1</div><b>${pl(0)}</b></div></div>
+    <div class="kv"><span class="ic">🎾</span><div><div class="note">Pemain 2</div><b>${pl(1)}</b></div></div>
+    <div class="nav" style="margin-top:14px"><button class="btn ghost" onclick="go('p2')">←</button>
+      <button class="btn primary" onclick="go('waiver')">Confirm →</button></div></div>`;
 }
+function vWaiver(){
+  const w=F.data.config.waiver||"Dengan mendaftar, peserta menyetujui ketentuan penyelenggara.";
+  const wl=isWL();
+  const nextBtn = wl
+    ? `<button class="btn primary" id="subBtn" ${F.waiverA&&F.waiverB?'':'disabled'} onclick="submitReg()">✅ Kirim pendaftaran</button>`
+    : `<button class="btn primary" ${F.waiverA&&F.waiverB?'':'disabled'} onclick="go('pay')">Lanjut →</button>`;
+  return `<div class="card"><div class="eyebrow">Persetujuan &amp; disclaimer</div>
+    <div class="card" style="max-height:180px;overflow:auto;background:var(--inset);margin-top:10px"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
+    <label style="display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverA?'checked':''} onchange="F.waiverA=this.checked;render()"><span>Kami setuju atas <b>waiver &amp; disclaimer</b>.</span></label>
+    <label style="display:flex;gap:11px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverB?'checked':''} onchange="F.waiverB=this.checked;render()"><span>Seluruh informasi yang kami berikan <b>benar</b>.</span></label>
+    <div id="subErr"></div>
+    <div class="nav"><button class="btn ghost" onclick="go('summary')">←</button>${nextBtn}</div></div>`;
+}
+function copyText(txt, el){ const done=()=>{ if(el){ const o=el.textContent; el.textContent="✔ tersalin"; setTimeout(()=>{el.textContent=o;},1400); } };
+  try{ navigator.clipboard.writeText(txt).then(done, ()=>fallbackCopy(txt,done)); }catch(e){ fallbackCopy(txt,done); } }
+function fallbackCopy(txt, done){ try{ const t=document.createElement("textarea"); t.value=txt; t.style.position="fixed"; t.style.opacity="0"; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); done&&done(); }catch(e){} }
+function vPay(){
+  const c=cat(), pay=(F.data.config.payment||{}), acct=pay.account||"—";
+  const acctDigits=String(acct).replace(/\D/g,"");
+  return `<div class="card"><div class="eyebrow">Pembayaran</div>
+    <div class="card" style="background:var(--inset);margin-top:10px">
+      <div class="row" style="justify-content:space-between;align-items:center"><span class="muted">Total (${esc(catLabel(c.label))})</span><b class="elo" style="font-size:20px">${rupiah(c.fee)}</b></div>
+      <div class="divider"></div><div class="muted" style="font-size:13px">Transfer ke${pay.bank?' ('+esc(pay.bank)+')':''}${pay.name?' a.n. '+esc(pay.name):''}:</div>
+      <div class="row" style="align-items:center;gap:10px;margin-top:6px">
+        <div class="mono" id="acctNo" style="font-size:18px;font-weight:700;letter-spacing:1px">${esc(acct)}</div>
+        ${acctDigits?`<button class="btn ghost" style="padding:6px 12px" onclick="copyText('${esc(acctDigits)}',this)">📋 Salin</button>`:''}
+      </div>
+    </div>
+    <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"></label>
+    ${F.payFile
+      ? `<div style="margin-top:10px"><div class="note" style="margin-bottom:6px">✔ Pratinjau bukti transfer:</div>
+          <img src="${esc(F.payFile)}" alt="bukti transfer" style="max-width:100%;max-height:280px;border:var(--bd);border-radius:12px;display:block">
+          <div style="margin-top:6px"><a href="#" onclick="event.preventDefault();document.querySelector('input[type=file]').click()" class="note">↻ Ganti bukti</a></div></div>`
+      : '<span class="chip" style="margin-top:8px;display:inline-block">belum ada bukti</span>'}
+    <div id="subErr"></div>
+    <div class="nav"><button class="btn ghost" onclick="go('waiver')">←</button>
+      <button class="btn primary" id="subBtn" ${F.payFile?'':'disabled'} onclick="submitReg()">✅ Kirim pendaftaran</button></div></div>`;
+}
+async function pickPay(input){ F.payFile = await fileToDataUrl(input); render(); }
 async function submitReg(){
   const btn=document.getElementById("subBtn"); if(btn){ btn.disabled=true; btn.textContent="Mengirim…"; }
   const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB,
@@ -428,13 +449,26 @@ async function submitReg(){
     F.result=r; go("done");
   }catch(e){ const el=document.getElementById("subErr"); if(el) el.innerHTML='<div class="chip warn" style="margin-top:10px">Gagal: '+esc(e.message)+'</div>'; if(btn){ btn.disabled=false; btn.textContent="✅ Kirim pendaftaran"; } }
 }
+function passportUrl(nm){ return "https://trekkr.online/player/"+encodeURIComponent(nm||""); }
 function vDone(){
   const wl=(F.result&&F.result.waitlist)||isWL();
   const tl=F.data.config.timeline||{};
+  const c=cat();
+  const p1=F.players[0]||{}, p2=F.players[1]||{};
+  const passBtns=`<div class="eyebrow">Player Passport kamu di Trekkr</div>
+    <div class="nav" style="margin-top:8px;flex-wrap:wrap">
+      <a class="btn primary" href="${esc(passportUrl(p1.name))}" target="_blank" rel="noopener">🎾 ${esc(p1.name||'Pemain 1')} →</a>
+      <a class="btn ghost" href="${esc(passportUrl(p2.name))}" target="_blank" rel="noopener">🎾 ${esc(p2.name||'Pemain 2')} →</a></div>`;
   return `<div class="card"><div class="done-hero"><div class="big">${wl?'⏳':'🎉'}</div>
-      <h2 style="font-size:24px;margin-top:6px">Pendaftaran terkirim!</h2>
-      <span class="chip warn" style="margin-top:8px">Status: ${wl?'masuk waitlist (antrean)':'menunggu kurasi'}</span></div>
-    ${wl?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4);background:var(--inset)"><div class="note" style="margin:0">Kuota penuh — kamu di antrean waitlist dan belum membayar. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
+      <h2 style="font-size:24px;margin-top:6px">Terima kasih sudah mendaftar!</h2>
+      <span class="chip ${wl?'warn':'ok'}" style="margin-top:8px">Status: ${wl?'masuk waitlist (antrean)':'menunggu kurasi'}</span></div>
+    <div class="card" style="margin-top:12px;background:var(--inset)">
+      <div class="note" style="margin:0">Kamu mendaftar <b>${esc(catText(c))}</b> dengan pemain <b>${esc(p1.name||'—')}</b> &amp; <b>${esc(p2.name||'—')}</b>${wl?'':' dan pembayaran sudah kami terima'}.</div>
+      ${wl
+        ? '<div class="note" style="margin-top:8px">Kuota penuh — kamu di antrean waitlist dan belum membayar. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div>'
+        : '<div class="note" style="margin-top:8px">📧 Email konfirmasi sudah dikirim ke Pemain 1. Selanjutnya, <b>nomor WhatsApp kamu akan mendapatkan undangan ke grup WhatsApp (WAG) peserta</b>.</div>'}
+    </div>
+    <div class="divider"></div>${passBtns}
     ${(tl.curationStart||tl.tmDate||tl.oopDate)?`<div class="divider"></div><div class="eyebrow">Langkah berikutnya</div><ul class="timeline" style="margin-top:8px">${tl.curationStart?'<li><b>'+esc(tl.curationStart)+'</b> — kurasi</li>':''}${tl.tmDate?'<li><b>'+esc(tl.tmDate)+'</b> — Technical Meeting + grup</li>':''}${tl.oopDate?'<li><b>'+esc(tl.oopDate)+'</b> — order of play</li>':''}</ul>`:''}
     <p class="note">Simpan halaman ini sebagai bukti pendaftaran.</p></div>`;
 }
