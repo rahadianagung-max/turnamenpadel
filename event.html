@@ -43,12 +43,21 @@
   .meta{display:flex;flex-wrap:wrap;gap:10px}
   .meta .chip .material-symbols-outlined{font-size:16px}
 
-  /* description */
+  /* description / tabs */
   .desc{background:var(--card);border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh);padding:24px}
   .desc h2{font-family:var(--display);font-weight:900;font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
   .desc h2 .material-symbols-outlined{color:var(--orange)}
   .desc .body{color:var(--slate-700);font-size:15px;line-height:1.7;white-space:pre-line}
   .desc .empty{color:var(--slate-400)}
+
+  .tabbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .tab{font-family:var(--display);font-weight:800;font-size:13px;cursor:pointer;
+    border:var(--bd);background:var(--card);color:var(--slate-600);border-radius:var(--r-full);
+    padding:9px 16px;box-shadow:var(--sh-sm);transition:transform .12s,box-shadow .12s,background .12s,color .12s}
+  .tab:hover{transform:translate(2px,2px);box-shadow:none}
+  .tab.is-active{background:var(--orange);color:#fff;border-color:var(--dark)}
+  .tabpanel{display:none}
+  .tabpanel.is-active{display:block}
 
   /* categories mini */
   .cats{display:flex;flex-wrap:wrap;gap:8px}
@@ -169,10 +178,20 @@
           ? '<span class="chip chip--amber chip--pill">PENDAFTARAN DITUTUP</span>'
           : '<span class="chip chip--pill">PENDAFTARAN BELUM DIBUKA</span>');
 
-    // Description
-    var descBody = cfg.description
-      ? esc(cfg.description)
-      : (cfg.rules ? esc(cfg.rules) : '<span class="empty">Belum ada deskripsi untuk event ini.</span>');
+    // Tab bodies: About (description) is the default; Players eligibility and
+    // Game Rules are content authored per-event in /engine.
+    function panelBody(text, empty){ return text ? esc(text) : '<span class="empty">'+empty+'</span>'; }
+    var tabs =
+      '<div class="desc">'+
+        '<div class="tabbar" role="tablist">'+
+          '<button type="button" class="tab is-active" data-tab="about" role="tab">About</button>'+
+          '<button type="button" class="tab" data-tab="elig" role="tab">Players eligibility</button>'+
+          '<button type="button" class="tab" data-tab="rules" role="tab">Game Rules</button>'+
+        '</div>'+
+        '<div class="tabpanel is-active" data-panel="about"><div class="body">'+panelBody(cfg.description,'Belum ada deskripsi untuk event ini.')+'</div></div>'+
+        '<div class="tabpanel" data-panel="elig"><div class="body">'+panelBody(cfg.eligibility,'Belum ada info kelayakan peserta.')+'</div></div>'+
+        '<div class="tabpanel" data-panel="rules"><div class="body">'+panelBody(cfg.rules,'Belum ada aturan permainan.')+'</div></div>'+
+      '</div>';
 
     // Categories (optional, compact)
     var cats=(pub.categories||[]).map(function(c){
@@ -188,10 +207,14 @@
     var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
     var homeEl=document.getElementById("homeBtn"); if(homeEl) homeEl.setAttribute("href","/"+encodeURIComponent(regRef));
 
-    host.innerHTML =
-      flyer +
-      '<div class="desc"><h2><span class="material-symbols-outlined">description</span>About event</h2><div class="body">'+descBody+'</div></div>'+
-      '<div class="cta-wrap">'+statusChip+cta+'</div>';
+    host.innerHTML = flyer + tabs + '<div class="cta-wrap">'+statusChip+cta+'</div>';
+    // Tab switching
+    var tabBtns=host.querySelectorAll(".tab"), panels=host.querySelectorAll(".tabpanel");
+    tabBtns.forEach(function(btn){ btn.addEventListener("click",function(){
+      var t=btn.getAttribute("data-tab");
+      tabBtns.forEach(function(b){ b.classList.toggle("is-active", b===btn); });
+      panels.forEach(function(p){ p.classList.toggle("is-active", p.getAttribute("data-panel")===t); });
+    }); });
     document.title = name+" · TurnamenPadel";
   }
 })();

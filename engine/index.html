@@ -1198,6 +1198,8 @@ function renderRegBuilder(cfg, status){
         <option value="daylight" ${cfg.theme!=="nightmode"?"selected":""}>Daylight — terang (default)</option>
         <option value="nightmode" ${cfg.theme==="nightmode"?"selected":""}>Nightmode — latar gelap</option>
       </select></div>
+    <div class="f"><label>Players eligibility <span class="muted" style="font-weight:400">— tab "Players eligibility" di halaman event</span></label>
+      <textarea id="rb_eligibility" rows="5" placeholder="Siapa yang boleh ikut — syarat level/ELO, gender, usia, domisili, dsb.">${esc(cfg.eligibility||"")}</textarea></div>
 
     <div style="font-weight:700;margin:14px 0 6px">Kategori · biaya · prize · kuota · syarat</div>
     <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px">
@@ -1207,7 +1209,7 @@ function renderRegBuilder(cfg, status){
       </table>
     </div>
 
-    <div class="f" style="margin-top:14px"><label>Basic game rules</label><textarea id="rb_rules" rows="3">${esc(cfg.rules||"")}</textarea></div>
+    <div class="f" style="margin-top:14px"><label>Game rules <span class="muted" style="font-weight:400">— tab "Game Rules" di halaman event</span></label><textarea id="rb_rules" rows="4">${esc(cfg.rules||"")}</textarea></div>
     <div class="f"><label>Waiver / disclaimer</label><textarea id="rb_waiver" rows="3">${esc(cfg.waiver||"")}</textarea></div>
 
     <div style="font-weight:700;margin:14px 0 6px">Timeline pendaftaran</div>
@@ -1430,6 +1432,7 @@ function collectRegConfig(){
     address: val("rb_address"), maps: val("rb_maps"), region: val("rb_region"),
     flyer: REG_FLYER_DATA || ((document.getElementById("rb_flyer_url")||{}).value||""),
     description: (document.getElementById("rb_description")||{}).value||"",
+    eligibility: (document.getElementById("rb_eligibility")||{}).value||"",
     theme: (document.getElementById("rb_theme")||{}).value==="nightmode"?"nightmode":"daylight",
     categories,
     rules: (document.getElementById("rb_rules")||{}).value||"",
