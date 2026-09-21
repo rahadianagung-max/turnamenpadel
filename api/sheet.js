@@ -5503,6 +5503,15 @@ async function regRegisterPair(eventId, body) {
   // registrations: reg_id, form_id, timestamp, name, gender, phone, photo_url, payment_proof_url, data, linked_tournament(=category), status
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[regId, formId, now, teamName, data.player1.gender || "M", data.player1.phone || "", photo1, payUrl, JSON.stringify(data), catId, status]] } });
+  // Tautkan email/HP yang diisi pendaftar ke profil Trekkr yang cocok (isi sel
+  // KOSONG saja; email = identitas unik, tak menautkan email milik orang lain).
+  // Bertahap membangun database kontak dari alur pendaftaran. Best-effort.
+  try {
+    const entries = [];
+    if (m1 && data.player1.email) entries.push({ canonName: m1.name, email: data.player1.email, phone: data.player1.phone });
+    if (m2 && data.player2.email) entries.push({ canonName: m2.name, email: data.player2.email, phone: data.player2.phone });
+    if (entries.length) await regAttachContacts(sheets, prows, entries);
+  } catch (e) { console.error("attach contacts:", e && e.message); }
   // Email konfirmasi ke PESERTA 1 (best-effort).
   try {
     const evName = frow[1] || "";
@@ -5674,12 +5683,32 @@ async function regProfileBasic(body) {
 // ==============================================================
 function normEmailLc(s) { return String(s || "").trim().toLowerCase(); }
 function normPhoneDigits(s) { return String(s || "").replace(/\D/g, ""); }
+// Isi email(L)/HP(M) profil yang cocok dari data pendaftaran — sel KOSONG saja,
+// tidak menimpa, dan tidak menautkan email yang sudah dimiliki pemain lain
+// (email = identitas unik). entries: [{canonName, email, phone}].
+async function regAttachContacts(sheets, prows, entries) {
+  const players = (prows || []).map((r, idx) => ({ row: idx + 2, name: r[0] || "", email: r[11] || "", phone: r[12] || "" }));
+  const byName = new Map(); players.forEach((p) => { const k = normName(p.name); if (!byName.has(k)) byName.set(k, p); });
+  const emailOwner = new Map(); players.forEach((p) => { const e = normEmailLc(p.email); if (e && !emailOwner.has(e)) emailOwner.set(e, normName(p.name)); });
+  const updates = [];
+  for (const en of (entries || [])) {
+    const tp = byName.get(normName(en.canonName)); if (!tp) continue;
+    const email = String(en.email || "").trim(), phone = String(en.phone || "").trim();
+    if (email && !String(tp.email).trim()) {
+      const nE = normEmailLc(email);
+      if (!emailOwner.has(nE)) { updates.push({ range: `${TABS.players}!L${tp.row}`, values: [[email]] }); emailOwner.set(nE, normName(tp.name)); tp.email = email; }
+    }
+    if (phone && !String(tp.phone).trim()) { updates.push({ range: `${TABS.players}!M${tp.row}`, values: [[phone]] }); tp.phone = phone; }
+  }
+  if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
+}
 async function regImportPreview(body) {
   if (!regAdminOk(body && body.key)) return REG_UNAUTH;
   const rows = Array.isArray(body && body.rows) ? body.rows : [];
   const sheets = getSheets();
   const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
   const players = (pRes.data.values || []).map((r, idx) => ({ row: idx + 2, name: r[0] || "", email: r[11] || "", phone: r[12] || "" }));
+  const emailOwner = new Map(); players.forEach((p) => { const e = normEmailLc(p.email); if (e && !emailOwner.has(e)) emailOwner.set(e, p.name); });
   const out = rows.map((row, i) => {
     const name = String(row.name || "").trim(), email = String(row.email || "").trim(), phone = String(row.phone || "").trim();
     if (!name) return { i, name, email, phone, status: "invalid", candidates: [] };
@@ -5690,7 +5719,10 @@ async function regImportPreview(body) {
       hasEmail: !!String(x.p.email).trim(), hasPhone: !!String(x.p.phone).trim(),
       emailConflict: !!(email && String(x.p.email).trim() && normEmailLc(x.p.email) !== normEmailLc(email)),
       phoneConflict: !!(phone && String(x.p.phone).trim() && normPhoneDigits(x.p.phone) !== normPhoneDigits(phone)) }));
-    return { i, name, email, phone, status, target: best ? best.p.name : null, candidates };
+    // Email = identitas unik: siapa yang SUDAH memakai email impor ini?
+    const owner = email ? (emailOwner.get(normEmailLc(email)) || null) : null;
+    const emailTakenBy = (owner && (!best || normName(owner) !== normName(best.p.name))) ? owner : null;
+    return { i, name, email, phone, status, target: best ? best.p.name : null, candidates, emailTakenBy };
   });
   const summary = { total: rows.length,
     auto: out.filter((r) => r.status === "auto").length,
@@ -5706,6 +5738,8 @@ async function regImportApply(body) {
   const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
   const players = (pRes.data.values || []).map((r, idx) => ({ row: idx + 2, name: r[0] || "", email: r[11] || "", phone: r[12] || "" }));
   const byName = new Map(); players.forEach((p) => { const k = normName(p.name); if (!byName.has(k)) byName.set(k, p); });
+  // Peta kepemilikan email (email = identitas UNIK) → nama-normal pemilik.
+  const emailOwner = new Map(); players.forEach((p) => { const e = normEmailLc(p.email); if (e && !emailOwner.has(e)) emailOwner.set(e, normName(p.name)); });
   const updates = [], newPlayers = [], newElo = [], now = new Date().toISOString();
   const res = { updated: 0, created: 0, skipped: 0, filledEmail: 0, filledPhone: 0, conflicts: [] };
   for (const d of decisions) {
@@ -5713,8 +5747,12 @@ async function regImportApply(body) {
     const action = (d && d.action) || "skip";
     if (action === "skip" || !name) { res.skipped++; continue; }
     if (action === "new") {
+      // Uniqueness: email sudah dimiliki pemain lain → jangan buat duplikat identitas.
+      const nE = normEmailLc(email);
+      if (nE && emailOwner.has(nE)) { res.skipped++; res.conflicts.push({ name, field: "email", existing: "dipakai: " + (emailOwner.get(nE) || ""), incoming: email }); continue; }
       newPlayers.push([name, "", "FALSE", name, "M", "", "", "", now, "", "", email, phone]);
       newElo.push(["INITIAL", name, 1350, 0, 0, 0, now]);
+      if (nE) emailOwner.set(nE, normName(name));
       res.created++;
       continue;
     }
@@ -5722,7 +5760,12 @@ async function regImportApply(body) {
     const tp = byName.get(normName((d && d.target) || name));
     if (!tp) { res.skipped++; continue; }
     if (email) {
-      if (!String(tp.email).trim()) { updates.push({ range: `${TABS.players}!L${tp.row}`, values: [[email]] }); tp.email = email; res.filledEmail++; }
+      const nE = normEmailLc(email);
+      if (!String(tp.email).trim()) {
+        if (nE && emailOwner.has(nE) && emailOwner.get(nE) !== normName(tp.name)) {
+          res.conflicts.push({ name: tp.name, field: "email", existing: "dipakai pemain lain: " + (emailOwner.get(nE) || ""), incoming: email });
+        } else { updates.push({ range: `${TABS.players}!L${tp.row}`, values: [[email]] }); tp.email = email; if (nE) emailOwner.set(nE, normName(tp.name)); res.filledEmail++; }
+      }
       else if (normEmailLc(tp.email) !== normEmailLc(email)) res.conflicts.push({ name: tp.name, field: "email", existing: tp.email, incoming: email });
     }
     if (phone) {
