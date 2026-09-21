@@ -842,6 +842,14 @@ const netlifyHandler = async (event) => {
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
       return await regEventRegistrations(eid);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/approve") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/approve", ""));
+      return await regApproveRegistration(eid, body, params);
+    }
+    if (path.startsWith("reg/event/") && path.endsWith("/reject") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/reject", ""));
+      return await regRejectRegistration(eid, body, params);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
@@ -5637,7 +5645,7 @@ async function regRegisterPair(eventId, body) {
   const regId = regGenId("reg");
   const now = new Date().toISOString();
   const teamName = `${data.player1.name} + ${data.player2.name}`;
-  const status = isWaitlist ? "waitlist" : "received";
+  const status = isWaitlist ? "waitlist" : "pending";
   // registrations: reg_id, form_id, timestamp, name, gender, phone, photo_url, payment_proof_url, data, linked_tournament(=category), status
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[regId, formId, now, teamName, data.player1.gender || "M", data.player1.phone || "", photo1, payUrl, JSON.stringify(data), catId, status]] } });
@@ -5687,14 +5695,14 @@ async function regRegisterPair(eventId, body) {
         <a href="${passport(p2n)}" style="display:inline-block;background:#F1F5F9;color:#0F172A;font-weight:700;text-decoration:none;padding:9px 16px;border-radius:8px;border:2px solid #0F172A;margin:4px 0">Passport ${escHtml(p2n)} →</a>
       </p>`;
     const inner = isWaitlist
-      ? `<p>Halo <b>${escHtml(p1n)}</b>, terima kasih telah mendaftar di kategori <b>${escHtml(catName)}</b> dengan pemain <b>${escHtml(p1n)} &amp; ${escHtml(p2n)}</b> pada <b>${escHtml(evName)}</b>.</p>
-         <p>Kuota kategori sedang penuh, jadi pendaftaranmu masuk <b>daftar tunggu (waitlist)</b> dan <b>belum ada pembayaran</b>. Jika ada slot kosong, kami akan mengundangmu via email untuk melanjutkan ke pembayaran.</p>
+      ? `<p>Hi <b>${escHtml(p1n)}</b>, thank you for registering for the <b>${escHtml(catName)}</b> category with <b>${escHtml(p1n)} &amp; ${escHtml(p2n)}</b> at <b>${escHtml(evName)}</b>.</p>
+         <p>The category quota is currently full, so your registration is on the <b>waitlist</b> and <b>no payment is required yet</b>. If a slot opens up, we'll email you to continue to payment.</p>
          ${passLinks}`
-      : `<p>Halo <b>${escHtml(p1n)}</b>, terima kasih telah mendaftar di kategori <b>${escHtml(catName)}</b> dengan pemain <b>${escHtml(p1n)} &amp; ${escHtml(p2n)}</b> dan <b>telah melakukan pembayaran</b>.</p>
-         <p>Selanjutnya, nomor WhatsApp kamu akan mendapatkan <b>undangan ke grup WhatsApp (WAG) peserta</b>. Mohon ditunggu ya.</p>
+      : `<p>Hi <b>${escHtml(p1n)}</b>, thank you for registering for the <b>${escHtml(catName)}</b> category with <b>${escHtml(p1n)} &amp; ${escHtml(p2n)}</b> at <b>${escHtml(evName)}</b>.</p>
+         <p>Your registration has been received and is now <b>awaiting the committee's approval</b>. The committee will review your payment proof and confirm your spot. You'll get another email once you're approved.</p>
          ${passLinks}
-         <p style="color:#64748b;font-size:13px;margin-top:14px">Status pendaftaran: menunggu kurasi panitia.</p>`;
-    await regNotify([data.player1.email], `Terima kasih sudah mendaftar — ${evName}`, regEmailShell("Terima kasih sudah mendaftar", inner));
+         <p style="color:#64748b;font-size:13px;margin-top:14px">Registration status: waiting for committee approval.</p>`;
+    await regNotify([data.player1.email], `Registration received — ${evName}`, regEmailShell("Registration received", inner));
   } catch (e) {}
   return respond(200, { success: true, regId, status, waitlist: isWaitlist });
 }
@@ -6367,8 +6375,11 @@ async function regRosterPublic(eventId) {
   for (const pr of (pRes.data.values || [])) {
     const nm = normName(pr[0] || ""); if (nm && pr[6]) profilePhoto[nm] = pr[6];
   }
+  // Only committee-approved (or legacy auto-confirmed) pairs count as "joined".
+  // Pending/waitlist/rejected/cancelled/invited are not shown publicly.
+  const JOINED = new Set(["approved", "received", "imported", "final", "accepted"]);
   const regs = (rRes.data.values || []).filter((r) => r[1] === formId).map(regParseReg)
-    .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && r.status !== "waitlist");
+    .filter((r) => JOINED.has(r.status));
   const byCat = {};
   for (const r of regs) {
     const pub = (p) => {
@@ -6381,6 +6392,56 @@ async function regRosterPublic(eventId) {
   const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
   return respond(200, { eventId, name: frow[1] || "", categories,
     theme: config.theme === "nightmode" ? "nightmode" : "daylight" });
+}
+// Locate a registration row (index into A2:… body) by regId within an event.
+async function regFindRegRow(sheets, formId, regId) {
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rows = rRes.data.values || [];
+  const ri = rows.findIndex((r) => r[0] === regId && r[1] === formId);
+  return { ri, row: ri >= 0 ? rows[ri] : null };
+}
+// Admin manual approval: mark a pending registration "approved" and email both
+// players a congratulations note with the event's important dates (from the
+// Important Dates / timeline config) + a heads-up about the WhatsApp group.
+async function regApproveRegistration(eventId, body, params) {
+  if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const frow = await regFindFormRow(sheets, formId);
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const regId = String((body && body.regId) || "").trim();
+  const { ri, row } = await regFindRegRow(sheets, formId, regId);
+  if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  const rp = regParseReg(row);
+  await regUpdateRegStatus(sheets, ri, "approved");
+  // Congratulations email (English) — best-effort.
+  try {
+    const evName = frow[1] || "";
+    const catName = (config.categories && config.categories[rp.category] && config.categories[rp.category].label) || rp.category || "";
+    const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
+    const tl = config.timeline || {};
+    const drow = (lbl, v) => v ? `<tr><td style="padding:4px 14px 4px 0;color:#64748b;white-space:nowrap">${lbl}</td><td style="padding:4px 0;font-weight:700">${escHtml(v)}</td></tr>` : "";
+    const dates = [["Registration opens", tl.openStart], ["Registration closes", tl.openEnd], ["Curation starts", tl.curationStart], ["Appeal deadline", tl.appealDeadline], ["Technical Meeting", tl.tmDate], ["Order of play released", tl.oopDate]].map(([l, v]) => drow(l, v)).join("");
+    const datesBlock = dates ? `<p style="margin:16px 0 6px"><b>Important dates:</b></p><table style="border-collapse:collapse;font-size:14px">${dates}</table>` : "";
+    const inner = `<p>Congratulations <b>${escHtml(p1.name || "")}</b> &amp; <b>${escHtml(p2.name || "")}</b>! 🎉</p>
+      <p>You are now officially registered in <b>${escHtml(evName)}</b> — category <b>${escHtml(catName)}</b>.</p>
+      ${datesBlock}
+      <p style="margin-top:16px">You'll be invited to the participants' <b>WhatsApp group</b> by the committee soon. See you on court!</p>`;
+    const emails = [p1.email, p2.email].filter(Boolean);
+    if (emails.length) await regNotify(emails, `You're in! — ${evName}`, regEmailShell("You're in!", inner));
+  } catch (e) { console.error("approve email:", e && e.message); }
+  return respond(200, { success: true, status: "approved" });
+}
+// Admin reject: mark a registration "rejected" (removed from the public roster).
+async function regRejectRegistration(eventId, body, params) {
+  if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const { ri } = await regFindRegRow(sheets, formId, String((body && body.regId) || "").trim());
+  if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  await regUpdateRegStatus(sheets, ri, "rejected");
+  return respond(200, { success: true, status: "rejected" });
 }
 async function regAppealSubmit(body) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
