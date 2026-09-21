@@ -5305,11 +5305,9 @@ async function regSaveForm(body) {
   // hosted URL. If the upload fails, KEEP the previously-stored flyer so a
   // transient host error never wipes a good flyer.
   let cfg = config || {};
-  console.log("[flyer] incoming:", cfg.flyer ? (/^data:image\//.test(String(cfg.flyer)) ? ("dataURL " + String(cfg.flyer).length + "b") : ("url " + String(cfg.flyer).slice(0, 70))) : "EMPTY");
   if (cfg.flyer && /^data:image\//.test(String(cfg.flyer))) {
     const url = await regUploadFlyer(cfg.flyer, `flyer_${String(name || "event").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 40)}_${Date.now()}`);
     cfg = Object.assign({}, cfg, { flyer: url || existingFlyer });
-    console.log("[flyer] stored:", String(cfg.flyer || "").slice(0, 90) || "EMPTY", url ? "(uploaded)" : (existingFlyer ? "(kept existing)" : "(no host)"));
   }
   const cfgStr = JSON.stringify(cfg);
   if (existingRow) {
@@ -5414,7 +5412,6 @@ async function regPublic(eventId) {
   const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
   if (!frow) return respond(404, { error: "Formulir pendaftaran belum dibuat untuk event ini." });
   let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
-  console.log("[flyer] public:", String(config.flyer || "").slice(0, 90) || "EMPTY");
   const status = frow[2] || "draft";
   // Event details (name/venue/date/time) — untuk header halaman publik.
   let ev = null;
