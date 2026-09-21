@@ -376,6 +376,7 @@
     <div class="who" id="whoBox">
       <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/scorerdesk" target="_blank" rel="noopener" title="Scorer Desk: enter & revise scores, edit names, manage schedule">🎾 Scorer Desk</a>
       <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Manage admins</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="manageUpcomingBtn" style="display:none;" onclick="openUpcoming()">Upcoming (home)</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>
       <div class="u"><b id="whoName">—</b><span id="whoRole">—</span></div>
       <div class="av" id="whoAvatar">?</div>
@@ -732,6 +733,20 @@
       <button type="button" class="btn btn-primary" onclick="addNewAdmin()">Tambah admin</button>
     </div>
     <div class="adm-table" id="admList"></div>
+  </div>
+</div>
+
+<div class="overlay" id="upcomingOverlay">
+  <div class="modal">
+    <button type="button" class="x" onclick="closeUpcoming()">×</button>
+    <h2>Upcoming tournaments (home)</h2>
+    <p class="lead">Daftar turnamen yang tampil di beranda turnamenpadel.com. Kosongkan untuk menyembunyikan dari beranda.</p>
+    <div id="upcList"></div>
+    <div class="actions" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn btn-ghost" onclick="addUpcomingRow()">+ Tambah turnamen</button>
+      <button type="button" class="btn btn-primary" onclick="saveUpcomingList()">💾 Simpan &amp; tampilkan di beranda</button>
+    </div>
+    <p class="err-line" id="upErr"></p>
   </div>
 </div>
 
@@ -2272,6 +2287,7 @@ function applySession(s){
   document.getElementById("whoRole").textContent = roleLabel(s.role) + (s.venue ? " · " + s.venue : "");
   document.getElementById("whoAvatar").textContent = (s.username[0] || "?").toUpperCase();
   document.getElementById("manageAdminsBtn").style.display = (s.role === "superadmin" || engineIsSuper()) ? "" : "none";
+  document.getElementById("manageUpcomingBtn").style.display = (s.role === "superadmin" || engineIsSuper()) ? "" : "none";
 }
 function logout(){
   try{ sessionStorage.removeItem("tp_auth"); sessionStorage.removeItem("tp_session"); localStorage.removeItem("tp_session");
@@ -2376,6 +2392,38 @@ async function addNewAdmin(){
   }catch(e){ err.textContent = e.status === 409 ? "Username sudah dipakai." : (e.status === 403 ? "Hanya superadmin yang bisa menambah admin." : e.message); }
 }
 
+/* ===== UPCOMING TOURNAMENTS (beranda) — superadmin ===== */
+let UPCOMING=[];
+function openUpcoming(){ document.getElementById("upcomingOverlay").classList.add("show"); loadUpcoming(); }
+function closeUpcoming(){ document.getElementById("upcomingOverlay").classList.remove("show"); }
+async function loadUpcoming(){
+  document.getElementById("upErr").textContent="";
+  try{ const r=await api("upcoming"); UPCOMING=(r&&r.events)||[]; }catch(e){ UPCOMING=[]; }
+  renderUpcoming();
+}
+function renderUpcoming(){
+  const wrap=document.getElementById("upcList");
+  if(!UPCOMING.length){ wrap.innerHTML='<p class="empty">Belum ada turnamen. Klik "+ Tambah turnamen".</p>'; return; }
+  wrap.innerHTML=UPCOMING.map((e,i)=>`<div class="card" style="padding:12px;margin-bottom:10px">
+    <div class="row"><div class="f"><label>Nama turnamen</label><input value="${esc(e.name||"")}" oninput="upSet(${i},'name',this.value)" placeholder="Jakarta Open 2026"></div>
+      <div class="f"><label>Bulan/Tahun</label><input value="${esc(e.monthYear||"")}" oninput="upSet(${i},'monthYear',this.value)" placeholder="Okt 2026"></div></div>
+    <div class="row"><div class="f"><label>Lokasi</label><input value="${esc(e.location||"")}" oninput="upSet(${i},'location',this.value)" placeholder="Jakarta"></div>
+      <div class="f"><label>Deskripsi singkat</label><input value="${esc(e.subtitle||"")}" oninput="upSet(${i},'subtitle',this.value)" placeholder="Men's & Women's Doubles"></div></div>
+    <div class="row"><div class="f"><label>Logo URL (opsional)</label><input value="${esc(e.logoUrl||"")}" oninput="upSet(${i},'logoUrl',this.value)" placeholder="https://…"></div>
+      <div class="f"><label>Link (standings/daftar)</label><input value="${esc(e.url||"")}" oninput="upSet(${i},'url',this.value)" placeholder="https://turnamenpadel.com/nama-event"></div></div>
+    <div class="actions" style="margin-top:2px"><button type="button" class="btn btn-ghost btn-sm" onclick="upDel(${i})">Hapus</button></div>
+  </div>`).join("");
+}
+function upSet(i,k,v){ if(UPCOMING[i]) UPCOMING[i][k]=v; }
+function upDel(i){ UPCOMING.splice(i,1); renderUpcoming(); }
+function addUpcomingRow(){ UPCOMING.push({name:"",subtitle:"",location:"",monthYear:"",logoUrl:"",url:""}); renderUpcoming(); }
+async function saveUpcomingList(){
+  const err=document.getElementById("upErr"); err.textContent="";
+  const events=UPCOMING.filter(e=>String(e.name||"").trim());
+  try{ const r=await api("upcoming/save",{method:"POST",body:regAuthBody({events})});
+    toast("Upcoming disimpan ("+(r.count||0)+")"); closeUpcoming();
+  }catch(e){ err.textContent=(e.status===401||e.status===403)?"Perlu login superadmin.":e.message; }
+}
 /* ===== Stepper navigation (presentation only — engine logic untouched) =====
    Shows one <section id="secN"> at a time with a clickable step rail + Back/Next
    bar. Step lock state is the existing setLocks() truth; unlocked steps can be

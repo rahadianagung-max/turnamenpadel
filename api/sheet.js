@@ -452,6 +452,7 @@ const TABS = {
   appeals: "Appeals",
   leads: "Tournament_Leads",
   tracked_events: "Tracked_Events",
+  upcoming: "Upcoming",
   calc_leads: "Calculator_Leads",
   calc_results: "Calculator_Results",
   draw_results: "Draw_Results",
@@ -599,6 +600,7 @@ const T_HEADERS = {
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
   [TABS.tracked_events]: ["Name", "URL", "Date", "Venue"],
+  [TABS.upcoming]: ["Name", "Subtitle", "Location", "MonthYear", "LogoUrl", "Url", "Enabled"],
 };
 // Create any missing tournament tabs (with header row) so the engine is self-bootstrapping.
 let _tabsEnsured = false;
@@ -652,6 +654,8 @@ const netlifyHandler = async (event) => {
     // --- ROUTES ---
     if (path === "settings" && method === "GET") return await getSettings();
     if (path === "settings" && method === "POST") return await setSetting(body);
+    if (path === "upcoming" && method === "GET") return await getUpcoming();
+    if (path === "upcoming/save" && method === "POST") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await saveUpcoming(body); }
     if (path === "public/feed" && method === "GET") return await getPublicFeed();
     if (path === "leads" && method === "POST") return await submitLead(body);
     if (path === "calc/gate" && method === "POST") return await calcGate(body);
@@ -1075,6 +1079,28 @@ async function getLandingStats() {
     .map((x) => ({ name: x[0], url: (x[1] || "").trim(), date: x[2] || "", venue: x[3] || "" }));
   return respond(200, { playerCount, tournaments },
     { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" });
+}
+// Upcoming tournaments untuk homepage (dikelola superadmin di /engine).
+// Tab Upcoming: Name | Subtitle | Location | MonthYear | LogoUrl | Url | Enabled
+async function getUpcoming() {
+  const sheets = getSheets(); await ensureTabs(sheets);
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.upcoming}!A2:G` }).catch(() => ({ data: { values: [] } }));
+  const events = (res.data.values || [])
+    .filter((x) => x[0] && String(x[0]).trim() && String(x[6] == null ? "TRUE" : x[6]).toUpperCase() !== "FALSE")
+    .map((x) => ({ name: x[0] || "", subtitle: x[1] || "", location: x[2] || "", monthYear: x[3] || "", logoUrl: x[4] || "", url: x[5] || "" }));
+  return respond(200, { events }, { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300" });
+}
+async function saveUpcoming(body) {
+  const list = Array.isArray(body && body.events) ? body.events : [];
+  const sheets = getSheets(); await ensureTabs(sheets);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.upcoming}!A2:G` });
+  const rows = list
+    .filter((e) => e && String(e.name || "").trim())
+    .map((e) => [String(e.name || "").trim(), String(e.subtitle || "").trim(), String(e.location || "").trim(),
+      String(e.monthYear || "").trim(), String(e.logoUrl || "").trim(), String(e.url || "").trim(),
+      (e.enabled === false || String(e.enabled).toUpperCase() === "FALSE") ? "FALSE" : "TRUE"]);
+  if (rows.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.upcoming}!A2:G${rows.length + 1}`, valueInputOption: "USER_ENTERED", requestBody: { values: rows } });
+  return respond(200, { success: true, count: rows.length });
 }
 async function getPlayers(params) {
   const sheets = getSheets();
