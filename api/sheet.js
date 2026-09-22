@@ -876,6 +876,10 @@ const netlifyHandler = async (event) => {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/reject", ""));
       return await regRejectRegistration(eid, body, params);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/delete-reg") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/delete-reg", ""));
+      return await regDeleteRegistration(eid, body, params);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
@@ -6529,6 +6533,21 @@ async function regRejectRegistration(eventId, body, params) {
   if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
   await regUpdateRegStatus(sheets, ri, "rejected");
   return respond(200, { success: true, status: "rejected" });
+}
+// Admin hard-delete: permanently remove a registration row.
+async function regDeleteRegistration(eventId, body, params) {
+  if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const regId = String((body && body.regId) || "").trim();
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rows = rRes.data.values || [];
+  const idx = rows.findIndex((r) => r[0] === regId && r[1] === formId);
+  if (idx < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID, fields: "sheets(properties(sheetId,title))" });
+  const sh = (meta.data.sheets || []).find((s) => s.properties.title === TABS.registrations);
+  if (sh) await sheets.spreadsheets.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { requests: [{ deleteDimension: { range: { sheetId: sh.properties.sheetId, dimension: "ROWS", startIndex: idx + 1, endIndex: idx + 2 } } }] } });
+  return respond(200, { success: true, deleted: true });
 }
 // Shareable link with rich preview (Open Graph): WhatsApp/social crawlers read
 // these meta tags to show the event FLYER + a short description. Humans are
