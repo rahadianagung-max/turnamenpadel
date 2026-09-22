@@ -897,6 +897,8 @@ const netlifyHandler = async (event) => {
     }
     if (path === "reg/passport" && method === "GET")
       return await regPassportResolve(params);
+    if (path.startsWith("reg/share/") && method === "GET")
+      return await regShare(decodeURIComponent(path.replace("reg/share/", "")), params);
     if (path.startsWith("reg/roster-public/") && method === "GET")
       return await regRosterPublic(decodeURIComponent(path.replace("reg/roster-public/", "")));
     if (path.startsWith("reg/roster/") && method === "GET")
@@ -6519,6 +6521,50 @@ async function regRejectRegistration(eventId, body, params) {
   if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
   await regUpdateRegStatus(sheets, ri, "rejected");
   return respond(200, { success: true, status: "rejected" });
+}
+// Shareable link with rich preview (Open Graph): WhatsApp/social crawlers read
+// these meta tags to show the event FLYER + a short description. Humans are
+// redirected (JS + meta-refresh) to the real event page.
+async function regShare(eventId, params) {
+  const site = REG_PUBLIC_BASE || "https://turnamenpadel.com";
+  const slug = String((params && params.s) || eventId || "").trim();
+  const dest = `${site}/${encodeURIComponent(slug)}`;
+  let name = "TurnamenPadel", flyer = "", desc = "", region = "";
+  try {
+    const sheets = getSheets(); await ensureRegTabs(sheets);
+    const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
+    if (frow) {
+      name = frow[1] || name;
+      let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+      flyer = String(config.flyer || "");
+      region = String(config.region || "");
+      desc = String(config.description || "").replace(/\s+/g, " ").trim();
+    }
+  } catch (e) {}
+  // Normalize a Google Drive flyer to a hotlinkable thumbnail.
+  const m = flyer.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);
+  if (m) flyer = `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1200`;
+  const shortDesc = desc ? (desc.length > 160 ? desc.slice(0, 157) + "…" : desc)
+    : `Pendaftaran ${name} dibuka${region ? " · " + region : ""} — daftar tim kamu sekarang!`;
+  const e = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const title = `${name} · TurnamenPadel`;
+  const img = flyer ? `<meta property="og:image" content="${e(flyer)}"><meta property="og:image:width" content="1200"><meta name="twitter:image" content="${e(flyer)}"><meta name="twitter:card" content="summary_large_image">` : `<meta name="twitter:card" content="summary">`;
+  const html = `<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TurnamenPadel">
+<meta property="og:title" content="${e(title)}">
+<meta property="og:description" content="${e(shortDesc)}">
+<meta property="og:url" content="${e(dest)}">
+${img}
+<meta name="twitter:title" content="${e(title)}">
+<meta name="twitter:description" content="${e(shortDesc)}">
+<title>${e(title)}</title>
+<meta http-equiv="refresh" content="0;url=${e(dest)}">
+<script>location.replace(${JSON.stringify(dest)});</script>
+</head><body style="font-family:sans-serif;padding:24px;text-align:center">
+<p>Membuka <a href="${e(dest)}">${e(name)}</a>…</p></body></html>`;
+  return { statusCode: 200, headers: { "Content-Type": "text/html; charset=utf-8", "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=300" }, body: html };
 }
 async function regAppealSubmit(body) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
