@@ -262,6 +262,31 @@ async function submitLead(body) {
   return respond(200, { success: true });
 }
 
+// Simple "Contact us" lead from the homepage — name, email, phone (all
+// required). Stored in the Tournament_Leads tab + Telegram/email notify.
+async function submitContact(body) {
+  const name = String((body && body.name) || "").trim();
+  const email = String((body && body.email) || "").trim();
+  const phone = String((body && body.phone) || "").trim();
+  if (!name || !email || !phone) return respond(400, { error: "Nama, email, dan nomor HP wajib diisi." });
+  if (!/.+@.+\..+/.test(email)) return respond(400, { error: "Email tidak valid." });
+  const sheets = getSheets(); await ensureLeadsTab(sheets);
+  const now = new Date().toISOString();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.leads}!A:O`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[ now, name, phone, email, "", "", "", "", "", "", "Contact Us (home)", "new", "", "", "" ]] },
+  });
+  await notifyOwner(
+    `🔔 New contact lead — ${name}`,
+    `<h2>New contact — TurnamenPadel</h2>` +
+    `<p><b>Name:</b> ${escHtml(name)}<br>` +
+    `<b>Email:</b> ${escHtml(email)}<br>` +
+    `<b>Phone:</b> ${escHtml(phone)}</p>` +
+    `<p style="color:#888;font-size:12px">${escHtml(now)}</p>`
+  );
+  return respond(200, { success: true });
+}
+
 // Tournament Time Calculator lead capture. Two self-bootstrapping tabs:
 // Calculator_Leads (email gate) and Calculator_Results (computed estimate + intent).
 const CALC_LEADS_HEADER = ["Timestamp", "Lead_ID", "Name", "Email", "Source", "User_Agent", "Status"];
@@ -658,6 +683,7 @@ const netlifyHandler = async (event) => {
     if (path === "upcoming/save" && method === "POST") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await saveUpcoming(body); }
     if (path === "public/feed" && method === "GET") return await getPublicFeed();
     if (path === "leads" && method === "POST") return await submitLead(body);
+    if (path === "contact" && method === "POST") return await submitContact(body);
     if (path === "calc/gate" && method === "POST") return await calcGate(body);
     if (path === "calc/result" && method === "POST") return await calcResult(body);
     if (path === "calc/ensure" && method === "GET") return await calcEnsure();
