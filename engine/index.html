@@ -1157,8 +1157,17 @@ function pickFlyer(input){
     if(prev) prev.innerHTML='<img src="'+REG_FLYER_DATA+'" alt="flyer" style="max-height:170px;max-width:100%;border:1px solid var(--line);border-radius:10px;display:block">'; };
   rd.readAsDataURL(f);
 }
+var REG_JERSEY_DATA="";
+function pickJersey(input){
+  var f=input.files&&input.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){ REG_JERSEY_DATA=rd.result;
+    var prev=document.getElementById("rb_jersey_prev");
+    if(prev) prev.innerHTML='<img src="'+REG_JERSEY_DATA+'" alt="jersey chart" style="max-height:170px;max-width:100%;border:1px solid var(--line);border-radius:10px;display:block">'; };
+  rd.readAsDataURL(f);
+}
 function renderRegBuilder(cfg, status){
-  cfg=cfg||{}; REG_FLYER_DATA=""; const tl=cfg.timeline||{}, pay=cfg.payment||{}, f=cfg.fields||{}, cats=cfg.categories||{};
+  cfg=cfg||{}; REG_FLYER_DATA=""; REG_JERSEY_DATA=""; const tl=cfg.timeline||{}, pay=cfg.payment||{}, f=cfg.fields||{}, cats=cfg.categories||{};
   const dflt=(k,d)=> (f[k]===undefined? d : !!f[k]);
   const ts=state.tournaments||[];
   const catRows = ts.length ? ts.map(t=>{
@@ -1228,6 +1237,18 @@ function renderRegBuilder(cfg, status){
     <div style="font-weight:700;margin:14px 0 6px">Field peserta yang diminta <span class="muted" style="font-weight:400">(nama, HP, email, IG selalu wajib)</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:12px">
       ${REG_FIELDS.map(([k,lbl])=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="rb_field_${k}" ${dflt(k, k!=="jersey")?"checked":""} style="width:auto"> ${esc(lbl)}${k==="jersey"?' <span class="muted">(opsional)</span>':''}</label>`).join("")}
+    </div>
+
+    <div style="font-weight:700;margin:16px 0 6px">Ukuran jersey <span class="muted" style="font-weight:400">(tampil bila field "Ukuran jersey" aktif)</span></div>
+    <div class="grid">
+      <div class="f"><label>Size chart (gambar) <span class="muted" style="font-weight:400">— tampil di atas pilihan ukuran</span></label>
+        <input id="rb_jersey_file" type="file" accept="image/*" onchange="pickJersey(this)">
+        <input id="rb_jersey_url" type="hidden" value="${esc(cfg.jerseyImage||"")}">
+        <div id="rb_jersey_prev" style="margin-top:8px">${cfg.jerseyImage?`<img src="${esc(driveImg(cfg.jerseyImage))}" alt="jersey chart" referrerpolicy="no-referrer" style="max-height:170px;max-width:100%;border:1px solid var(--line);border-radius:10px;display:block">`:'<span class="muted" style="font-size:12px">Belum ada size chart.</span>'}</div>
+      </div>
+      <div class="f"><label>Pilihan ukuran <span class="muted" style="font-weight:400">— pisahkan dengan koma</span></label>
+        <input id="rb_jersey_sizes" value="${esc((Array.isArray(cfg.jerseySizes)&&cfg.jerseySizes.length?cfg.jerseySizes:["XS","S","M","L","XL","XXL"]).join(", "))}" placeholder="XS, S, M, L, XL, XXL, 3XL">
+        <div class="muted" style="font-size:11.5px;margin-top:4px">Kosongkan untuk pakai default (XS–XXL).</div></div>
     </div>
 
     <div class="actions" style="margin-top:16px">
@@ -1440,6 +1461,8 @@ function collectRegConfig(){
     timeline:{ openStart:val("rb_openStart"), openEnd:val("rb_openEnd"), curationStart:val("rb_curStart"),
                appealDeadline:val("rb_appeal"), appealDeadlineISO:(document.getElementById("rb_appealISO")||{}).value||"", tmDate:val("rb_tm"), oopDate:val("rb_oop") },
     payment:{ account: val("rb_account") },
+    jerseyImage: REG_JERSEY_DATA || ((document.getElementById("rb_jersey_url")||{}).value||""),
+    jerseySizes: ((document.getElementById("rb_jersey_sizes")||{}).value||"").split(",").map(s=>s.trim()).filter(Boolean),
     fields, refund:"manual",
   };
 }
