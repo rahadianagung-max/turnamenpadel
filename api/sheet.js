@@ -895,6 +895,8 @@ const netlifyHandler = async (event) => {
       if (!regGateOk(body, params)) return REG_UNAUTH;
       return await regFinalizeCategory(decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", "")), body);
     }
+    if (path === "reg/passport" && method === "GET")
+      return await regPassportResolve(params);
     if (path.startsWith("reg/roster-public/") && method === "GET")
       return await regRosterPublic(decodeURIComponent(path.replace("reg/roster-public/", "")));
     if (path.startsWith("reg/roster/") && method === "GET")
@@ -5628,18 +5630,9 @@ async function regRegisterPair(eventId, body) {
   if (!okEmail(p1.email) || !okEmail(p2.email))
     return respond(400, { error: "Email kedua pemain wajib diisi." });
 
-  // Cek DB + eligibility (campur) — otoritatif di server. Blok keras ditolak.
-  const [pRes, eRes] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
-  ]);
-  const eMap = ddEloMap(eRes.data.values || []);
-  const prows = pRes.data.values || [];
-  const m1 = regLookupPlayer(prows, eMap, p1), m2 = regLookupPlayer(prows, eMap, p2);
-  const e1 = eligibilityOf(m1 ? m1.elo : null, !m1, cat.level), e2 = eligibilityOf(m2 ? m2.elo : null, !m2, cat.level);
-  if (e1.state === "block" || e2.state === "block")
-    return respond(400, { error: `Level di atas plafon kategori ${cat.label || catId}. ${e1.state === "block" ? p1.name + ": " + e1.msg + ". " : ""}${e2.state === "block" ? p2.name + ": " + e2.msg + "." : ""}`.trim() });
-  const teamElig = (e1.state === "flag" || e2.state === "flag") ? "flag" : "ok";
+  // TANPA pengecekan/eligibility ke Trekkr saat submit — memudahkan pendaftaran.
+  // Pengecekan & pembuatan/penggabungan profil Trekkr dilakukan NANTI saat pemain
+  // mengklik link passport di email approve (lihat regPassportResolve).
 
   // Kuota (model a): pair mengisi slot; penuh → waitlist (tanpa bayar).
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
@@ -5652,8 +5645,6 @@ async function regRegisterPair(eventId, body) {
   const ts = Date.now();
   const safe = (s) => String(s || "").replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "_").slice(0, 30) || "p";
   let photo1 = "", photo2 = "", payUrl = "";
-  // A photo may be a fresh base64 data URL (upload it) or an already-hosted URL
-  // reused from the player's Trekkr profile (keep as-is).
   const resolvePhoto = async (v, nm) => {
     if (!v) return "";
     if (/^data:/.test(String(v))) { try { return await uploadImageSmart(v, `reg_${safe(nm)}_${ts}.jpg`, folderId); } catch (e) { console.error("photo:", e.message); return ""; } }
@@ -5663,12 +5654,14 @@ async function regRegisterPair(eventId, body) {
   photo2 = await resolvePhoto(body.photo2, p2.name);
   if (!isWaitlist) { try { if (body.paymentProof) payUrl = await uploadImageSmart(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
 
-  const mkP = (p, photo, m, e) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
+  const mkP = (p, photo) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
     nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo,
-    match: m ? { name: m.name, elo: m.elo, tier: m.tier, claimed: m.verified, via: m.method } : null, isNew: !m, eligibility: e });
+    match: null, isNew: true });
+  const answers = (body && body.answers) || {};
   const data = { category: catId, level: cat.level || "", teamName: String((body && body.teamName) || "").trim(),
-    player1: mkP(p1, photo1, m1, e1), player2: mkP(p2, photo2, m2, e2),
-    teamEligibility: teamElig, waiver: !!body.waiver, infoTrue: !!body.infoTrue };
+    player1: mkP(p1, photo1), player2: mkP(p2, photo2),
+    answers: { experience: String(answers.experience || "").trim(), achievements: String(answers.achievements || "").trim() },
+    waiver: !!body.waiver, infoTrue: !!body.infoTrue };
   const regId = regGenId("reg");
   const now = new Date().toISOString();
   const teamName = data.teamName || `${data.player1.name} + ${data.player2.name}`;
@@ -5676,42 +5669,6 @@ async function regRegisterPair(eventId, body) {
   // registrations: reg_id, form_id, timestamp, name, gender, phone, photo_url, payment_proof_url, data, linked_tournament(=category), status
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[regId, formId, now, teamName, data.player1.gender || "M", data.player1.phone || "", photo1, payUrl, JSON.stringify(data), catId, status]] } });
-  // Tautkan email/HP yang diisi pendaftar ke profil Trekkr yang cocok (isi sel
-  // KOSONG saja; email = identitas unik, tak menautkan email milik orang lain).
-  // Bertahap membangun database kontak dari alur pendaftaran. Best-effort.
-  try {
-    const entries = [];
-    if (m1 && data.player1.email) entries.push({ canonName: m1.name, email: data.player1.email, phone: data.player1.phone });
-    if (m2 && data.player2.email) entries.push({ canonName: m2.name, email: data.player2.email, phone: data.player2.phone });
-    if (entries.length) await regAttachContacts(sheets, prows, entries);
-  } catch (e) { console.error("attach contacts:", e && e.message); }
-  // Pemain BARU (belum ada di Trekkr) → langsung buat profil Players saat submit
-  // (tanpa menunggu kurasi). Seed ELO ikut level kategori (regSeedElo; 0 bila
-  // tak ada dasar level). Lalu kirim email verifikasi (link klaim). Best-effort.
-  try {
-    const seedElo = regSeedElo(cat.level);
-    const localNames = new Set(prows.map((r) => normName(r[0] || "")));
-    const localEmails = new Set(prows.map((r) => normEmailLc(r[11] || "")).filter(Boolean));
-    const newPlayers = [], newElo = [], verifyTargets = [], now2 = new Date().toISOString();
-    const handleNew = (pp) => {
-      const nm = String(pp.name || "").trim(); if (!nm || localNames.has(normName(nm))) return;
-      let em = String(pp.email || "").trim();
-      if (em && localEmails.has(normEmailLc(em))) em = ""; // jaga keunikan email
-      const gv = String(pp.gender || "").toUpperCase();
-      const gender = (gv === "P" || gv === "F") ? "F" : (gv === "L" || gv === "M") ? "M" : "";
-      newPlayers.push([nm, "", "FALSE", pp.nick || nm, gender, pp.region || "", pp.photoUrl || "", "", now2, "", "", em, String(pp.phone || "").trim()]);
-      newElo.push(["INITIAL", nm, seedElo, 0, 0, 0, now2]);
-      localNames.add(normName(nm)); if (em) localEmails.add(normEmailLc(em));
-      if (String(pp.email || "").trim()) verifyTargets.push({ name: nm, email: String(pp.email).trim() });
-    };
-    if (!m1) handleNew(data.player1);
-    if (!m2) handleNew(data.player2);
-    if (newPlayers.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED", requestBody: { values: newPlayers } });
-    if (newElo.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: newElo } });
-    // NB: TIDAK mengirim email verifikasi/klaim di sini (hemat kuota Brevo).
-    // Link verifikasi profil untuk pemain baru dikirim menyatu dengan email
-    // "You're in!" saat admin approve — lihat regApproveRegistration.
-  } catch (e) { console.error("create new players:", e && e.message); }
   // Menghemat kuota email Brevo: TIDAK ada email saat submit. Email peserta
   // hanya dikirim saat admin meng-approve pendaftaran (lihat regApproveRegistration).
   // Konfirmasi "pending" cukup ditampilkan di halaman akhir pendaftaran.
@@ -6454,44 +6411,104 @@ async function regApproveRegistration(eventId, body, params) {
   const { ri, row } = await regFindRegRow(sheets, formId, regId);
   if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
   const rp = regParseReg(row);
-  await regUpdateRegStatus(sheets, ri, "approved");
+  const data = rp.data || {};
+  const p1 = data.player1 || {}, p2 = data.player2 || {};
+  // One-time passport tokens: opening the link in the email runs the Trekkr
+  // check/merge/create (regPassportResolve) then redirects to the passport.
+  const crypto = require("crypto");
+  if (!p1.passportToken) p1.passportToken = crypto.randomBytes(12).toString("hex");
+  if (!p2.passportToken) p2.passportToken = crypto.randomBytes(12).toString("hex");
+  await regUpdateRegStatus(sheets, ri, "approved", data);
   // Congratulations email (English) — best-effort.
   try {
     const evName = frow[1] || "";
     const catName = (config.categories && config.categories[rp.category] && config.categories[rp.category].label) || rp.category || "";
-    const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
     const tl = config.timeline || {};
     const drow = (lbl, v) => v ? `<tr><td style="padding:4px 14px 4px 0;color:#64748b;white-space:nowrap">${lbl}</td><td style="padding:4px 0;font-weight:700">${escHtml(v)}</td></tr>` : "";
     const dates = [["Registration opens", tl.openStart], ["Registration closes", tl.openEnd], ["Curation starts", tl.curationStart], ["Appeal deadline", tl.appealDeadline], ["Technical Meeting", tl.tmDate], ["Order of play released", tl.oopDate]].map(([l, v]) => drow(l, v)).join("");
     const datesBlock = dates ? `<p style="margin:16px 0 6px"><b>Important dates:</b></p><table style="border-collapse:collapse;font-size:14px">${dates}</table>` : "";
-    // Group by email so partners sharing one address get a single email; a
-    // brand-new player gets a "Verify your Trekkr profile" button folded in
-    // (no separate claim email — saves Brevo quota).
-    const byEmail = new Map();
-    for (const p of [p1, p2]) {
-      const em = String((p && p.email) || "").trim(); if (!em) continue;
-      const k = em.toLowerCase(); if (!byEmail.has(k)) byEmail.set(k, { email: em, players: [] });
-      byEmail.get(k).players.push(p);
-    }
-    for (const grp of byEmail.values()) {
-      let verify = "";
-      for (const p of grp.players) {
-        if (p && p.isNew && p.name) {
-          try {
-            const url = await regCreateClaimToken(sheets, p.name, grp.email, eventId);
-            verify += `<p style="margin:14px 0 4px">Verify your Trekkr profile for <b>${escHtml(p.name)}</b> so your stats &amp; ranking stay linked to you:</p>
-              <p><a href="${url}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:8px">Verify my profile →</a></p>`;
-          } catch (e) {}
-        }
-      }
-      const inner = `<p>Congratulations <b>${escHtml(p1.name || "")}</b> &amp; <b>${escHtml(p2.name || "")}</b>! 🎉</p>
-        <p>Your team <b>${escHtml(rp.team || "")}</b> is now officially registered in <b>${escHtml(evName)}</b> — category <b>${escHtml(catName)}</b>.</p>
-        ${datesBlock}${verify}
-        <p style="margin-top:16px">You'll be invited to the participants' <b>WhatsApp group</b> by the committee soon. See you on court!</p>`;
-      await regNotify([grp.email], `You're in! — ${evName}`, regEmailShell("You're in!", inner));
-    }
+    const passportBtn = (p, idx) => {
+      if (!p || !p.name) return "";
+      const url = `${REG_PUBLIC_BASE}/api/reg/passport?reg=${encodeURIComponent(regId)}&p=${idx}&t=${encodeURIComponent(p.passportToken)}`;
+      return `<p style="margin:12px 0 4px">Trekkr passport — <b>${escHtml(p.name)}</b>:</p>
+        <p><a href="${url}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:8px">Open ${escHtml(p.name)}'s passport →</a></p>`;
+    };
+    const passports = passportBtn(p1, 1) + passportBtn(p2, 2);
+    const inner = `<p>Congratulations <b>${escHtml(p1.name || "")}</b> &amp; <b>${escHtml(p2.name || "")}</b>! 🎉</p>
+      <p>You are officially registered in <b>${escHtml(evName)}</b> — category <b>${escHtml(catName)}</b>.</p>
+      <p><b>Your team:</b> ${escHtml(p1.name || "")} &amp; ${escHtml(p2.name || "")}</p>
+      ${datesBlock}
+      <p style="margin:18px 0 4px">Open your <b>Trekkr passport</b> below. The first time you open it we link your results to your Trekkr profile — or create a new one if you're new:</p>
+      ${passports}
+      <p style="margin-top:16px">You'll be invited to the participants' <b>WhatsApp group</b> by the committee soon. See you on court!</p>`;
+    const origByLc = {}; [p1.email, p2.email].forEach((e) => { const t = String(e || "").trim(); if (t) origByLc[t.toLowerCase()] = t; });
+    for (const lc of Object.keys(origByLc)) { await regNotify([origByLc[lc]], `You're in! — ${evName}`, regEmailShell("You're in!", inner)); }
   } catch (e) { console.error("approve email:", e && e.message); }
   return respond(200, { success: true, status: "approved" });
+}
+// Passport link handler (from the approval email). Runs the deferred Trekkr
+// check: same name → merge (use existing profile, fill empty contact fields);
+// new name → create a new player + seed ELO. Then redirects to the passport.
+async function regPassportResolve(params) {
+  const regId = String((params && params.reg) || "").trim();
+  const idx = String((params && params.p) || "").trim();
+  const token = String((params && params.t) || "").trim();
+  const site = REG_PUBLIC_BASE || "https://turnamenpadel.com";
+  const fail = (msg) => respond(400, { error: msg });
+  if (!regId || (idx !== "1" && idx !== "2") || !token) return fail("Invalid passport link.");
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const rows = rRes.data.values || [];
+  const ri = rows.findIndex((r) => r[0] === regId);
+  if (ri < 0) return fail("Registration not found.");
+  let data = {}; try { data = JSON.parse(rows[ri][8] || "{}"); } catch (e) {}
+  const player = idx === "1" ? (data.player1 || {}) : (data.player2 || {});
+  if (!player.passportToken || player.passportToken !== token) return fail("Invalid or expired passport link.");
+  const name = String(player.name || "").trim();
+  if (!name) return fail("Player name missing.");
+  // Resolve against the shared Trekkr players table.
+  let canonical = player.passportResolved || "";
+  if (!canonical) {
+    const [pRes, eRes] = await Promise.all([
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
+    ]);
+    const prows = pRes.data.values || [];
+    // Exact/normalized match first, then fuzzy.
+    let hitIdx = prows.findIndex((r) => normName(r[0] || "") === normName(name));
+    if (hitIdx < 0) { let best = -1, bs = 0; prows.forEach((r, k) => { const s = ddSim(name, r[0] || ""); if (s > bs) { bs = s; best = k; } }); if (best >= 0 && bs >= 0.9) hitIdx = best; }
+    if (hitIdx >= 0) {
+      // MERGE: use existing profile; fill only empty contact/photo fields.
+      canonical = prows[hitIdx][0] || name;
+      const sr = hitIdx + 2, cur = prows[hitIdx];
+      const upd = {};
+      if (!(cur[6] || "").trim() && player.photoUrl) upd["G"] = player.photoUrl;      // photo_url
+      if (!(cur[11] || "").trim() && player.email) upd["L"] = String(player.email).trim(); // claim_email
+      if (!(cur[12] || "").trim() && player.phone) upd["M"] = String(player.phone).trim(); // phone
+      for (const col of Object.keys(upd)) {
+        try { await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.players}!${col}${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[upd[col]]] } }); } catch (e) {}
+      }
+    } else {
+      // NEW player + seed ELO from the category level.
+      canonical = name;
+      const gv = String(player.gender || "").toUpperCase();
+      const gender = (gv === "P" || gv === "F") ? "F" : (gv === "L" || gv === "M") ? "M" : "";
+      const now2 = new Date().toISOString();
+      const seedElo = regSeedElo(data.level || "");
+      try {
+        await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED",
+          requestBody: { values: [[name, player.ig || "", "FALSE", player.nick || name, gender, player.region || "", player.photoUrl || "", "", now2, "", "", String(player.email || "").trim(), String(player.phone || "").trim()]] } });
+        await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
+          requestBody: { values: [["INITIAL", name, seedElo, 0, 0, 0, now2]] } });
+      } catch (e) { console.error("passport new player:", e && e.message); }
+    }
+    // Remember resolution so repeat clicks don't duplicate.
+    player.passportResolved = canonical;
+    if (idx === "1") data.player1 = player; else data.player2 = player;
+    try { await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!I${ri + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(data)]] } }); } catch (e) {}
+  }
+  const dest = `https://trekkr.online/player/${encodeURIComponent(canonical || name)}`;
+  return respond(302, { redirect: dest }, { Location: dest });
 }
 // Admin reject: mark a registration "rejected" (removed from the public roster).
 async function regRejectRegistration(eventId, body, params) {
