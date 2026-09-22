@@ -42,6 +42,7 @@ const SHEET_MAP = {
   Tournament_Leads:   { table: "tournament_leads_legacy", cols: ["timestamp","name","whatsapp","email","tournament_date","participants","category","venue","city","package","notes","status","tournament_days","hours_per_day","courts"] },
 
   Tracked_Events:     { table: "tracked_events",      cols: ["month_year","name","location","logo_url","url"] },
+  Upcoming:           { table: "upcoming",            cols: ["name","subtitle","location","month_year","logo_url","url","enabled"] },
   Calculator_Leads:   { table: "calculator_leads",    cols: ["timestamp","lead_id","name","email","source","user_agent","status"] },
   Calculator_Results: { table: "calculator_results",  cols: ["timestamp","lead_id","name","email","mode","format_priority","input_unit","target_pairs","hours_available","courts","court_rate_per_hour","total_pairs","total_players","categories_count","categories_detail","total_matches","total_duration_min","total_duration_label","court_hours_optimal","court_hours_full","estimated_court_cost","potential_saving","has_bye","options_considered","services_requested","rules_ref","interested_in_management","status"] },
 
