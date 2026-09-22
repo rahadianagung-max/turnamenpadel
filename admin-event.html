@@ -301,6 +301,7 @@ function statusChip(s){
 function eligChip(e){ if(!e) return ""; const s=e.state; return s==="ok"?'<span class="chip ok">eligible</span>':s==="block"?'<span class="chip bad">'+esc(e.msg||"block")+'</span>':'<span class="chip warn">'+esc(e.msg||"flag")+'</span>'; }
 function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.nick) k.push(`Alias: <b>${esc(p.nick)}</b>`);
+  if(p.ig) k.push(`IG: <b>${esc(p.ig)}</b>`);
   if(p.gender) k.push(`Gender: <b>${esc(p.gender)}</b>`);
   if(p.phone) k.push(`HP: <b>${esc(p.phone)}</b>`);
   if(p.email) k.push(`Email: <b>${esc(p.email)}</b>`);
@@ -349,6 +350,12 @@ function regCard(reg){
   if(reg.status!=="approved") acts.push(`<button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>`);
   if(reg.status!=="rejected") acts.push(`<button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button>`);
   acts.push(`<button class="btn ghost sm danger" onclick="deleteReg('${esc(reg.regId)}')">🗑 Delete</button>`);
+  // Info: kategori + jawaban form eligibility (Q1 lama bermain, Q2 prestasi).
+  const ans=d.answers||{};
+  const info=[`Kategori: <b>${esc(catText(d))}</b>`];
+  if(ans.experience) info.push(`Lama bermain padel: <b>${esc(ans.experience)}</b>`);
+  if(ans.achievements) info.push(`Prestasi turnamen: <b>${esc(ans.achievements)}</b>`);
+  const infoBlock=`<div class="pcard" style="margin-bottom:12px"><div class="kvs">${info.join("<br>")}</div></div>`;
   return `<details class="regd">
     <summary class="regsum">
       <span class="sumav">${sumAvatar(p1)}${sumAvatar(p2)}</span>
@@ -357,7 +364,8 @@ function regCard(reg){
       <span class="material-symbols-outlined chev">expand_more</span>
     </summary>
     <div class="regbody">
-      <div class="note" style="margin:0 0 8px">${esc(catText(d))} · ${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div>
+      <div class="note" style="margin:0 0 10px">${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div>
+      ${infoBlock}
       <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
       ${phoneRow}
       <div class="divider"></div>${proof}
