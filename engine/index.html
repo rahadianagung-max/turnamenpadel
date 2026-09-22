@@ -414,8 +414,8 @@
       <select id="eventSelect" onchange="selectEvent(this.value)"><option value="">Loading…</option></select>
     </div>
     <div id="assignAdminBox" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Assign event admin <span style="color:var(--muted);font-weight:400">— who can manage this event in the engine</span></div>
-      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Current owner: <b id="assignCurrent">—</b></div>
+      <div style="font-weight:600;font-size:13px;margin-bottom:2px">Assign event admin <span style="color:var(--muted);font-weight:400">— who manages this event in the engine</span></div>
+      <div style="font-size:12px;color:var(--muted);margin:2px 0 8px">Current owner: <b id="assignCurrent">—</b> · picking an <b>Event admin</b> also grants them /admin/&lt;event&gt; dashboard access. Create Event admin accounts in <b>Manage admins</b>.</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
         <select id="assignSelect" style="flex:1;min-width:180px"><option value="">— select admin —</option></select>
         <button type="button" class="btn btn-primary" onclick="assignAdmin()">Assign</button>
@@ -2346,12 +2346,33 @@ async function assignAdmin(){
   if(!state.event) return;
   const u = document.getElementById("assignSelect").value;
   if(!u) return toast("Pilih admin dulu", true);
+  const eid = state.event.eventId;
   try{
-    await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/assign-admin", { method:"POST", body:{ adminUsername:u }});
+    // 1) Set engine ownership (kolom admin_username event).
+    await api("tournament/event/"+encodeURIComponent(eid)+"/assign-admin", { method:"POST", body:regAuthBody({ adminUsername:u })});
     state.event.adminUsername = u;
-    const ev = state.events.find(e=>e.eventId===state.event.eventId); if(ev) ev.adminUsername = u;
+    const ev = state.events.find(e=>e.eventId===eid); if(ev) ev.adminUsername = u;
     document.getElementById("assignCurrent").textContent = u;
-    toast("Event di-assign ke "+u);
+    // 2) Beri akses dashboard /admin/<event>. Login /admin hanya lolos untuk
+    //    superadmin ATAU event_admin yang event-nya diizinkan. Assign ownership saja
+    //    TIDAK memberi akses itu — jadi kalau admin terpilih adalah event_admin,
+    //    tambahkan event ini ke daftar izinnya. Superadmin sudah punya akses semua;
+    //    venue/tournament admin tidak di-scope per-event untuk dashboard.
+    const admins = await ensureAdmins();
+    const a = (admins||[]).find(x=>x.username===u) || {};
+    if(a.role==="event_admin"){
+      const set = new Set((a.events||[]).map(String));
+      if(!set.has(String(eid))){
+        set.add(String(eid));
+        await api("admins/update", { method:"POST", body:regAuthBody({ username:u, events:[...set] })});
+        ADMINS = null; // refresh cache
+      }
+      toast("Event di-assign ke "+u+" — akses /admin diberikan");
+    } else if(a.role==="superadmin"){
+      toast("Event di-assign ke "+u+" (superadmin sudah punya akses semua event)");
+    } else {
+      toast("Ownership di-assign. Untuk login /admin per-event, buat akun Event admin (Manage admins).", true);
+    }
   }catch(e){ toast(e.message || "Gagal assign admin", true); }
 }
 /* ---- MANAGE ADMINS (superadmin) ---- */
