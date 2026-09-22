@@ -140,6 +140,26 @@
 /* burger removed → keep the primary CTA reachable on small screens */
 @media(max-width:900px){ .tp-header-actions .btn--primary{display:inline-flex} }
 
+/* contact CTA band */
+.contact-cta{background:var(--dark);color:#fff;border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh);
+  padding:36px 24px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
+.contact-cta h3{font-family:var(--display);font-weight:900;letter-spacing:-.01em;font-size:clamp(22px,3vw,32px);margin:0;color:#fff}
+.contact-cta p{color:var(--slate-300);font-size:14px;max-width:520px;margin:0;line-height:1.6}
+.contact-cta .reg-btn,.contact-cta .btn{margin-top:6px}
+
+/* contact modal */
+.modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;place-items:center;z-index:100;padding:18px}
+.modal-ov.open{display:grid}
+.modal-box{background:#fff;border:var(--bd);border-radius:var(--r-2xl);box-shadow:var(--sh-lg);max-width:440px;width:100%;padding:24px}
+.modal-box h3{font-family:var(--display);font-weight:900;font-size:22px;margin:0 0 4px}
+.modal-box .sub{color:var(--slate-600);font-size:14px;margin:0 0 18px;line-height:1.5}
+.modal-box label{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin:0 0 6px}
+.modal-box .f{margin-bottom:14px}
+.modal-box input{width:100%;background:#fff;border:var(--bd);color:var(--dark);border-radius:var(--r-lg);padding:11px 12px;font-family:var(--sans);font-size:14px;box-shadow:var(--sh-sm)}
+.modal-box input:focus{outline:none;box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.35)}
+.modal-box .row{display:flex;gap:10px;margin-top:8px}
+.modal-msg{font-size:13px;min-height:2px}
+
 /* comparison */
 .compare{display:grid;grid-template-columns:1fr 1fr;gap:32px}
 @media(max-width:820px){.compare{grid-template-columns:1fr}}
@@ -230,7 +250,7 @@
   </nav>
   <div class="tp-header-actions">
     <a class="btn btn--white btn--sm mono" href="#upcoming-tournaments">Register to Play</a>
-    <a class="btn btn--primary btn--sm btn--pop btn--upper" href="#features"><span class="material-symbols-outlined">bolt</span><span>Run a Tournament</span></a>
+    <button class="btn btn--primary btn--sm btn--pop btn--upper" type="button" onclick="openContact()"><span class="material-symbols-outlined">mail</span><span>Contact Us</span></button>
   </div>
 </div>
 </header>
@@ -362,10 +382,36 @@
     </div>
   </div>
 
+  <!-- CONTACT CTA -->
+  <div class="contact-cta">
+    <span class="eyebrow" style="color:var(--lime)"><span class="dot" style="background:var(--lime)"></span>Ready to run your event?</span>
+    <h3>Let's bring the full engine to your tournament</h3>
+    <p>Leave your details and our team will reach out to set up registration, draws, live scoring, and Trekkr recording for your event.</p>
+    <button class="btn btn--primary btn--pop btn--upper" type="button" onclick="openContact()"><span class="material-symbols-outlined">mail</span>Contact Us</button>
+  </div>
+
 </div></section>
 
 
 </main>
+
+<!-- CONTACT MODAL -->
+<div class="modal-ov" id="contactModal" role="dialog" aria-modal="true" aria-label="Contact us">
+  <div class="modal-box">
+    <h3>Contact Us</h3>
+    <p class="sub">Leave your details — our team will get in touch to help run your tournament.</p>
+    <div id="contactForm">
+      <div class="f"><label>Name <span style="color:var(--orange)">*</span></label><input id="cName" placeholder="Your full name" autocomplete="name"></div>
+      <div class="f"><label>Email <span style="color:var(--orange)">*</span></label><input id="cEmail" type="email" placeholder="you@email.com" autocomplete="email"></div>
+      <div class="f"><label>Phone / WhatsApp <span style="color:var(--orange)">*</span></label><input id="cPhone" type="tel" placeholder="08…" autocomplete="tel"></div>
+      <div id="cMsg" class="modal-msg"></div>
+      <div class="row">
+        <button class="btn btn--ghost" type="button" onclick="closeContact()" style="flex:0 0 auto">Cancel</button>
+        <button class="btn btn--primary btn--block" type="button" id="cSubmit" onclick="sendContact()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- FOOTER -->
 <footer class="tp-footer"><div class="container">
@@ -397,6 +443,25 @@
   var BASE=(location.hostname.indexOf("turnamenpadel")>=0||location.protocol==="https:")?"/api":"https://www.turnamenpadel.com/api";
   var TRK="https://trekkr.online/api";
   var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+
+  /* ---- Contact modal (name/email/phone → /api/contact → Telegram notify) ---- */
+  window.openContact=function(){ var m=document.getElementById("contactModal"); if(m){ m.classList.add("open"); var n=document.getElementById("cName"); if(n) n.focus(); } };
+  window.closeContact=function(){ var m=document.getElementById("contactModal"); if(m) m.classList.remove("open"); };
+  window.sendContact=function(){
+    var name=(document.getElementById("cName").value||"").trim();
+    var email=(document.getElementById("cEmail").value||"").trim();
+    var phone=(document.getElementById("cPhone").value||"").trim();
+    var msg=document.getElementById("cMsg"), btn=document.getElementById("cSubmit");
+    if(!name||!email||!phone){ msg.innerHTML='<span style="color:var(--danger)">Please fill in name, email, and phone.</span>'; return; }
+    if(!/.+@.+\..+/.test(email)){ msg.innerHTML='<span style="color:var(--danger)">Please enter a valid email.</span>'; return; }
+    btn.disabled=true; btn.textContent="Sending…"; msg.innerHTML="";
+    fetch(BASE+"/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,email:email,phone:phone})})
+      .then(function(r){return r.json().then(function(d){ if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d; });})
+      .then(function(){ document.getElementById("contactForm").innerHTML='<p style="font-size:15px;line-height:1.6">✅ Thank you! We\'ve received your details and will contact you soon.</p><div class="row"><button class="btn btn--primary btn--block" type="button" onclick="closeContact()">Close</button></div>'; })
+      .catch(function(e){ btn.disabled=false; btn.textContent="Send"; msg.innerHTML='<span style="color:var(--danger)">Failed: '+esc(e.message)+'</span>'; });
+  };
+  var _cm=document.getElementById("contactModal");
+  if(_cm) _cm.addEventListener("click",function(e){ if(e.target===_cm) window.closeContact(); });
 
   /* player count → trust chip */
   fetch(BASE+"/landing-stats").then(function(r){return r.json();}).then(function(d){
