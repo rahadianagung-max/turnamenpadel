@@ -5474,15 +5474,21 @@ async function regSaveForm(body) {
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
   const rows = res.data.values || [];
   const existingRow = formId ? rows.find((x) => x[0] === formId) : null;
-  let existingFlyer = ""; try { existingFlyer = JSON.parse((existingRow && existingRow[4]) || "{}").flyer || ""; } catch (e) {}
+  let existingFlyer = "", existingJersey = "";
+  try { const ec = JSON.parse((existingRow && existingRow[4]) || "{}"); existingFlyer = ec.flyer || ""; existingJersey = ec.jerseyImage || ""; } catch (e) {}
 
-  // A freshly-picked flyer arrives as a base64 data URL; upload it and keep the
-  // hosted URL. If the upload fails, KEEP the previously-stored flyer so a
-  // transient host error never wipes a good flyer.
+  // A freshly-picked flyer/jersey-chart arrives as a base64 data URL; upload it
+  // and keep the hosted URL. If upload fails, KEEP the previously-stored image
+  // so a transient host error never wipes a good one.
+  const slug = String(name || "event").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 40);
   let cfg = config || {};
   if (cfg.flyer && /^data:image\//.test(String(cfg.flyer))) {
-    const url = await regUploadFlyer(cfg.flyer, `flyer_${String(name || "event").replace(/[^a-zA-Z0-9]+/g, "_").slice(0, 40)}_${Date.now()}`);
+    const url = await regUploadFlyer(cfg.flyer, `flyer_${slug}_${Date.now()}`);
     cfg = Object.assign({}, cfg, { flyer: url || existingFlyer });
+  }
+  if (cfg.jerseyImage && /^data:image\//.test(String(cfg.jerseyImage))) {
+    const url = await regUploadFlyer(cfg.jerseyImage, `jersey_${slug}_${Date.now()}`);
+    cfg = Object.assign({}, cfg, { jerseyImage: url || existingJersey });
   }
   const cfgStr = JSON.stringify(cfg);
   if (existingRow) {
@@ -5609,6 +5615,8 @@ async function regPublic(eventId) {
       payment: config.payment || {}, fields: config.fields || {},
       flyer: config.flyer || "", description: config.description || "",
       eligibility: config.eligibility || "",
+      jerseyImage: config.jerseyImage || "",
+      jerseySizes: Array.isArray(config.jerseySizes) ? config.jerseySizes : [],
       theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
     categories: cats });
 }

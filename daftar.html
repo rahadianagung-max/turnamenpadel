@@ -342,6 +342,10 @@ function vElig(){
 }
 /* ---------- STEP: per-player (Pemain 1 lalu Pemain 2) ---------- */
 function fieldsOn(){ const f=(F.data.config&&F.data.config.fields)||{}; return function(k){ const d=(k!=="jersey"); return f[k]===undefined?d:!!f[k]; }; }
+// Jersey sizes & size-chart image are configurable per-event in /engine.
+function jerseySizes(){ const s=(F.data.config||{}).jerseySizes; return (Array.isArray(s)&&s.length)?s:["XS","S","M","L","XL","XXL"]; }
+function jerseyOptions(sel){ return '<option value="">—</option>'+jerseySizes().map(sz=>`<option ${sel===sz?'selected':''}>${esc(sz)}</option>`).join(""); }
+function jerseyChart(){ const u=(F.data.config||{}).jerseyImage; return u?`<div style="margin:0 0 8px"><img src="${esc(u)}" alt="Size chart jersey" referrerpolicy="no-referrer" loading="lazy" style="max-width:100%;border:var(--bd);border-radius:var(--r-lg);display:block"></div>`:""; }
 function allFilled(i){ const p=F.players[i], on=fieldsOn();
   if(!(p.name||"").trim()||!(p.email||"").trim()||!(p.phone||"").trim()||!(p.ig||"").trim()) return false;
   if(on("nick") && !(p.nick||"").trim()) return false;
@@ -491,7 +495,7 @@ function profileForm(i,on){ const p=F.players[i];
   if(on("dob")) dg.push(`<label class="f"><span>Tanggal lahir <span class="req">*</span></span><input type="date" value="${esc(p.dob)}" oninput="setF(${i},'dob',this.value)"></label>`);
   if(dg.length) rows.push(`<div class="grid2">${dg.join("")}</div>`);
   if(on("region")) rows.push(`<label class="f"><span>Region / kota <span class="req">*</span></span><input list="cities" value="${esc(p.region)}" oninput="setF(${i},'region',this.value)" placeholder="ketik kota…"></label>`);
-  if(on("jersey")) rows.push(`<label class="f"><span>Ukuran jersey <span class="req">*</span></span><select onchange="setF(${i},'jersey',this.value)"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(sz=>`<option ${p.jersey===sz?'selected':''}>${sz}</option>`).join("")}</select></label>`);
+  if(on("jersey")) rows.push(`<label class="f"><span>Ukuran jersey <span class="req">*</span></span>${jerseyChart()}<select onchange="setF(${i},'jersey',this.value)">${jerseyOptions(p.jersey)}</select></label>`);
   if(on("photo")){ const cur=(p.photo||p.photoUrl)?`<img src="${esc(p.photo||p.photoUrl)}" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">`:'<span class="chip">belum ada</span>';
     rows.push(`<label class="f"><span>Foto <span class="req">*</span></span><div class="row" style="align-items:center;gap:12px"><div id="ph_${i}">${cur}</div><input type="file" accept="image/*" onchange="pickPhoto(${i},this)" style="flex:1"></div></label>`); }
   return rows.join("");
@@ -525,7 +529,7 @@ function vSummary(){
       if(editing){
         const parts=[];
         if(showNick) parts.push(`<label class="f" style="margin:0"><span>Nama alias</span><input value="${esc(p.nick)}" oninput="setF(${i},'nick',this.value)" placeholder="nama panggilan"></label>`);
-        if(showJersey) parts.push(`<label class="f" style="margin:0"><span>Ukuran jersey</span><select onchange="setF(${i},'jersey',this.value)"><option value="">—</option>${["XS","S","M","L","XL","XXL"].map(sz=>`<option ${p.jersey===sz?'selected':''}>${sz}</option>`).join("")}</select></label>`);
+        if(showJersey) parts.push(`<label class="f" style="margin:0"><span>Ukuran jersey</span><select onchange="setF(${i},'jersey',this.value)">${jerseyOptions(p.jersey)}</select></label>`);
         extra=`<div class="grid2" style="margin-top:8px">${parts.join("")}</div>
           <div style="margin-top:8px"><button class="btn ghost" onclick="editSummary(${i},false)">✔ Selesai</button></div>`;
       } else {
