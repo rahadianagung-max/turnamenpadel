@@ -41,6 +41,19 @@
   .kvs{font-size:12px;color:var(--slate-600);margin-top:4px;line-height:1.7}
   .kvs b{color:var(--dark)}
   .proof img{max-width:120px;max-height:120px;border:var(--bd);border-radius:10px;display:block}
+  /* collapsible registration card */
+  .regd{border:var(--bd);border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh-sm);overflow:hidden}
+  .regd+.regd{margin-top:12px}
+  .regsum{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 14px}
+  .regsum::-webkit-details-marker{display:none}
+  .sumav{display:flex;gap:6px;flex:none}
+  .sumtxt{flex:1;min-width:0}
+  .sumtxt b{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis}
+  .regsum .chev{color:var(--slate-400);transition:transform .15s;flex:none}
+  .regd[open] .regsum .chev{transform:rotate(180deg)}
+  .regd[open] .regsum{border-bottom:1px solid var(--slate-200)}
+  .regbody{padding:12px 14px 14px}
+  .btn.danger{color:var(--danger);border-color:var(--danger)}
   .stat{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;margin-right:14px}
   .act{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
   .act a{text-decoration:none}
@@ -318,36 +331,43 @@ function miniPlayer(p,idx){ if(!p) return "";
     <div style="margin-top:4px">${tierChip(p)||'<span class="chip" style="background:#F1F5F9">—</span>'}</div></div></div>`;
 }
 const APPROVED_STATUS=new Set(["approved","received","imported","final","accepted"]);
-// Detailed card (waiting list): full player details + payment proof + actions.
-function waitingCard(reg){
+// Small avatar (photo or initials) for the collapsed summary row.
+function sumAvatar(p){ if(!p) return "";
+  const s="width:34px;height:34px;object-fit:cover;border:var(--bd);border-radius:8px;flex:none";
+  return p.photoUrl?`<img src="${esc(p.photoUrl)}" alt="" referrerpolicy="no-referrer" style="${s}">`
+    :`<span style="${s};display:flex;align-items:center;justify-content:center;background:var(--orange);color:#fff;font-family:var(--display);font-weight:800;font-size:12px">${esc(initials(p.name))}</span>`;
+}
+// Collapsible card: default shows only names + photos; expand for full details
+// + Approve / Reject / Delete.
+function regCard(reg){
   const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
+  const names=esc([p1.name,p2.name].filter(Boolean).join(" & ")||reg.team||"—");
   const proof=reg.paymentProofUrl?`<div class="proof"><div class="note" style="margin:0 0 4px">Bukti transfer:</div><a href="${esc(reg.paymentProofUrl)}" target="_blank" rel="noopener"><img src="${esc(reg.paymentProofUrl)}" alt="bukti"></a></div>`:'<div class="note">Bukti transfer: <span class="chip">belum ada</span></div>';
-  return `<div class="reg">
-    <div class="reg-head"><div><b>${esc(reg.team||"—")}</b><div class="note" style="margin:2px 0 0">${esc(catText(d))} · ${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div></div>${statusChip(reg.status)}</div>
-    <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
-    <div class="divider"></div>${proof}
-    <div class="row" style="gap:8px;margin-top:12px">
-      <button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>
-      <button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button></div>
-  </div>`;
-}
-// Compact card (approved list): names + level + team + player-1 phone (copy).
-function approvedCard(reg){
-  const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
   const phone=String(p1.phone||"").trim();
-  const phoneRow=phone
-    ? `<div class="note" style="margin-top:10px">HP Pemain 1: <a href="#" onclick="copyText(event,'${esc(phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(phone)} ⧉</a></div>`
-    : '<div class="note" style="margin-top:10px">HP Pemain 1: <span class="muted">—</span></div>';
-  return `<div class="reg">
-    <div class="reg-head"><div><b>${esc(reg.team||"—")}</b><div class="note" style="margin:2px 0 0">${esc(catText(d))}</div></div>${statusChip(reg.status)}</div>
-    <div class="pgrid">${miniPlayer(p1,1)}${miniPlayer(p2,2)}</div>
-    ${phoneRow}
-    <div class="row" style="gap:8px;margin-top:10px"><button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button></div>
-  </div>`;
+  const phoneRow=phone?`<div class="note" style="margin-top:10px">HP Pemain 1: <a href="#" onclick="copyText(event,'${esc(phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(phone)} ⧉</a></div>`:'';
+  const acts=[];
+  if(reg.status!=="approved") acts.push(`<button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>`);
+  if(reg.status!=="rejected") acts.push(`<button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button>`);
+  acts.push(`<button class="btn ghost sm danger" onclick="deleteReg('${esc(reg.regId)}')">🗑 Delete</button>`);
+  return `<details class="regd">
+    <summary class="regsum">
+      <span class="sumav">${sumAvatar(p1)}${sumAvatar(p2)}</span>
+      <span class="sumtxt"><b>${names}</b>${reg.team?`<span class="note" style="display:block;margin:1px 0 0">${esc(reg.team)}</span>`:''}</span>
+      ${statusChip(reg.status)}
+      <span class="material-symbols-outlined chev">expand_more</span>
+    </summary>
+    <div class="regbody">
+      <div class="note" style="margin:0 0 8px">${esc(catText(d))} · ${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div>
+      <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
+      ${phoneRow}
+      <div class="divider"></div>${proof}
+      <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">${acts.join("")}</div>
+    </div>
+  </details>`;
 }
-function regSection(title,items,render,empty){
+function regSection(title,items,empty){
   return `<div style="margin-top:8px"><h4 style="font-size:14px;margin:16px 0 8px">${title} <span class="muted">(${items.length})</span></h4>`+
-    (items.length?items.map(render).join(""):'<p class="muted" style="font-size:13px">'+empty+'</p>')+`</div>`;
+    (items.length?items.map(regCard).join(""):'<p class="muted" style="font-size:13px">'+empty+'</p>')+`</div>`;
 }
 async function loadRegs(){
   const host=document.getElementById("regList"); host.innerHTML='<p class="muted">Memuat…</p>';
@@ -360,9 +380,9 @@ async function loadRegs(){
     document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Waiting <b>${waiting.length}</b>`;
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
     host.innerHTML =
-      regSection("⏳ Waiting list — menunggu approval", waiting, waitingCard, "Tidak ada yang menunggu approval.") +
-      regSection("✅ Approved players", approved, approvedCard, "Belum ada yang di-approve.") +
-      (closed.length?regSection("✕ Ditolak / batal", closed, approvedCard, ""):"");
+      regSection("⏳ Waiting list — menunggu approval", waiting, "Tidak ada yang menunggu approval.") +
+      regSection("✅ Approved players", approved, "Belum ada yang di-approve.") +
+      (closed.length?regSection("✕ Ditolak / batal", closed, ""):"");
   }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
 }
 // Manual approval: approve → status approved + email peserta; reject → rejected.
@@ -377,6 +397,12 @@ async function rejectReg(regId){
   try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/reject",{method:"POST",body:{token:TOKEN,regId}});
     await loadRegs(); if(typeof loadCategories==="function") loadCategories();
   }catch(e){ alert("Gagal reject: "+((e&&e.message)||e)); }
+}
+async function deleteReg(regId){
+  if(!confirm("Hapus PERMANEN pendaftaran ini? Tindakan ini tidak bisa dibatalkan.")) return;
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/delete-reg",{method:"POST",body:{token:TOKEN,regId}});
+    await loadRegs(); if(typeof loadCategories==="function") loadCategories();
+  }catch(e){ alert("Gagal hapus: "+((e&&e.message)||e)); }
 }
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }
