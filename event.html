@@ -151,6 +151,15 @@
   }
   var host=document.getElementById("host");
   function fail(msg){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">event_busy</span>'+esc(msg)+'</div>'; }
+  // Native share sheet (mobile) with WhatsApp + copy-link fallback (desktop).
+  function doShare(nm, url, btn){
+    var text = nm + " — pendaftaran dibuka, daftar tim kamu sekarang!";
+    if(navigator.share){ navigator.share({title:nm, text:text, url:url}).catch(function(){}); return; }
+    try{ window.open("https://wa.me/?text="+encodeURIComponent(text+" "+url), "_blank", "noopener"); }catch(e){}
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){ if(btn){ var o=btn.innerHTML; btn.innerHTML='<span class="material-symbols-outlined">check</span>Link copied'; setTimeout(function(){btn.innerHTML=o;},1500);} }, function(){});
+    }
+  }
 
   var RAW=ref();
   if(!RAW){ fail("Event tidak ditemukan."); return; }
@@ -240,12 +249,18 @@
       : '<span class="btn btn--ghost btn--upper reg-btn" style="cursor:default;opacity:.7">'+(status==="closed"?"Pendaftaran ditutup":"Pendaftaran belum dibuka")+'</span>';
     // "Players joined" → public roster page (opens the joined-players list).
     var joinedBtn = '<a class="btn btn--white btn--upper reg-btn joined-btn" href="/peserta/'+encodeURIComponent(regRef)+'"><span class="material-symbols-outlined">groups</span>Players joined</a>';
+    // Share → rich WhatsApp/social preview (flyer + short desc) via the OG endpoint.
+    var shareBtn = '<button class="btn btn--white btn--upper reg-btn joined-btn" id="shareBtn" type="button"><span class="material-symbols-outlined">share</span>Share</button>';
 
     // Header: event title replaces the logo; Home points to this event's page.
     var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
     var homeEl=document.getElementById("homeBtn"); if(homeEl) homeEl.setAttribute("href","/"+encodeURIComponent(regRef));
 
-    host.innerHTML = flyer + tabs + '<div class="cta-wrap">'+statusChip+'<div class="cta-row">'+cta+joinedBtn+'</div></div>';
+    host.innerHTML = flyer + tabs + '<div class="cta-wrap">'+statusChip+'<div class="cta-row">'+cta+joinedBtn+shareBtn+'</div></div>';
+    // Share button → OG link so WhatsApp shows the flyer + short description.
+    var shareUrl = location.origin + "/api/reg/share/" + encodeURIComponent(eventId) + "?s=" + encodeURIComponent(regRef);
+    var sbtn = host.querySelector("#shareBtn");
+    if(sbtn) sbtn.addEventListener("click", function(){ doShare(name, shareUrl, sbtn); });
     // Tab switching
     var tabBtns=host.querySelectorAll(".tab"), panels=host.querySelectorAll(".tabpanel");
     tabBtns.forEach(function(btn){ btn.addEventListener("click",function(){
