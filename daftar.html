@@ -205,9 +205,17 @@ async function boot(){
       F.teamName = d.teamName||""; F.qExperience = d.qExperience||""; F.qAchievements = d.qAchievements||"";
       F.waiverA=!!d.waiverA; F.waiverB=!!d.waiverB; F.payFile=d.payFile||"";
       if(Array.isArray(d.players)) d.players.forEach((pd,i)=>{ if(F.players[i]) Object.assign(F.players[i], pd); });
+      // Jangan pulihkan MELEWATI step yang belum lengkap — hindari mendarat di
+      // pembayaran padahal email/data pemain belum terisi (menyebabkan submit gagal).
+      const keys=stepKeys();
+      let allowed=0; // cat
+      if(catOk) allowed=keys.indexOf("elig");
+      if(allowed>=keys.indexOf("elig") && eligOK()) allowed=keys.indexOf("p1");
+      if(allowed>=keys.indexOf("p1") && allFilled(0) && (F.teamName||"").trim()) allowed=keys.indexOf("p2");
+      if(allowed>=keys.indexOf("p2") && allFilled(1)) allowed=keys.indexOf("summary");
+      if(allowed>=keys.indexOf("summary") && F.waiverA && F.waiverB){ const pi=keys.indexOf("pay"); allowed=pi>=0?pi:allowed; }
       let step = Number.isInteger(d.step)? d.step : 0;
-      if(!catOk) step=0;                                   // kategori tak valid → mulai dari pilih kategori
-      step=Math.max(0, Math.min(step, stepKeys().length-2)); // jangan ke 'done'
+      step=Math.max(0, Math.min(step, allowed, keys.length-2)); // jangan ke 'done' & jangan lompati step belum lengkap
       F.step=step; F._restored=true;
     }
   }
@@ -217,6 +225,7 @@ async function boot(){
 function draftKey(){ return "tp_reg_draft_"+(F.eventId||""); }
 function loadDraft(){ try{ const s=localStorage.getItem(draftKey()); if(!s) return null; const d=JSON.parse(s);
   if(!d||d.eventId!==F.eventId) return null;
+  if(d.v!==2){ clearDraft(); return null; } // buang draft skema lama (alur pendaftaran berubah)
   if(Date.now()-(d.ts||0) > 7*24*3600*1000){ clearDraft(); return null; } // kedaluwarsa 7 hari
   return d; }catch(e){ return null; } }
 function saveDraft(){
@@ -224,7 +233,7 @@ function saveDraft(){
   const k=stepKeys()[F.step]; if(k==="done"||k==="info") return; // jangan simpan draft selesai
   const hasContent = !!F.catId || !!(F.teamName||"").trim() || (F.players||[]).some(p=>String(p.name||"").trim()); // jangan simpan draft kosong
   if(!hasContent){ return; }
-  const snap={ v:1, ts:Date.now(), eventId:F.eventId, catId:F.catId, teamName:F.teamName||"", qExperience:F.qExperience||"", qAchievements:F.qAchievements||"", step:F.step,
+  const snap={ v:2, ts:Date.now(), eventId:F.eventId, catId:F.catId, teamName:F.teamName||"", qExperience:F.qExperience||"", qAchievements:F.qAchievements||"", step:F.step,
     waiverA:!!F.waiverA, waiverB:!!F.waiverB, payFile:F.payFile||"",
     players:(F.players||[]).map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey,photo:p.photo||"",photoUrl:p.photoUrl||"",decision:p.decision})) };
   try{ localStorage.setItem(draftKey(), JSON.stringify(snap)); }
@@ -577,6 +586,14 @@ function vPay(){
 }
 async function pickPay(input){ F.payFile = await fileToDataUrl(input); render(); }
 async function submitReg(){
+  // Safety net: pastikan data kedua pemain lengkap sebelum kirim — bila belum,
+  // arahkan kembali ke step pemain yang kurang (hindari error dari server).
+  for(var pi=0; pi<2; pi++){
+    if(!allFilled(pi) || (pi===0 && !(F.teamName||"").trim())){
+      alert("Lengkapi dulu data "+(pi===0?"Pemain 1 (termasuk nama tim)":"Pemain 2")+" — nama, Instagram, No. HP, dan email wajib diisi.");
+      go(pi===0?"p1":"p2"); return;
+    }
+  }
   const btn=document.getElementById("subBtn"); if(btn){ btn.disabled=true; btn.textContent="Mengirim…"; }
   const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB, teamName:(F.teamName||"").trim(),
     answers:{ experience:(F.qExperience||"").trim(), achievements:(F.qAchievements||"").trim() },
