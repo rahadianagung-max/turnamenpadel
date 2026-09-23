@@ -86,6 +86,12 @@
   .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:18px;z-index:50}
   .modal{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:20px;max-width:420px;width:100%;box-shadow:var(--sh-lg)}
   .modal h3{font-size:19px;margin-bottom:4px}
+  .cropwrap{position:relative;width:280px;max-width:100%;aspect-ratio:1/1;margin:10px auto;border-radius:var(--r-lg);overflow:hidden;background:#0b1220;touch-action:none}
+  .cropwrap canvas{display:block;width:100%;height:100%;cursor:grab}
+  .cropwrap canvas:active{cursor:grabbing}
+  .cropwrap .guide{position:absolute;inset:0;pointer-events:none;box-shadow:0 0 0 9999px rgba(0,0,0,.28) inset;border:2px dashed rgba(255,255,255,.7);border-radius:8px}
+  .croprow{display:flex;align-items:center;gap:10px;margin-top:4px}
+  .croprow input[type=range]{flex:1}
 
   /* ── Nightmode (inherited from the event's per-event theme, set in /engine).
      Carries the dark canvas through the whole registration wizard until done.
@@ -453,12 +459,60 @@ function buatBaru(i){ const p=F.players[i];
   clearOtp(p); p.decision="new"; render();
 }
 function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false; clearOtp(p); render(); }
-async function pickPhoto(i,input){ const p=F.players[i]; const f=input.files&&input.files[0]; if(!f) return;
-  const d=await compressImageFile(f,1600,0.82);
-  if(!d){ p.photoWarn="Gagal membaca file. Coba foto lain."; p.photo=""; render(); return; }
-  if(dataUrlBytes(d)>IMG_MAX_BYTES){ p.photoWarn="⚠️ Foto terlalu besar. Gunakan foto beresolusi lebih kecil."; p.photo=""; render(); return; }
-  p.photo=d; p.photoWarn="";
-  updatePlayerNav(i); scheduleSave(); render();
+async function pickPhoto(i,input){ const f=input.files&&input.files[0]; if(!f) return;
+  input.value=""; // izinkan pilih file yang sama lagi
+  openCropper(i,f);
+}
+// ===== Cropper foto pemain (kotak) — pan + zoom, tanpa library =====
+let CROP=null;
+function openCropper(i,file){
+  if(!/^image\//.test(file.type||"")){ // bukan gambar → kompres langsung
+    compressImageFile(file,1600,0.82).then(d=>{ const p=F.players[i]; if(d){p.photo=d;p.photoWarn="";}else{p.photoWarn="Gagal membaca file.";} updatePlayerNav(i);scheduleSave();render(); });
+    return;
+  }
+  const url=URL.createObjectURL(file), img=new Image();
+  img.onload=()=>{
+    const VIEW=280;
+    const base=Math.max(VIEW/img.naturalWidth, VIEW/img.naturalHeight);
+    CROP={ i, img, url, VIEW, base, zoom:1, ox:0, oy:0, drag:null };
+    centerCrop();
+    document.getElementById("modalHost").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeCrop()">
+      <div class="modal"><h3>Atur foto pemain</h3><div class="note" style="margin-bottom:6px">Geser untuk memposisikan, gunakan slider untuk zoom. Foto disimpan berbentuk kotak.</div>
+        <div class="cropwrap"><canvas id="cropCv" width="280" height="280"></canvas><div class="guide"></div></div>
+        <div class="croprow"><span class="note">Zoom</span><input type="range" id="cropZoom" min="1" max="3" step="0.01" value="1" oninput="cropSetZoom(this.value)"></div>
+        <div class="nav" style="margin-top:12px"><button class="btn ghost" onclick="closeCrop()">Batal</button><button class="btn primary" onclick="applyCrop()">Simpan foto</button></div>
+      </div></div>`;
+    const cv=document.getElementById("cropCv");
+    cv.addEventListener("pointerdown",cropDown); cv.addEventListener("pointermove",cropMove);
+    cv.addEventListener("pointerup",cropUp); cv.addEventListener("pointercancel",cropUp); cv.addEventListener("pointerleave",cropUp);
+    drawCrop();
+  };
+  img.onerror=()=>{ URL.revokeObjectURL(url); compressImageFile(file,1600,0.82).then(d=>{ const p=F.players[i]; if(d){p.photo=d;p.photoWarn="";}else{p.photoWarn="Gagal membaca file.";} updatePlayerNav(i);scheduleSave();render(); }); };
+  img.src=url;
+}
+function cropScale(){ return CROP.base*CROP.zoom; }
+function clampCrop(){ const s=cropScale(), dw=CROP.img.naturalWidth*s, dh=CROP.img.naturalHeight*s, V=CROP.VIEW;
+  CROP.ox=Math.min(0,Math.max(V-dw,CROP.ox)); CROP.oy=Math.min(0,Math.max(V-dh,CROP.oy)); }
+function centerCrop(){ const s=cropScale(); CROP.ox=(CROP.VIEW-CROP.img.naturalWidth*s)/2; CROP.oy=(CROP.VIEW-CROP.img.naturalHeight*s)/2; clampCrop(); }
+function drawCrop(){ const cv=document.getElementById("cropCv"); if(!cv||!CROP) return; const ctx=cv.getContext("2d"); const s=cropScale();
+  ctx.clearRect(0,0,CROP.VIEW,CROP.VIEW); ctx.drawImage(CROP.img,CROP.ox,CROP.oy,CROP.img.naturalWidth*s,CROP.img.naturalHeight*s); }
+function cropSetZoom(v){ if(!CROP) return; const V=CROP.VIEW, old=cropScale();
+  // jaga titik tengah tetap
+  const cx=(V/2-CROP.ox)/old, cy=(V/2-CROP.oy)/old;
+  CROP.zoom=parseFloat(v)||1; const s=cropScale(); CROP.ox=V/2-cx*s; CROP.oy=V/2-cy*s; clampCrop(); drawCrop(); }
+function cropDown(e){ if(!CROP) return; e.preventDefault(); CROP.drag={x:e.clientX,y:e.clientY,ox:CROP.ox,oy:CROP.oy}; try{e.target.setPointerCapture(e.pointerId);}catch(_){} }
+function cropMove(e){ if(!CROP||!CROP.drag) return; e.preventDefault(); CROP.ox=CROP.drag.ox+(e.clientX-CROP.drag.x); CROP.oy=CROP.drag.oy+(e.clientY-CROP.drag.y); clampCrop(); drawCrop(); }
+function cropUp(e){ if(CROP) CROP.drag=null; }
+function closeCrop(){ if(CROP&&CROP.url){ try{URL.revokeObjectURL(CROP.url);}catch(_){} } CROP=null; document.getElementById("modalHost").innerHTML=""; }
+function applyCrop(){ if(!CROP) return; const OUT=640, k=OUT/CROP.VIEW, s=cropScale();
+  const cv=document.createElement("canvas"); cv.width=OUT; cv.height=OUT; const ctx=cv.getContext("2d");
+  ctx.fillStyle="#fff"; ctx.fillRect(0,0,OUT,OUT);
+  ctx.drawImage(CROP.img, CROP.ox*k, CROP.oy*k, CROP.img.naturalWidth*s*k, CROP.img.naturalHeight*s*k);
+  let d=""; try{ d=cv.toDataURL("image/jpeg",0.85); }catch(_){}
+  const i=CROP.i, p=F.players[i]; closeCrop();
+  if(!d){ p.photoWarn="Gagal memproses foto. Coba lagi."; render(); return; }
+  if(dataUrlBytes(d)>IMG_MAX_BYTES){ p.photoWarn="⚠️ Foto masih terlalu besar. Coba foto lain."; render(); return; }
+  p.photo=d; p.photoWarn=""; updatePlayerNav(i); scheduleSave(); render();
 }
 // Kartu kandidat: daftar nama mirip yang bisa dipilih pendaftar.
 function candList(i){ const p=F.players[i]; const cs=(p.chk&&p.chk.candidates)||[];
