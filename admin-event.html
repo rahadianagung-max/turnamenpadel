@@ -404,31 +404,52 @@ function extendDeadline(days){
   saveDeadline();
 }
 const LEVELS=[["beginner","Beginner"],["upper_beginner","Upper Beginner"],["lower_bronze","Lower Bronze"],["bronze","Bronze"],["upper_bronze","Upper Bronze"],["silver","Silver"],["gold","Gold"],["platinum","Platinum"]];
+// Nama kategori appeal — resolve id turnamen (TM_) ke label sebenarnya bila ada.
+function appealCatName(a){
+  const raw=String((a&&a.category)||"").trim();
+  if(/^(TM_|EV_)/i.test(raw) && CATMAP && CATMAP[raw]){ const c=CATMAP[raw]; return [catLabel(c.label),levelLabel(c.level)].filter(Boolean).join(" · ")||raw; }
+  return catLabel(raw)||raw||"Tanpa kategori";
+}
+function appealCard(a){
+  const decided=a.decision&&a.decision!=="";
+  const dchip = a.status==="applied"?'<span class="chip ok">koreksi diterapkan</span>':decided?('<span class="chip '+(a.decision==="reject"?"bad":"ok")+'">'+esc({lolos:"diloloskan",reject:"ditolak",levelup:"koreksi level"}[a.decision]||a.decision)+'</span>'):'<span class="chip warn">menunggu</span>';
+  const proof=a.proofUrl?`<div class="proof" style="margin-top:8px"><div class="note" style="margin:0 0 4px">Bukti appeal (klik untuk perbesar):</div><a href="${esc(a.proofUrl)}" target="_blank" rel="noopener"><img src="${esc(a.proofUrl)}" alt="bukti"></a></div>`:'<div class="note" style="margin-top:8px">Bukti: <span class="chip">tidak ada</span></div>';
+  const players=(a.players||[]).map(p=>esc(p.name)+(p.elo!=null?` (${esc(p.tier)} ${p.elo})`:"")).join(", ");
+  // Nomor HP pihak yang terkena appeal (bisa disalin) untuk cross-check panitia.
+  const phones=(a.players||[]).filter(p=>p.phone).map(p=>`${esc(p.name)}: <a href="#" onclick="copyText(event,'${esc(p.phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(p.phone)} ⧉</a>`).join("<br>");
+  const actions = decided ? "" : `<div class="row" style="margin-top:8px;gap:8px">
+      <button class="btn ghost sm" onclick="decideAppeal('${esc(a.appealId)}','lolos')">✔ Loloskan</button>
+      <button class="btn ghost sm" onclick="decideAppeal('${esc(a.appealId)}','reject')">✕ Tolak</button>
+      <span class="row" style="gap:6px"><select id="lv_${esc(a.appealId)}" class="mono" style="width:auto;padding:6px 8px">${LEVELS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join("")}</select>
+      <button class="btn primary sm" onclick="decideAppeal('${esc(a.appealId)}','levelup')">Koreksi level →</button></span>
+    </div>`;
+  return `<div class="reg"><div class="reg-head"><div><b>${esc(a.appellantName||"—")}</b> <span class="note">banding thd</span> <b>${esc(a.againstLabel||a.againstRegId||"—")}</b>
+      <div class="note" style="margin:2px 0 0">${esc(new Date(a.createdAt).toLocaleString('id-ID'))}</div></div>${dchip}</div>
+    <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
+    ${proof}
+    ${actions}<div class="note" id="apMsg_${esc(a.appealId)}"></div></div>`;
+}
 async function loadAppeals(){
   const host=document.getElementById("appealList"); host.innerHTML='<p class="muted">Memuat…</p>';
   try{
+    await ensureCatMap();
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/appeals?token="+encodeURIComponent(TOKEN));
     const list=r.appeals||[];
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada appeal.</p>'; return; }
-    host.innerHTML=list.map(a=>{
-      const decided=a.decision&&a.decision!=="";
-      const dchip = a.status==="applied"?'<span class="chip ok">koreksi diterapkan</span>':decided?('<span class="chip '+(a.decision==="reject"?"bad":"ok")+'">'+esc({lolos:"diloloskan",reject:"ditolak",levelup:"koreksi level"}[a.decision]||a.decision)+'</span>'):'<span class="chip warn">menunggu</span>';
-      const proof=a.proofUrl?`<div class="proof" style="margin-top:8px"><div class="note" style="margin:0 0 4px">Bukti appeal (klik untuk perbesar):</div><a href="${esc(a.proofUrl)}" target="_blank" rel="noopener"><img src="${esc(a.proofUrl)}" alt="bukti"></a></div>`:'<div class="note" style="margin-top:8px">Bukti: <span class="chip">tidak ada</span></div>';
-      const players=(a.players||[]).map(p=>esc(p.name)+(p.elo!=null?` (${esc(p.tier)} ${p.elo})`:"")).join(", ");
-      // Nomor HP pihak yang terkena appeal (bisa disalin) untuk cross-check panitia.
-      const phones=(a.players||[]).filter(p=>p.phone).map(p=>`${esc(p.name)}: <a href="#" onclick="copyText(event,'${esc(p.phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(p.phone)} ⧉</a>`).join("<br>");
-      const actions = decided ? "" : `<div class="row" style="margin-top:8px;gap:8px">
-          <button class="btn ghost sm" onclick="decideAppeal('${esc(a.appealId)}','lolos')">✔ Loloskan</button>
-          <button class="btn ghost sm" onclick="decideAppeal('${esc(a.appealId)}','reject')">✕ Tolak</button>
-          <span class="row" style="gap:6px"><select id="lv_${esc(a.appealId)}" class="mono" style="width:auto;padding:6px 8px">${LEVELS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join("")}</select>
-          <button class="btn primary sm" onclick="decideAppeal('${esc(a.appealId)}','levelup')">Koreksi level →</button></span>
-        </div>`;
-      return `<div class="reg"><div class="reg-head"><div><b>${esc(a.appellantName||"—")}</b> <span class="note">banding thd</span> <b>${esc(a.againstLabel||a.againstRegId||"—")}</b>
-          <div class="note" style="margin:2px 0 0">${esc(catLabel(a.category))} · ${esc(new Date(a.createdAt).toLocaleString('id-ID'))}</div></div>${dchip}</div>
-        <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
-        ${proof}
-        ${actions}<div class="note" id="apMsg_${esc(a.appealId)}"></div></div>`;
-    }).join("");
+    // Grup per kategori (collapsible) agar tidak terlalu panjang; grup dengan
+    // appeal yang masih menunggu dibuka otomatis.
+    const groups=new Map();
+    list.forEach(a=>{ const k=appealCatName(a); if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(a); });
+    let html="";
+    for(const [catName,items] of groups){
+      const pending=items.filter(a=>!(a.decision&&a.decision!=="")).length;
+      const meta=`(${items.length} appeal${pending?` · ${pending} menunggu`:''})`;
+      html+=`<details class="regd" ${pending?'open':''}>
+        <summary class="regsum"><span class="sumtxt"><b>${esc(catName)}</b> <span class="note">${meta}</span></span>
+          <span class="chev" aria-hidden="true">▼</span></summary>
+        <div class="regbody">${items.map(appealCard).join("")}</div></details>`;
+    }
+    host.innerHTML=html;
   }catch(e){ host.innerHTML=(e.status===401||e.status===403)?'<p class="muted">Sesi berakhir / tak berhak.</p>':('<p class="muted">Gagal memuat appeal: '+esc(e.message)+'</p>'); }
 }
 async function triggerAppeals(){
