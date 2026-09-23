@@ -46,13 +46,16 @@
   .regd+.regd{margin-top:12px}
   .regsum{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:12px 14px}
   .regsum::-webkit-details-marker{display:none}
-  .sumav{display:flex;gap:6px;flex:none}
   .sumtxt{flex:1;min-width:0}
   .sumtxt b{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis}
   .regsum .chev{color:var(--slate-400);transition:transform .15s;flex:none}
   .regd[open] .regsum .chev{transform:rotate(180deg)}
   .regd[open] .regsum{border-bottom:1px solid var(--slate-200)}
   .regbody{padding:12px 14px 14px}
+  /* per-category grouping inside each status section */
+  .catgrp{margin:10px 0 14px}
+  .catgrp-h{font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+    color:var(--slate-600);padding:6px 2px;border-bottom:2px solid var(--slate-200);margin-bottom:8px}
   .btn.danger{color:var(--danger);border-color:var(--danger)}
   .stat{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;margin-right:14px}
   .act{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
@@ -383,17 +386,14 @@ function miniPlayer(p,idx){ if(!p) return "";
     <div style="margin-top:4px">${tierChip(p)||'<span class="chip" style="background:#F1F5F9">—</span>'}</div></div></div>`;
 }
 const APPROVED_STATUS=new Set(["approved","received","imported","final","accepted"]);
-// Small avatar (photo or initials) for the collapsed summary row.
-function sumAvatar(p){ if(!p) return "";
-  const s="width:34px;height:34px;object-fit:cover;border:var(--bd);border-radius:8px;flex:none";
-  return p.photoUrl?`<img src="${esc(p.photoUrl)}" alt="" referrerpolicy="no-referrer" style="${s}">`
-    :`<span style="${s};display:flex;align-items:center;justify-content:center;background:var(--orange);color:#fff;font-family:var(--display);font-weight:800;font-size:12px">${esc(initials(p.name))}</span>`;
-}
-// Collapsible card: default shows only names + photos; expand for full details
-// + Approve / Reject / Delete.
+// Nama tim untuk baris ringkas (fallback: gabungan nama pemain).
+function teamName(reg){ const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
+  return String(d.teamName || reg.team || [p1.name,p2.name].filter(Boolean).join(" & ") || "—"); }
+// Collapsible card: baris ringkas hanya menampilkan NAMA TIM (nyaman untuk
+// ratusan peserta); klik chevron untuk detail lengkap + Approve / Reject / Delete.
 function regCard(reg){
   const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
-  const names=esc([p1.name,p2.name].filter(Boolean).join(" & ")||reg.team||"—");
+  const team=esc(teamName(reg));
   const proof=reg.paymentProofUrl?`<div class="proof"><div class="note" style="margin:0 0 4px">Bukti transfer:</div><a href="${esc(reg.paymentProofUrl)}" target="_blank" rel="noopener"><img src="${esc(reg.paymentProofUrl)}" alt="bukti"></a></div>`:'<div class="note">Bukti transfer: <span class="chip">belum ada</span></div>';
   const phone=String(p1.phone||"").trim();
   const phoneRow=phone?`<div class="note" style="margin-top:10px">HP Pemain 1: <a href="#" onclick="copyText(event,'${esc(phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(phone)} ⧉</a></div>`:'';
@@ -409,8 +409,7 @@ function regCard(reg){
   const infoBlock=`<div class="pcard" style="margin-bottom:12px"><div class="kvs">${info.join("<br>")}</div></div>`;
   return `<details class="regd">
     <summary class="regsum">
-      <span class="sumav">${sumAvatar(p1)}${sumAvatar(p2)}</span>
-      <span class="sumtxt"><b>${names}</b>${reg.team?`<span class="note" style="display:block;margin:1px 0 0">${esc(reg.team)}</span>`:''}</span>
+      <span class="sumtxt"><b>${team}</b></span>
       ${statusChip(reg.status)}
       <span class="material-symbols-outlined chev">expand_more</span>
     </summary>
@@ -424,9 +423,17 @@ function regCard(reg){
     </div>
   </details>`;
 }
+// Grup baris per kategori di dalam tiap section, agar rapi saat ratusan peserta.
 function regSection(title,items,empty){
-  return `<div style="margin-top:8px"><h4 style="font-size:14px;margin:16px 0 8px">${title} <span class="muted">(${items.length})</span></h4>`+
-    (items.length?items.map(regCard).join(""):'<p class="muted" style="font-size:13px">'+empty+'</p>')+`</div>`;
+  let html=`<div style="margin-top:8px"><h4 style="font-size:14px;margin:16px 0 8px">${title} <span class="muted">(${items.length})</span></h4>`;
+  if(!items.length) return html+'<p class="muted" style="font-size:13px">'+empty+'</p></div>';
+  const groups=new Map();
+  items.forEach(reg=>{ const k=catText(reg.data||{})||"Tanpa kategori"; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(reg); });
+  for(const [cat,rows] of groups){
+    html+=`<div class="catgrp"><div class="catgrp-h">${esc(cat)} <span class="muted">(${rows.length})</span></div>`+
+      rows.map(regCard).join("")+`</div>`;
+  }
+  return html+`</div>`;
 }
 async function loadRegs(){
   const host=document.getElementById("regList"); host.innerHTML='<p class="muted">Memuat…</p>';
