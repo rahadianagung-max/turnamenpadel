@@ -1,277 +1,290 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Event · TurnamenPadel</title>
-<meta name="description" content="Halaman pendaftaran turnamen padel — TurnamenPadel."/>
+<meta name="description" content="Padel tournament event page — TurnamenPadel."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/tp-theme.css"/>
 <style>
-  .ev-head{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:var(--bd)}
-  .ev-head .inner{max-width:820px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .logo{display:inline-flex;align-items:center;gap:10px}
-  .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
-  .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
-  .logo .sub{display:block;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--slate-500);margin-top:2px}
-  .ev-title{font-family:var(--display);font-weight:900;letter-spacing:-.01em;line-height:1.1;
-    font-size:clamp(17px,3.6vw,24px);color:var(--dark);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72%}
-  #homeBtn{flex:none}
-
-  .wrap{max-width:820px;margin:0 auto;padding:20px 16px 96px;position:relative}
-  .wrap .dots{position:absolute;inset:0 0 auto 0;height:340px;opacity:.10;pointer-events:none;z-index:0}
-  .stack{position:relative;z-index:1;display:flex;flex-direction:column;gap:20px}
-
-  /* flyer */
-  .flyer{border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh-lg);overflow:hidden;background:#fff}
-  .flyer img{display:block;width:100%;height:auto}
-  .flyer.placeholder{aspect-ratio:16/10;display:grid;place-items:center;background:
-     radial-gradient(600px 300px at 80% -10%,rgba(255,87,34,.16),transparent 60%),var(--card)}
-  .flyer.placeholder .ph{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--slate-400)}
-  .flyer.placeholder .ph .material-symbols-outlined{font-size:52px}
-
-  /* title block */
-  .titlecard{display:flex;flex-direction:column;gap:14px}
-  .eyebrow{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--orange);display:inline-flex;align-items:center;gap:8px}
-  .eyebrow .dot{width:8px;height:8px;border-radius:var(--r-full);background:var(--orange)}
-  h1.title{font-family:var(--display);font-weight:900;letter-spacing:-.02em;line-height:1.05;
-    font-size:clamp(30px,6vw,52px);margin:0}
-  .meta{display:flex;flex-wrap:wrap;gap:10px}
-  .meta .chip .material-symbols-outlined{font-size:16px}
-
-  /* description / tabs */
-  .desc{background:var(--card);border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh);padding:24px}
-  .desc h2{font-family:var(--display);font-weight:900;font-size:18px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
-  .desc h2 .material-symbols-outlined{color:var(--orange)}
-  .desc .body{color:var(--slate-700);font-size:15px;line-height:1.7;white-space:pre-line}
-  .desc .empty{color:var(--slate-400)}
-
-  /* even grid: 2×2 on mobile, single row of 4 on wider screens */
-  .tabbar{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:18px}
-  @media(min-width:600px){.tabbar{grid-template-columns:repeat(4,1fr)}}
-  .tab{display:flex;align-items:center;justify-content:center;text-align:center;
-    min-height:46px;font-family:var(--display);font-weight:800;font-size:13.5px;line-height:1.15;cursor:pointer;
-    border:var(--bd);background:#fff;color:var(--dark);border-radius:var(--r-xl);
-    padding:8px 10px;box-shadow:var(--sh-sm);transition:transform .12s,box-shadow .12s,background .12s,color .12s}
-  .tab:hover{transform:translate(2px,2px);box-shadow:none}
-  .tab.is-active{background:var(--orange);color:#fff;border-color:var(--dark);box-shadow:var(--sh)}
-  .tabpanel{display:none}
-  .tabpanel.is-active{display:block}
-
-  /* important dates */
-  .dates{list-style:none;margin:0;padding:0}
-  .dates li{display:flex;justify-content:space-between;gap:14px;align-items:baseline;
-    padding:11px 0;border-bottom:1px solid var(--slate-200);font-size:14px}
-  .dates li:last-child{border-bottom:0}
-  .dates .dlabel{color:var(--slate-600);font-weight:600}
-  .dates .dval{font-family:var(--mono);font-weight:700;color:var(--dark);text-align:right;white-space:nowrap}
-
-  /* categories mini */
-  .cats{display:flex;flex-wrap:wrap;gap:8px}
-  .cat{font-family:var(--mono);font-size:12px;font-weight:700;border:var(--bd);border-radius:var(--r-lg);
-    background:#fff;box-shadow:var(--sh-sm);padding:8px 12px;display:flex;flex-direction:column;gap:2px}
-  .cat b{font-family:var(--sans)} .cat .fee{color:var(--orange)}
-
-  /* sticky register bar */
-  .cta-wrap{display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;padding-top:4px}
-  .cta-wrap .note{font-family:var(--mono);font-size:12px;color:var(--slate-500)}
-  .cta-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
-  .reg-btn{font-size:16px;padding:16px 28px}
-  .reg-btn .material-symbols-outlined{font-size:20px}
-  /* "Players joined" keeps its white pill → dark text in nightmode */
-  body[data-theme="nightmode"] .joined-btn{background:#fff;color:#0F172A}
-  body[data-theme="nightmode"] .joined-btn .material-symbols-outlined{color:#0F172A}
-
-  .state{text-align:center;padding:60px 16px;color:var(--slate-500)}
-  .state .material-symbols-outlined{font-size:44px;color:var(--slate-300);display:block;margin:0 auto 12px}
-  [hidden]{display:none!important}
-
-  /* ── Nightmode (per-event theme, set by superadmin in /engine) ──
-     Dark background variant. Retunes tp-theme tokens so cards, text,
-     borders and the brutal shadows stay legible on a dark canvas;
-     the orange brand + layout are untouched. */
-  body[data-theme="nightmode"]{
-    --canvas:#0B1120; --card:#131C2E; --dark:#E5E9F0;
-    --slate-700:#CBD5E1; --slate-600:#AEBACd; --slate-500:#94A3B8;
-    --slate-400:#64748B; --slate-300:#475569; --slate-200:#334155;
-    --slate-100:#1E293B; --slate-50:#0F172A;
-    background:#0B1120; color:#E5E9F0;
+  :root{
+    --ink:#0F172A; --bg:#F8FAFC; --card:#ffffff; --muted:#64748B; --muted2:#94A3B8;
+    --line:#0F172A; --accent:#FF5722; --soft:#F1F5F9; --br:#E2E8F0;
+    --okfg:#047857; --okbg:rgba(16,185,129,.18); --okbd:#10B981;
+    --warnfg:#B45309; --warnbg:#FEF3C7; --warnbd:#FCD34D;
   }
-  body[data-theme="nightmode"] .ev-head{background:rgba(11,17,32,.95)}
-  body[data-theme="nightmode"] .flyer{background:#131C2E}
-  body[data-theme="nightmode"] .cat{background:#131C2E}
-  /* Home button keeps its white pill → force dark text so it stays legible. */
-  body[data-theme="nightmode"] #homeBtn{color:#0F172A}
-  body[data-theme="nightmode"] #homeBtn .material-symbols-outlined{color:#0F172A}
-  /* Tab buttons: white chips + dark text so they stand out on the dark card
-     (default token would make text light-on-white and vanish). Active = orange. */
-  body[data-theme="nightmode"] .tab{background:#fff;color:#0F172A}
-  body[data-theme="nightmode"] .tab.is-active{background:var(--orange);color:#fff}
+  body[data-theme="nightmode"]{
+    --ink:#E5E9F0; --bg:#0B1120; --card:#131C2E; --muted:#AEBACD; --muted2:#94A3B8;
+    --line:#334155; --soft:#1E293B; --br:#334155;
+    --okfg:#6EE7B7; --okbg:rgba(16,185,129,.16);
+    --warnfg:#FCD34D; --warnbg:rgba(180,83,9,.22);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  .ms{font-family:'Material Symbols Outlined';font-weight:normal;line-height:1;vertical-align:middle;display:inline-block;
+    font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24}
+  .disp{font-family:'Plus Jakarta Sans',sans-serif} .mono{font-family:'Space Grotesk',sans-serif}
+  /* header */
+  .head{position:sticky;top:0;z-index:30;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(10px);border-bottom:2px solid var(--line)}
+  .head .in{max-width:960px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;min-width:0}
+  .brand .g{width:34px;height:34px;flex:none;border-radius:.6rem;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;border:2px solid var(--line);box-shadow:2px 2px 0 0 var(--line)}
+  .brand .nm{font-family:'Plus Jakarta Sans';font-weight:900;font-size:16px;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .brand .nm b{color:var(--accent)}
+  .hbtns{display:flex;gap:8px;flex:none}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-family:'Plus Jakarta Sans';font-weight:800;font-size:12.5px;
+    padding:9px 12px;border:2px solid var(--line);border-radius:.75rem;background:var(--card);color:var(--ink);
+    box-shadow:2px 2px 0 0 var(--line);cursor:pointer;transition:transform .12s,box-shadow .12s}
+  .btn:hover{transform:translate(2px,2px);box-shadow:none}
+  .btn .ms{font-size:16px}
+  .btn.accent{background:var(--accent);color:#fff}
+  .btn.big{font-size:15px;padding:13px 20px;border-radius:1rem}
+  .btn.block{width:100%;justify-content:center}
+  .btn[disabled]{opacity:.5;cursor:not-allowed;box-shadow:2px 2px 0 0 var(--line);transform:none}
+  /* layout */
+  .wrap{max-width:960px;margin:0 auto;padding:20px 16px 120px}
+  .stack{display:flex;flex-direction:column;gap:20px}
+  .card{border:2px solid var(--line);border-radius:1.25rem;background:var(--card);box-shadow:4px 4px 0 0 var(--line);padding:18px}
+  /* hero */
+  .hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px;align-items:start}
+  .flyer{border:2px solid var(--line);border-radius:1.5rem;box-shadow:6px 6px 0 0 var(--line);overflow:hidden;background:var(--card);aspect-ratio:4/5;position:relative}
+  .flyer img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .flyer .ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted2);
+    background:radial-gradient(600px 300px at 80% -10%,rgba(255,87,34,.16),transparent 60%)}
+  .flyer .ph .ms{font-size:52px}
+  .heroR{display:flex;flex-direction:column;gap:16px}
+  .pillrow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.06em;padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--soft)}
+  .pill .d{width:8px;height:8px;border-radius:999px;background:currentColor}
+  .pillhint{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+  h1.t{font-family:'Plus Jakarta Sans';font-weight:900;letter-spacing:-.02em;line-height:1.02;font-size:clamp(30px,6vw,50px);margin:0;text-wrap:balance}
+  .statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .stat{background:var(--card);border:2px solid var(--line);border-radius:1rem;padding:12px 14px;box-shadow:2px 2px 0 0 var(--line);display:flex;flex-direction:column;gap:4px}
+  .stat .k{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .stat .k .ms{font-size:15px;color:var(--accent)}
+  .stat .v{font-family:'Plus Jakarta Sans';font-size:15px;font-weight:800}
+  .joined{display:flex;align-items:center;gap:12px;background:var(--card);border:2px solid var(--line);border-radius:1rem;padding:10px 14px;box-shadow:2px 2px 0 0 var(--line)}
+  .joined .av{display:flex}
+  .joined .av span{width:30px;height:30px;border-radius:999px;border:2px solid var(--card);background:var(--accent);margin-left:-8px;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Plus Jakarta Sans';font-weight:800;font-size:11px}
+  .joined .av span:first-child{margin-left:0}
+  .joined .jt{font-size:13px;font-weight:600;color:var(--muted)} .joined .jt b{color:var(--ink);font-family:'Plus Jakarta Sans';font-weight:900}
+  .joined .ms{margin-left:auto;color:var(--muted2)}
+  /* section titles */
+  .h2{font-family:'Plus Jakarta Sans';font-weight:900;font-size:20px;margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .h2 .sub{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+  .h3{font-family:'Plus Jakarta Sans';font-weight:800;font-size:15px;margin:0 0 10px}
+  /* tabs */
+  .tablist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .tabbtn{flex:1 1 auto;min-width:88px;font-family:'Plus Jakarta Sans';font-weight:800;font-size:13px;padding:9px 8px;border-radius:.75rem;border:2px solid var(--br);background:var(--card);color:var(--ink);cursor:pointer;transition:transform .12s}
+  .tabbtn.on{background:var(--accent);color:#fff;border-color:var(--line);box-shadow:2px 2px 0 0 var(--line)}
+  .checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+  .checklist li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;line-height:1.5;color:var(--ink)}
+  .checklist li .ms{font-size:18px;color:var(--accent);flex:none;margin-top:1px}
+  .freetext{font-size:14.5px;line-height:1.7;color:var(--ink);white-space:pre-line}
+  .empty{color:var(--muted2);font-size:14px}
+  /* category chooser */
+  .catlist{display:flex;flex-direction:column;gap:10px}
+  .catcard{width:100%;text-align:left;cursor:pointer;background:var(--card);border:2px solid var(--line);border-radius:1rem;padding:14px;box-shadow:2px 2px 0 0 var(--line);display:flex;flex-direction:column;gap:8px;transition:transform .12s,box-shadow .12s}
+  .catcard.sel{background:color-mix(in srgb,var(--accent) 10%,var(--card));box-shadow:4px 4px 0 0 var(--accent)}
+  .catcard[disabled]{opacity:.55;cursor:not-allowed}
+  .catcard .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .catcard .nm{font-family:'Plus Jakarta Sans';font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px}
+  .catcard .nm .ms{color:var(--accent)}
+  .catcard .lv{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
+  .catcard .fee{font-family:'Plus Jakarta Sans';font-weight:900;font-size:16px;color:var(--accent)}
+  .bar{height:8px;border-radius:999px;background:var(--soft);border:1px solid var(--br);overflow:hidden}
+  .bar > i{display:block;height:100%;border-radius:999px}
+  .slots{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted)}
+  /* timeline */
+  .tl{list-style:none;margin:0;padding:0}
+  .tl li{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px dashed var(--br)}
+  .tl li:last-child{border-bottom:0}
+  .tl .dot{width:12px;height:12px;border-radius:999px;border:2px solid var(--line);background:var(--card);flex:none;margin-top:3px}
+  .tl li.now .dot{background:var(--accent);box-shadow:0 0 0 4px rgba(255,87,34,.2)}
+  .tl .lab{font-family:'Plus Jakarta Sans';font-weight:700;font-size:14px}
+  .tl .dt{margin-left:auto;font-family:'Space Grotesk';font-weight:700;font-size:13px;color:var(--muted);white-space:nowrap}
+  /* sticky CTA bar */
+  .ctabar{position:fixed;left:0;right:0;bottom:0;z-index:40;background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(10px);border-top:2px solid var(--line)}
+  .ctabar .in{max-width:960px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:12px}
+  .ctabar .sel{min-width:0;display:flex;flex-direction:column;gap:1px}
+  .ctabar .sel .k{font-family:'Space Grotesk';font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+  .ctabar .sel .v{font-family:'Plus Jakarta Sans';font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ctabar .sel .v .fee{color:var(--accent)}
+  .ctabar .go{margin-left:auto;flex:none}
+  .state{text-align:center;padding:70px 16px;color:var(--muted)}
+  .state .ms{font-size:44px;color:var(--muted2);display:block;margin:0 auto 12px}
+  [hidden]{display:none!important}
 </style>
 </head>
 <body>
-<header class="ev-head"><div class="inner">
-  <span class="ev-title" id="evTitle"></span>
-  <a class="btn btn--white btn--sm" id="homeBtn" href="#"><span class="material-symbols-outlined" style="font-size:16px">home</span>Home</a>
+<header class="head"><div class="in">
+  <a class="brand" id="brand" href="/"><span class="g">TP</span><span class="nm">Turnamen<b>Padel</b></span></a>
+  <div class="hbtns">
+    <button class="btn" id="shareBtn" type="button"><span class="ms">ios_share</span>Share</button>
+    <a class="btn" id="homeBtn" href="/"><span class="ms">home</span>Home</a>
+  </div>
 </div></header>
 
-<div class="wrap">
-  <div class="dots dotgrid"></div>
-  <div id="host" class="stack">
-    <div class="state"><span class="material-symbols-outlined">progress_activity</span>Memuat…</div>
-  </div>
-</div>
+<div class="wrap"><div id="host" class="stack">
+  <div class="state"><span class="ms">progress_activity</span>Loading…</div>
+</div></div>
 
 <script>
 (function(){
-  var API="/api", TRK_ID_RE=/^(EV_|TM_)/;
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
-  function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
-  // Google Drive "uc?export=view" links do not reliably hotlink inside <img>;
-  // the thumbnail endpoint does. Normalise any Drive URL to that form.
-  function imgSrc(u){
-    u=String(u||"");
-    var m=u.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);
-    return m ? ("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w2000") : u;
-  }
-  function phInner(name){ return '<div class="ph"><span class="material-symbols-outlined">sports_tennis</span><span>'+esc(name)+'</span></div>'; }
-  window.tpFlyerFail=function(img){ var f=img.closest(".flyer"); if(f){ f.className="flyer placeholder"; f.innerHTML=phInner(f.getAttribute("data-name")||""); } };
-  function ref(){
-    var m=location.pathname.match(/\/event\/([^\/?#]+)/); if(m) return decodeURIComponent(m[1]);
+  var API="/api", TRK=/^(EV_|TM_)/;
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function slugify(s){return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80);}
+  function imgSrc(u){u=String(u||"");var m=u.match(/drive\.google\.com\/(?:uc\?(?:[^"']*?&)?id=|open\?id=|thumbnail\?(?:[^"']*?&)?id=|file\/d\/)([-\w]{20,})/);return m?("https://drive.google.com/thumbnail?id="+m[1]+"&sz=w2000"):u;}
+  function rupiah(v){var n=parseInt(String(v==null?"":v).replace(/[^\d]/g,""),10);
+    if(String(v||"").match(/[a-zA-Z]/)&&!/^\s*rp/i.test(String(v))) return String(v); // sudah teks
+    if(!isFinite(n)||n<=0) return String(v||"");
+    return "Rp "+n.toLocaleString("id-ID");}
+  // Slug/eventId dari URL. Mendukung rute live (/bobil), /event/:slug, alias
+  // preview lama (/preview, /event2) dan ?e=… supaya semua rute tetap jalan.
+  function ref(){var m=location.pathname.match(/\/(?:event|preview|event2)\/([^\/?#]+)/);if(m)return decodeURIComponent(m[1]);
     var seg=location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
-    if(seg.length===1 && seg[0].toLowerCase()!=="event" && seg[0].indexOf(".")<0) return decodeURIComponent(seg[0]);
-    return new URLSearchParams(location.search).get("e")||"";
-  }
-  function api(path){
-    return fetch(API+"/"+path).then(function(r){ return r.json().then(function(d){ if(!r.ok){var e=new Error((d&&d.error)||("HTTP "+r.status));e.status=r.status;throw e;} return d; }); });
-  }
+    if(seg.length===1 && ["event","preview","event2"].indexOf(seg[0].toLowerCase())<0 && seg[0].indexOf(".")<0) return decodeURIComponent(seg[0]);
+    return new URLSearchParams(location.search).get("e")||"";}
+  function api(p){return fetch(API+"/"+p).then(function(r){return r.json().then(function(d){if(!r.ok){var e=new Error((d&&d.error)||("HTTP "+r.status));e.status=r.status;throw e;}return d;});});}
   var host=document.getElementById("host");
-  function fail(msg){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">event_busy</span>'+esc(msg)+'</div>'; }
-  // Native share sheet (mobile) with WhatsApp + copy-link fallback (desktop).
-  function doShare(nm, url, btn){
-    var text = nm + " — pendaftaran dibuka, daftar tim kamu sekarang!";
-    if(navigator.share){ navigator.share({title:nm, text:text, url:url}).catch(function(){}); return; }
-    try{ window.open("https://wa.me/?text="+encodeURIComponent(text+" "+url), "_blank", "noopener"); }catch(e){}
-    if(navigator.clipboard&&navigator.clipboard.writeText){
-      navigator.clipboard.writeText(url).then(function(){ if(btn){ var o=btn.innerHTML; btn.innerHTML='<span class="material-symbols-outlined">check</span>Link copied'; setTimeout(function(){btn.innerHTML=o;},1500);} }, function(){});
-    }
+  function fail(m){host.innerHTML='<div class="state"><span class="ms">event_busy</span>'+esc(m)+'</div>';}
+  function doShare(nm,url,btn){var text=nm+" — registration is open, sign up your team now!";
+    if(navigator.share){navigator.share({title:nm,text:text,url:url}).catch(function(){});return;}
+    try{window.open("https://wa.me/?text="+encodeURIComponent(text+" "+url),"_blank","noopener");}catch(e){}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(function(){if(btn){var o=btn.innerHTML;btn.innerHTML='<span class="ms">check</span>Link copied';setTimeout(function(){btn.innerHTML=o;},1500);}},function(){});}}
+
+  var RAW=ref(); if(!RAW){ fail("Event not found."); return; }
+  var ST={cat:0, tab:'about'};
+
+  api("tournament/events").then(function(d){
+    var events=(d&&d.events)||[], ev;
+    if(TRK.test(RAW)) ev=events.filter(function(e){return e.eventId===RAW;})[0];
+    if(!ev){var s=slugify(RAW);var hits=events.filter(function(e){return ((e.slug&&String(e.slug).toLowerCase())||slugify(e.name))===s;});ev=hits[hits.length-1];}
+    var eventId=(ev&&ev.eventId)||(TRK.test(RAW)?RAW:"");
+    if(!eventId){ fail("Event \""+esc(RAW)+"\" not found."); return; }
+    return api("reg/public/"+encodeURIComponent(eventId)).then(
+      function(pub){ render(ev,pub,eventId); },
+      function(err){ render(ev,{status:(err.status===404?"none":"error"),config:{},categories:[]},eventId); }
+    );
+  }).catch(function(){ fail("Failed to load event data."); });
+
+  function lines(t){ return String(t||"").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean); }
+  function checklist(t,empty){ var L=lines(t); if(!L.length) return '<span class="empty">'+esc(empty)+'</span>';
+    return '<ul class="checklist">'+L.map(function(x){return '<li><span class="ms">check</span><span>'+esc(x)+'</span></li>';}).join("")+'</ul>'; }
+  function freetext(t,empty){ return t?'<div class="freetext">'+esc(t)+'</div>':'<span class="empty">'+esc(empty)+'</span>'; }
+  function datesBody(tl){ tl=tl||{};
+    var rows=[['Registration opens',tl.openStart],['Registration closes',tl.openEnd],['Curation starts',tl.curationStart],['Appeal deadline',tl.appealDeadline],['Technical meeting',tl.tmDate],['Order of play',tl.oopDate]].filter(function(r){return r[1];});
+    if(!rows.length) return '<span class="empty">No important dates yet.</span>';
+    return '<ol class="tl">'+rows.map(function(r){return '<li><span class="dot"></span><span class="lab">'+esc(r[0])+'</span><span class="dt">'+esc(r[1])+'</span></li>';}).join("")+'</ol>';
+  }
+  function initials(nm){var p=String(nm||"").trim().split(/\s+/);return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")||"?").toUpperCase();}
+  // "2026-11-01" → "Sunday, 1 November 2026". Teks yang tak bisa di-parse tampil apa adanya.
+  function fmtDate(s){ s=String(s||"").trim(); if(!s) return ""; var d=new Date(s);
+    if(isNaN(d.getTime())) return s;
+    try{ return d.toLocaleDateString('en-GB',{weekday:'long'})+', '+d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return s; } }
+
+  var CTX=null;
+  function render(ev,pub,eventId){
+    ev=ev||{}; pub=pub||{}; var cfg=pub.config||{};
+    if(cfg.theme==="nightmode") document.body.setAttribute("data-theme","nightmode"); else document.body.removeAttribute("data-theme");
+    var name=pub.name||ev.name||"Tournament";
+    var venue=cfg.address||ev.venue||"—"; // utamakan alamat dari reg builder (/engine), fallback venue event
+    var date=ev.date||"—";
+    var status=pub.status||"none", open=status==="open";
+    var regRef=(ev&&ev.slug)?ev.slug:(eventId||RAW);
+    var tl=cfg.timeline||{};
+    var cats=(pub.categories||[]).map(function(c){
+      var quota=parseInt(c.quota)||0, filled=parseInt(c.filled)||0, left=Math.max(0,quota-filled);
+      var full=quota>0&&filled>=quota;
+      return {tid:c.tournamentId, label:c.label||"", level:c.level||"", fee:c.fee||"",
+        quota:quota, filled:filled, left:left, full:full, approved:parseInt(c.approved)||0,
+        pct: quota>0?Math.min(100,Math.round(filled/quota*100)):0};
+    });
+    // fee minimum (untuk stat "FEE / TEAM")
+    var feeNums=cats.map(function(c){return parseInt(String(c.fee).replace(/[^\d]/g,""),10);}).filter(function(n){return isFinite(n)&&n>0;});
+    var minFee=feeNums.length?Math.min.apply(null,feeNums):0;
+    var joined=cats.reduce(function(a,c){return a+(c.approved||0);},0); // hanya yang sudah approved
+    // pilih kategori default: pertama yang belum penuh
+    var firstOpen=0; for(var i=0;i<cats.length;i++){ if(!cats[i].full){ firstOpen=i; break; } }
+    ST.cat=firstOpen;
+    CTX={name:name,venue:venue,date:date,status:status,open:open,regRef:regRef,eventId:eventId,tl:tl,cats:cats,minFee:minFee,joined:joined,cfg:cfg};
+
+    document.getElementById("brand").setAttribute("href","/");
+    document.getElementById("homeBtn").setAttribute("href","/");
+    document.title=name+" · TurnamenPadel";
+
+    paint();
+
+    var sbtn=document.getElementById("shareBtn");
+    var shareUrl=location.origin+"/api/reg/share/"+encodeURIComponent(eventId)+"?s="+encodeURIComponent(regRef);
+    if(sbtn) sbtn.onclick=function(){ doShare(name,shareUrl,sbtn); };
   }
 
-  var RAW=ref();
-  if(!RAW){ fail("Event tidak ditemukan."); return; }
+  function statusPill(status){
+    if(status==="open") return {label:"REGISTRATION OPEN",fg:"var(--okfg)",bg:"var(--okbg)",bd:"var(--okbd)"};
+    if(status==="closed") return {label:"REGISTRATION CLOSED",fg:"var(--warnfg)",bg:"var(--warnbg)",bd:"var(--warnbd)"};
+    return {label:"OPENING SOON",fg:"var(--muted)",bg:"var(--soft)",bd:"var(--br)"};
+  }
 
-  // Resolve slug/eventId -> event summary (+ eventId), then load the public form.
-  api("tournament/events").then(function(d){
-    var events=(d&&d.events)||[];
-    var ev;
-    if(TRK_ID_RE.test(RAW)) ev=events.filter(function(e){return e.eventId===RAW;})[0];
-    if(!ev){ var s=slugify(RAW); var hits=events.filter(function(e){return ((e.slug&&String(e.slug).toLowerCase())||slugify(e.name))===s;}); ev=hits[hits.length-1]; }
-    var eventId=(ev&&ev.eventId)||(TRK_ID_RE.test(RAW)?RAW:"");
-    if(!eventId){ fail("Event \""+esc(RAW)+"\" tidak ditemukan."); return; }
-    return api("reg/public/"+encodeURIComponent(eventId)).then(
-      function(pub){ render(ev, pub, eventId); },
-      function(err){ render(ev, {status:(err.status===404?"none":"error"), config:{}, categories:[]}, eventId, err); }
-    );
-  }).catch(function(){ fail("Gagal memuat data event."); });
+  function paint(){
+    var C=CTX; if(!C) return;
+    var flyer = C.cfg.flyer
+      ? '<div class="flyer"><img src="'+esc(imgSrc(C.cfg.flyer))+'" alt="Flyer '+esc(C.name)+'" referrerpolicy="no-referrer" onerror="this.parentNode.innerHTML=\'<div class=&quot;ph&quot;><span class=&quot;ms&quot;>sports_tennis</span><span>'+esc(C.name)+'</span></div>\'"/></div>'
+      : '<div class="flyer"><div class="ph"><span class="ms">sports_tennis</span><span>'+esc(C.name)+'</span></div></div>';
+    var sp=statusPill(C.status);
+    var hint = C.status==="open" ? (C.tl.openEnd?("CLOSES "+esc(C.tl.openEnd)):"")
+             : C.status==="closed" ? "" : (C.tl.openStart?("OPENS "+esc(C.tl.openStart)):"");
+    function stat(icon,k,v){ return '<div class="stat"><span class="k"><span class="ms">'+icon+'</span>'+k+'</span><b class="v">'+esc(v||"—")+'</b></div>'; }
+    var avatars=''; var showN=Math.min(4,Math.max(0,C.joined)); for(var a=0;a<showN;a++) avatars+='<span>'+String.fromCharCode(65+a)+'</span>';
+    if(!showN) avatars='<span>+</span>';
+    var joinedRow='<a class="joined" href="/peserta/'+encodeURIComponent(C.regRef)+'"><span class="av">'+avatars+'</span>'+
+      '<span class="jt"><b>'+C.joined+'</b> teams registered · view players</span><span class="ms">chevron_right</span></a>';
 
-  function chip(icon,text){ return text?'<span class="chip chip--brutal"><span class="material-symbols-outlined">'+icon+'</span>'+esc(text)+'</span>':''; }
+    var hero='<section class="hero">'+flyer+
+      '<div class="heroR">'+
+        '<div class="pillrow"><span class="pill" style="color:'+sp.fg+';background:'+sp.bg+';border-color:'+sp.bd+'"><span class="d"></span>'+sp.label+'</span>'+(hint?'<span class="pillhint">'+hint+'</span>':'')+'</div>'+
+        '<h1 class="t">'+esc(C.name)+'</h1>'+
+        '<div class="statgrid">'+
+          stat('calendar_month','DATE',fmtDate(C.date))+
+          stat('location_on','VENUE',C.venue)+
+          stat('payments','FEE / TEAM',C.minFee?rupiah(C.minFee):"—")+
+          stat('event_upcoming','CLOSES',C.tl.openEnd||"—")+
+        '</div>'+ joinedRow +
+      '</div></section>';
 
-  function render(ev, pub, eventId, err){
-    ev=ev||{}; pub=pub||{}; var cfg=pub.config||{};
-    // Per-event theme (set by superadmin in /engine): "daylight" (default) or "nightmode".
-    if(cfg.theme==="nightmode") document.body.setAttribute("data-theme","nightmode");
-    else document.body.removeAttribute("data-theme");
-    var name=pub.name||ev.name||"Tournament";
-    var venue=(cfg.address||ev.venue||""); // utamakan alamat dari reg builder (/engine), fallback venue event
-    var date=ev.date||"";
-    var region=cfg.region||"";
-    var status=pub.status||"none";
-    var open=status==="open";
-    // A friendly ref for the registration wizard link.
-    var regRef=(ev&&ev.slug)?ev.slug:(eventId||RAW);
+    // Tabs (About / Eligibility / Game Rules / Contact / Important Date)
+    var TABS=[['about','About'],['elig','Eligibility'],['rules','Game Rules'],['contact','Contact'],['dates','Important Date']];
+    var tabTitle={about:'About the event',elig:'Who can play',rules:'Match rules',contact:'Contact the committee',dates:'Important dates'}[ST.tab];
+    var tabBody;
+    if(ST.tab==='about') tabBody=freetext(C.cfg.description,'No description yet for this event.');
+    else if(ST.tab==='elig') tabBody=checklist(C.cfg.eligibility,'No eligibility info yet.');
+    else if(ST.tab==='rules') tabBody=checklist(C.cfg.rules,'No match rules yet.');
+    else if(ST.tab==='contact') tabBody=checklist(C.cfg.contact,'No contact info yet.');
+    else tabBody=datesBody(C.tl);
+    var tabs='<section class="card">'+
+      '<div class="tablist">'+TABS.map(function(t){return '<button type="button" class="tabbtn'+(ST.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div>'+
+      '<h3 class="h3">'+tabTitle+'</h3>'+tabBody+'</section>';
 
-    // Flyer (top). Broken image → fall back to the branded placeholder.
-    var flyer = cfg.flyer
-      ? '<div class="flyer" data-name="'+esc(name)+'"><img src="'+esc(imgSrc(cfg.flyer))+'" alt="Flyer '+esc(name)+'" referrerpolicy="no-referrer" loading="eager" onerror="tpFlyerFail(this)"/></div>'
-      : '<div class="flyer placeholder">'+phInner(name)+'</div>';
+    // Kategori dipilih di dalam form (step 1), bukan di halaman event.
+    host.innerHTML = hero + tabs;
+    paintBar();
 
-    // Status chip
-    var statusChip = open
-      ? '<span class="chip chip--mint chip--pill"><span class="dot" style="background:var(--mint)"></span>PENDAFTARAN DIBUKA</span>'
-      : (status==="closed"
-          ? '<span class="chip chip--amber chip--pill">PENDAFTARAN DITUTUP</span>'
-          : '<span class="chip chip--pill">PENDAFTARAN BELUM DIBUKA</span>');
+    // wire tabs
+    host.querySelectorAll('.tabbtn').forEach(function(b){ b.onclick=function(){ ST.tab=b.getAttribute('data-tab'); paint(); }; });
+  }
 
-    // Tab bodies: About (description) is the default; Players eligibility,
-    // Game Rules and Important Date are authored per-event in /engine.
-    function panelBody(text, empty){ return text ? esc(text) : '<span class="empty">'+empty+'</span>'; }
-    function datesBody(tl){
-      tl=tl||{};
-      var rows=[
-        ["Registration opens", tl.openStart],
-        ["Registration closes", tl.openEnd],
-        ["Curation starts", tl.curationStart],
-        ["Appeal deadline", tl.appealDeadline],
-        ["Technical Meeting", tl.tmDate],
-        ["Order of play released", tl.oopDate]
-      ].filter(function(r){ return r[1]; });
-      if(!rows.length) return '<span class="empty">No important dates yet.</span>';
-      return '<ul class="dates">'+rows.map(function(r){
-        return '<li><span class="dlabel">'+esc(r[0])+'</span><span class="dval">'+esc(r[1])+'</span></li>';
-      }).join("")+'</ul>';
-    }
-    var tabs =
-      '<div class="desc">'+
-        '<div class="tabbar" role="tablist">'+
-          '<button type="button" class="tab is-active" data-tab="about" role="tab">About</button>'+
-          '<button type="button" class="tab" data-tab="elig" role="tab">Players eligibility</button>'+
-          '<button type="button" class="tab" data-tab="rules" role="tab">Game Rules</button>'+
-          '<button type="button" class="tab" data-tab="dates" role="tab">Important Date</button>'+
-        '</div>'+
-        '<div class="tabpanel is-active" data-panel="about"><div class="body">'+panelBody(cfg.description,'Belum ada deskripsi untuk event ini.')+'</div></div>'+
-        '<div class="tabpanel" data-panel="elig"><div class="body">'+panelBody(cfg.eligibility,'Belum ada info kelayakan peserta.')+'</div></div>'+
-        '<div class="tabpanel" data-panel="rules"><div class="body">'+panelBody(cfg.rules,'Belum ada aturan permainan.')+'</div></div>'+
-        '<div class="tabpanel" data-panel="dates"><div class="body">'+datesBody(cfg.timeline)+'</div></div>'+
-      '</div>';
-
-    // Categories (optional, compact)
-    var cats=(pub.categories||[]).map(function(c){
-      return '<div class="cat"><b>'+esc(c.label||"")+(c.level?' · '+esc(c.level):'')+'</b>'+(c.fee?'<span class="fee">'+esc(c.fee)+'</span>':'')+'</div>';
-    }).join("");
-
-    // CTA
-    var cta = open
-      ? '<a class="btn btn--primary btn--pop btn--upper reg-btn" href="/daftar/'+encodeURIComponent(regRef)+'"><span class="material-symbols-outlined">how_to_reg</span>Register now</a>'
-      : '<span class="btn btn--ghost btn--upper reg-btn" style="cursor:default;opacity:.7">'+(status==="closed"?"Pendaftaran ditutup":"Pendaftaran belum dibuka")+'</span>';
-    // "Players joined" → public roster page (opens the joined-players list).
-    var joinedBtn = '<a class="btn btn--white btn--upper reg-btn joined-btn" href="/peserta/'+encodeURIComponent(regRef)+'"><span class="material-symbols-outlined">groups</span>Players joined</a>';
-    // Share → rich WhatsApp/social preview (flyer + short desc) via the OG endpoint.
-    var shareBtn = '<button class="btn btn--white btn--upper reg-btn joined-btn" id="shareBtn" type="button"><span class="material-symbols-outlined">share</span>Share</button>';
-
-    // Header: event title replaces the logo; Home points to this event's page.
-    var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
-    var homeEl=document.getElementById("homeBtn"); if(homeEl) homeEl.setAttribute("href","/"+encodeURIComponent(regRef));
-
-    // Meta chips: tanggal + venue (alamat) + region. Venue diambil dari alamat
-    // reg builder (/engine) via cfg.address (lihat var venue di atas).
-    var metaHtml = (date||venue||region) ? '<div class="meta">'+chip("calendar_month",date)+chip("location_on",venue)+chip("public",region)+'</div>' : '';
-    host.innerHTML = flyer + metaHtml + tabs + '<div class="cta-wrap">'+statusChip+'<div class="cta-row">'+cta+joinedBtn+shareBtn+'</div></div>';
-    // Share button → OG link so WhatsApp shows the flyer + short description.
-    var shareUrl = location.origin + "/api/reg/share/" + encodeURIComponent(eventId) + "?s=" + encodeURIComponent(regRef);
-    var sbtn = host.querySelector("#shareBtn");
-    if(sbtn) sbtn.addEventListener("click", function(){ doShare(name, shareUrl, sbtn); });
-    // Tab switching
-    var tabBtns=host.querySelectorAll(".tab"), panels=host.querySelectorAll(".tabpanel");
-    tabBtns.forEach(function(btn){ btn.addEventListener("click",function(){
-      var t=btn.getAttribute("data-tab");
-      tabBtns.forEach(function(b){ b.classList.toggle("is-active", b===btn); });
-      panels.forEach(function(p){ p.classList.toggle("is-active", p.getAttribute("data-panel")===t); });
-    }); });
-    document.title = name+" · TurnamenPadel";
+  function paintBar(){
+    var C=CTX; if(!C) return;
+    var bar=document.getElementById("ctabar"); if(!bar){ bar=document.createElement("div"); bar.className="ctabar"; bar.id="ctabar"; document.body.appendChild(bar); }
+    // Tombol Register saja → langsung ke step 1 form (pilih kategori di sana).
+    var cta = C.open
+      ? '<a class="btn accent big go block" href="/daftar/'+encodeURIComponent(C.regRef)+'"><span class="ms">how_to_reg</span>Register</a>'
+      : '<button class="btn big go block" disabled><span class="ms">lock</span>'+(C.status==="closed"?"Registration closed":"Opening soon")+'</button>';
+    bar.innerHTML='<div class="in">'+cta+'</div>';
   }
 })();
 </script>

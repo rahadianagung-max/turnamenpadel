@@ -127,6 +127,10 @@
   body[data-theme="nightmode"] #homeBtn{background:#fff;color:#0F172A}
   body[data-theme="nightmode"] #homeBtn:hover{background:#E2E8F0}
   body[data-theme="nightmode"] #homeBtn .material-symbols-outlined{color:#0F172A}
+  /* ── Selaras dengan halaman event baru: label pakai Space Grotesk, radius
+     kartu lebih besar. Token warna sudah identik lewat tp-theme. ── */
+  label.f>span, .eyebrow, .steplbl{font-family:'Space Grotesk',var(--mono)}
+  .card{border-radius:var(--r-3xl)}
   [hidden]{display:none!important}
 </style>
 </head>
@@ -150,10 +154,10 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;',
 // (via the vercel.json catch-all), or ?e=<ref>. The ref may be an eventId
 // (EV_/TM_…) or a friendly slug derived from the event name.
 function qs(){
-  const m=location.pathname.match(/\/daftar\/([^\/?#]+)/);
+  const m=location.pathname.match(/\/daftar(?:-preview)?\/([^\/?#]+)/);
   if(m) return decodeURIComponent(m[1]);
   const seg=location.pathname.replace(/^\/+|\/+$/g,"").split("/").filter(Boolean);
-  if(seg.length===1 && seg[0].toLowerCase()!=="daftar" && seg[0].indexOf(".")<0) return decodeURIComponent(seg[0]);
+  if(seg.length===1 && seg[0].toLowerCase()!=="daftar" && seg[0].toLowerCase()!=="daftar-preview" && seg[0].indexOf(".")<0) return decodeURIComponent(seg[0]);
   return new URLSearchParams(location.search).get("e")||"";
 }
 function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
