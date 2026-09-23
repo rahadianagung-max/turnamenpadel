@@ -236,8 +236,20 @@ function openEvent(eventId){
   scorer.setAttribute("href","/scorerdesk");
   scorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
   try{ history.replaceState(null,"","/admin/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
+  CATMAP=null; // reset peta kategori saat ganti event
   showStep("peserta"); // mulai dari langkah 1 setiap buka event
   loadRegs(); loadCategories(); loadAppeals();
+}
+// Peta id-kategori (TM_/EV_) → { label, level } dari config form, agar daftar
+// peserta bisa dikelompokkan pakai nama kategori sebenarnya.
+let CATMAP=null;
+async function ensureCatMap(){
+  if(CATMAP) return CATMAP;
+  const map={};
+  try{ const d=await api("reg/public/"+encodeURIComponent(EVENT.eventId));
+    (d&&d.categories||[]).forEach(c=>{ if(c.tournamentId) map[c.tournamentId]={label:c.label||"",level:c.level||""}; });
+  }catch(e){}
+  CATMAP=map; return CATMAP;
 }
 // Flow step-nav: 'peserta' (Manage Peserta) & 'appeal' (Appeal Process) tampil di
 // halaman ini; Spin the Wheel / Scorer Desk adalah tautan ke halaman lain.
@@ -432,6 +444,7 @@ function regSection(title,items,empty){
 async function loadRegs(){
   const host=document.getElementById("regList"); host.innerHTML='<p class="muted">Memuat…</p>';
   try{
+    await ensureCatMap(); // pastikan peta kategori siap sebelum mengelompokkan
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/registrations?token="+encodeURIComponent(TOKEN));
     const list=r.registrations||[];
     const approved=list.filter(x=>APPROVED_STATUS.has(x.status));
@@ -467,12 +480,14 @@ async function deleteReg(regId){
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }
 function catText(d){
-  // Sebagian data menyimpan id turnamen (TM_/EV_) di kolom category — jangan
-  // ditampilkan; jatuh ke label kategori/level yang bermakna.
-  const raw=String(d.categoryLabel||d.category||"").trim();
+  // Sebagian data menyimpan id turnamen (TM_/EV_) di kolom category. Resolusi ke
+  // nama kategori sebenarnya lewat CATMAP (config form); jika tak ada, pakai level.
+  let raw=String(d.categoryLabel||d.category||"").trim();
+  let level=d.level;
+  if(/^(TM_|EV_)/i.test(raw) && CATMAP && CATMAP[raw]){ const c=CATMAP[raw]; raw=c.label||""; if(!level) level=c.level; }
   const isId=/^(TM_|EV_|RG_|REG_)/i.test(raw);
   const cl=isId?"":catLabel(raw);
-  const lv=levelLabel(d.level);
+  const lv=levelLabel(level);
   return [cl,lv].filter(Boolean).join(" · ") || (isId?"":raw) || "Kategori";
 }
 // init
