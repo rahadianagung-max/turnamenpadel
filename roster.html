@@ -39,13 +39,15 @@
   .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
   .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
   .empty{color:var(--slate-400);text-align:center;padding:40px 0}
-  /* pair with two square photos */
-  .ppair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .pp{display:flex;flex-direction:column;gap:6px;text-align:center;min-width:0}
-  .pp .sq{width:100%;aspect-ratio:1/1;border-radius:var(--r-lg);border:var(--bd);overflow:hidden;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:34px}
+  /* pair: two compact player rows (small square photo) — hemat ruang utk banyak peserta */
+  .paircard{padding:12px}
+  .ppair{display:flex;flex-direction:column;gap:8px}
+  .pp{display:flex;align-items:center;gap:10px;text-align:left;min-width:0}
+  .pp .sq{width:52px;height:52px;flex:none;border-radius:var(--r-lg);border:var(--bd);overflow:hidden;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:20px}
   .pp .sq img{width:100%;height:100%;object-fit:cover}
+  .pp .info{min-width:0}
   .pp .nm{font-family:var(--display);font-weight:800;font-size:14px;line-height:1.15;word-break:break-word}
-  .pp .meta{font-size:12px;color:var(--slate-500);word-break:break-word}
+  .pp .meta{font-size:12px;color:var(--slate-500);word-break:break-word;line-height:1.4}
   /* appeal rules list */
   .rules{margin:10px 0 0;padding-left:20px} .rules li{font-size:12.5px;line-height:1.55;margin:5px 0;color:var(--slate-600)}
   .rules li b{color:var(--dark)}
@@ -77,13 +79,13 @@ async function boot(){
   R.cat = R.c && (R.data.categories||[]).some(c=>c.tournamentId===R.c) ? R.c : ((R.data.categories[0]||{}).tournamentId||"");
   render();
 }
-// Foto pemain kotak + nama + IG + region.
+// Baris pemain ringkas: foto kotak kecil + nama + Instagram + region.
 function playerSquare(p){
   p=p||{};
   const sq='<div class="sq">'+(p.photoUrl?'<img src="'+esc(p.photoUrl)+'" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent=\''+esc((p.name||'?').charAt(0).toUpperCase())+'\'">':esc((p.name||'?').charAt(0).toUpperCase()))+'</div>';
-  const ig=p.ig?'<div class="meta">@'+esc(String(p.ig).replace(/^@/,''))+'</div>':'';
+  const ig=p.ig?'<div class="meta">Instagram: @'+esc(String(p.ig).replace(/^@/,''))+'</div>':'';
   const region='<div class="meta">📍 '+esc(p.region||'-')+'</div>';
-  return '<div class="pp">'+sq+'<div class="nm">'+esc(p.name||'—')+'</div>'+ig+region+'</div>';
+  return '<div class="pp">'+sq+'<div class="info"><div class="nm">'+esc(p.name||'—')+'</div>'+ig+region+'</div></div>';
 }
 const APPEAL_RULES=[
   'Ajukan appeal <b>hanya bila kamu menemukan pelanggaran</b> terhadap aturan turnamen yang telah ditetapkan. Bila tidak ada pelanggaran, appeal tidak perlu diajukan.',
@@ -113,7 +115,7 @@ function render(){
       ${open?`<b class="mono" style="color:var(--warn)">⏳ Appeal dibuka${d.appealDeadline?' s/d '+esc(d.appealDeadline):''}</b>`
              :`<b class="mono" style="color:var(--danger)">🔒 Batas appeal berakhir — roster final</b>`}</div>
     ${selector}
-    <div style="margin-top:12px">${(cat.pairs||[]).length? cat.pairs.map(pr=>`<div class="card">
+    <div style="margin-top:12px">${(cat.pairs||[]).length? cat.pairs.map(pr=>`<div class="card paircard">
         <div class="ppair">${playerSquare(pr.p1)}${playerSquare(pr.p2)}</div>
         <div class="nav"><button class="btn ghost sm" style="margin-left:auto" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal pasangan ini</button></div>
       </div>`).join("") : '<p class="empty">Belum ada peserta di kategori ini.</p>'}</div>`;
