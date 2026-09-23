@@ -48,8 +48,9 @@
   .regsum::-webkit-details-marker{display:none}
   .sumtxt{flex:1;min-width:0}
   .sumtxt b{font-size:14px;display:block;overflow:hidden;text-overflow:ellipsis}
-  .regsum .chev{color:var(--slate-400);transition:transform .15s;flex:none}
-  .regd[open] .regsum .chev{transform:rotate(180deg)}
+  .regsum .chev{color:var(--slate-500);flex:none;width:26px;height:26px;display:flex;align-items:center;
+    justify-content:center;border:var(--bd);border-radius:8px;background:#fff;font-size:12px;line-height:1;transition:transform .15s}
+  .regd[open] .regsum .chev{transform:rotate(180deg);color:var(--orange)}
   .regd[open] .regsum{border-bottom:1px solid var(--slate-200)}
   .regbody{padding:12px 14px 14px}
   /* per-category grouping inside each status section */
@@ -346,12 +347,6 @@ async function decideAppeal(appealId, decision){
     loadAppeals();
   }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc((e&&e.message)||e)+'</span>'; }
 }
-function statusChip(s){
-  const map={ pending:["warn","menunggu approval"], waitlist:["wl","waitlist"], rejected:["bad","ditolak"], cancelled:["bad","batal"],
-    approved:["ok","disetujui ✔"], verified:["ok","verified"], accepted:["ok","accepted"], invited:["warn","diundang"], final:["ok","final"],
-    received:["","received"], imported:["","imported"] };
-  const m=map[s]||["", s||"received"]; return '<span class="chip '+m[0]+'">'+esc(m[1])+'</span>';
-}
 function eligChip(e){ if(!e) return ""; const s=e.state; return s==="ok"?'<span class="chip ok">eligible</span>':s==="block"?'<span class="chip bad">'+esc(e.msg||"block")+'</span>':'<span class="chip warn">'+esc(e.msg||"flag")+'</span>'; }
 function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.nick) k.push(`Alias: <b>${esc(p.nick)}</b>`);
@@ -410,8 +405,7 @@ function regCard(reg){
   return `<details class="regd">
     <summary class="regsum">
       <span class="sumtxt"><b>${team}</b></span>
-      ${statusChip(reg.status)}
-      <span class="material-symbols-outlined chev">expand_more</span>
+      <span class="chev" aria-hidden="true">▼</span>
     </summary>
     <div class="regbody">
       <div class="note" style="margin:0 0 10px">${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div>
@@ -472,7 +466,15 @@ async function deleteReg(regId){
 }
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }
-function catText(d){ const cl=catLabel(d.categoryLabel||d.category); const lv=levelLabel(d.level); return [cl,lv].filter(Boolean).join(" · ")||esc(d.category||"Kategori"); }
+function catText(d){
+  // Sebagian data menyimpan id turnamen (TM_/EV_) di kolom category — jangan
+  // ditampilkan; jatuh ke label kategori/level yang bermakna.
+  const raw=String(d.categoryLabel||d.category||"").trim();
+  const isId=/^(TM_|EV_|RG_|REG_)/i.test(raw);
+  const cl=isId?"":catLabel(raw);
+  const lv=levelLabel(d.level);
+  return [cl,lv].filter(Boolean).join(" · ") || (isId?"":raw) || "Kategori";
+}
 // init
 (function(){ if(TOKEN) afterAuth(); })();
 </script>
