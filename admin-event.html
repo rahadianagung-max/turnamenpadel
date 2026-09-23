@@ -61,6 +61,21 @@
   .big-btn b{font-family:var(--display);font-size:16px}
   .big-btn span{font-size:12px;color:var(--slate-500)}
   .big-btn.wheel{background:linear-gradient(120deg,#FF5722,#FF7A45);color:#fff} .big-btn.wheel span{color:rgba(255,255,255,.85)}
+  /* Flow step-nav (Manage Peserta → Appeal → Spin → Scorer) */
+  .stepnav{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px}
+  .step{display:flex;flex-direction:column;gap:2px;align-items:flex-start;position:relative;
+    padding:14px 14px 12px;border:var(--bd);border-radius:var(--r-lg);background:#fff;box-shadow:var(--sh-sm);
+    color:var(--dark);text-decoration:none;cursor:pointer;text-align:left;font:inherit;min-height:88px}
+  .step:hover{transform:translateY(-1px)}
+  .step b{font-family:var(--display);font-size:15px;line-height:1.15}
+  .step .step-sub{font-size:11px;color:var(--slate-500)}
+  .step .step-ic{font-size:22px;line-height:1}
+  .step .step-n{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:11px;font-weight:700;
+    width:20px;height:20px;border-radius:999px;border:var(--bd);display:flex;align-items:center;justify-content:center;background:var(--inset);color:var(--slate-600)}
+  .step.active{background:linear-gradient(120deg,#FF5722,#FF7A45);color:#fff;border-color:#FF5722}
+  .step.active .step-sub{color:rgba(255,255,255,.9)}
+  .step.active .step-n{background:rgba(255,255,255,.25);color:#fff;border-color:rgba(255,255,255,.55)}
+  @media(max-width:640px){ .stepnav{grid-template-columns:repeat(2,1fr);gap:8px} .step{min-height:84px;padding:12px} }
 </style>
 </head>
 <body>
@@ -95,33 +110,56 @@
         <div><div class="eyebrow">Event</div><h2 id="evName" style="font-size:20px">—</h2><div class="note" id="evMeta"></div></div>
         <a class="note" href="#" onclick="event.preventDefault();backToPick()">↩ ganti event</a>
       </div>
-      <div class="act">
-        <a class="big-btn wheel" id="btnWheel" href="#"><b>🎡 Spin the Wheel</b><span>Undian grup / draw</span></a>
-        <a class="big-btn" id="btnScorer" href="#"><b>🎯 Scorer Desk</b><span>Input skor per lapangan</span></a>
+      <!-- Flow: kelola peserta dulu → saat penuh, buka appeal → selesai, spin the
+           wheel → selesai, scorer desk. Dua langkah pertama tampil di halaman ini
+           (toggle view), dua terakhir membuka halaman /draw & /scorerdesk. -->
+      <div class="stepnav" id="stepNav">
+        <button type="button" class="step active" id="stepPeserta" onclick="showStep('peserta')">
+          <span class="step-n">1</span><span class="step-ic">👥</span>
+          <b>Manage Peserta</b><span class="step-sub">Kelola pendaftaran</span>
+        </button>
+        <button type="button" class="step" id="stepAppeal" onclick="showStep('appeal')">
+          <span class="step-n">2</span><span class="step-ic">⚖️</span>
+          <b>Appeal Process</b><span class="step-sub">Tinjau &amp; putuskan banding</span>
+        </button>
+        <a class="step" id="btnWheel" href="#">
+          <span class="step-n">3</span><span class="step-ic">🎡</span>
+          <b>Spin the Wheel</b><span class="step-sub">Undian grup / draw</span>
+        </a>
+        <a class="step" id="btnScorer" href="#">
+          <span class="step-n">4</span><span class="step-ic">🎯</span>
+          <b>Scorer Desk</b><span class="step-sub">Input skor per lapangan</span>
+        </a>
       </div>
     </div>
 
-    <div class="card">
-      <h3 style="font-size:16px">Jumlah peserta per kategori</h3>
-      <div id="catList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+    <!-- STEP 1 · Manage Peserta -->
+    <div id="viewPeserta">
+      <div class="card">
+        <h3 style="font-size:16px">Jumlah peserta per kategori</h3>
+        <div id="catList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+      </div>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
+          <button class="btn ghost sm" onclick="loadRegs()">↻ Refresh</button>
+        </div>
+        <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
-        <button class="btn ghost sm" onclick="loadRegs()">↻ Refresh</button>
+    <!-- STEP 2 · Appeal Process -->
+    <div id="viewAppeal" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Kirim undangan ke peserta untuk meninjau roster & mengajukan banding (dengan bukti), lalu putuskan di sini.</div></div>
+          <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Refresh</button></div>
+        </div>
+        <div id="triggerMsg" class="note"></div>
+        <div id="appealDeadlineBox" style="margin-top:10px"></div>
+        <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
       </div>
-      <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
-    </div>
-
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Kirim undangan ke peserta untuk meninjau roster & mengajukan banding (dengan bukti), lalu putuskan di sini.</div></div>
-        <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Refresh</button></div>
-      </div>
-      <div id="triggerMsg" class="note"></div>
-      <div id="appealDeadlineBox" style="margin-top:10px"></div>
-      <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
     </div>
   </div>
 </div>
@@ -194,7 +232,20 @@ function openEvent(eventId){
   scorer.setAttribute("href","/scorerdesk");
   scorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
   try{ history.replaceState(null,"","/admin/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
+  showStep("peserta"); // mulai dari langkah 1 setiap buka event
   loadRegs(); loadCategories(); loadAppeals();
+}
+// Flow step-nav: 'peserta' (Manage Peserta) & 'appeal' (Appeal Process) tampil di
+// halaman ini; Spin the Wheel / Scorer Desk adalah tautan ke halaman lain.
+function showStep(which){
+  const p = which==="appeal" ? false : true;
+  const vp=document.getElementById("viewPeserta"), va=document.getElementById("viewAppeal");
+  const sp=document.getElementById("stepPeserta"), sa=document.getElementById("stepAppeal");
+  if(vp) vp.classList.toggle("hidden", !p);
+  if(va) va.classList.toggle("hidden", p);
+  if(sp) sp.classList.toggle("active", p);
+  if(sa) sa.classList.toggle("active", !p);
+  try{ window.scrollTo({top:0, behavior:"smooth"}); }catch(e){}
 }
 async function loadCategories(){
   const host=document.getElementById("catList"); host.innerHTML='<p class="muted">Memuat…</p>';
