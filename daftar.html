@@ -168,6 +168,29 @@ async function api(path, opts){
   return d;
 }
 function fileToDataUrl(input){ return new Promise(r=>{ const f=input.files&&input.files[0]; if(!f) return r(""); const rd=new FileReader(); rd.onload=()=>r(rd.result); rd.onerror=()=>r(""); rd.readAsDataURL(f); }); }
+// Perkiraan ukuran byte dari data URL base64.
+function dataUrlBytes(d){ const i=String(d||"").indexOf(","); const b=i>=0?d.slice(i+1):""; return Math.floor(b.length*3/4); }
+// Kompres & perkecil gambar di sisi klien sebelum diunggah, agar tidak melebihi
+// batas ukuran request (penyebab HTTP 413). Non-gambar / gagal → baca apa adanya.
+function compressImageFile(f, maxDim, quality){
+  return new Promise(resolve=>{
+    if(!f) return resolve("");
+    if(!/^image\//.test(f.type||"")){ const rd=new FileReader(); rd.onload=()=>resolve(rd.result); rd.onerror=()=>resolve(""); rd.readAsDataURL(f); return; }
+    const url=URL.createObjectURL(f); const img=new Image();
+    img.onload=()=>{ try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        const s=Math.min(1,(maxDim||1600)/Math.max(w,h||1)); w=Math.max(1,Math.round(w*s)); h=Math.max(1,Math.round(h*s));
+        const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL("image/jpeg",quality||0.82));
+      }catch(e){ URL.revokeObjectURL(url); const rd=new FileReader(); rd.onload=()=>resolve(rd.result); rd.onerror=()=>resolve(""); rd.readAsDataURL(f); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); const rd=new FileReader(); rd.onload=()=>resolve(rd.result); rd.onerror=()=>resolve(""); rd.readAsDataURL(f); };
+    img.src=url;
+  });
+}
+const IMG_MAX_BYTES=3.5*1024*1024; // ambang aman di bawah batas request serverless
 
 function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId); }
 function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
@@ -430,9 +453,12 @@ function buatBaru(i){ const p=F.players[i];
   clearOtp(p); p.decision="new"; render();
 }
 function resetPlayer(i){ const p=F.players[i]; p.decision=null; p.chk=null; p.checking=false; clearOtp(p); render(); }
-async function pickPhoto(i,input){ const p=F.players[i]; p.photo=await fileToDataUrl(input);
-  const ph=document.getElementById("ph_"+i); if(ph&&p.photo) ph.innerHTML='<img src="'+p.photo+'" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">';
-  updatePlayerNav(i); scheduleSave();
+async function pickPhoto(i,input){ const p=F.players[i]; const f=input.files&&input.files[0]; if(!f) return;
+  const d=await compressImageFile(f,1600,0.82);
+  if(!d){ p.photoWarn="Gagal membaca file. Coba foto lain."; p.photo=""; render(); return; }
+  if(dataUrlBytes(d)>IMG_MAX_BYTES){ p.photoWarn="⚠️ Foto terlalu besar. Gunakan foto beresolusi lebih kecil."; p.photo=""; render(); return; }
+  p.photo=d; p.photoWarn="";
+  updatePlayerNav(i); scheduleSave(); render();
 }
 // Kartu kandidat: daftar nama mirip yang bisa dipilih pendaftar.
 function candList(i){ const p=F.players[i]; const cs=(p.chk&&p.chk.candidates)||[];
@@ -497,7 +523,7 @@ function profileForm(i,on){ const p=F.players[i];
   if(on("region")) rows.push(`<label class="f"><span>Region / kota <span class="req">*</span></span><input list="cities" value="${esc(p.region)}" oninput="setF(${i},'region',this.value)" placeholder="ketik kota…"></label>`);
   if(on("jersey")) rows.push(`<label class="f"><span>Ukuran jersey <span class="req">*</span></span>${jerseyChart()}<select onchange="setF(${i},'jersey',this.value)">${jerseyOptions(p.jersey)}</select></label>`);
   if(on("photo")){ const cur=(p.photo||p.photoUrl)?`<img src="${esc(p.photo||p.photoUrl)}" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">`:'<span class="chip">belum ada</span>';
-    rows.push(`<label class="f"><span>Foto <span class="req">*</span></span><div class="row" style="align-items:center;gap:12px"><div id="ph_${i}">${cur}</div><input type="file" accept="image/*" onchange="pickPhoto(${i},this)" style="flex:1"></div></label>`); }
+    rows.push(`<label class="f"><span>Foto <span class="req">*</span></span><div class="row" style="align-items:center;gap:12px"><div id="ph_${i}">${cur}</div><input type="file" accept="image/*" onchange="pickPhoto(${i},this)" style="flex:1"></div>${p.photoWarn?`<div class="chip warn" style="margin-top:6px;display:inline-block">${esc(p.photoWarn)}</div>`:''}</label>`); }
   return rows.join("");
 }
 function vPlayer(i){ const p=F.players[i], on=fieldsOn();
@@ -578,7 +604,8 @@ function vPay(){
         ${acctDigits?`<button class="btn ghost" style="padding:6px 12px" onclick="copyText('${esc(acctDigits)}',this)">📋 Salin</button>`:''}
       </div>
     </div>
-    <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"></label>
+    <label class="f" style="margin-top:14px"><span>Upload bukti transfer <span class="req">*</span></span><input type="file" accept="image/*" onchange="pickPay(this)"><div class="note" style="margin-top:4px">Foto otomatis diperkecil agar upload lancar.</div></label>
+    ${F.payWarn?`<div class="chip warn" style="margin:2px 0 8px;display:inline-block">${esc(F.payWarn)}</div>`:''}
     ${F.payFile
       ? `<div style="margin-top:10px"><div class="note" style="margin-bottom:6px">✔ Pratinjau bukti transfer:</div>
           <img src="${esc(F.payFile)}" alt="bukti transfer" style="max-width:100%;max-height:280px;border:var(--bd);border-radius:12px;display:block">
@@ -588,7 +615,12 @@ function vPay(){
     <div class="nav"><button class="btn ghost" onclick="go('waiver')">←</button>
       <button class="btn primary" id="subBtn" ${F.payFile?'':'disabled'} onclick="submitReg()">✅ Kirim pendaftaran</button></div></div>`;
 }
-async function pickPay(input){ F.payFile = await fileToDataUrl(input); render(); }
+async function pickPay(input){ const f=input.files&&input.files[0]; if(!f) return;
+  const d=await compressImageFile(f,1600,0.82);
+  if(!d){ F.payWarn="Gagal membaca file. Coba screenshot/foto lain."; F.payFile=""; render(); return; }
+  if(dataUrlBytes(d)>IMG_MAX_BYTES){ F.payWarn="⚠️ Bukti transfer terlalu besar. Gunakan screenshot (bukan foto layar) atau perkecil ukurannya."; F.payFile=""; render(); return; }
+  F.payFile=d; F.payWarn=""; render();
+}
 async function submitReg(){
   // Safety net: pastikan data kedua pemain lengkap sebelum kirim — bila belum,
   // arahkan kembali ke step pemain yang kurang (hindari error dari server).
@@ -605,7 +637,11 @@ async function submitReg(){
     photo1:F.players[0].photo||F.players[0].photoUrl||"", photo2:F.players[1].photo||F.players[1].photoUrl||"", paymentProof:isWL()?"":F.payFile };
   try{ const r=await api("reg/register/"+encodeURIComponent(F.eventId), {method:"POST", body});
     F.result=r; clearDraft(); F._restored=false; go("done");
-  }catch(e){ const el=document.getElementById("subErr"); if(el) el.innerHTML='<div class="chip warn" style="margin-top:10px">Gagal: '+esc(e.message)+'</div>'; if(btn){ btn.disabled=false; btn.textContent="✅ Kirim pendaftaran"; } }
+  }catch(e){ const el=document.getElementById("subErr");
+    const tooBig = e.status===413 || /413/.test(String(e.message||""));
+    const msg = tooBig ? "File foto/bukti terlalu besar. Ganti dengan foto beresolusi lebih kecil atau screenshot, lalu kirim ulang." : ("Gagal: "+esc(e.message));
+    if(el) el.innerHTML='<div class="chip warn" style="margin-top:10px">'+ (tooBig?"⚠️ ":"") + msg +'</div>';
+    if(btn){ btn.disabled=false; btn.textContent="✅ Kirim pendaftaran"; } }
 }
 function passportUrl(nm){ return "https://trekkr.online/player/"+encodeURIComponent(nm||""); }
 function vDone(){
