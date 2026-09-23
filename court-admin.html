@@ -126,8 +126,14 @@
   table.st th.tteam,table.st td.tteam{text-align:left;}
   table.st td{padding:6px 4px; text-align:center; border-bottom:1px solid rgba(255,255,255,.04);}
   table.st td.rk{color:var(--faint); font-family:'Space Grotesk',monospace;}
-  table.st tr.q td.rk{color:var(--accent); font-weight:700;}
+  table.st tr.q td.rk,table.st tr.top td.rk,table.st tr.champ td.rk{color:var(--accent); font-weight:700;}
+  table.st tr.champ{background:rgba(255,87,34,.05);} table.st tr.prosp{opacity:.72;}
   table.st td.tteam{font-weight:600;}
+  .stnote{font-size:10.5px; color:var(--faint); margin-bottom:8px; line-height:1.4;}
+  /* Bracket generate controls */
+  .brctrls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:14px;}
+  .brctrls .brlbl{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:14px;}
+  .brctrls .brhint{font-family:'Space Grotesk',monospace; font-size:10.5px; color:var(--faint); margin-left:auto;}
 
   /* Bracket */
   .brtier{margin-bottom:22px;}
@@ -143,6 +149,32 @@
   .brm .bl .s{font-family:'Space Grotesk',monospace; color:var(--muted);}
   .brm .bl.win{color:var(--accent); font-weight:700;} .brm .bl.win .s{color:var(--accent);}
   .brm .bmeta{font-family:'Space Grotesk',monospace; font-size:10px; color:var(--faint); margin-top:3px;}
+
+  /* Command bar + collapsible rounds (Courts tab) */
+  .cmdbar{position:sticky; top:0; z-index:8; background:rgba(248,250,252,.95); backdrop-filter:blur(8px); border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .cmdbar .cprog{font-family:'Space Grotesk',monospace; font-size:12px; color:var(--muted);} .cmdbar .cprog b{color:var(--text);}
+  .cmdbar .cctrl,.cmdbar .cdurs{display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:6px 9px;}
+  .cmdbar label{font-size:10px; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:700;}
+  .cmdbar input[type=time]{padding:5px 6px; font-size:13px; border-radius:7px; width:96px;}
+  .cmdbar .dd{display:flex; flex-direction:column; align-items:center; gap:2px;}
+  .cmdbar .dd i{font-family:'Space Grotesk',monospace; font-size:9px; font-weight:700; color:var(--muted); font-style:normal;}
+  .cmdbar .dd span{display:flex; align-items:center; gap:2px; font-size:9px; color:var(--faint);}
+  .cmdbar .dd input{width:38px; text-align:center; padding:4px 3px; font-family:'Space Grotesk',monospace; font-weight:700; font-size:12px; border-radius:6px;}
+
+  .rd{border:1px solid var(--line); border-radius:var(--r); background:var(--panel); margin-bottom:11px; overflow:hidden;}
+  .rdhead{display:flex; align-items:center; gap:10px; padding:9px 12px; flex-wrap:wrap;}
+  .rdhead .tri{color:var(--accent); font-size:12px; transition:transform .18s; cursor:pointer; width:15px; flex:none;}
+  .rd.open .rdhead .tri{transform:rotate(90deg);}
+  .rdhead .rn{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:18px; letter-spacing:-.01em; cursor:pointer;}
+  .rdhead .stg{font-family:'Space Grotesk',monospace; font-size:10px; font-weight:700; color:var(--accent); background:rgba(255,87,34,.10); padding:2px 8px; border-radius:999px;}
+  .rdhead .rtime{display:flex; align-items:center; gap:6px; font-family:'Space Grotesk',monospace; font-size:12px; color:var(--muted);}
+  .rdhead .rtime input[type=time]{padding:4px 6px; font-size:12px; border-radius:7px; width:92px;}
+  .rdhead .rtime .arr{color:var(--faint);}
+  .rdhead .rpill{font-family:'Space Grotesk',monospace; font-size:10px; font-weight:700; padding:3px 9px; border-radius:999px; margin-left:auto;}
+  .rpill.live{color:var(--warn); background:rgba(180,83,9,.12);} .rpill.up{color:var(--muted); background:var(--panel2); border:1px solid var(--line);} .rpill.ok{color:var(--ok); background:rgba(16,185,129,.14);}
+  .rdhead .rcnt{font-family:'Space Grotesk',monospace; font-size:11px; color:var(--faint);}
+  .rdbody{display:none; padding:0 12px 12px;} .rd.open .rdbody{display:block;}
+  .mcat{font-family:'Space Grotesk',monospace; font-size:10px; font-weight:700; color:#fff; background:var(--accent2); padding:2px 8px; border-radius:999px; max-width:150px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
   .empty{color:var(--muted); font-size:13.5px; padding:14px 4px;}
   .empty.err{color:var(--danger);}
@@ -215,8 +247,20 @@ const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnam
 const ORIGIN = location.origin;
 const LEVEL={beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
 const TIER_LABEL={MAIN:"Main Draw",PLATE:"Plate",PLATINUM:"Platinum",GOLD:"Gold",SILVER:"Silver",BRONZE:"Bronze"};
+// Stage → durasi (menit). Default; bisa diadjust di command bar (disimpan per event di localStorage).
+const STAGE_ORDER=["group","r32","r16","qf","sf","final","bronze"];
+const STAGE_LABEL={group:"Grup",r32:"32 Besar",r16:"16 Besar",qf:"8 Besar",sf:"Semifinal",final:"Final",bronze:"Juara 3"};
+const DUR_DEFAULT={group:25,r32:25,r16:30,qf:35,sf:40,final:60,bronze:40};
+function stageFromLabel(lbl){ lbl=String(lbl||"");
+  if(/3rd|juara 3|bronze/i.test(lbl))return"bronze";
+  if(/semifinal/i.test(lbl))return"sf";
+  if(/\bfinal\b/i.test(lbl))return"final";
+  if(/quarter|8 besar/i.test(lbl))return"qf";
+  if(/round of 16|16 besar/i.test(lbl))return"r16";
+  if(/round of 32|32 besar/i.test(lbl))return"r32";
+  return"group"; }
 
-const state={ session:SESSION, events:[], eventId:"", event:null, payload:null, categories:[], catId:"", matches:[], entrantsById:{}, liveEventId:"", numCourts:1, tab:"courts" };
+const state={ session:SESSION, events:[], eventId:"", event:null, payload:null, categories:[], catId:"", matches:[], allMatches:[], durations:{...DUR_DEFAULT}, openRounds:{}, entrantsById:{}, liveEventId:"", numCourts:1, tab:"courts" };
 
 const $=id=>document.getElementById(id);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -305,6 +349,25 @@ function buildForCat(){
   state.entrantsById = {};
   if(cat){ const ent=cat.entrants||{}; Object.keys(ent).forEach(eid=>{ state.entrantsById[eid]={...ent[eid], tid:cat.tournamentId}; }); }
 }
+// Gabungkan SEMUA kategori jadi satu daftar match (untuk tab Courts, fokus court).
+function buildAll(){
+  state.allMatches=[]; state.entrantsById={};
+  (state.categories||[]).forEach(cat=>{
+    const catLbl=catFullLabel(cat);
+    const ent=cat.entrants||{}; Object.keys(ent).forEach(eid=>{ state.entrantsById[eid]={...ent[eid], tid:cat.tournamentId}; });
+    flattenCat(cat).forEach(m=>{ m.catLabel=catLbl; m.stage = m.kind==="playoff" ? stageFromLabel(m.label) : "group"; state.allMatches.push(m); });
+  });
+}
+// Durasi per-stage: default → config event (roundDurations) → override lokal per event.
+function loadDurations(){
+  const d={...DUR_DEFAULT};
+  const cfg=(state.event&&state.event.roundDurations)||(state.payload&&state.payload.roundDurations)||null;
+  if(cfg) Object.keys(d).forEach(k=>{ if(cfg[k]) d[k]=parseInt(cfg[k])||d[k]; });
+  try{ const ov=JSON.parse(localStorage.getItem("tp_desk_dur_"+state.eventId)||"null"); if(ov) Object.keys(d).forEach(k=>{ if(ov[k]) d[k]=parseInt(ov[k])||d[k]; }); }catch(e){}
+  state.durations=d;
+}
+function saveDurationsLocal(){ try{ localStorage.setItem("tp_desk_dur_"+state.eventId, JSON.stringify(state.durations)); }catch(e){} }
+function addMin(t,min){ const b=tkey(t); if(b>=1e9) return ""; const x=((b+min)%1440+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
 
 async function load(){
   $("tabCourts").innerHTML='<p class="empty">Loading…</p>';
@@ -320,8 +383,9 @@ async function load(){
     state.catId=want;
     const cs=$("catSelect");
     cs.innerHTML=state.categories.length ? state.categories.map(c=>`<option value="${esc(c.tournamentId)}" ${c.tournamentId===want?"selected":""}>${esc(catFullLabel(c))}</option>`).join("") : '<option value="">— no categories yet —</option>';
-    buildForCat();
+    buildForCat(); buildAll(); loadDurations(); state.openRounds={};
     renderSubtitle(); renderLinks(); $("tabbar").style.display=state.categories.length?"":"none";
+    updateCatPickVisibility();
     renderActive();
   }catch(e){ $("tabCourts").innerHTML=`<p class="empty err">Failed to load: ${esc(e.message)}</p>`; }
 }
@@ -340,7 +404,7 @@ function renderSubtitle(){
 function courtNumbers(){
   const set=new Set();
   for(let i=1;i<=state.numCourts;i++) set.add(i);
-  state.matches.forEach(m=>{ if(m.court>0) set.add(m.court); });
+  (state.allMatches.length?state.allMatches:state.matches).forEach(m=>{ if(m.court>0) set.add(m.court); });
   return [...set].sort((a,b)=>a-b);
 }
 
@@ -380,8 +444,12 @@ function switchTab(tab){
   $("tabCourts").style.display=tab==="courts"?"":"none";
   $("tabStandings").style.display=tab==="standings"?"":"none";
   $("tabBracket").style.display=tab==="bracket"?"":"none";
+  updateCatPickVisibility();
   renderActive();
 }
+// Courts tab = semua kategori (fokus court) → sembunyikan dropdown kategori.
+// Standings/Bracket = per kategori → tampilkan dropdown.
+function updateCatPickVisibility(){ const p=$("catSelect"); if(!p) return; const box=p.closest(".pick"); if(box) box.style.display=(state.tab==="courts")?"none":""; }
 function renderActive(){
   if(state.tab==="courts") renderCourts();
   else if(state.tab==="standings") renderStandings();
@@ -390,22 +458,84 @@ function renderActive(){
 
 // ---- courts tab ----
 const byCid={};
+// Command bar: progress + Mulai R1 + durasi per stage (+ Terapkan jadwal).
+function cmdBarHtml(waves){
+  const D=state.durations||DUR_DEFAULT;
+  const done=state.allMatches.filter(m=>m.status==="DONE").length, tot=state.allMatches.length;
+  const durInputs=STAGE_ORDER.map(s=>`<div class="dd"><i>${esc(STAGE_LABEL[s])}</i><span><input id="dur-${s}" value="${D[s]||DUR_DEFAULT[s]}" inputmode="numeric">m</span></div>`).join("");
+  const base=(waves&&waves[0]&&waves[0].time)?fmtTime(waves[0].time):"";
+  return `<div class="cmdbar">
+    <div class="cprog">Selesai <b>${done}</b>/<b>${tot}</b> match</div>
+    <div class="cctrl"><label>Mulai R1</label><input type="time" id="baseTime" value="${esc(base)}"></div>
+    <div class="cdurs"><label>Durasi/stage</label>${durInputs}<button type="button" class="btn btn-primary btn-sm" onclick="applySchedule()">Terapkan jadwal</button></div>
+  </div>`;
+}
+function wavesOf(){
+  const groups={};
+  state.allMatches.forEach(m=>{ const k=m.time||""; (groups[k]=groups[k]||[]).push(m); });
+  let keys=Object.keys(groups).sort((a,b)=>{ if(a===b)return 0; if(a==="")return 1; if(b==="")return -1; return tkey(a)-tkey(b); });
+  let grpNo=0;
+  return keys.map(k=>{
+    const list=groups[k].sort((a,b)=>((a.court||99)-(b.court||99))||String(a.label).localeCompare(String(b.label)));
+    const cnts={}; list.forEach(m=>{cnts[m.stage]=(cnts[m.stage]||0)+1;});
+    const stage=Object.keys(cnts).sort((x,y)=>cnts[y]-cnts[x])[0]||"group";
+    let label; if(stage==="group"){ grpNo++; label="Round "+grpNo; } else { label=STAGE_LABEL[stage]||stage; }
+    return {key:k, list, stage, label, time:k};
+  });
+}
 function renderCourts(){
   const wrap=$("tabCourts");
+  if(!state.categories.length){ wrap.innerHTML='<p class="empty">No categories yet.</p>'; return; }
   const nums=courtNumbers();
-  if(!currentCat()){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
-  if(!state.matches.length){ wrap.innerHTML='<p class="empty">No matches in this category yet.</p>'; return; }
-  const groups={};
-  state.matches.forEach(m=>{ const key=m.time||""; (groups[key]=groups[key]||[]).push(m); });
-  const keys=Object.keys(groups).sort((a,b)=>{ if(a===b) return 0; if(a==="") return 1; if(b==="") return -1; return tkey(a)-tkey(b); });
-  wrap.innerHTML=keys.map(k=>{
-    const list=groups[k].sort((a,b)=>((a.court||99)-(b.court||99))||a.slot-b.slot||String(a.label).localeCompare(String(b.label)));
-    const title=k?fmtTime(k):"No time";
-    const nc=new Set(list.map(m=>m.court||0)).size;
-    return `<div class="roundrow"><div class="roundhead"><span class="rn">${esc(title)}</span><span class="cnt">${list.length} ${list.length===1?"match":"matches"} · ${nc} ${nc===1?"court":"courts"}</span></div>`
-      +`<div class="roundgrid">${list.map(m=>mcard(m,nums)).join("")}</div></div>`;
+  if(!state.allMatches.length){ wrap.innerHTML=cmdBarHtml(null)+'<p class="empty">No matches scheduled yet.</p>'; return; }
+  const waves=wavesOf();
+  const bodies=waves.map((w,i)=>{
+    if(!(w.key in state.openRounds)) state.openRounds[w.key]=(i<2); // default: 2 round pertama terbuka
+    const open=state.openRounds[w.key];
+    const nd=w.list.filter(m=>m.status==="DONE").length, n=w.list.length;
+    const dur=state.durations[w.stage]||30, cid=cssid(w.key||("w"+i));
+    const endT=w.time?addMin(w.time,dur):"";
+    const pill=(n&&nd>=n)?'<span class="rpill ok">✓ selesai</span>':(nd>0?'<span class="rpill live">'+nd+'/'+n+'</span>':'<span class="rpill up">berikutnya</span>');
+    const cards=w.list.map(m=>mcard(m,nums)).join("");
+    return `<div class="rd ${open?'open':''}">
+      <div class="rdhead">
+        <span class="tri" onclick="toggleRound('${esc(w.key)}')">▶</span>
+        <span class="rn" onclick="toggleRound('${esc(w.key)}')">${esc(w.label)}</span>
+        <span class="stg">${esc(STAGE_LABEL[w.stage]||w.stage)} · ${dur}'</span>
+        <span class="rtime"><input type="time" id="rt-${cid}" value="${esc(fmtTime(w.time))}">${w.time?'<span class="arr">→ '+esc(endT)+'</span>':''}<button type="button" class="btn btn-ghost btn-sm" onclick="applyWaveTime('${esc(w.key)}')">Terapkan jam</button></span>
+        ${pill}<span class="rcnt">${n} court</span>
+      </div>
+      <div class="rdbody"><div class="roundgrid">${cards}</div></div></div>`;
   }).join("");
-  keys.forEach(k=>groups[k].forEach(initStatus));
+  wrap.innerHTML=cmdBarHtml(waves)+bodies;
+  state.allMatches.forEach(initStatus);
+}
+function toggleRound(key){ state.openRounds[key]=!state.openRounds[key]; renderCourts(); }
+// Terapkan jam untuk satu round (wave) → simpan ke semua match di wave itu (endpoint meta yang sudah ada).
+async function applyWaveTime(key){
+  const el=$("rt-"+cssid(key)); if(!el){ return; } const t=el.value; if(!t){ toast("Isi jam dulu",true); return; }
+  const list=state.allMatches.filter(m=>(m.time||"")===key);
+  if(!list.length) return;
+  if(!confirm(`Terapkan jam ${t} ke ${list.length} match di round ini?`)) return;
+  toast("Menyimpan jam…");
+  try{ for(const m of list){ await apiWithRetry("tournament/match/meta",{method:"PUT",body:{matchId:m.matchId,tournamentId:m.tid,court:String(m.court||""),time:t}}); } toast("Jam round tersimpan"); reload(); }
+  catch(e){ toast("Gagal menyimpan jam: "+e.message,true); }
+}
+// Terapkan jadwal penuh: durasi per-stage + Mulai R1 → hitung ulang jam tiap round & simpan.
+async function applySchedule(){
+  STAGE_ORDER.forEach(s=>{ const el=$("dur-"+s); if(el){ const v=parseInt(el.value,10); if(v>0) state.durations[s]=v; } });
+  saveDurationsLocal();
+  const baseEl=$("baseTime"); const waves=wavesOf();
+  let t=(baseEl&&baseEl.value)|| (waves[0]&&fmtTime(waves[0].time)) || "";
+  if(!waves.length){ renderCourts(); return; }
+  if(!t){ toast("Isi 'Mulai R1' dulu",true); return; }
+  const plan=[]; let cur=t;
+  waves.forEach(w=>{ plan.push({list:w.list,time:cur}); cur=addMin(cur, state.durations[w.stage]||30); });
+  const tot=state.allMatches.length;
+  if(!confirm(`Terapkan jadwal: menyusun ulang jam ${waves.length} round (${tot} match) mulai ${t}. Lanjut?`)){ renderCourts(); return; }
+  toast("Menyimpan jadwal…");
+  try{ for(const w of plan){ for(const m of w.list){ await apiWithRetry("tournament/match/meta",{method:"PUT",body:{matchId:m.matchId,tournamentId:m.tid,court:String(m.court||""),time:w.time}}); } } toast("Jadwal tersimpan"); reload(); }
+  catch(e){ toast("Gagal menyimpan jadwal: "+e.message,true); }
 }
 function teamRow(cid,side,m){
   const nm = side==="a" ? m.nameA : m.nameB;
@@ -425,7 +555,7 @@ function mcard(m,nums){
   const done=m.status==="DONE";
   const opts=nums.map(n=>`<option value="${n}" ${n===m.court?"selected":""}>${n}</option>`).join("")+(m.court?"":`<option value="0" selected>—</option>`);
   return `<div class="mcard ${done?'st-done':''}" id="card-${cid}">
-    <div class="mtop"><span class="cbig">COURT ${m.court||"—"}</span><span class="gbig">${esc(m.label)}</span><span class="badge" id="badge-${cid}"></span></div>
+    <div class="mtop"><span class="cbig">COURT ${m.court||"—"}</span><span class="gbig">${esc(m.label)}</span>${m.catLabel?`<span class="mcat">${esc(m.catLabel)}</span>`:""}<span class="badge" id="badge-${cid}"></span></div>
     ${teamRow(cid,"a",m)}
     <div class="sep"></div>
     ${teamRow(cid,"b",m)}
@@ -516,26 +646,59 @@ function renderStandings(){
   if(!cat){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
   const groups=cat.groups||[];
   if(!groups.length){ wrap.innerHTML='<p class="empty">No groups / standings yet. Draw the groups in Engine first.</p>'; return; }
-  const adv=parseInt(cat.advancersPerGroup)||2;
+  // Samakan dengan player page (mobile.html): urutan & kolom & highlight sama.
+  const N=parseInt(cat.advancersPerGroup)||0;
+  const split=String(cat.format||"").toUpperCase()==="SPLIT";
+  const rankNote="Ranked by: most wins → head-to-head → point difference → points for → points against";
   wrap.innerHTML='<div class="stgrid">'+groups.map(g=>{
-    const rows=(g.standings||[]).map(s=>`<tr class="${s.rank<=adv?'q':''}">
-      <td class="rk">${s.rank}</td>
-      <td class="tteam">${esc(s.team)}</td>
-      <td>${s.played}</td><td>${s.wins}</td><td>${s.losses}</td>
-      <td>${s.gd>0?"+":""}${s.gd}</td></tr>`).join("");
+    const denom=Math.max(1,((g.standings||[]).length||1)-1);
+    const rows=(g.standings||[]).map(s=>{
+      const cls=split?(s.rank<=N?'champ':'prosp'):(N&&s.rank<=N?'top':'');
+      const pa=(s.ga!=null)?s.ga:(Number(s.gf||0)-Number(s.gd||0));
+      return `<tr class="${cls}">
+        <td class="rk">${s.rank}</td>
+        <td class="tteam">${esc(s.team)}</td>
+        <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
+        <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf!=null?s.gf:"–"}</td><td>${pa}</td></tr>`;
+    }).join("");
+    const advText=split?`Rank 1${N>1?`–${N}`:''} → Championship · Rank ${N+1}+ → Prospect`:(N?`Top ${N} advance`:"");
     return `<div class="stcard"><h3>Group ${esc(g.label)}</h3>
-      <table class="st"><thead><tr><th>#</th><th class="tteam">Team</th><th>P</th><th>W</th><th>L</th><th>GD</th></tr></thead>
-      <tbody>${rows||'<tr><td colspan="6" class="empty">—</td></tr>'}</tbody></table></div>`;
+      <div class="stnote">${advText?esc(advText)+' · ':''}${esc(rankNote)}</div>
+      <table class="st"><thead><tr><th>#</th><th class="tteam">Pair</th><th>P</th><th>W</th><th>L</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+      <tbody>${rows||'<tr><td colspan="8" class="empty">—</td></tr>'}</tbody></table></div>`;
   }).join("")+'</div>';
 }
 
 // ---- bracket tab ----
+function bracketControls(){
+  return `<div class="brctrls"><span class="brlbl">Generate bracket</span>
+    <button type="button" class="btn btn-primary btn-sm" onclick="generateBracket(0)">Per grup</button>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="generateBracketTopN()">Top-N (peringkat)</button>
+    <span class="brhint">menimpa bracket kategori ini · seeding manual/custom di /engine</span></div>`;
+}
+async function generateBracket(overall){
+  const cat=currentCat(); if(!cat){ toast("Pilih kategori dulu",true); return; }
+  overall=parseInt(overall)||0;
+  const msg=overall>=2?`Generate bracket ${overall} besar (peringkat keseluruhan) — menimpa bracket kategori ini. Lanjut?`
+    :"Generate bracket per grup — menimpa bracket kategori ini berdasarkan standing terkini. Lanjut?";
+  if(!confirm(msg)) return;
+  toast("Membuat bracket…");
+  try{
+    const body={ date:(state.event&&state.event.date)||"", startTime:"", numCourts:String(state.numCourts||1),
+      matchMinutes:String(state.durations.qf||state.durations.final||35), breaks:[], crossSeed:true };
+    if(overall>=2) body.topOverall=overall;
+    const r=await api("tournament/"+encodeURIComponent(cat.tournamentId)+"/playoff",{method:"POST",body});
+    const txt=(r.brackets||[]).map(b=>`${tierLabel(b.tier)}: ${b.entrants||"?"} tim`).join(" · ");
+    toast("Bracket dibuat"+(txt?" · "+txt:"")); reload();
+  }catch(e){ toast("Gagal generate bracket: "+e.message,true); }
+}
+function generateBracketTopN(){ const n=parseInt(prompt("Top berapa tim (peringkat keseluruhan) yang lolos? mis. 8",""),10); if(n>=2) generateBracket(n); else if(n) toast("Minimal 2 tim",true); }
 function renderBracket(){
   const wrap=$("tabBracket"); const cat=currentCat();
   if(!cat){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
   const brackets=(cat.playoff&&cat.playoff.length)?cat.playoff:[];
-  if(!brackets.length){ wrap.innerHTML='<p class="empty">Bracket not available yet — it appears once all group matches are done (or generate the bracket in Engine).</p>'; return; }
-  wrap.innerHTML=brackets.map(b=>{
+  if(!brackets.length){ wrap.innerHTML=bracketControls()+'<p class="empty">Belum ada bracket. Klik "Generate bracket" di atas (atau otomatis muncul saat semua match grup selesai).</p>'; return; }
+  wrap.innerHTML=bracketControls()+brackets.map(b=>{
     const pod=b.podium||{};
     const podium=(pod.champion||pod.runnerUp||pod.third)?`<div class="podium">
       ${pod.champion?`<span class="p">🏆 <b>${esc(pod.champion)}</b></span>`:""}
