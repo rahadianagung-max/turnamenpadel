@@ -35,7 +35,9 @@
   .iconbtn[aria-pressed="true"]{color:var(--orange);border-color:var(--orange-dim)}
 
   /* Stage */
-  .stage{flex:1;display:grid;grid-template-columns:92px minmax(0,1fr) 400px;gap:0;min-height:0}
+  /* Papan grup jadi area besar (fleksibel) agar 48 tim muat 1 layar;
+     roda undian di kolom tengah yang lebih ramping. */
+  .stage{flex:1;display:grid;grid-template-columns:92px 360px minmax(0,1fr);gap:0;min-height:0}
   .rail{border-right:1px solid var(--line);padding:26px 0;display:flex;flex-direction:column;align-items:center;gap:6px;background:linear-gradient(180deg,rgba(24,44,61,.5),transparent)}
   .rail .raillabel{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate);writing-mode:vertical-rl;margin-bottom:14px;font-weight:600}
   .tierchip{width:48px;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:var(--display);font-weight:700;font-size:22px;color:var(--slate);line-height:1;position:relative;transition:.25s}
@@ -46,10 +48,10 @@
   .railconn{width:1px;height:12px;background:var(--line)}
 
   /* Wheel column */
-  .wheelcol{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 24px 26px;gap:16px;position:relative;min-width:0}
+  .wheelcol{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px 16px 18px;gap:12px;position:relative;min-width:0}
   .nowdrawing{text-align:center}
   .nowdrawing .eyebrow{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--slate);font-weight:600}
-  .nowdrawing .headline{font-family:var(--display);font-weight:800;font-size:clamp(30px,4.4vw,52px);letter-spacing:.01em;line-height:1;margin-top:4px}
+  .nowdrawing .headline{font-family:var(--display);font-weight:800;font-size:clamp(22px,2.4vw,36px);letter-spacing:.01em;line-height:1.02;margin-top:4px}
   .nowdrawing .headline .to{color:var(--slate);margin:0 8px}
   .nowdrawing .headline .grp{color:var(--orange)}
   .sourceline{margin-top:9px;font-size:11.5px;color:var(--slate);display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
@@ -59,27 +61,27 @@
   .sourceline a:hover{border-bottom-style:solid}
   .framing{margin-top:7px;font-size:11px;letter-spacing:.02em;color:var(--slate);border-top:1px solid var(--line);padding-top:7px;max-width:430px}
 
-  .wheelwrap{position:relative;width:min(46vh,420px);aspect-ratio:1}
+  .wheelwrap{position:relative;width:min(38vh,320px);aspect-ratio:1}
   .wheelwrap svg{width:100%;height:100%;display:block}
   #wheelfade{transition:opacity .26s ease}
   .pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);transform-origin:50% 0%;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:26px solid var(--orange);filter:drop-shadow(0 3px 6px rgba(0,0,0,.6));z-index:3}
   .hub{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:27%;height:27%;border-radius:50%;background:var(--panel);border:2px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;z-index:2;box-shadow:0 8px 30px rgba(0,0,0,.55)}
   .hub .sponsorlabel{font-size:8px;letter-spacing:.18em;color:var(--slate);text-transform:uppercase}
-  .hub .sponsorname{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.02em;color:var(--bone);line-height:1.05;margin-top:2px}
+  .hub .sponsorname{font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.01em;color:var(--orange);line-height:1.05;margin-top:2px;padding:0 4px;text-align:center}
   #confetti{position:absolute;inset:0;pointer-events:none;z-index:4}
 
   .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}
-  .btn-spin{font-family:var(--display);font-weight:800;font-size:24px;letter-spacing:.06em;background:var(--orange);color:#fff;border:none;border-radius:12px;padding:12px 44px;cursor:pointer;transition:.15s}
+  .btn-spin{font-family:var(--display);font-weight:800;font-size:20px;letter-spacing:.06em;background:var(--orange);color:#fff;border:none;border-radius:12px;padding:11px 34px;cursor:pointer;transition:.15s}
   .btn-spin:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgba(255,106,0,.3)}
   .btn-spin:disabled{opacity:.32;cursor:not-allowed}
   .btn-spin:focus-visible{outline:3px solid var(--bone);outline-offset:3px}
-  .btn-run{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.06em;background:transparent;color:var(--orange);border:2px solid var(--orange-dim);border-radius:12px;padding:11px 26px;cursor:pointer;transition:.15s}
+  .btn-run{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.05em;background:transparent;color:var(--orange);border:2px solid var(--orange-dim);border-radius:12px;padding:10px 20px;cursor:pointer;transition:.15s}
   .btn-run:hover:not(:disabled){border-color:var(--orange);background:rgba(255,106,0,.09)}
   .btn-run:disabled{opacity:.32;cursor:not-allowed}
   .btn-run:focus-visible{outline:3px solid var(--bone);outline-offset:3px}
   .btn-run.running{background:var(--orange);color:#fff;border-color:var(--orange)}
   .hint{font-family:var(--mono);font-size:10px;color:var(--slate)}
-  .runbar{width:min(46vh,420px);height:3px;border-radius:99px;background:var(--panel-2);overflow:hidden}
+  .runbar{width:min(38vh,320px);height:3px;border-radius:99px;background:var(--panel-2);overflow:hidden}
   .runbar i{display:block;height:100%;background:var(--orange);width:0;transition:width .3s ease}
 
   /* commit */
@@ -93,26 +95,28 @@
 
   /* Board */
   .board{border-left:1px solid var(--line);background:rgba(18,33,47,.45);display:flex;flex-direction:column;min-height:0}
-  .boardhead{padding:16px 20px 10px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between}
-  .boardhead h2{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.06em;text-transform:uppercase}
+  .boardhead{flex:none;padding:11px 16px 9px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;justify-content:space-between}
+  .boardhead h2{font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:.06em;text-transform:uppercase}
   .boardhead .count{font-family:var(--mono);font-size:11px;color:var(--slate)}
-  .groups{flex:1;overflow-y:auto;padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:12px;align-content:start}
-  .group{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;transition:.25s}
+  /* Grid mengisi tinggi papan (tanpa scroll). Jumlah kolom di-set JS =
+     ceil(jumlah grup / 2) → 8 grup = 4 kolom, 4 grup = 2 kolom, ~2 baris. */
+  .groups{flex:1;min-height:0;overflow:hidden;padding:12px;display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:1fr;gap:8px}
+  .group{border:1px solid var(--line);border-radius:11px;background:var(--panel);overflow:hidden;transition:.25s;display:flex;flex-direction:column;min-height:0}
   .group.target{border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,106,0,.13)}
-  .group h3{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.1em;padding:7px 11px;background:var(--panel-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .group h3{flex:none;font-family:var(--display);font-weight:700;font-size:12px;letter-spacing:.08em;padding:5px 9px;background:var(--panel-2);border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
   .group.target h3{background:var(--orange);color:#fff}
   .group h3 span{font-family:var(--mono);font-size:9px;font-weight:400;opacity:.65;letter-spacing:0}
-  .slots{padding:7px;display:flex;flex-direction:column;gap:5px}
-  .slot{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:rgba(36,64,90,.24);min-height:34px;border:1px dashed rgba(36,64,90,.9)}
+  .slots{flex:1;min-height:0;padding:4px;display:flex;flex-direction:column;gap:3px}
+  .slot{flex:1;min-height:0;display:flex;align-items:center;gap:6px;padding:2px 7px;border-radius:6px;background:rgba(36,64,90,.24);border:1px dashed rgba(36,64,90,.9)}
   .slot.filled{background:var(--panel-2);border:1px solid var(--line);border-left:3px solid var(--turf)}
   .slot.landing{animation:land .5s cubic-bezier(.2,1.4,.4,1)}
   @keyframes land{0%{transform:translateX(26px) scale(.94);opacity:0;border-left-color:var(--orange)}60%{border-left-color:var(--orange)}100%{transform:none;opacity:1}}
-  .slot .seedno{font-family:var(--mono);font-size:9px;color:var(--slate);min-width:24px;text-align:center}
+  .slot .seedno{font-family:var(--mono);font-size:8.5px;color:var(--slate);min-width:18px;text-align:center}
   .slot.filled .seedno{color:var(--orange)}
-  .slot .pairname{font-size:12.5px;font-weight:600;letter-spacing:.01em;line-height:1.15}
-  .slot .empty{font-size:10px;color:var(--slate);letter-spacing:.14em;text-transform:uppercase}
+  .slot .pairname{font-size:11.5px;font-weight:700;letter-spacing:.005em;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .slot .empty{font-size:9.5px;color:var(--slate);letter-spacing:.12em;text-transform:uppercase}
 
-  .logwrap{border-top:1px solid var(--line);max-height:150px;display:flex;flex-direction:column}
+  .logwrap{flex:none;border-top:1px solid var(--line);max-height:88px;display:flex;flex-direction:column}
   .logwrap h4{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--slate);padding:10px 20px 6px;font-weight:600}
   #log{overflow-y:auto;padding:0 20px 12px;font-family:var(--mono);font-size:10.5px;color:var(--slate);line-height:1.7}
   #log b{color:var(--bone);font-weight:500}
@@ -175,7 +179,7 @@
   .preperr{color:#FF8B6B;font-size:12.5px;margin-top:10px;min-height:16px}
 
   body.tv .rail,body.tv .setupbar,body.tv .controls,body.tv .runbar,body.tv .commitrow,body.tv .commitmsg,body.tv .hint,body.tv #btnSound,body.tv #btnUndo,body.tv #btnReset{display:none!important}
-  body.tv .stage{grid-template-columns:minmax(0,1fr) 400px}
+  body.tv .stage{grid-template-columns:340px minmax(0,1fr)}
 
   @media (max-width:1000px){
     .stage{grid-template-columns:1fr;grid-template-rows:auto auto auto}
@@ -184,6 +188,9 @@
     .railconn{width:12px;height:1px}
     .board{border-left:none;border-top:1px solid var(--line)}
     .wheelwrap{width:min(76vw,340px)}
+    /* Di layar kecil: 2 kolom & boleh scroll (target 1-layar untuk layar venue). */
+    .groups{grid-template-columns:repeat(2,1fr)!important;grid-auto-rows:auto;overflow-y:auto}
+    .slot{min-height:30px}
   }
   @media (prefers-reduced-motion:reduce){.slot.landing{animation:none}}
 </style>
@@ -265,7 +272,7 @@
         <g id="wheelfade"><g id="wheelspin"></g><g id="wheellabels"></g></g>
         <circle r="106" fill="none" stroke="#CBD5E1" stroke-width="3"></circle>
       </svg>
-      <div class="hub"><div class="sponsorlabel">Presented by</div><div class="sponsorname">SPONSOR</div></div>
+      <div class="hub"><div class="sponsorlabel">by</div><div class="sponsorname">Trekkr Engine</div></div>
       <canvas id="confetti"></canvas>
     </div>
 
@@ -511,6 +518,9 @@
   function renderGroups(landing){
     el.groups.innerHTML="";
     var per=perGroupTotal();
+    // Kolom papan menyesuaikan jumlah grup: ceil(grup/2) → tetap ~2 baris &
+    // muat 1 layar (8 grup=4 kolom, 4 grup=2 kolom). Maks 6 kolom biar terbaca.
+    el.groups.style.gridTemplateColumns="repeat("+Math.min(6,Math.max(1,Math.ceil(S.groups/2)))+",1fr)";
     for(var g=0; g<S.groups; g++){
       var isTarget = !S.done && g===currentGroup();
       var brow=S.board[g]||[];
