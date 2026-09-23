@@ -57,6 +57,18 @@
   .catgrp{margin:10px 0 14px}
   .catgrp-h{font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
     color:var(--slate-600);padding:6px 2px;border-bottom:2px solid var(--slate-200);margin-bottom:8px}
+  /* Appeal help panel */
+  .help{border:var(--bd);border-radius:var(--r-lg);background:var(--inset);padding:12px 14px;margin:12px 0 4px}
+  .help>summary{cursor:pointer;font-weight:800;font-family:var(--display);font-size:14px;list-style:none;display:flex;align-items:center;gap:6px}
+  .help>summary::-webkit-details-marker{display:none}
+  .help>summary .mk{margin-left:auto;color:var(--slate-400);transition:transform .15s;font-size:12px}
+  .help[open]>summary .mk{transform:rotate(180deg)}
+  .help .imp{margin:12px 0 4px;background:#FEF3C7;border:1px solid #B45309;color:#7a4a06;border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.5}
+  .help ol{margin:12px 0 0;padding-left:22px}
+  .help li{margin:8px 0;font-size:13px;line-height:1.55}
+  .help li b{color:var(--dark)}
+  .help ul{margin:6px 0 0;padding-left:18px}
+  .help ul li{margin:4px 0}
   .btn.danger{color:var(--danger);border-color:var(--danger)}
   .stat{display:inline-flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px;margin-right:14px}
   .act{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
@@ -157,9 +169,26 @@
     <div id="viewAppeal" class="hidden">
       <div class="card">
         <div class="row" style="justify-content:space-between">
-          <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Kirim undangan ke peserta untuk meninjau roster & mengajukan banding (dengan bukti), lalu putuskan di sini.</div></div>
+          <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Proses kurasi anti-sandbagging: peserta meninjau roster & mengajukan banding (dengan bukti), lalu panitia memutuskan di sini.</div></div>
           <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Refresh</button></div>
         </div>
+        <details class="help" open>
+          <summary>ℹ️ Cara kerja appeal <span class="mk">▼</span></summary>
+          <div class="imp"><b>⚠️ Penting:</b> Jalankan appeal <b>setelah seluruh jumlah peserta terpenuhi</b> (semua kategori penuh). Jika roster belum lengkap, hasil peninjauan bisa berubah saat peserta baru masuk.</div>
+          <ol>
+            <li><b>Atur batas waktu appeal (opsional)</b> — di kotak "Batas waktu appeal" bawah. Dikosongkan = appeal selalu terbuka; setelah lewat, roster <b>terkunci</b> dan peserta tak bisa appeal lagi.</li>
+            <li><b>Kirim undangan appeal</b> — klik <b>📣 Kirim undangan appeal</b>. Semua peserta menerima email berisi tautan roster kategorinya beserta batas waktu (bila diatur).</li>
+            <li><b>Peserta meninjau roster & mengajukan banding</b> — memilih pasangan yang dianggap tidak sesuai level, mengisi alasan, dan <b>wajib mengunggah bukti (foto)</b>.</li>
+            <li><b>Tinjau tiap appeal</b> di daftar bawah (ELO/tier tiap pemain + foto bukti tampil), lalu putuskan:
+              <ul>
+                <li><b>✔ Loloskan</b> — appeal tidak terbukti; pasangan tetap di kategori.</li>
+                <li><b>✕ Tolak</b> — pasangan dikeluarkan dari kategori (slot terbuka kembali); bila sudah bayar, refund ditandai untuk diproses. Email hasil dikirim otomatis.</li>
+                <li><b>Koreksi level →</b> — pasangan dinilai lebih tinggi: pilih level target, ELO pemain dinaikkan (tercermin di passport Trekkr) & pasangan dikeluarkan dari kategori.</li>
+              </ul>
+            </li>
+            <li><b>Roster final</b> — setelah semua appeal diputuskan dan batas waktu lewat, roster terkunci → lanjut ke <b>🎡 Spin the Wheel</b> (undian grup).</li>
+          </ol>
+        </details>
         <div id="triggerMsg" class="note"></div>
         <div id="appealDeadlineBox" style="margin-top:10px"></div>
         <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
