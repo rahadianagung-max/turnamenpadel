@@ -39,6 +39,16 @@
   .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
   .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
   .empty{color:var(--slate-400);text-align:center;padding:40px 0}
+  /* pair with two square photos */
+  .ppair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pp{display:flex;flex-direction:column;gap:6px;text-align:center;min-width:0}
+  .pp .sq{width:100%;aspect-ratio:1/1;border-radius:var(--r-lg);border:var(--bd);overflow:hidden;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:34px}
+  .pp .sq img{width:100%;height:100%;object-fit:cover}
+  .pp .nm{font-family:var(--display);font-weight:800;font-size:14px;line-height:1.15;word-break:break-word}
+  .pp .meta{font-size:12px;color:var(--slate-500);word-break:break-word}
+  /* appeal rules list */
+  .rules{margin:10px 0 0;padding-left:20px} .rules li{font-size:12.5px;line-height:1.55;margin:5px 0;color:var(--slate-600)}
+  .rules li b{color:var(--dark)}
   .overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:grid;place-items:center;padding:18px;z-index:50}
   .modal{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:20px;max-width:420px;width:100%;max-height:88vh;overflow:auto;box-shadow:var(--sh-lg)}
   [hidden]{display:none!important}
@@ -67,21 +77,44 @@ async function boot(){
   R.cat = R.c && (R.data.categories||[]).some(c=>c.tournamentId===R.c) ? R.c : ((R.data.categories[0]||{}).tournamentId||"");
   render();
 }
-function avatar(p){ return '<div class="avatar">'+(p.photoUrl?'<img src="'+esc(p.photoUrl)+'" alt="" onerror="this.remove()">':esc((p.name||'?').charAt(0).toUpperCase()))+'</div>'; }
-function miniP(p){ return '<div class="phead" style="margin:0">'+avatar(p)+'<div><div class="who">'+esc(p.name)+(p.alias?' <span class="faint" style="font-weight:400">· '+esc(p.alias)+'</span>':'')+'</div><div class="sub">📍 '+esc(p.region||'-')+(p.ig?' · @'+esc(p.ig):'')+'</div></div></div>'; }
+// Foto pemain kotak + nama + IG + region.
+function playerSquare(p){
+  p=p||{};
+  const sq='<div class="sq">'+(p.photoUrl?'<img src="'+esc(p.photoUrl)+'" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent=\''+esc((p.name||'?').charAt(0).toUpperCase())+'\'">':esc((p.name||'?').charAt(0).toUpperCase()))+'</div>';
+  const ig=p.ig?'<div class="meta">@'+esc(String(p.ig).replace(/^@/,''))+'</div>':'';
+  const region='<div class="meta">📍 '+esc(p.region||'-')+'</div>';
+  return '<div class="pp">'+sq+'<div class="nm">'+esc(p.name||'—')+'</div>'+ig+region+'</div>';
+}
+const APPEAL_RULES=[
+  'Ajukan appeal <b>hanya bila kamu menemukan pelanggaran</b> terhadap aturan turnamen yang telah ditetapkan. Bila tidak ada pelanggaran, appeal tidak perlu diajukan.',
+  'Appeal hanya diproses bila disertai <b>bukti yang jelas</b> (screenshot/foto) dan <b>penjelasan yang rinci</b>.',
+  'Panitia akan melakukan <b>cross-check</b> kepada pihak yang di-appeal untuk memberi kesempatan menyampaikan sanggahan.',
+  'Keputusan panitia bersifat <b>final</b> dan tidak dapat diganggu gugat.',
+  'Proses appeal berlangsung <b>tertutup &amp; rahasia</b> — identitas pelapor maupun pihak yang di-appeal dijaga kerahasiaannya.',
+  'Appeal hanya dapat diajukan <b>selama periode appeal berlangsung</b>; setelah periode berakhir, appeal tidak lagi diterima.',
+  'Junjung tinggi <b>sportivitas</b> dalam mengajukan appeal.',
+];
 function render(){
   const d=R.data, cat=(d.categories||[]).find(c=>c.tournamentId===R.cat)||{pairs:[]};
   const open=d.appealOpen;
+  // Pemain hanya melihat kategorinya sendiri (dari link email). Selektor kategori
+  // hanya tampil bila tak ada kategori spesifik di link (mis. pratinjau admin).
+  const locked = !!(R.c && (d.categories||[]).some(c=>c.tournamentId===R.c));
+  const catLabel = cat.label?`${esc(cat.label)} · ${esc(cat.level||"")}`.replace(/ · $/,''):"";
+  const selector = locked ? "" :
+    `<label class="f" style="margin-top:12px"><span>Kategori</span><select onchange="R.cat=this.value;render()">
+      ${(d.categories||[]).map(c=>`<option value="${esc(c.tournamentId)}" ${R.cat===c.tournamentId?'selected':''}>${esc(c.label)} · ${esc(c.level)} (${(c.pairs||[]).length})</option>`).join("")}</select></label>`;
   document.getElementById("host").innerHTML=`
     <div class="hero"><div class="eyebrow">Kurasi peserta · roster</div><h1>${esc(d.name||"")}</h1>
-      <p class="muted" style="margin:8px 0 0;font-size:13px">Periksa peserta lain di kelasmu. Jika ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p></div>
-    <div class="card ${open?'':''}" style="border-color:${open?'var(--amber-bd)':'var(--danger)'}">
+      ${catLabel?`<div class="chip" style="margin-top:8px">Kategori kamu: <b>${catLabel}</b></div>`:""}
+      <div style="margin:12px 0 0"><b style="font-family:var(--display);font-size:14px">Aturan Appeal</b>
+        <ol class="rules">${APPEAL_RULES.map(r=>`<li>${r}</li>`).join("")}</ol></div></div>
+    <div class="card" style="border-color:${open?'var(--amber-bd)':'var(--danger)'}">
       ${open?`<b class="mono" style="color:var(--warn)">⏳ Appeal dibuka${d.appealDeadline?' s/d '+esc(d.appealDeadline):''}</b>`
              :`<b class="mono" style="color:var(--danger)">🔒 Batas appeal berakhir — roster final</b>`}</div>
-    <label class="f" style="margin-top:12px"><span>Kategori</span><select onchange="R.cat=this.value;render()">
-      ${(d.categories||[]).map(c=>`<option value="${esc(c.tournamentId)}" ${R.cat===c.tournamentId?'selected':''}>${esc(c.label)} · ${esc(c.level)} (${(c.pairs||[]).length})</option>`).join("")}</select></label>
-    <div>${(cat.pairs||[]).length? cat.pairs.map(pr=>`<div class="card">
-        <div style="display:flex;flex-direction:column;gap:10px">${miniP(pr.p1)}${miniP(pr.p2)}</div>
+    ${selector}
+    <div style="margin-top:12px">${(cat.pairs||[]).length? cat.pairs.map(pr=>`<div class="card">
+        <div class="ppair">${playerSquare(pr.p1)}${playerSquare(pr.p2)}</div>
         <div class="nav"><button class="btn ghost sm" style="margin-left:auto" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal pasangan ini</button></div>
       </div>`).join("") : '<p class="empty">Belum ada peserta di kategori ini.</p>'}</div>`;
 }
