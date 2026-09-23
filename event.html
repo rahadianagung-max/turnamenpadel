@@ -186,7 +186,7 @@
     if(cfg.theme==="nightmode") document.body.setAttribute("data-theme","nightmode");
     else document.body.removeAttribute("data-theme");
     var name=pub.name||ev.name||"Tournament";
-    var venue=(ev.venue||cfg.address||"");
+    var venue=(cfg.address||ev.venue||""); // utamakan alamat dari reg builder (/engine), fallback venue event
     var date=ev.date||"";
     var region=cfg.region||"";
     var status=pub.status||"none";
