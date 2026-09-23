@@ -126,9 +126,9 @@
         <div><div class="eyebrow">Event</div><h2 id="evName" style="font-size:20px">—</h2><div class="note" id="evMeta"></div></div>
         <a class="note" href="#" onclick="event.preventDefault();backToPick()">↩ ganti event</a>
       </div>
-      <!-- Flow: kelola peserta dulu → saat penuh, buka appeal → selesai, spin the
-           wheel → selesai, scorer desk. Dua langkah pertama tampil di halaman ini
-           (toggle view), dua terakhir membuka halaman /draw & /scorerdesk. -->
+      <!-- Flow 4 langkah dengan header konsisten: tiap langkah tampil sebagai view
+           di halaman ini. Spin the Wheel & Scorer Desk menampilkan panduan panitia
+           + tombol untuk membuka halaman /draw & /scorerdesk. -->
       <div class="stepnav" id="stepNav">
         <button type="button" class="step active" id="stepPeserta" onclick="showStep('peserta')">
           <span class="step-n">1</span><span class="step-ic">👥</span>
@@ -138,14 +138,14 @@
           <span class="step-n">2</span><span class="step-ic">⚖️</span>
           <b>Appeal Process</b><span class="step-sub">Tinjau &amp; putuskan banding</span>
         </button>
-        <a class="step" id="btnWheel" href="#">
+        <button type="button" class="step" id="stepSpin" onclick="showStep('spin')">
           <span class="step-n">3</span><span class="step-ic">🎡</span>
           <b>Spin the Wheel</b><span class="step-sub">Undian grup / draw</span>
-        </a>
-        <a class="step" id="btnScorer" href="#">
+        </button>
+        <button type="button" class="step" id="stepScorer" onclick="showStep('scorer')">
           <span class="step-n">4</span><span class="step-ic">🎯</span>
           <b>Scorer Desk</b><span class="step-sub">Input skor per lapangan</span>
-        </a>
+        </button>
       </div>
     </div>
 
@@ -192,6 +192,50 @@
         <div id="triggerMsg" class="note"></div>
         <div id="appealDeadlineBox" style="margin-top:10px"></div>
         <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
+      </div>
+    </div>
+
+    <!-- STEP 3 · Spin the Wheel -->
+    <div id="viewSpin" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div><h3 style="font-size:16px">Spin the Wheel — Undian Grup</h3><div class="note">Pembagian grup dengan roda putar berbasis pot peringkat Trekkr — adil, transparan, dan bisa ditonton di venue.</div></div>
+          <a class="btn primary sm" id="goDraw" href="/draw" target="_blank" rel="noopener">🎡 Buka halaman undian →</a>
+        </div>
+        <details class="help" open>
+          <summary>ℹ️ Cara kerja undian grup <span class="mk">▼</span></summary>
+          <div class="imp"><b>⚠️ Penting:</b> Lakukan undian <b>setelah roster final</b> — pendaftaran sudah penuh & proses <b>appeal selesai</b>. Undian pada roster yang belum final harus diulang.</div>
+          <ol>
+            <li><b>Buka halaman undian</b> — klik <b>🎡 Buka halaman undian</b>, lalu pilih <b>event & kategori</b>.</li>
+            <li><b>Tentukan jumlah grup &amp; mode</b> — pilih banyaknya grup dan mode <b>pot (peringkat)</b> atau acak.</li>
+            <li><b>Kunci daftar &amp; susun pot</b> — daftar peserta dikunci dan pot disusun dari peringkat Trekkr. <b>Kunci acak (hash)</b> dipublikasikan sebelum undian sehingga hasil bisa diverifikasi.</li>
+            <li><b>Putar roda</b> — klik <b>PUTAR</b> (atau Putar Semua) untuk mengundi tiap pot ke grup sampai semua grup penuh. Bisa ditayangkan di layar venue (spasi = satu putaran).</li>
+            <li><b>Undian terkunci</b> — setelah semua grup penuh, papan grup tampil dan kunci acak dibuka untuk verifikasi.</li>
+            <li><b>Susun jadwal / order of play</b>, lalu lanjut ke <b>🎯 Scorer Desk</b>.</li>
+          </ol>
+        </details>
+      </div>
+    </div>
+
+    <!-- STEP 4 · Scorer Desk -->
+    <div id="viewScorer" class="hidden">
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div><h3 style="font-size:16px">Scorer Desk — Input Skor</h3><div class="note">Pusat input skor per lapangan, papan klasemen, serta link scorer/player/TV untuk pertandingan.</div></div>
+          <a class="btn primary sm" id="goScorer" href="/scorerdesk" target="_blank" rel="noopener">🎯 Buka Scorer Desk →</a>
+        </div>
+        <details class="help" open>
+          <summary>ℹ️ Cara kerja scorer desk <span class="mk">▼</span></summary>
+          <div class="imp"><b>⚠️ Penting:</b> Pastikan <b>undian grup &amp; jadwal sudah selesai</b> sebelum mulai input skor.</div>
+          <ol>
+            <li><b>Buka Scorer Desk</b> — klik <b>🎯 Buka Scorer Desk</b>; event terpilih otomatis, lalu pilih <b>kategori</b>.</li>
+            <li><b>Lihat jadwal per lapangan</b> — di tab <b>Courts &amp; Scores</b>, jadwal grup &amp; playoff tampil per court.</li>
+            <li><b>Bagikan link</b> — kirim <b>link Scorer per lapangan</b> ke marshal tiap court (tanpa login); bagikan <b>link Player</b> (papan peserta) &amp; <b>LED/TV</b> untuk penonton.</li>
+            <li><b>Input skor</b> — marshal memasukkan skor tiap match; tersimpan <b>live</b>.</li>
+            <li><b>Pantau Standings</b> — tab <b>Standings</b> (klasemen) terupdate otomatis; babak playoff mengikuti hasil grup.</li>
+            <li><b>Selesai</b> — setelah semua match selesai, hasil final; rekap otomatis tercatat ke <b>Trekkr (ELO)</b>.</li>
+          </ol>
+        </details>
       </div>
     </div>
   </div>
@@ -259,11 +303,9 @@ function openEvent(eventId){
   document.getElementById("dashCard").classList.remove("hidden");
   document.getElementById("evName").textContent=EVENT.name||eventId;
   document.getElementById("evMeta").textContent=[EVENT.venue,EVENT.date].filter(Boolean).join(" · ");
-  // action links (both pages have their own pickers; preset scorer's event)
-  document.getElementById("btnWheel").setAttribute("href","/draw");
-  const scorer=document.getElementById("btnScorer");
-  scorer.setAttribute("href","/scorerdesk");
-  scorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
+  // Launch buttons di dalam view Spin/Scorer (preset event scorer).
+  const goScorer=document.getElementById("goScorer");
+  if(goScorer) goScorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
   try{ history.replaceState(null,"","/admin/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
   CATMAP=null; // reset peta kategori saat ganti event
   showStep("peserta"); // mulai dari langkah 1 setiap buka event
@@ -280,16 +322,17 @@ async function ensureCatMap(){
   }catch(e){}
   CATMAP=map; return CATMAP;
 }
-// Flow step-nav: 'peserta' (Manage Peserta) & 'appeal' (Appeal Process) tampil di
-// halaman ini; Spin the Wheel / Scorer Desk adalah tautan ke halaman lain.
+// Flow step-nav 4 langkah dengan header konsisten: tiap langkah tampil sebagai
+// view di halaman ini (Spin/Scorer berisi panduan + tombol buka halamannya).
 function showStep(which){
-  const p = which==="appeal" ? false : true;
-  const vp=document.getElementById("viewPeserta"), va=document.getElementById("viewAppeal");
-  const sp=document.getElementById("stepPeserta"), sa=document.getElementById("stepAppeal");
-  if(vp) vp.classList.toggle("hidden", !p);
-  if(va) va.classList.toggle("hidden", p);
-  if(sp) sp.classList.toggle("active", p);
-  if(sa) sa.classList.toggle("active", !p);
+  const steps=["peserta","appeal","spin","scorer"];
+  if(!steps.includes(which)) which="peserta";
+  const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+  steps.forEach(s=>{
+    const v=document.getElementById("view"+cap(s)), b=document.getElementById("step"+cap(s));
+    if(v) v.classList.toggle("hidden", s!==which);
+    if(b) b.classList.toggle("active", s===which);
+  });
   try{ window.scrollTo({top:0, behavior:"smooth"}); }catch(e){}
 }
 async function loadCategories(){
