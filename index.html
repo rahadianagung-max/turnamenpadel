@@ -481,7 +481,7 @@
     var loc=t.location?'<span class="loc"><span class="material-symbols-outlined">location_on</span>'+esc(t.location)+'</span>':'<span></span>';
     var date=t.monthYear?'<span class="chip chip--amber mono"><span class="material-symbols-outlined" style="font-size:14px">calendar_month</span>'+esc(t.monthYear)+'</span>':'<span class="chip chip--mint mono"><span class="dot" style="background:var(--mint)"></span>TRACKED</span>';
     var cta=t.url
-      ? '<a class="btn btn--white btn--block btn--sm" href="'+esc(t.url)+'" target="_blank" rel="noopener"><span class="material-symbols-outlined" style="font-size:16px;color:var(--mint)">sensors</span>View Standings &amp; Draw</a>'
+      ? '<a class="btn btn--primary btn--block btn--sm" href="'+esc(t.url)+'" target="_blank" rel="noopener"><span class="material-symbols-outlined" style="font-size:16px">how_to_reg</span>Register now</a>'
       : '<span class="btn btn--ghost btn--block btn--sm" style="cursor:default;opacity:.7">Details coming soon</span>';
     return '<div class="card tcard card--pressable">'+
       '<div class="stack" style="gap:16px">'+
