@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Event (Preview) · TurnamenPadel</title>
-<meta name="description" content="Halaman event turnamen padel — pratinjau desain baru."/>
+<meta name="description" content="Padel tournament event page — new design preview."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -77,8 +77,8 @@
   .h2 .sub{font-family:'Space Grotesk';font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
   .h3{font-family:'Plus Jakarta Sans';font-weight:800;font-size:15px;margin:0 0 10px}
   /* tabs */
-  .tablist{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
-  .tabbtn{font-family:'Plus Jakarta Sans';font-weight:800;font-size:13px;padding:9px 8px;border-radius:.75rem;border:2px solid transparent;background:transparent;color:var(--ink);cursor:pointer;transition:transform .12s}
+  .tablist{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+  .tabbtn{flex:1 1 auto;min-width:88px;font-family:'Plus Jakarta Sans';font-weight:800;font-size:13px;padding:9px 8px;border-radius:.75rem;border:2px solid var(--br);background:var(--card);color:var(--ink);cursor:pointer;transition:transform .12s}
   .tabbtn.on{background:var(--accent);color:#fff;border-color:var(--line);box-shadow:2px 2px 0 0 var(--line)}
   .checklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
   .checklist li{display:flex;gap:10px;align-items:flex-start;font-size:14.5px;line-height:1.5;color:var(--ink)}
@@ -131,9 +131,9 @@
 </div></header>
 
 <div class="wrap"><div id="host" class="stack">
-  <div class="state"><span class="ms">progress_activity</span>Memuat…</div>
+  <div class="state"><span class="ms">progress_activity</span>Loading…</div>
 </div></div>
-<div class="pvbadge">PREVIEW · desain baru</div>
+<div class="pvbadge">PREVIEW · new design</div>
 
 <script>
 (function(){
@@ -150,12 +150,12 @@
   function api(p){return fetch(API+"/"+p).then(function(r){return r.json().then(function(d){if(!r.ok){var e=new Error((d&&d.error)||("HTTP "+r.status));e.status=r.status;throw e;}return d;});});}
   var host=document.getElementById("host");
   function fail(m){host.innerHTML='<div class="state"><span class="ms">event_busy</span>'+esc(m)+'</div>';}
-  function doShare(nm,url,btn){var text=nm+" — pendaftaran dibuka, daftar tim kamu sekarang!";
+  function doShare(nm,url,btn){var text=nm+" — registration is open, sign up your team now!";
     if(navigator.share){navigator.share({title:nm,text:text,url:url}).catch(function(){});return;}
     try{window.open("https://wa.me/?text="+encodeURIComponent(text+" "+url),"_blank","noopener");}catch(e){}
     if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(url).then(function(){if(btn){var o=btn.innerHTML;btn.innerHTML='<span class="ms">check</span>Link copied';setTimeout(function(){btn.innerHTML=o;},1500);}},function(){});}}
 
-  var RAW=ref(); if(!RAW){ fail("Event tidak ditemukan."); return; }
+  var RAW=ref(); if(!RAW){ fail("Event not found."); return; }
   var ST={cat:0, tab:'about'};
 
   api("tournament/events").then(function(d){
@@ -163,17 +163,22 @@
     if(TRK.test(RAW)) ev=events.filter(function(e){return e.eventId===RAW;})[0];
     if(!ev){var s=slugify(RAW);var hits=events.filter(function(e){return ((e.slug&&String(e.slug).toLowerCase())||slugify(e.name))===s;});ev=hits[hits.length-1];}
     var eventId=(ev&&ev.eventId)||(TRK.test(RAW)?RAW:"");
-    if(!eventId){ fail("Event \""+esc(RAW)+"\" tidak ditemukan."); return; }
+    if(!eventId){ fail("Event \""+esc(RAW)+"\" not found."); return; }
     return api("reg/public/"+encodeURIComponent(eventId)).then(
       function(pub){ render(ev,pub,eventId); },
       function(err){ render(ev,{status:(err.status===404?"none":"error"),config:{},categories:[]},eventId); }
     );
-  }).catch(function(){ fail("Gagal memuat data event."); });
+  }).catch(function(){ fail("Failed to load event data."); });
 
   function lines(t){ return String(t||"").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean); }
   function checklist(t,empty){ var L=lines(t); if(!L.length) return '<span class="empty">'+esc(empty)+'</span>';
     return '<ul class="checklist">'+L.map(function(x){return '<li><span class="ms">check</span><span>'+esc(x)+'</span></li>';}).join("")+'</ul>'; }
   function freetext(t,empty){ return t?'<div class="freetext">'+esc(t)+'</div>':'<span class="empty">'+esc(empty)+'</span>'; }
+  function datesBody(tl){ tl=tl||{};
+    var rows=[['Registration opens',tl.openStart],['Registration closes',tl.openEnd],['Curation starts',tl.curationStart],['Appeal deadline',tl.appealDeadline],['Technical meeting',tl.tmDate],['Order of play',tl.oopDate]].filter(function(r){return r[1];});
+    if(!rows.length) return '<span class="empty">No important dates yet.</span>';
+    return '<ol class="tl">'+rows.map(function(r){return '<li><span class="dot"></span><span class="lab">'+esc(r[0])+'</span><span class="dt">'+esc(r[1])+'</span></li>';}).join("")+'</ol>';
+  }
   function initials(nm){var p=String(nm||"").trim().split(/\s+/);return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")||"?").toUpperCase();}
 
   var CTX=null;
@@ -231,7 +236,7 @@
     var avatars=''; var showN=Math.min(4,Math.max(0,C.joined)); for(var a=0;a<showN;a++) avatars+='<span>'+String.fromCharCode(65+a)+'</span>';
     if(!showN) avatars='<span>+</span>';
     var joinedRow='<a class="joined" href="/peserta/'+encodeURIComponent(C.regRef)+'"><span class="av">'+avatars+'</span>'+
-      '<span class="jt"><b>'+C.joined+'</b> tim terdaftar · lihat peserta</span><span class="ms">chevron_right</span></a>';
+      '<span class="jt"><b>'+C.joined+'</b> teams registered · view players</span><span class="ms">chevron_right</span></a>';
 
     var hero='<section class="hero">'+flyer+
       '<div class="heroR">'+
@@ -240,17 +245,20 @@
         '<div class="statgrid">'+
           stat('calendar_month','DATE',C.date)+
           stat('location_on','VENUE',C.venue)+
-          stat('payments','FEE / TEAM',C.minFee?("Dari "+rupiah(C.minFee)):"—")+
+          stat('payments','FEE / TEAM',C.minFee?("From "+rupiah(C.minFee)):"—")+
           stat('event_upcoming','CLOSES',C.tl.openEnd||"—")+
         '</div>'+ joinedRow +
       '</div></section>';
 
-    // Tabs
-    var TABS=[['about','About'],['elig','Eligibility'],['rules','Game Rules']];
-    var tabTitle={about:'About the event',elig:'Who can play',rules:'Match rules'}[ST.tab];
-    var tabBody = ST.tab==='about' ? freetext(C.cfg.description,'Belum ada deskripsi untuk event ini.')
-                : ST.tab==='elig' ? checklist(C.cfg.eligibility,'Belum ada info kelayakan peserta.')
-                : checklist(C.cfg.rules,'Belum ada aturan permainan.');
+    // Tabs (About / Eligibility / Game Rules / Contact / Important Date)
+    var TABS=[['about','About'],['elig','Eligibility'],['rules','Game Rules'],['contact','Contact'],['dates','Important Date']];
+    var tabTitle={about:'About the event',elig:'Who can play',rules:'Match rules',contact:'Contact the committee',dates:'Important dates'}[ST.tab];
+    var tabBody;
+    if(ST.tab==='about') tabBody=freetext(C.cfg.description,'No description yet for this event.');
+    else if(ST.tab==='elig') tabBody=checklist(C.cfg.eligibility,'No eligibility info yet.');
+    else if(ST.tab==='rules') tabBody=checklist(C.cfg.rules,'No match rules yet.');
+    else if(ST.tab==='contact') tabBody=checklist(C.cfg.contact,'No contact info yet.');
+    else tabBody=datesBody(C.tl);
     var tabs='<section class="card">'+
       '<div class="tablist">'+TABS.map(function(t){return '<button type="button" class="tabbtn'+(ST.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div>'+
       '<h3 class="h3">'+tabTitle+'</h3>'+tabBody+'</section>';
@@ -259,22 +267,18 @@
     var catCards=C.cats.map(function(c,i){
       var sel=i===ST.cat && !c.full;
       var barcol = c.full?'var(--muted2)':(c.left<=3?'var(--accent)':'var(--okbd)');
-      var slots = c.full?('PENUH · '+c.quota+'/'+c.quota+' TIM'):(c.quota?(c.left+' dari '+c.quota+' slot tersisa'):'tanpa kuota');
+      var slots = c.full?('FULL · '+c.quota+'/'+c.quota+' TEAMS'):(c.quota?(c.left+' of '+c.quota+' slots left'):'no quota');
       var icon = c.full?'block':(sel?'check_circle':'radio_button_unchecked');
       return '<button type="button" class="catcard'+(sel?' sel':'')+'" data-cat="'+i+'"'+(c.full?' disabled':'')+'>'+
-        '<div class="top"><span class="nm"><span class="ms">'+icon+'</span>'+esc(c.label||("Kategori "+(i+1)))+'</span>'+(c.fee?'<span class="fee">'+esc(rupiah(c.fee))+'</span>':'')+'</div>'+
+        '<div class="top"><span class="nm"><span class="ms">'+icon+'</span>'+esc(c.label||("Category "+(i+1)))+'</span>'+(c.fee?'<span class="fee">'+esc(rupiah(c.fee))+'</span>':'')+'</div>'+
         (c.level?'<div class="lv">'+esc(c.level)+'</div>':'')+
         (c.quota?'<div class="bar"><i style="width:'+c.pct+'%;background:'+barcol+'"></i></div>':'')+
         '<div class="slots">'+slots+'</div>'+
       '</button>';
     }).join("");
-    var catSection = C.cats.length ? '<section class="card"><div class="h2">Pilih kategori <span class="sub">HARGA / TIM (2 PEMAIN)</span></div><div class="catlist">'+catCards+'</div></section>' : '';
+    var catSection = C.cats.length ? '<section class="card"><div class="h2">Choose a category <span class="sub">PRICE / TEAM (2 PLAYERS)</span></div><div class="catlist">'+catCards+'</div></section>' : '';
 
-    // Timeline
-    var rows=[['Registration opens',C.tl.openStart],['Registration closes',C.tl.openEnd],['Curation starts',C.tl.curationStart],['Appeal deadline',C.tl.appealDeadline],['Technical Meeting',C.tl.tmDate],['Order of play',C.tl.oopDate]].filter(function(r){return r[1];});
-    var tlSection = rows.length ? '<section class="card"><div class="h2">Jadwal penting</div><ol class="tl">'+rows.map(function(r){return '<li><span class="dot"></span><span class="lab">'+esc(r[0])+'</span><span class="dt">'+esc(r[1])+'</span></li>';}).join("")+'</ol></section>' : '';
-
-    host.innerHTML = hero + tabs + catSection + tlSection;
+    host.innerHTML = hero + tabs + catSection;
     paintBar();
 
     // wire tabs
@@ -287,11 +291,11 @@
     var C=CTX; if(!C) return;
     var bar=document.getElementById("ctabar"); if(!bar){ bar=document.createElement("div"); bar.className="ctabar"; bar.id="ctabar"; document.body.appendChild(bar); }
     var c=C.cats[ST.cat]||{};
-    var barHint = C.status==="open"?"KATEGORI DIPILIH": C.status==="closed"?"PENDAFTARAN DITUTUP":"PENDAFTARAN BELUM DIBUKA";
+    var barHint = C.status==="open"?"SELECTED CATEGORY": C.status==="closed"?"REGISTRATION CLOSED":"REGISTRATION NOT OPEN YET";
     var selLabel = C.cats.length?(esc(c.label||"—")+(c.fee?' · <span class="fee">'+esc(rupiah(c.fee))+'</span>':'')):'—';
     var cta = C.open
-      ? '<a class="btn accent big go" href="/daftar/'+encodeURIComponent(C.regRef)+(c.tid?('?cat='+encodeURIComponent(c.tid)):'')+'"><span class="ms">how_to_reg</span>Daftar</a>'
-      : '<button class="btn big go" disabled><span class="ms">lock</span>'+(C.status==="closed"?"Ditutup":"Segera")+'</button>';
+      ? '<a class="btn accent big go" href="/daftar/'+encodeURIComponent(C.regRef)+(c.tid?('?cat='+encodeURIComponent(c.tid)):'')+'"><span class="ms">how_to_reg</span>Register</a>'
+      : '<button class="btn big go" disabled><span class="ms">lock</span>'+(C.status==="closed"?"Closed":"Soon")+'</button>';
     bar.innerHTML='<div class="in"><div class="sel"><span class="k">'+barHint+'</span><span class="v">'+selLabel+'</span></div>'+cta+'</div>';
   }
 })();
