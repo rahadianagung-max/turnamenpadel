@@ -6636,7 +6636,7 @@ async function regEventAppeals(eventId) {
   const list = (aRes.data.values || []).filter((r) => r[1] === eventId).map((r) => {
     const reg = regById[r[3]]; const players = [];
     if (reg) for (const p of [reg.data.player1, reg.data.player2]) {
-      if (p && p.name) { const e = eMap[regEloKey(p.name)]; const elo = e && e.elo != null ? e.elo : null; players.push({ name: p.name, elo, tier: elo != null ? getTierName(elo) : "" }); }
+      if (p && p.name) { const e = eMap[regEloKey(p.name)]; const elo = e && e.elo != null ? e.elo : null; players.push({ name: p.name, phone: p.phone || "", elo, tier: elo != null ? getTierName(elo) : "" }); }
     }
     return { appealId: r[0], category: r[2], againstRegId: r[3], againstLabel: r[4], appellantName: r[5],
       appellantEmail: r[6], appellantPhone: r[7], reason: r[8], proofUrl: r[9], createdAt: r[10],

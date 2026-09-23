@@ -129,7 +129,7 @@ function render(){
   const shown=pairs.slice(start,end);
   const card=(pr)=>`<div class="card paircard">
         <div class="ppair">${playerSquare(pr.p1)}${playerSquare(pr.p2)}</div>
-        <button class="btn sm appeal" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal</button>
+        <button class="btn sm appeal" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}')">⚑ Appeal</button>
       </div>`;
   const pager = total>PAGE_SIZE ? `<div class="pager">
       <button class="btn ghost sm" ${R.page<=0?'disabled':''} onclick="goPage(-1)">← Sebelumnya</button>
@@ -153,29 +153,45 @@ function render(){
     ${pager}`;
 }
 function closeModal(){ document.getElementById("modalHost").innerHTML=""; }
-function openAppeal(regId,label){
+function findPair(regId){ const cat=(R.data.categories||[]).find(c=>c.tournamentId===R.cat)||{}; return (cat.pairs||[]).find(p=>p.regId===regId); }
+function openAppeal(regId){
+  const pr=findPair(regId); if(!pr) return;
+  const n1=pr.p1.name||"Pemain 1", n2=pr.p2.name||"Pemain 2";
+  const teamLabel=(pr.p1.name||"")+" + "+(pr.p2.name||"");
   document.getElementById("modalHost").innerHTML=`<div class="overlay" onclick="if(event.target===this)closeModal()">
-    <div class="modal"><div class="eyebrow">Ajukan appeal</div><h2 style="font-size:19px;margin:2px 0 10px">${esc(label)}</h2>
+    <div class="modal"><div class="eyebrow">Ajukan appeal</div><h2 style="font-size:19px;margin:2px 0 10px">${esc(teamLabel)}</h2>
       <div id="apBody">
+        <label class="f"><span>Pemain yang di-appeal <span class="req">*</span></span>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600"><input type="radio" name="apTarget" value="both" checked style="width:auto">Keduanya</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="radio" name="apTarget" value="p1" style="width:auto">${esc(n1)}</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="radio" name="apTarget" value="p2" style="width:auto">${esc(n2)}</label>
+          </div></label>
         <label class="f"><span>Nama kamu <span class="req">*</span></span><input id="apName" placeholder="nama lengkap"></label>
         <label class="f"><span>Email <span class="req">*</span></span><input id="apEmail" placeholder="email@mail.com"></label>
-        <label class="f"><span>Alasan appeal <span class="req">*</span></span><textarea id="apReason" placeholder="jelaskan kenapa tidak sesuai level…"></textarea></label>
+        <label class="f"><span>Alasan appeal <span class="req">*</span></span><textarea id="apReason" placeholder="jelaskan pelanggaran / alasan appeal…"></textarea></label>
         <label class="f"><span>Bukti (foto) <span class="req">*</span></span><input id="apProof" type="file" accept="image/*" onchange="apPick(this)"></label>
         <span class="chip ok" id="apOk" hidden>bukti terpilih ✔</span>
-        <div class="nav"><button class="btn ghost" onclick="closeModal()">Batal</button><button class="btn primary" onclick="submitAppeal('${esc(regId)}','${esc(label)}')">Kirim appeal</button></div>
+        <div class="nav"><button class="btn ghost" onclick="closeModal()">Batal</button><button class="btn primary" onclick="submitAppeal('${esc(regId)}')">Kirim appeal</button></div>
         <p class="note">No. HP kamu diambil otomatis dari data registrasi (via email).</p>
       </div></div></div>`;
 }
 let AP_PROOF="";
 async function apPick(input){ AP_PROOF=await fileToDataUrl(input); const ok=document.getElementById("apOk"); if(ok) ok.hidden=!AP_PROOF; }
-async function submitAppeal(regId,label){
+async function submitAppeal(regId){
+  const pr=findPair(regId)||{p1:{},p2:{}};
+  const n1=pr.p1.name||"Pemain 1", n2=pr.p2.name||"Pemain 2";
+  const teamLabel=(pr.p1.name||"")+" + "+(pr.p2.name||"");
+  const target=(document.querySelector('input[name="apTarget"]:checked')||{}).value||"both";
+  const targetNames = target==="p1"?n1 : target==="p2"?n2 : (n1+" & "+n2);
+  const againstLabel = teamLabel+" — di-appeal: "+targetNames;
   const name=(document.getElementById("apName").value||"").trim();
   const email=(document.getElementById("apEmail").value||"").trim();
   const reason=(document.getElementById("apReason").value||"").trim();
-  if(!name||!email||!reason||!AP_PROOF){ alert("Nama, email, alasan, dan bukti (foto) wajib."); return; }
+  if(!name||!email||!reason||!AP_PROOF){ alert("Pilih pemain, lalu isi nama, email, alasan, dan bukti (foto)."); return; }
   const cb=document.getElementById("apBody"); cb.innerHTML='<p class="muted">Mengirim…</p>';
   try{
-    await api("reg/appeal",{method:"POST",body:{eventId:R.eventId,category:R.cat,againstRegId:regId,againstLabel:label,appellantName:name,appellantEmail:email,reason,proof:AP_PROOF}});
+    await api("reg/appeal",{method:"POST",body:{eventId:R.eventId,category:R.cat,againstRegId:regId,againstLabel,targetPlayer:target,targetNames,appellantName:name,appellantEmail:email,reason,proof:AP_PROOF}});
     cb.innerHTML='<div class="chip ok">✔ Appeal terkirim</div><p class="note">Admin akan meninjau. Terima kasih.</p><button class="btn primary" style="width:100%;margin-top:8px" onclick="closeModal()">Selesai</button>';
     AP_PROOF="";
   }catch(e){ cb.innerHTML='<div class="chip block">Gagal: '+esc(e.message)+'</div><button class="btn" style="width:100%;margin-top:8px" onclick="closeModal()">Tutup</button>'; }
