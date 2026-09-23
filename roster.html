@@ -39,19 +39,25 @@
   .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
   .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
   .empty{color:var(--slate-400);text-align:center;padding:40px 0}
-  /* 2 tim per baris, ringkas untuk banyak peserta */
-  .pairgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .paircard{padding:11px}
+  /* 2 tim per baris (tetap 2 kolom di HP), kartu bersih & menarik */
+  .pairgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .paircard{padding:14px 12px;display:flex;flex-direction:column;gap:0}
   .paircard+.paircard{margin-top:0}
-  .ppair{display:flex;flex-direction:column;gap:8px}
-  .pp{display:flex;align-items:center;gap:9px;text-align:left;min-width:0}
-  .pp .sq{width:44px;height:44px;flex:none;border-radius:var(--r-lg);border:var(--bd);overflow:hidden;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:17px}
+  .ppair{display:flex;flex-direction:column}
+  .pp{display:flex;align-items:center;gap:10px;text-align:left;min-width:0;padding:8px 0}
+  .pp+.pp{border-top:1px dashed var(--slate-200)}
+  .pp .sq{width:50px;height:50px;flex:none;border-radius:13px;overflow:hidden;
+    background:linear-gradient(135deg,#FF7A45,#FF5722);color:#fff;display:grid;place-items:center;
+    font-family:var(--display);font-weight:900;font-size:20px;box-shadow:var(--sh-sm)}
   .pp .sq img{width:100%;height:100%;object-fit:cover}
-  .pp .info{min-width:0}
-  .pp .nm{font-family:var(--display);font-weight:800;font-size:13.5px;line-height:1.15;word-break:break-word}
-  .pp .meta{font-size:11.5px;color:var(--slate-500);word-break:break-word;line-height:1.4}
-  .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
-  @media(max-width:420px){ .pairgrid{grid-template-columns:1fr} }
+  .pp .info{min-width:0;flex:1}
+  .pp .nm{font-family:var(--display);font-weight:800;font-size:14px;line-height:1.2;overflow-wrap:break-word;color:var(--dark)}
+  .pp .meta{font-size:11.5px;color:var(--slate-500);overflow-wrap:break-word;line-height:1.4;margin-top:2px}
+  .paircard .appeal{width:100%;margin-top:12px;justify-content:center;display:flex;align-items:center;gap:6px;
+    background:var(--amber-bg);border-color:var(--amber-bd);color:var(--warn);font-weight:800}
+  .paircard .appeal:disabled{background:var(--slate-100);color:var(--slate-400);border-color:var(--slate-200)}
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+  @media(max-width:360px){ .pairgrid{grid-template-columns:1fr} }
   /* appeal rules list */
   .rules{margin:10px 0 0;padding-left:20px} .rules li{font-size:12.5px;line-height:1.55;margin:5px 0;color:var(--slate-600)}
   .rules li b{color:var(--dark)}
@@ -93,7 +99,8 @@ function playerSquare(p){
   p=p||{};
   const sq='<div class="sq">'+(p.photoUrl?'<img src="'+esc(p.photoUrl)+'" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent=\''+esc((p.name||'?').charAt(0).toUpperCase())+'\'">':esc((p.name||'?').charAt(0).toUpperCase()))+'</div>';
   const ig=p.ig?'<div class="meta">Instagram: @'+esc(String(p.ig).replace(/^@/,''))+'</div>':'';
-  const region='<div class="meta">📍 '+esc(p.region||'-')+'</div>';
+  const reg=String(p.region||'').trim();
+  const region=(reg&&reg!=='-')?'<div class="meta">📍 '+esc(reg)+'</div>':'';
   return '<div class="pp">'+sq+'<div class="info"><div class="nm">'+esc(p.name||'—')+'</div>'+ig+region+'</div></div>';
 }
 const APPEAL_RULES=[
@@ -122,7 +129,7 @@ function render(){
   const shown=pairs.slice(start,end);
   const card=(pr)=>`<div class="card paircard">
         <div class="ppair">${playerSquare(pr.p1)}${playerSquare(pr.p2)}</div>
-        <div class="nav"><button class="btn ghost sm" style="margin-left:auto" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal pasangan ini</button></div>
+        <button class="btn sm appeal" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal</button>
       </div>`;
   const pager = total>PAGE_SIZE ? `<div class="pager">
       <button class="btn ghost sm" ${R.page<=0?'disabled':''} onclick="goPage(-1)">← Sebelumnya</button>
