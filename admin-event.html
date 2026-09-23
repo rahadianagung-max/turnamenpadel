@@ -404,6 +404,17 @@ function extendDeadline(days){
   saveDeadline();
 }
 const LEVELS=[["beginner","Beginner"],["upper_beginner","Upper Beginner"],["lower_bronze","Lower Bronze"],["bronze","Bronze"],["upper_bronze","Upper Bronze"],["silver","Silver"],["gold","Gold"],["platinum","Platinum"]];
+let APPEALS_BY_ID={};
+// Pemain yang benar-benar di-appeal (dari label "… — di-appeal: <nama>"), dicocokkan
+// ke nama pemain pada registrasi. null = tak diketahui (appeal lama) → koreksi semua.
+function appealTargets(a){
+  const parts=String((a&&a.againstLabel)||"").split(/di-?appeal\s*:/i);
+  if(parts.length<2) return null;
+  const wanted=parts[1].split(/\s*&\s*|\s*,\s*/).map(s=>s.trim().toLowerCase()).filter(Boolean);
+  if(!wanted.length) return null;
+  const names=(a.players||[]).map(p=>p.name).filter(n=>wanted.includes(String(n).trim().toLowerCase()));
+  return names.length?names:null;
+}
 // Nama kategori appeal — resolve id turnamen (TM_) ke label sebenarnya bila ada.
 function appealCatName(a){
   const raw=String((a&&a.category)||"").trim();
@@ -435,6 +446,7 @@ async function loadAppeals(){
     await ensureCatMap();
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/appeals?token="+encodeURIComponent(TOKEN));
     const list=r.appeals||[];
+    APPEALS_BY_ID={}; list.forEach(a=>{ APPEALS_BY_ID[a.appealId]=a; });
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada appeal.</p>'; return; }
     // Grup per kategori (collapsible) agar tidak terlalu panjang; grup dengan
     // appeal yang masih menunggu dibuka otomatis.
@@ -464,13 +476,23 @@ async function triggerAppeals(){
 }
 async function decideAppeal(appealId, decision){
   const msg=document.getElementById("apMsg_"+appealId);
+  const a=APPEALS_BY_ID[appealId];
   let note="";
   if(decision==="reject"){ note=prompt("Alasan penolakan (opsional):","")||""; }
+  // Koreksi level HANYA untuk pemain yang di-appeal (bukan pasangannya).
+  let targets=null;
+  if(decision==="levelup"){
+    const lv=(document.getElementById("lv_"+appealId)||{}).value||"";
+    targets=a?appealTargets(a):null;
+    const who = targets ? targets.join(" & ") : "kedua pemain (target tak terdeteksi)";
+    if(!confirm("Koreksi level untuk "+who+" ke level terpilih?")) { if(msg) msg.textContent=""; return; }
+  }
   if(msg) msg.textContent="Menyimpan…";
   try{
     await api("reg/appeal/"+encodeURIComponent(appealId)+"/decision",{method:"POST",body:{token:TOKEN,decision,note}});
     if(decision==="levelup"){ const lv=(document.getElementById("lv_"+appealId)||{}).value||"";
-      try{ await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body:{token:TOKEN,targetLevel:lv}}); }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--warn)">Keputusan tersimpan, koreksi level gagal: '+esc(e.message)+'</span>'; }
+      const body={token:TOKEN,targetLevel:lv}; if(targets&&targets.length) body.players=targets;
+      try{ await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body}); }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--warn)">Keputusan tersimpan, koreksi level gagal: '+esc(e.message)+'</span>'; }
     }
     loadAppeals();
   }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc((e&&e.message)||e)+'</span>'; }
