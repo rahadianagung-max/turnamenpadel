@@ -163,7 +163,7 @@
   </header>
 
   <div class="pickrow">
-    <div class="pick">
+    <div class="pick" id="eventPick">
       <label>Event</label>
       <select id="eventSelect" onchange="onPickEvent(this.value)"><option value="">— select event —</option></select>
     </div>
@@ -261,6 +261,11 @@ async function loadEvents(){
   sel.innerHTML='<option value="">— select event —</option>'+state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
   let def=localStorage.getItem("tp_court_admin_event")||"";
   if(!(def && state.events.some(e=>e.eventId===def))) def=(state.liveEventId && state.events.some(e=>e.eventId===state.liveEventId))?state.liveEventId:(state.events[0]&&state.events[0].eventId)||"";
+  // Admin ter-assign satu event → sembunyikan pemilih event (auto-buka event-nya).
+  // Pemilih hanya tampil untuk superadmin, atau admin dengan >1 event.
+  const role=String((s.role)||"").toLowerCase();
+  const showPicker = role==="superadmin" || state.events.length>1;
+  const ep=$("eventPick"); if(ep) ep.style.display = showPicker ? "" : "none";
   if(def){ sel.value=def; await onPickEvent(def); }
 }
 async function onPickEvent(eventId){
