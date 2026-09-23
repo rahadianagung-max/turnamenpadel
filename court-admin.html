@@ -134,6 +134,25 @@
   .brctrls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:14px;}
   .brctrls .brlbl{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:14px;}
   .brctrls .brhint{font-family:'Space Grotesk',monospace; font-size:10.5px; color:var(--faint); margin-left:auto;}
+  /* Bagan gaya /engine (dua sisi) */
+  .tier{margin-bottom:26px;}
+  .tier>h3{font-family:'Plus Jakarta Sans',sans-serif; font-size:17px; font-weight:800; margin:0 0 10px; display:flex; align-items:center; gap:8px;}
+  .tag-tier{font-family:'Space Grotesk',monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#fff; background:var(--accent); padding:3px 9px; border-radius:6px;}
+  .pbracket-wrap{overflow-x:auto; padding-bottom:6px;}
+  .pbracket{display:flex; gap:14px; align-items:center; min-width:max-content;}
+  .pcol{display:flex; flex-direction:column; justify-content:space-around; gap:12px; min-width:190px;}
+  .pcol>h4{font-size:9px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); text-align:center; margin:0 0 2px; font-weight:700;}
+  .pcol-center{justify-content:center;} .pcol .pthird{margin-top:14px;}
+  .prow.card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 10px;}
+  .prow.card.done{border-color:rgba(16,185,129,.35);} .prow.card.bye{opacity:.55;}
+  .prow .pmeta{font-family:'Space Grotesk',monospace; font-size:10px; color:var(--faint); margin-bottom:6px;}
+  .prow .pteams{display:flex; flex-direction:column; gap:4px; font-size:13px;}
+  .prow .pteams .ln{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .prow .pteams .ln .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .prow .pteams .ln .ps{font-family:'Space Grotesk',monospace; color:var(--muted); font-weight:700; flex:none;}
+  .prow .pteams .ln.win{color:var(--accent); font-weight:700;} .prow .pteams .ln.win .ps{color:var(--accent);}
+  .prow .pteams .tbd{color:var(--faint); font-style:italic;}
+  .prow .byebadge{font-family:'Space Grotesk',monospace; font-size:10px; letter-spacing:.06em; color:var(--faint);}
 
   /* Bracket */
   .brtier{margin-bottom:22px;}
@@ -260,7 +279,7 @@ function stageFromLabel(lbl){ lbl=String(lbl||"");
   if(/round of 32|32 besar/i.test(lbl))return"r32";
   return"group"; }
 
-const state={ session:SESSION, events:[], eventId:"", event:null, payload:null, categories:[], catId:"", matches:[], allMatches:[], durations:{...DUR_DEFAULT}, openRounds:{}, entrantsById:{}, liveEventId:"", numCourts:1, tab:"courts" };
+const state={ session:SESSION, events:[], eventId:"", event:null, payload:null, categories:[], catId:"", matches:[], allMatches:[], durations:{...DUR_DEFAULT}, openRounds:{}, settings:{}, entrantsById:{}, liveEventId:"", numCourts:1, tab:"courts" };
 
 const $=id=>document.getElementById(id);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -301,6 +320,7 @@ async function loadEvents(){
   ]);
   state.events=events||[];
   state.liveEventId=(settingsRes.settings&&settingsRes.settings.liveEventId)||"";
+  state.settings=(settingsRes&&settingsRes.settings)||{};
   const sel=$("eventSelect");
   sel.innerHTML='<option value="">— select event —</option>'+state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
   let def=localStorage.getItem("tp_court_admin_event")||"";
@@ -363,10 +383,22 @@ function loadDurations(){
   const d={...DUR_DEFAULT};
   const cfg=(state.event&&state.event.roundDurations)||(state.payload&&state.payload.roundDurations)||null;
   if(cfg) Object.keys(d).forEach(k=>{ if(cfg[k]) d[k]=parseInt(cfg[k])||d[k]; });
+  // Default bersama per event (disimpan via endpoint settings) → sinkron antar device.
+  try{ const sh=state.settings&&state.settings["roundDur_"+state.eventId]; const so=(typeof sh==="string")?JSON.parse(sh):sh; if(so) Object.keys(d).forEach(k=>{ if(so[k]) d[k]=parseInt(so[k])||d[k]; }); }catch(e){}
+  // Override lokal (per browser) menang terakhir.
   try{ const ov=JSON.parse(localStorage.getItem("tp_desk_dur_"+state.eventId)||"null"); if(ov) Object.keys(d).forEach(k=>{ if(ov[k]) d[k]=parseInt(ov[k])||d[k]; }); }catch(e){}
   state.durations=d;
 }
 function saveDurationsLocal(){ try{ localStorage.setItem("tp_desk_dur_"+state.eventId, JSON.stringify(state.durations)); }catch(e){} }
+// Simpan durasi sbg default event (semua device) lewat endpoint settings yang sudah ada.
+async function saveDurationsDefault(){
+  STAGE_ORDER.forEach(s=>{ const el=$("dur-"+s); if(el){ const v=parseInt(el.value,10); if(v>0) state.durations[s]=v; } });
+  saveDurationsLocal();
+  try{ await api("settings",{method:"POST",body:{key:"roundDur_"+state.eventId, value:JSON.stringify(state.durations)}});
+    state.settings["roundDur_"+state.eventId]=JSON.stringify(state.durations);
+    toast("Durasi default tersimpan (semua device)");
+  }catch(e){ toast("Gagal simpan default: "+e.message,true); }
+}
 function addMin(t,min){ const b=tkey(t); if(b>=1e9) return ""; const x=((b+min)%1440+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
 
 async function load(){
@@ -467,7 +499,7 @@ function cmdBarHtml(waves){
   return `<div class="cmdbar">
     <div class="cprog">Selesai <b>${done}</b>/<b>${tot}</b> match</div>
     <div class="cctrl"><label>Mulai R1</label><input type="time" id="baseTime" value="${esc(base)}"></div>
-    <div class="cdurs"><label>Durasi/stage</label>${durInputs}<button type="button" class="btn btn-primary btn-sm" onclick="applySchedule()">Terapkan jadwal</button></div>
+    <div class="cdurs"><label>Durasi/stage</label>${durInputs}<button type="button" class="btn btn-primary btn-sm" onclick="applySchedule()">Terapkan jadwal</button><button type="button" class="btn btn-ghost btn-sm" onclick="saveDurationsDefault()" title="Simpan durasi sebagai default event (semua device)">Simpan default</button></div>
   </div>`;
 }
 function wavesOf(){
@@ -698,30 +730,33 @@ function renderBracket(){
   if(!cat){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
   const brackets=(cat.playoff&&cat.playoff.length)?cat.playoff:[];
   if(!brackets.length){ wrap.innerHTML=bracketControls()+'<p class="empty">Belum ada bracket. Klik "Generate bracket" di atas (atau otomatis muncul saat semua match grup selesai).</p>'; return; }
-  wrap.innerHTML=bracketControls()+brackets.map(b=>{
-    const pod=b.podium||{};
-    const podium=(pod.champion||pod.runnerUp||pod.third)?`<div class="podium">
-      ${pod.champion?`<span class="p">🏆 <b>${esc(pod.champion)}</b></span>`:""}
-      ${pod.runnerUp?`<span class="p">🥈 ${esc(pod.runnerUp)}</span>`:""}
-      ${pod.third?`<span class="p">🥉 ${esc(pod.third)}</span>`:""}</div>`:"";
-    const cols=(b.rounds||[]).map(r=>{
-      const ms=(r.matches||[]).map(m=>brMatch(m)).join("");
-      return `<div class="brcol"><div class="rlab">${esc(roundLabel(r.round,b.numRounds))}</div>${ms||'<p class="empty">—</p>'}</div>`;
-    }).join("");
-    const bronze=b.bronze?`<div class="brcol"><div class="rlab">3rd Place</div>${brMatch(b.bronze)}</div>`:"";
-    return `<div class="brtier"><h3>${esc(tierLabel(b.tier))}</h3>${podium}<div class="brrounds">${cols}${bronze}</div></div>`;
-  }).join("");
+  wrap.innerHTML=bracketControls()+brackets.map(tierHtmlDesk).join("");
 }
-function brMatch(m){
-  const done=m.status==="DONE";
+// Bagan gaya /engine (dua sisi + tengah), tampil-saja (edit skor di tab Courts).
+function prowDesk(m,numRounds){
+  const bye=m.status==="BYE", done=m.status==="DONE";
   const aw=done&&String(m.winner)===String(m.entrantA), bw=done&&String(m.winner)===String(m.entrantB);
-  const has=v=>v!=="" && v!=null;
-  const nA=m.teamA||(m.entrantA?"…":"TBD"), nB=m.teamB||(m.entrantB?"…":"TBD");
-  const meta=[m.court?("Court "+m.court):"", fmtTime(m.time)].filter(Boolean).join(" · ");
-  return `<div class="brm">
-    <div class="bl ${aw?'win':''}"><span>${esc(nA)}</span><span class="s">${has(m.scoreA)?esc(String(m.scoreA)):"–"}</span></div>
-    <div class="bl ${bw?'win':''}"><span>${esc(nB)}</span><span class="s">${has(m.scoreB)?esc(String(m.scoreB)):"–"}</span></div>
-    ${meta?`<div class="bmeta">${esc(meta)}</div>`:""}</div>`;
+  const has=v=>v!==""&&v!=null;
+  const nA=m.teamA?esc(m.teamA):(m.entrantA?"…":'<span class="tbd">TBD</span>');
+  const nB=m.teamB?esc(m.teamB):(m.entrantB?"…":'<span class="tbd">TBD</span>');
+  const sA=bye?'':(has(m.scoreA)?esc(String(m.scoreA)):'–'), sB=bye?'':(has(m.scoreB)?esc(String(m.scoreB)):'–');
+  const teams=`<div class="pteams"><span class="ln ${aw?'win':''}"><span class="nm">${nA}</span><span class="ps">${sA}</span></span><span class="ln ${bw?'win':''}"><span class="nm">${nB}</span><span class="ps">${sB}</span></span></div>`;
+  if(bye) return `<div class="prow card bye">${teams}<span class="byebadge">BYE</span></div>`;
+  const meta=[m.court?("Lap "+m.court):"", fmtTime(m.time)].filter(Boolean).join(" · ");
+  return `<div class="prow card ${done?'done':''}">${meta?`<div class="pmeta">${esc(meta)}</div>`:""}${teams}</div>`;
+}
+function tierHtmlDesk(b){
+  const rs=b.rounds||[], last=rs.length-1; let leftC="", rightC="";
+  for(let r=0;r<last;r++){ const ms=rs[r].matches||[], h=Math.ceil(ms.length/2);
+    leftC+=`<div class="pcol"><h4>${esc(roundLabel(rs[r].round,b.numRounds))}</h4>${ms.slice(0,h).map(m=>prowDesk(m,b.numRounds)).join("")}</div>`; }
+  for(let r=last-1;r>=0;r--){ const ms=rs[r].matches||[], h=Math.ceil(ms.length/2);
+    rightC+=`<div class="pcol"><h4>${esc(roundLabel(rs[r].round,b.numRounds))}</h4>${ms.slice(h).map(m=>prowDesk(m,b.numRounds)).join("")}</div>`; }
+  const finalM=(last>=0&&rs[last]&&rs[last].matches[0])?prowDesk(rs[last].matches[0],b.numRounds):"";
+  const bronze=b.bronze?`<h4 class="pthird">${esc(roundLabel("BRONZE",b.numRounds))}</h4>${prowDesk(b.bronze,b.numRounds)}`:"";
+  const center=`<div class="pcol pcol-center"><h4>${last>=0?esc(roundLabel(rs[last].round,b.numRounds)):"Final"}</h4>${finalM}${bronze}</div>`;
+  const pod=b.podium||{};
+  const podium=(pod.champion||pod.runnerUp||pod.third)?`<div class="podium">${pod.champion?`<span class="p">🏆 <b>${esc(pod.champion)}</b></span>`:""}${pod.runnerUp?`<span class="p">🥈 ${esc(pod.runnerUp)}</span>`:""}${pod.third?`<span class="p">🥉 ${esc(pod.third)}</span>`:""}</div>`:"";
+  return `<div class="tier"><h3><span class="tag-tier">${esc(tierLabel(b.tier))}</span></h3>${podium}<div class="pbracket-wrap"><div class="pbracket">${leftC}${center}${rightC}</div></div></div>`;
 }
 
 $("who").textContent=(state.session&&state.session.username)||"—";
