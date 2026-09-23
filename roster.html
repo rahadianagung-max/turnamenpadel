@@ -39,15 +39,19 @@
   .logo .glyph{width:32px;height:32px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:14px;border:var(--bd)}
   .logo .name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.01em}.logo .name b{color:var(--orange)}
   .empty{color:var(--slate-400);text-align:center;padding:40px 0}
-  /* pair: two compact player rows (small square photo) — hemat ruang utk banyak peserta */
-  .paircard{padding:12px}
+  /* 2 tim per baris, ringkas untuk banyak peserta */
+  .pairgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .paircard{padding:11px}
+  .paircard+.paircard{margin-top:0}
   .ppair{display:flex;flex-direction:column;gap:8px}
-  .pp{display:flex;align-items:center;gap:10px;text-align:left;min-width:0}
-  .pp .sq{width:52px;height:52px;flex:none;border-radius:var(--r-lg);border:var(--bd);overflow:hidden;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:20px}
+  .pp{display:flex;align-items:center;gap:9px;text-align:left;min-width:0}
+  .pp .sq{width:44px;height:44px;flex:none;border-radius:var(--r-lg);border:var(--bd);overflow:hidden;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:var(--display);font-weight:900;font-size:17px}
   .pp .sq img{width:100%;height:100%;object-fit:cover}
   .pp .info{min-width:0}
-  .pp .nm{font-family:var(--display);font-weight:800;font-size:14px;line-height:1.15;word-break:break-word}
-  .pp .meta{font-size:12px;color:var(--slate-500);word-break:break-word;line-height:1.4}
+  .pp .nm{font-family:var(--display);font-weight:800;font-size:13.5px;line-height:1.15;word-break:break-word}
+  .pp .meta{font-size:11.5px;color:var(--slate-500);word-break:break-word;line-height:1.4}
+  .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+  @media(max-width:420px){ .pairgrid{grid-template-columns:1fr} }
   /* appeal rules list */
   .rules{margin:10px 0 0;padding-left:20px} .rules li{font-size:12.5px;line-height:1.55;margin:5px 0;color:var(--slate-600)}
   .rules li b{color:var(--dark)}
@@ -67,7 +71,12 @@ const API="/api";
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function qp(){ const m=location.pathname.match(/\/roster\/([^\/?#]+)/); const sp=new URLSearchParams(location.search);
   return { eventId:(m?decodeURIComponent(m[1]):sp.get("e")||""), t:sp.get("t")||"", c:sp.get("c")||"" }; }
-const R={ ...qp(), data:null, cat:"" };
+const R={ ...qp(), data:null, cat:"", page:0 };
+const PAGE_SIZE=10;
+function catLabelFull(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }
+function catFullText(c){ return [catLabelFull(c&&c.label),levelLabel(c&&c.level)].filter(Boolean).join(" "); }
+function goPage(delta){ R.page=Math.max(0,(R.page||0)+delta); render(); }
 async function api(path,opts){ const res=await fetch(API+"/"+path,{method:(opts&&opts.method)||"GET",headers:{"Content-Type":"application/json"},body:opts&&opts.body?JSON.stringify(opts.body):undefined});
   let d={};try{d=await res.json();}catch(e){} if(!res.ok){const err=new Error(d.error||("HTTP "+res.status));err.status=res.status;throw err;} return d; }
 function fileToDataUrl(input){return new Promise(r=>{const f=input.files&&input.files[0];if(!f)return r("");const rd=new FileReader();rd.onload=()=>r(rd.result);rd.onerror=()=>r("");rd.readAsDataURL(f);});}
@@ -102,23 +111,39 @@ function render(){
   // Pemain hanya melihat kategorinya sendiri (dari link email). Selektor kategori
   // hanya tampil bila tak ada kategori spesifik di link (mis. pratinjau admin).
   const locked = !!(R.c && (d.categories||[]).some(c=>c.tournamentId===R.c));
-  const catLabel = cat.label?`${esc(cat.label)} · ${esc(cat.level||"")}`.replace(/ · $/,''):"";
+  const catName = catFullText(cat);
   const selector = locked ? "" :
-    `<label class="f" style="margin-top:12px"><span>Kategori</span><select onchange="R.cat=this.value;render()">
-      ${(d.categories||[]).map(c=>`<option value="${esc(c.tournamentId)}" ${R.cat===c.tournamentId?'selected':''}>${esc(c.label)} · ${esc(c.level)} (${(c.pairs||[]).length})</option>`).join("")}</select></label>`;
+    `<label class="f" style="margin-top:12px"><span>Kategori</span><select onchange="R.cat=this.value;R.page=0;render()">
+      ${(d.categories||[]).map(c=>`<option value="${esc(c.tournamentId)}" ${R.cat===c.tournamentId?'selected':''}>${esc(catFullText(c))} (${(c.pairs||[]).length})</option>`).join("")}</select></label>`;
+  const pairs=cat.pairs||[]; const total=pairs.length;
+  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(R.page>pages-1) R.page=pages-1; if(R.page<0) R.page=0;
+  const start=R.page*PAGE_SIZE, end=Math.min(start+PAGE_SIZE,total);
+  const shown=pairs.slice(start,end);
+  const card=(pr)=>`<div class="card paircard">
+        <div class="ppair">${playerSquare(pr.p1)}${playerSquare(pr.p2)}</div>
+        <div class="nav"><button class="btn ghost sm" style="margin-left:auto" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal pasangan ini</button></div>
+      </div>`;
+  const pager = total>PAGE_SIZE ? `<div class="pager">
+      <button class="btn ghost sm" ${R.page<=0?'disabled':''} onclick="goPage(-1)">← Sebelumnya</button>
+      <span class="mono" style="font-size:12px;color:var(--slate-500)">Halaman ${R.page+1} / ${pages}</span>
+      <button class="btn ghost sm" ${R.page>=pages-1?'disabled':''} onclick="goPage(1)">Berikutnya →</button>
+    </div>` : "";
   document.getElementById("host").innerHTML=`
     <div class="hero"><div class="eyebrow">Kurasi peserta · roster</div><h1>${esc(d.name||"")}</h1>
-      ${catLabel?`<div class="chip" style="margin-top:8px">Kategori kamu: <b>${catLabel}</b></div>`:""}
+      ${catName?`<div class="chip" style="margin-top:8px">Kategori kamu: <b>${esc(catName)}</b></div>`:""}
       <div style="margin:12px 0 0"><b style="font-family:var(--display);font-size:14px">Aturan Appeal</b>
         <ol class="rules">${APPEAL_RULES.map(r=>`<li>${r}</li>`).join("")}</ol></div></div>
     <div class="card" style="border-color:${open?'var(--amber-bd)':'var(--danger)'}">
       ${open?`<b class="mono" style="color:var(--warn)">⏳ Appeal dibuka${d.appealDeadline?' s/d '+esc(d.appealDeadline):''}</b>`
              :`<b class="mono" style="color:var(--danger)">🔒 Batas appeal berakhir — roster final</b>`}</div>
     ${selector}
-    <div style="margin-top:12px">${(cat.pairs||[]).length? cat.pairs.map(pr=>`<div class="card paircard">
-        <div class="ppair">${playerSquare(pr.p1)}${playerSquare(pr.p2)}</div>
-        <div class="nav"><button class="btn ghost sm" style="margin-left:auto" ${open?'':'disabled'} onclick="openAppeal('${esc(pr.regId)}','${esc((pr.p1.name||'')+' + '+(pr.p2.name||''))}')">⚑ Appeal pasangan ini</button></div>
-      </div>`).join("") : '<p class="empty">Belum ada peserta di kategori ini.</p>'}</div>`;
+    <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">
+      <b style="font-family:var(--display);font-size:14px">Total peserta: ${total} tim</b>
+      ${total>PAGE_SIZE?`<span class="mono" style="font-size:12px;color:var(--slate-500)">Menampilkan ${total?start+1:0}–${end}</span>`:""}
+    </div>
+    <div class="pairgrid" style="margin-top:10px">${shown.length? shown.map(card).join("") : '<p class="empty" style="grid-column:1/-1">Belum ada peserta di kategori ini.</p>'}</div>
+    ${pager}`;
 }
 function closeModal(){ document.getElementById("modalHost").innerHTML=""; }
 function openAppeal(regId,label){
