@@ -1210,6 +1210,9 @@ function renderRegBuilder(cfg, status){
     <div class="f"><label>Players eligibility <span class="muted" style="font-weight:400">— tab "Players eligibility" di halaman event</span></label>
       <textarea id="rb_eligibility" rows="5" placeholder="Siapa yang boleh ikut — syarat level/ELO, gender, usia, domisili, dsb.">${esc(cfg.eligibility||"")}</textarea></div>
 
+    <div class="f"><label>Contact <span class="muted" style="font-weight:400">— tab "Contact" di halaman event · satu baris satu item</span></label>
+      <textarea id="rb_contact" rows="4" placeholder="WhatsApp: +62 812-xxxx-xxxx&#10;Email: panitia@turnamenpadel.com&#10;Instagram: @namaevent">${esc(cfg.contact||"")}</textarea></div>
+
     <div style="font-weight:700;margin:14px 0 6px">Kategori · biaya · prize · kuota · syarat</div>
     <div style="overflow-x:auto;border:1px solid var(--line);border-radius:10px">
       <table style="width:100%;border-collapse:collapse;font-size:12.5px">
@@ -1454,6 +1457,7 @@ function collectRegConfig(){
     flyer: REG_FLYER_DATA || ((document.getElementById("rb_flyer_url")||{}).value||""),
     description: (document.getElementById("rb_description")||{}).value||"",
     eligibility: (document.getElementById("rb_eligibility")||{}).value||"",
+    contact: (document.getElementById("rb_contact")||{}).value||"",
     theme: (document.getElementById("rb_theme")||{}).value==="nightmode"?"nightmode":"daylight",
     categories,
     rules: (document.getElementById("rb_rules")||{}).value||"",
