@@ -40,6 +40,8 @@
     { "source": "/kelola", "destination": "/admin-event.html" },
     { "source": "/kelola/:id", "destination": "/admin-event.html" },
     { "source": "/event/:slug", "destination": "/event.html" },
+    { "source": "/preview/:slug", "destination": "/event-v2.html" },
+    { "source": "/event2/:slug", "destination": "/event-v2.html" },
     { "source": "/peserta/:slug", "destination": "/peserta.html" },
     { "source": "/players/:slug", "destination": "/peserta.html" },
     { "source": "/:slug", "destination": "/event.html" }
