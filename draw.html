@@ -202,6 +202,12 @@
     </div>
 
     <div class="srcpane" id="paneT">
+      <!-- Dipakai saat dibuka dari dashboard admin (?event=...): pilih kategori event ini. -->
+      <div id="evCatWrap" style="display:none">
+        <label class="fl" for="evCatSelect">Kategori event</label>
+        <select id="evCatSelect"></select>
+        <button class="btn-load" id="btnLoadCat">Muat pair kategori</button>
+      </div>
       <label class="fl" for="inTid">ID turnamen (kategori)</label>
       <input type="text" id="inTid" placeholder="mis. TM_1785498837897_2xyl" autocomplete="off">
       <button class="btn-load" id="btnLoadT">Muat pair dari turnamen</button>
@@ -733,6 +739,36 @@
     document.getElementById("btnLock").onclick=function(){ lockAndBuild(); };
     var t=qs.get("t")||qs.get("tournament")||qs.get("tournamentId");
     if(t){ document.getElementById("inTid").value=t; loadFromTournament(t); }
+    var ev=qs.get("event");
+    if(ev) initEventScope(ev);
+  }
+  // Dibuka dari dashboard admin (/admin/<event> → Spin the Wheel): fokus ke event
+  // ini. Sembunyikan input TM_ manual & tab paste; tampilkan pilihan KATEGORI
+  // event saja sehingga admin tak perlu mengetik/memilih event.
+  function catTextDraw(label,level){
+    var cl={MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[String(label||"").toUpperCase().trim()]||label||"";
+    var lv={beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[String(level||"").toLowerCase().trim().replace(/\s+/g,"_")]||level||"";
+    return [cl,lv].filter(Boolean).join(" · ")||"Kategori";
+  }
+  function initEventScope(eventId){
+    var tabs=document.querySelector(".srctabs"); if(tabs) tabs.style.display="none";
+    var paneM=document.getElementById("paneM"); if(paneM) paneM.style.display="none";
+    // sembunyikan input TM_ manual — admin memilih kategori dari dropdown saja
+    var inTid=document.getElementById("inTid"), btnT=document.getElementById("btnLoadT");
+    var lblT=document.querySelector('label[for="inTid"]');
+    if(inTid) inTid.style.display="none"; if(btnT) btnT.style.display="none"; if(lblT) lblT.style.display="none";
+    var wrap=document.getElementById("evCatWrap"), sel=document.getElementById("evCatSelect");
+    if(wrap) wrap.style.display="";
+    prepErr("Memuat kategori…");
+    api("reg/public/"+encodeURIComponent(eventId)).then(function(d){
+      var cats=(d&&d.categories||[]).filter(function(c){ return c && c.tournamentId; });
+      if(!cats.length){ prepErr("Event ini belum punya kategori."); return; }
+      prepErr("");
+      sel.innerHTML=cats.map(function(c){ return '<option value="'+c.tournamentId+'">'+catTextDraw(c.label,c.level)+'</option>'; }).join("");
+      var load=function(){ var tid=sel.value; if(tid){ document.getElementById("inTid").value=tid; loadFromTournament(tid); } };
+      document.getElementById("btnLoadCat").onclick=load;
+      if(cats.length===1){ load(); } // satu kategori → langsung muat
+    }).catch(function(e){ prepErr("Gagal memuat kategori: "+e.message); });
   }
   el.spin.addEventListener("click",spin);
   el.undo.addEventListener("click",undo);

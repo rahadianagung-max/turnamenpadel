@@ -303,7 +303,10 @@ function openEvent(eventId){
   document.getElementById("dashCard").classList.remove("hidden");
   document.getElementById("evName").textContent=EVENT.name||eventId;
   document.getElementById("evMeta").textContent=[EVENT.venue,EVENT.date].filter(Boolean).join(" · ");
-  // Launch buttons di dalam view Spin/Scorer (preset event scorer).
+  // Launch buttons di dalam view Spin/Scorer — bawa konteks event agar halaman
+  // tujuan langsung terfokus ke event ini (tanpa admin memilih lagi).
+  const goDraw=document.getElementById("goDraw");
+  if(goDraw) goDraw.setAttribute("href","/draw?event="+encodeURIComponent(eventId));
   const goScorer=document.getElementById("goScorer");
   if(goScorer) goScorer.onclick=function(){ try{ localStorage.setItem("tp_court_admin_event", eventId); }catch(e){} };
   try{ history.replaceState(null,"","/admin/"+encodeURIComponent(EVENT.slug||eventId)); }catch(e){}
