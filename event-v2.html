@@ -294,7 +294,7 @@
     var barHint = C.status==="open"?"SELECTED CATEGORY": C.status==="closed"?"REGISTRATION CLOSED":"REGISTRATION NOT OPEN YET";
     var selLabel = C.cats.length?(esc(c.label||"—")+(c.fee?' · <span class="fee">'+esc(rupiah(c.fee))+'</span>':'')):'—';
     var cta = C.open
-      ? '<a class="btn accent big go" href="/daftar/'+encodeURIComponent(C.regRef)+(c.tid?('?cat='+encodeURIComponent(c.tid)):'')+'"><span class="ms">how_to_reg</span>Register</a>'
+      ? '<a class="btn accent big go" href="/daftar-preview/'+encodeURIComponent(C.regRef)+(c.tid?('?cat='+encodeURIComponent(c.tid)):'')+'"><span class="ms">how_to_reg</span>Register</a>'
       : '<button class="btn big go" disabled><span class="ms">lock</span>'+(C.status==="closed"?"Closed":"Soon")+'</button>';
     bar.innerHTML='<div class="in"><div class="sel"><span class="k">'+barHint+'</span><span class="v">'+selLabel+'</span></div>'+cta+'</div>';
   }

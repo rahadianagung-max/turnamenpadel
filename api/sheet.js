@@ -5618,7 +5618,7 @@ async function regPublic(eventId) {
       rules: config.rules || "", waiver: config.waiver || "", timeline: config.timeline || {},
       payment: config.payment || {}, fields: config.fields || {},
       flyer: config.flyer || "", description: config.description || "",
-      eligibility: config.eligibility || "",
+      eligibility: config.eligibility || "", contact: config.contact || "",
       jerseyImage: config.jerseyImage || "",
       jerseySizes: Array.isArray(config.jerseySizes) ? config.jerseySizes : [],
       theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
