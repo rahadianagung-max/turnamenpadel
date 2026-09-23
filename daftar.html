@@ -392,8 +392,12 @@ function fieldsOn(){ const f=(F.data.config&&F.data.config.fields)||{}; return f
 function jerseySizes(){ const s=(F.data.config||{}).jerseySizes; return (Array.isArray(s)&&s.length)?s:["XS","S","M","L","XL","XXL"]; }
 function jerseyOptions(sel){ return '<option value="">—</option>'+jerseySizes().map(sz=>`<option ${sel===sz?'selected':''}>${esc(sz)}</option>`).join(""); }
 function jerseyChart(){ const u=(F.data.config||{}).jerseyImage; return u?`<div style="margin:0 0 8px"><img src="${esc(u)}" alt="Size chart jersey" referrerpolicy="no-referrer" loading="lazy" style="max-width:100%;border:var(--bd);border-radius:var(--r-lg);display:block"></div>`:""; }
+// Email harus lengkap & mengandung @ (nama@domain.tld). No HP harus angka
+// (boleh diawali +, dan pemisah spasi/-/() diabaikan) minimal 8 digit.
+function validEmail(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||"").trim()); }
+function validPhone(p){ const d=String(p||"").replace(/[\s().-]/g,""); return /^\+?\d{8,15}$/.test(d); }
 function allFilled(i){ const p=F.players[i], on=fieldsOn();
-  if(!(p.name||"").trim()||!(p.email||"").trim()||!(p.phone||"").trim()||!(p.ig||"").trim()) return false;
+  if(!(p.name||"").trim()||!validEmail(p.email)||!validPhone(p.phone)||!(p.ig||"").trim()) return false;
   if(on("nick") && !(p.nick||"").trim()) return false;
   if(on("gender") && !(p.gender||"").trim()) return false;
   if(on("dob") && !(p.dob||"").trim()) return false;
@@ -403,7 +407,12 @@ function allFilled(i){ const p=F.players[i], on=fieldsOn();
   return true;
 }
 function setF(i,k,v){ F.players[i][k]=v; updatePlayerNav(i); scheduleSave(); }
-function updatePlayerNav(i){ const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(allFilled(i) && (i!==0 || (F.teamName||"").trim())); }
+function updatePlayerNav(i){ const p=F.players[i]||{};
+  const pe=document.getElementById("phoneErr_"+i);
+  if(pe){ const bad=(p.phone||"").trim()&&!validPhone(p.phone); pe.textContent=bad?"No. HP harus berupa angka.":""; pe.style.display=bad?"":"none"; }
+  const ee=document.getElementById("emailErr_"+i);
+  if(ee){ const bad=(p.email||"").trim()&&!validEmail(p.email); ee.textContent=bad?"Email harus lengkap & mengandung @ (nama@mail.com).":""; ee.style.display=bad?"":"none"; }
+  const b=document.getElementById("pNext_"+i); if(b) b.disabled=!(allFilled(i) && (i!==0 || (F.teamName||"").trim())); }
 function clearOtp(p){ p.cand=null; p.otpStage=null; p.otpMask=""; p.otpCode=""; p.otpErr=""; p.otpBusy=false; p.otpMsg=""; }
 function onName(i,v){ const p=F.players[i]; p.name=v; p.chk=null; p.decision=null; p.checking=false; clearOtp(p);
   const r=document.getElementById("pres_"+i); if(r) r.innerHTML=(v||"").trim()?'<div class="note">akan cek saat berhenti mengetik…</div>':"";
@@ -586,7 +595,9 @@ function profileForm(i,on){ const p=F.players[i];
   rows.push(`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span><input value="${esc(p.name)}" oninput="setF(${i},'name',this.value)" placeholder="Nama lengkap sesuai KTP"></label>`);
   if(on("nick")) rows.push(`<label class="f"><span>Nama alias <span class="req">*</span></span><input value="${esc(p.nick)}" oninput="setF(${i},'nick',this.value)" placeholder="nama panggilan"></label>`);
   rows.push(`<label class="f"><span>Instagram <span class="req">*</span></span><input value="${esc(p.ig)}" oninput="setF(${i},'ig',this.value)" placeholder="@username"></label>`);
-  rows.push(`<div class="grid2"><label class="f"><span>No. HP <span class="req">*</span></span><input value="${esc(p.phone)}" oninput="setF(${i},'phone',this.value)" placeholder="0812..."></label><label class="f"><span>Email <span class="req">*</span></span><input type="email" value="${esc(p.email)}" oninput="setF(${i},'email',this.value)" placeholder="nama@mail.com"></label></div>`);
+  const phErr=(p.phone||"").trim()&&!validPhone(p.phone)?'No. HP harus berupa angka.':'';
+  const emErr=(p.email||"").trim()&&!validEmail(p.email)?'Email harus lengkap & mengandung @ (nama@mail.com).':'';
+  rows.push(`<div class="grid2"><label class="f"><span>No. HP <span class="req">*</span></span><input inputmode="tel" value="${esc(p.phone)}" oninput="setF(${i},'phone',this.value)" placeholder="0812..."><div class="ferr" id="phoneErr_${i}" style="color:var(--danger);font-size:11.5px;margin-top:4px;${phErr?'':'display:none'}">${esc(phErr)}</div></label><label class="f"><span>Email <span class="req">*</span></span><input type="email" value="${esc(p.email)}" oninput="setF(${i},'email',this.value)" placeholder="nama@mail.com"><div class="ferr" id="emailErr_${i}" style="color:var(--danger);font-size:11.5px;margin-top:4px;${emErr?'':'display:none'}">${esc(emErr)}</div></label></div>`);
   const dg=[];
   if(on("gender")) dg.push(`<label class="f"><span>Gender <span class="req">*</span></span><select onchange="setF(${i},'gender',this.value)"><option value="">—</option><option ${p.gender==='L'?'selected':''}>L</option><option ${p.gender==='P'?'selected':''}>P</option></select></label>`);
   if(on("dob")) dg.push(`<label class="f"><span>Tanggal lahir <span class="req">*</span></span><input type="date" value="${esc(p.dob)}" oninput="setF(${i},'dob',this.value)"></label>`);
@@ -697,7 +708,7 @@ async function submitReg(){
   // arahkan kembali ke step pemain yang kurang (hindari error dari server).
   for(var pi=0; pi<2; pi++){
     if(!allFilled(pi) || (pi===0 && !(F.teamName||"").trim())){
-      alert("Lengkapi dulu data "+(pi===0?"Pemain 1 (termasuk nama tim)":"Pemain 2")+" — nama, Instagram, No. HP, dan email wajib diisi.");
+      alert("Lengkapi dulu data "+(pi===0?"Pemain 1 (termasuk nama tim)":"Pemain 2")+" — nama, Instagram, No. HP (angka), dan email (harus mengandung @) wajib diisi dengan benar.");
       go(pi===0?"p1":"p2"); return;
     }
   }
