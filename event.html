@@ -256,7 +256,10 @@
     var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
     var homeEl=document.getElementById("homeBtn"); if(homeEl) homeEl.setAttribute("href","/"+encodeURIComponent(regRef));
 
-    host.innerHTML = flyer + tabs + '<div class="cta-wrap">'+statusChip+'<div class="cta-row">'+cta+joinedBtn+shareBtn+'</div></div>';
+    // Meta chips: tanggal + venue (alamat) + region. Venue diambil dari alamat
+    // reg builder (/engine) via cfg.address (lihat var venue di atas).
+    var metaHtml = (date||venue||region) ? '<div class="meta">'+chip("calendar_month",date)+chip("location_on",venue)+chip("public",region)+'</div>' : '';
+    host.innerHTML = flyer + metaHtml + tabs + '<div class="cta-wrap">'+statusChip+'<div class="cta-row">'+cta+joinedBtn+shareBtn+'</div></div>';
     // Share button → OG link so WhatsApp shows the flyer + short description.
     var shareUrl = location.origin + "/api/reg/share/" + encodeURIComponent(eventId) + "?s=" + encodeURIComponent(regRef);
     var sbtn = host.querySelector("#shareBtn");
