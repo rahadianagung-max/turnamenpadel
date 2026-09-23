@@ -248,6 +248,19 @@ async function boot(){
       F.step=step; F._restored=true;
     }
   }
+  // Dari halaman event (Register) → ?cat=<tournamentId>: pilih kategori otomatis
+  // dan lompat ke step Eligibility (peserta tak perlu memilih kategori lagi).
+  try{
+    const catParam=new URLSearchParams(location.search).get("cat");
+    if(catParam && F.started){
+      const c=(F.data.categories||[]).find(x=>x.tournamentId===catParam);
+      if(c && !catFull(c)){
+        F.catId=catParam;
+        const eligIdx=stepKeys().indexOf("elig");
+        if(F.step < eligIdx){ F.step=eligIdx; F._restored=false; }
+      }
+    }
+  }catch(e){}
   render();
 }
 // ---- Draft pendaftaran (localStorage per-event) ----
