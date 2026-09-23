@@ -43,6 +43,7 @@
   .btn .ms{font-size:16px}
   .btn.accent{background:var(--accent);color:#fff}
   .btn.big{font-size:15px;padding:13px 20px;border-radius:1rem}
+  .btn.block{width:100%;justify-content:center}
   .btn[disabled]{opacity:.5;cursor:not-allowed;box-shadow:2px 2px 0 0 var(--line);transform:none}
   /* layout */
   .wrap{max-width:960px;margin:0 auto;padding:20px 16px 120px}
@@ -180,6 +181,10 @@
     return '<ol class="tl">'+rows.map(function(r){return '<li><span class="dot"></span><span class="lab">'+esc(r[0])+'</span><span class="dt">'+esc(r[1])+'</span></li>';}).join("")+'</ol>';
   }
   function initials(nm){var p=String(nm||"").trim().split(/\s+/);return (((p[0]||"")[0]||"")+((p[1]||"")[0]||"")||"?").toUpperCase();}
+  // "2026-11-01" → "Sunday, 1 November 2026". Teks yang tak bisa di-parse tampil apa adanya.
+  function fmtDate(s){ s=String(s||"").trim(); if(!s) return ""; var d=new Date(s);
+    if(isNaN(d.getTime())) return s;
+    try{ return d.toLocaleDateString('en-GB',{weekday:'long'})+', '+d.toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}); }catch(e){ return s; } }
 
   var CTX=null;
   function render(ev,pub,eventId){
@@ -195,13 +200,13 @@
       var quota=parseInt(c.quota)||0, filled=parseInt(c.filled)||0, left=Math.max(0,quota-filled);
       var full=quota>0&&filled>=quota;
       return {tid:c.tournamentId, label:c.label||"", level:c.level||"", fee:c.fee||"",
-        quota:quota, filled:filled, left:left, full:full,
+        quota:quota, filled:filled, left:left, full:full, approved:parseInt(c.approved)||0,
         pct: quota>0?Math.min(100,Math.round(filled/quota*100)):0};
     });
     // fee minimum (untuk stat "FEE / TEAM")
     var feeNums=cats.map(function(c){return parseInt(String(c.fee).replace(/[^\d]/g,""),10);}).filter(function(n){return isFinite(n)&&n>0;});
     var minFee=feeNums.length?Math.min.apply(null,feeNums):0;
-    var joined=cats.reduce(function(a,c){return a+c.filled;},0);
+    var joined=cats.reduce(function(a,c){return a+(c.approved||0);},0); // hanya yang sudah approved
     // pilih kategori default: pertama yang belum penuh
     var firstOpen=0; for(var i=0;i<cats.length;i++){ if(!cats[i].full){ firstOpen=i; break; } }
     ST.cat=firstOpen;
@@ -243,9 +248,9 @@
         '<div class="pillrow"><span class="pill" style="color:'+sp.fg+';background:'+sp.bg+';border-color:'+sp.bd+'"><span class="d"></span>'+sp.label+'</span>'+(hint?'<span class="pillhint">'+hint+'</span>':'')+'</div>'+
         '<h1 class="t">'+esc(C.name)+'</h1>'+
         '<div class="statgrid">'+
-          stat('calendar_month','DATE',C.date)+
+          stat('calendar_month','DATE',fmtDate(C.date))+
           stat('location_on','VENUE',C.venue)+
-          stat('payments','FEE / TEAM',C.minFee?("From "+rupiah(C.minFee)):"—")+
+          stat('payments','FEE / TEAM',C.minFee?rupiah(C.minFee):"—")+
           stat('event_upcoming','CLOSES',C.tl.openEnd||"—")+
         '</div>'+ joinedRow +
       '</div></section>';
@@ -263,40 +268,22 @@
       '<div class="tablist">'+TABS.map(function(t){return '<button type="button" class="tabbtn'+(ST.tab===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>';}).join("")+'</div>'+
       '<h3 class="h3">'+tabTitle+'</h3>'+tabBody+'</section>';
 
-    // Category chooser
-    var catCards=C.cats.map(function(c,i){
-      var sel=i===ST.cat && !c.full;
-      var barcol = c.full?'var(--muted2)':(c.left<=3?'var(--accent)':'var(--okbd)');
-      var slots = c.full?('FULL · '+c.quota+'/'+c.quota+' TEAMS'):(c.quota?(c.left+' of '+c.quota+' slots left'):'no quota');
-      var icon = c.full?'block':(sel?'check_circle':'radio_button_unchecked');
-      return '<button type="button" class="catcard'+(sel?' sel':'')+'" data-cat="'+i+'"'+(c.full?' disabled':'')+'>'+
-        '<div class="top"><span class="nm"><span class="ms">'+icon+'</span>'+esc(c.label||("Category "+(i+1)))+'</span>'+(c.fee?'<span class="fee">'+esc(rupiah(c.fee))+'</span>':'')+'</div>'+
-        (c.level?'<div class="lv">'+esc(c.level)+'</div>':'')+
-        (c.quota?'<div class="bar"><i style="width:'+c.pct+'%;background:'+barcol+'"></i></div>':'')+
-        '<div class="slots">'+slots+'</div>'+
-      '</button>';
-    }).join("");
-    var catSection = C.cats.length ? '<section class="card"><div class="h2">Choose a category <span class="sub">PRICE / TEAM (2 PLAYERS)</span></div><div class="catlist">'+catCards+'</div></section>' : '';
-
-    host.innerHTML = hero + tabs + catSection;
+    // Kategori dipilih di dalam form (step 1), bukan di halaman event.
+    host.innerHTML = hero + tabs;
     paintBar();
 
     // wire tabs
     host.querySelectorAll('.tabbtn').forEach(function(b){ b.onclick=function(){ ST.tab=b.getAttribute('data-tab'); paint(); }; });
-    // wire category select
-    host.querySelectorAll('.catcard').forEach(function(b){ b.onclick=function(){ if(b.hasAttribute('disabled'))return; ST.cat=parseInt(b.getAttribute('data-cat'),10)||0; paint(); }; });
   }
 
   function paintBar(){
     var C=CTX; if(!C) return;
     var bar=document.getElementById("ctabar"); if(!bar){ bar=document.createElement("div"); bar.className="ctabar"; bar.id="ctabar"; document.body.appendChild(bar); }
-    var c=C.cats[ST.cat]||{};
-    var barHint = C.status==="open"?"SELECTED CATEGORY": C.status==="closed"?"REGISTRATION CLOSED":"REGISTRATION NOT OPEN YET";
-    var selLabel = C.cats.length?(esc(c.label||"—")+(c.fee?' · <span class="fee">'+esc(rupiah(c.fee))+'</span>':'')):'—';
+    // Tombol Register saja → langsung ke step 1 form (pilih kategori di sana).
     var cta = C.open
-      ? '<a class="btn accent big go" href="/daftar-preview/'+encodeURIComponent(C.regRef)+(c.tid?('?cat='+encodeURIComponent(c.tid)):'')+'"><span class="ms">how_to_reg</span>Register</a>'
-      : '<button class="btn big go" disabled><span class="ms">lock</span>'+(C.status==="closed"?"Closed":"Soon")+'</button>';
-    bar.innerHTML='<div class="in"><div class="sel"><span class="k">'+barHint+'</span><span class="v">'+selLabel+'</span></div>'+cta+'</div>';
+      ? '<a class="btn accent big go block" href="/daftar-preview/'+encodeURIComponent(C.regRef)+'"><span class="ms">how_to_reg</span>Register</a>'
+      : '<button class="btn big go block" disabled><span class="ms">lock</span>'+(C.status==="closed"?"Registration closed":"Opening soon")+'</button>';
+    bar.innerHTML='<div class="in">'+cta+'</div>';
   }
 })();
 </script>

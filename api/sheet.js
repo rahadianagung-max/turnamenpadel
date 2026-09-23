@@ -5579,18 +5579,20 @@ async function regFindFormRow(sheets, formId) {
 }
 // filled = pairs holding a slot (any non-terminal, non-waitlist status);
 // waitlist = pairs queued because the category was full at submit time.
+const JOINED_STATUS = new Set(["approved", "received", "imported", "final", "accepted"]);
 function regCategoryCounts(regRows, formId) {
-  const filled = {}, waitlist = {};
+  const filled = {}, waitlist = {}, approved = {};
   for (const r of regRows) {
     if (r[1] !== formId) continue;
     let d = {}; try { d = JSON.parse(r[8] || "{}"); } catch (e) {}
     const cat = d.category || r[9] || "";
     const st = r[10] || "received";
     if (st === "rejected" || st === "cancelled") continue;
-    if (st === "waitlist") waitlist[cat] = (waitlist[cat] || 0) + 1;
-    else filled[cat] = (filled[cat] || 0) + 1;
+    if (st === "waitlist") { waitlist[cat] = (waitlist[cat] || 0) + 1; continue; }
+    filled[cat] = (filled[cat] || 0) + 1; // termasuk pending (slot dianggap terpakai)
+    if (JOINED_STATUS.has(st)) approved[cat] = (approved[cat] || 0) + 1; // hanya yang sudah di-approve
   }
-  return { filled, waitlist };
+  return { filled, waitlist, approved };
 }
 async function regPublic(eventId) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
@@ -5612,6 +5614,7 @@ async function regPublic(eventId) {
     tournamentId: tid, label: c.label || "", level: c.level || "",
     fee: c.fee || "", prize: c.prize || "", req: c.req || "",
     quota: parseInt(c.quota) || 0, filled: counts.filled[tid] || 0, waitlist: counts.waitlist[tid] || 0,
+    approved: counts.approved[tid] || 0,
   }));
   return respond(200, { eventId, status, event: ev, name: frow[1] || (ev && ev.name) || "",
     config: { address: config.address || "", maps: config.maps || "", region: config.region || "",
