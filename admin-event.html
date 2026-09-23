@@ -159,7 +159,24 @@
       <div class="card">
         <div class="row" style="justify-content:space-between">
           <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
-          <button class="btn ghost sm" onclick="loadRegs()">↻ Refresh</button>
+          <div class="row" style="gap:8px">
+            <button class="btn ghost sm" onclick="toggleExport()">⬇ Export CSV</button>
+            <button class="btn ghost sm" onclick="loadRegs()">↻ Refresh</button>
+          </div>
+        </div>
+        <div id="exportPanel" class="hidden" style="margin-top:12px;border:var(--bd);border-radius:var(--r-lg);padding:14px;background:var(--inset)">
+          <div style="font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:8px">Export peserta ke CSV</div>
+          <div class="note" style="margin:0 0 6px">Pilih kategori yang mau diekspor:</div>
+          <div id="exportCats"></div>
+          <div class="row" style="gap:16px;margin-top:12px">
+            <label style="font-size:13px;font-weight:600"><input type="radio" name="expScope" value="approved" checked style="width:auto;margin-right:5px">Approved saja</label>
+            <label style="font-size:13px;font-weight:600"><input type="radio" name="expScope" value="all" style="width:auto;margin-right:5px">Semua (termasuk waiting)</label>
+          </div>
+          <div class="row" style="gap:8px;margin-top:14px">
+            <button class="btn primary sm" onclick="downloadCsv()">⬇ Download CSV</button>
+            <button class="btn ghost sm" onclick="toggleExport()">Tutup</button>
+          </div>
+          <div id="exportMsg" class="note"></div>
         </div>
         <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
       </div>
@@ -522,6 +539,7 @@ async function loadRegs(){
     await ensureCatMap(); // pastikan peta kategori siap sebelum mengelompokkan
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/registrations?token="+encodeURIComponent(TOKEN));
     const list=r.registrations||[];
+    REGS=list; // simpan untuk export CSV
     const approved=list.filter(x=>APPROVED_STATUS.has(x.status));
     const waiting=list.filter(x=>!APPROVED_STATUS.has(x.status) && x.status!=="rejected" && x.status!=="cancelled");
     const closed=list.filter(x=>x.status==="rejected"||x.status==="cancelled");
@@ -532,6 +550,56 @@ async function loadRegs(){
       regSection("✅ Approved players", approved, "Belum ada yang di-approve.") +
       (closed.length?regSection("✕ Ditolak / batal", closed, ""):"");
   }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
+}
+/* ===== Export peserta ke CSV (pilih kategori) ===== */
+let REGS=[];
+function toggleExport(){
+  const p=document.getElementById("exportPanel"); if(!p) return;
+  const willShow=p.classList.contains("hidden");
+  p.classList.toggle("hidden");
+  document.getElementById("exportMsg").textContent="";
+  if(willShow) renderExportCats();
+}
+function renderExportCats(){
+  const host=document.getElementById("exportCats"); if(!host) return;
+  // daftar kategori unik (urut sesuai kemunculan) dari pendaftaran
+  const cats=[]; const seen={};
+  REGS.forEach(r=>{ const c=catText(r.data||{}); if(!seen[c]){ seen[c]=1; cats.push(c); } });
+  if(!cats.length){ host.innerHTML='<p class="muted" style="font-size:13px">Belum ada pendaftar.</p>'; return; }
+  host.innerHTML=
+    '<label style="font-size:13px;font-weight:700;display:block;margin-bottom:6px"><input type="checkbox" id="expAll" checked onchange="expToggleAll(this.checked)" style="width:auto;margin-right:6px">Semua kategori</label>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 14px">'+
+    cats.map(c=>`<label style="font-size:13px"><input type="checkbox" class="expCat" value="${esc(c)}" checked style="width:auto;margin-right:6px">${esc(c)}</label>`).join("")+
+    '</div>';
+}
+function expToggleAll(on){ document.querySelectorAll("#exportCats .expCat").forEach(cb=>{ cb.checked=on; }); }
+function csvCell(v){ const s=String(v==null?"":v); return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }
+function downloadCsv(){
+  const msg=document.getElementById("exportMsg"); if(msg) msg.textContent="";
+  const picked=new Set([...document.querySelectorAll("#exportCats .expCat:checked")].map(cb=>cb.value));
+  if(!picked.size){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Pilih minimal satu kategori."; } return; }
+  const scope=(document.querySelector('input[name="expScope"]:checked')||{}).value||"approved";
+  const rows=REGS.filter(r=>{
+    if(!picked.has(catText(r.data||{}))) return false;
+    if(scope==="approved") return APPROVED_STATUS.has(r.status);
+    return r.status!=="rejected" && r.status!=="cancelled"; // "semua" = kecuali ditolak/batal
+  });
+  if(!rows.length){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Tidak ada peserta pada pilihan ini."; } return; }
+  const header=["Kategori","Nama Tim","Pemain 1","HP Pemain 1","IG Pemain 1","Jersey Pemain 1","Pemain 2","HP Pemain 2","IG Pemain 2","Jersey Pemain 2","Status"];
+  const lines=[header.map(csvCell).join(",")];
+  rows.forEach(r=>{ const d=r.data||{}, p1=d.player1||{}, p2=d.player2||{};
+    lines.push([catText(d),teamName(r),p1.name||"",p1.phone||"",p1.ig||"",p1.jersey||"",
+      p2.name||"",p2.phone||"",p2.ig||"",p2.jersey||"",r.status||""].map(csvCell).join(","));
+  });
+  const csv="﻿"+lines.join("\r\n"); // BOM agar Excel baca UTF-8
+  const slug=(EVENT&&(EVENT.slug||EVENT.eventId))||"event";
+  const stamp=new Date().toISOString().slice(0,10);
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8;"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download="peserta_"+slug+"_"+stamp+".csv";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  if(msg){ msg.style.color="var(--ok)"; msg.textContent="✓ "+rows.length+" peserta diekspor."; }
 }
 // Manual approval: approve → status approved + email peserta; reject → rejected.
 async function approveReg(regId){
