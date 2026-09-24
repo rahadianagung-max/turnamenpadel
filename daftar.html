@@ -164,7 +164,10 @@ function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9
 // Full category names / levels (avoid codes like MD/WD/MIXED and raw levels).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k] || c; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k] || l; }
-function catText(c){ const cl=catLabel(c.label); const lv=levelLabel(c.level); return lv ? (cl+" · "+lv) : cl; }
+function catText(c){ const cl=catLabel(c.label); let lv=levelLabel(c.level);
+  // Sembunyikan angka ELO mentah (mis. custom kategori "900") agar tidak membingungkan peserta.
+  if(/^\d+$/.test(String(c.level||"").trim())) lv="";
+  return lv ? (cl+" · "+lv) : cl; }
 
 const F = { eventId:qs(), data:null, step:0, catId:null, teamName:"", qExperience:"", qAchievements:"",
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
