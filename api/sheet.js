@@ -5624,6 +5624,7 @@ async function regPublic(eventId) {
       eligibility: config.eligibility || "", contact: config.contact || "",
       jerseyImage: config.jerseyImage || "",
       jerseySizes: Array.isArray(config.jerseySizes) ? config.jerseySizes : [],
+      hidePlayers: !!config.hidePlayers,
       theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
     categories: cats });
 }
@@ -6405,6 +6406,7 @@ async function regRosterPublic(eventId) {
   }
   const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
   return respond(200, { eventId, name: frow[1] || "", categories,
+    hidePlayers: !!config.hidePlayers,
     theme: config.theme === "nightmode" ? "nightmode" : "daylight" });
 }
 // Locate a registration row (index into A2:… body) by regId within an event.
