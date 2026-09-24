@@ -139,6 +139,9 @@
     var titleEl=document.getElementById("evTitle"); if(titleEl) titleEl.textContent=name;
     document.title="Players · "+name;
 
+    // Panitia bisa menonaktifkan daftar peserta publik via /engine.
+    if(pub.hidePlayers){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">group_off</span>Daftar peserta tidak tersedia untuk event ini.</div>'; return; }
+
     var cats=(pub.categories||[]).filter(function(c){ return (c.pairs||[]).length; });
     if(!cats.length){ host.innerHTML='<div class="state"><span class="material-symbols-outlined">groups</span>Belum ada pemain yang bergabung.</div>'; return; }
 

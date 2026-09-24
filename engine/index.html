@@ -1207,6 +1207,10 @@ function renderRegBuilder(cfg, status){
         <option value="daylight" ${cfg.theme!=="nightmode"?"selected":""}>Daylight — terang (default)</option>
         <option value="nightmode" ${cfg.theme==="nightmode"?"selected":""}>Nightmode — latar gelap</option>
       </select></div>
+    <div class="f" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;font-weight:600">
+      <input type="checkbox" id="rb_hide_players" style="width:auto" ${cfg.hidePlayers?"checked":""}>
+      Sembunyikan daftar peserta publik <span class="muted" style="font-weight:400">— nonaktifkan link &amp; halaman turnamenpadel.com/peserta/${esc(shareSlug())}</span>
+    </label></div>
     <div class="f"><label>Players eligibility <span class="muted" style="font-weight:400">— tab "Players eligibility" di halaman event</span></label>
       <textarea id="rb_eligibility" rows="5" placeholder="Siapa yang boleh ikut — syarat level/ELO, gender, usia, domisili, dsb.">${esc(cfg.eligibility||"")}</textarea></div>
 
@@ -1459,6 +1463,7 @@ function collectRegConfig(){
     eligibility: (document.getElementById("rb_eligibility")||{}).value||"",
     contact: (document.getElementById("rb_contact")||{}).value||"",
     theme: (document.getElementById("rb_theme")||{}).value==="nightmode"?"nightmode":"daylight",
+    hidePlayers: !!(document.getElementById("rb_hide_players")||{}).checked,
     categories,
     rules: (document.getElementById("rb_rules")||{}).value||"",
     waiver:(document.getElementById("rb_waiver")||{}).value||"",

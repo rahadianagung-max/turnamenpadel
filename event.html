@@ -241,8 +241,8 @@
     function stat(icon,k,v){ return '<div class="stat"><span class="k"><span class="ms">'+icon+'</span>'+k+'</span><b class="v">'+esc(v||"—")+'</b></div>'; }
     var avatars=''; var showN=Math.min(4,Math.max(0,C.joined)); for(var a=0;a<showN;a++) avatars+='<span>'+String.fromCharCode(65+a)+'</span>';
     if(!showN) avatars='<span>+</span>';
-    var joinedRow='<a class="joined" href="/peserta/'+encodeURIComponent(C.regRef)+'"><span class="av">'+avatars+'</span>'+
-      '<span class="jt"><b>'+C.joined+'</b> teams registered · view players</span><span class="ms">chevron_right</span></a>';
+    var joinedRow = C.cfg.hidePlayers ? '' : ('<a class="joined" href="/peserta/'+encodeURIComponent(C.regRef)+'"><span class="av">'+avatars+'</span>'+
+      '<span class="jt"><b>'+C.joined+'</b> teams registered · view players</span><span class="ms">chevron_right</span></a>');
 
     var hero='<section class="hero">'+flyer+
       '<div class="heroR">'+
