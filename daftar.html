@@ -171,7 +171,7 @@ function catText(c){ const cl=catLabel(c.label); let lv=levelLabel(c.level);
 
 const F = { eventId:qs(), data:null, step:0, catId:null, teamName:"", qExperience:"", qAchievements:"",
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
-function blankP(){ return {name:"",phone:"",email:"",ig:"",reclub:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,emailQ:"",emailErr:"",emailBusy:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
+function blankP(){ return {name:"",phone:"",email:"",ig:"",reclub:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",ktp:"",ktpUrl:"",decision:null,chk:null,checking:false,cand:null,emailQ:"",emailErr:"",emailBusy:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
 
 async function api(path, opts){
   const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
@@ -284,10 +284,10 @@ function saveDraft(){
   if(!hasContent){ return; }
   const snap={ v:2, ts:Date.now(), eventId:F.eventId, catId:F.catId, teamName:F.teamName||"", qExperience:F.qExperience||"", qAchievements:F.qAchievements||"", step:F.step,
     waiverA:!!F.waiverA, waiverB:!!F.waiverB, payFile:F.payFile||"",
-    players:(F.players||[]).map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,reclub:p.reclub||"",nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey,photo:p.photo||"",photoUrl:p.photoUrl||"",decision:p.decision})) };
+    players:(F.players||[]).map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,reclub:p.reclub||"",nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey,photo:p.photo||"",photoUrl:p.photoUrl||"",ktp:p.ktp||"",ktpUrl:p.ktpUrl||"",decision:p.decision})) };
   try{ localStorage.setItem(draftKey(), JSON.stringify(snap)); }
   catch(e){ // kemungkinan quota (gambar base64 besar) → simpan tanpa gambar
-    try{ const lite=JSON.parse(JSON.stringify(snap)); lite.payFile=""; lite.players.forEach(p=>{ p.photo=""; }); localStorage.setItem(draftKey(), JSON.stringify(lite)); }catch(e2){}
+    try{ const lite=JSON.parse(JSON.stringify(snap)); lite.payFile=""; lite.players.forEach(p=>{ p.photo=""; p.ktp=""; }); localStorage.setItem(draftKey(), JSON.stringify(lite)); }catch(e2){}
   }
 }
 let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveDraft, 400); }
@@ -363,6 +363,7 @@ function prepItems(){
   if(on("region")) items.push("Kota / domisili");
   if(on("jersey")) items.push("Ukuran jersey");
   if(on("photo")) items.push("Foto (pas foto / selfie, ukuran file jangan terlalu besar)");
+  if(on("ktp")) items.push("Foto KTP / identitas (jelas & terbaca)");
   return items;
 }
 function prepShareText(){
@@ -455,6 +456,7 @@ function allFilled(i){ const p=F.players[i], on=fieldsOn();
   if(on("region") && !(p.region||"").trim()) return false;
   if(on("jersey") && !(p.jersey||"").trim()) return false;
   if(on("photo") && !(p.photo||p.photoUrl)) return false;
+  if(on("ktp") && !(p.ktp||p.ktpUrl)) return false;
   return true;
 }
 function setF(i,k,v){ F.players[i][k]=v; updatePlayerNav(i); scheduleSave(); }
@@ -658,6 +660,8 @@ function profileForm(i,on){ const p=F.players[i];
   if(on("jersey")) rows.push(`<label class="f"><span>Ukuran jersey <span class="req">*</span></span>${jerseyChart()}<select onchange="setF(${i},'jersey',this.value)">${jerseyOptions(p.jersey)}</select></label>`);
   if(on("photo")){ const cur=(p.photo||p.photoUrl)?`<img src="${esc(p.photo||p.photoUrl)}" alt="" style="width:64px;height:64px;object-fit:cover;border:var(--bd);border-radius:10px">`:'<span class="chip">belum ada</span>';
     rows.push(`<label class="f"><span>Foto <span class="req">*</span></span><div class="row" style="align-items:center;gap:12px"><div id="ph_${i}">${cur}</div><input type="file" accept="image/*" onchange="pickPhoto(${i},this)" style="flex:1"></div>${p.photoWarn?`<div class="chip warn" style="margin-top:6px;display:inline-block">${esc(p.photoWarn)}</div>`:''}</label>`); }
+  if(on("ktp")){ const cur=(p.ktp||p.ktpUrl)?`<img src="${esc(p.ktp||p.ktpUrl)}" alt="" style="width:96px;height:60px;object-fit:cover;border:var(--bd);border-radius:8px">`:'<span class="chip">belum ada</span>';
+    rows.push(`<label class="f"><span>Foto KTP / ID <span class="req">*</span></span><div class="row" style="align-items:center;gap:12px"><div id="ktp_${i}">${cur}</div><input type="file" accept="image/*" onchange="pickKtp(${i},this)" style="flex:1"></div><div class="note" style="margin-top:4px;font-size:11.5px">Untuk verifikasi identitas panitia. Pastikan foto jelas & terbaca.</div>${p.ktpWarn?`<div class="chip warn" style="margin-top:6px;display:inline-block">${esc(p.ktpWarn)}</div>`:''}</label>`); }
   return rows.join("");
 }
 function vPlayer(i){ const p=F.players[i], on=fieldsOn();
@@ -749,6 +753,13 @@ function vPay(){
     <div class="nav"><button class="btn ghost" onclick="go('waiver')">←</button>
       <button class="btn primary" id="subBtn" ${F.payFile?'':'disabled'} onclick="submitReg()">✅ Kirim pendaftaran</button></div></div>`;
 }
+async function pickKtp(i,input){ const f=input.files&&input.files[0]; if(!f) return;
+  const p=F.players[i];
+  const d=await compressImageFile(f,1800,0.82);
+  if(!d){ p.ktpWarn="Gagal membaca file. Coba foto lain."; render(); return; }
+  if(dataUrlBytes(d)>IMG_MAX_BYTES){ p.ktpWarn="⚠️ File KTP terlalu besar. Perkecil atau foto ulang."; render(); return; }
+  p.ktp=d; p.ktpWarn=""; updatePlayerNav(i); scheduleSave(); render();
+}
 async function pickPay(input){ const f=input.files&&input.files[0]; if(!f) return;
   const d=await compressImageFile(f,1600,0.82);
   if(!d){ F.payWarn="Gagal membaca file. Coba screenshot/foto lain."; F.payFile=""; render(); return; }
@@ -768,7 +779,8 @@ async function submitReg(){
   const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB, teamName:(F.teamName||"").trim(),
     answers:{ experience:(F.qExperience||"").trim(), achievements:(F.qAchievements||"").trim() },
     players:F.players.map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,reclub:p.reclub||"",nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey})),
-    photo1:F.players[0].photo||F.players[0].photoUrl||"", photo2:F.players[1].photo||F.players[1].photoUrl||"", paymentProof:isWL()?"":F.payFile };
+    photo1:F.players[0].photo||F.players[0].photoUrl||"", photo2:F.players[1].photo||F.players[1].photoUrl||"",
+    ktp1:F.players[0].ktp||F.players[0].ktpUrl||"", ktp2:F.players[1].ktp||F.players[1].ktpUrl||"", paymentProof:isWL()?"":F.payFile };
   try{ const r=await api("reg/register/"+encodeURIComponent(F.eventId), {method:"POST", body});
     F.result=r; clearDraft(); F._restored=false; go("done");
   }catch(e){ const el=document.getElementById("subErr");

@@ -1164,9 +1164,9 @@ async function openRegBuilder(){
   catch(e){ if(e.status!==404){ toast(e.message,true); } } // 404 = form baru
   renderRegBuilder(cfg, status);
 }
-const REG_FIELDS=[["ig","Instagram"],["reclub","Link Rankedclub"],["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["jersey","Ukuran jersey"]];
+const REG_FIELDS=[["ig","Instagram"],["reclub","Link Rankedclub"],["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["ktp","Upload KTP / ID"],["jersey","Ukuran jersey"]];
 // Field yang default MATI bila belum pernah diatur (event lama tetap kompatibel).
-const REG_FIELDS_OFF_BY_DEFAULT=["jersey","reclub"];
+const REG_FIELDS_OFF_BY_DEFAULT=["jersey","reclub","ktp"];
 // Holds a freshly-picked flyer as a base64 data URL until the next save (which
 // uploads it and returns a hosted URL). Reset on every (re)render.
 var REG_FLYER_DATA="";
@@ -1264,7 +1264,7 @@ function renderRegBuilder(cfg, status){
 
     <div style="font-weight:700;margin:14px 0 6px">Field peserta yang diminta <span class="muted" style="font-weight:400">(nama, HP, email selalu wajib)</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:12px">
-      ${REG_FIELDS.map(([k,lbl])=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="rb_field_${k}" ${dflt(k, REG_FIELDS_OFF_BY_DEFAULT.indexOf(k)<0)?"checked":""} style="width:auto"> ${esc(lbl)}${(k==="jersey"||k==="reclub")?' <span class="muted">(opsional)</span>':''}</label>`).join("")}
+      ${REG_FIELDS.map(([k,lbl])=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="rb_field_${k}" ${dflt(k, REG_FIELDS_OFF_BY_DEFAULT.indexOf(k)<0)?"checked":""} style="width:auto"> ${esc(lbl)}${(k==="jersey"||k==="reclub"||k==="ktp")?' <span class="muted">(opsional)</span>':''}</label>`).join("")}
     </div>
 
     <div style="font-weight:700;margin:16px 0 6px">Ukuran jersey <span class="muted" style="font-weight:400">(tampil bila field "Ukuran jersey" aktif)</span></div>
