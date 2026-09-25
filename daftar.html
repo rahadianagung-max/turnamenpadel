@@ -358,7 +358,7 @@ function prepItems(){
   const on=fieldsOn();
   const items=["Nama lengkap (sesuai KTP)","Nomor HP / WhatsApp aktif","Email aktif"];
   if(on("ig")) items.push("Instagram (@username)");
-  if(on("reclub")) items.push("Link Rankedclub");
+  if(on("reclub")) items.push("Link ReClub");
   if(on("nick")) items.push("Nama panggilan");
   if(on("dob")) items.push("Tanggal lahir");
   if(on("gender")) items.push("Jenis kelamin (L/P)");
@@ -646,7 +646,7 @@ function profileForm(i,on){ const p=F.players[i];
   rows.push(`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span><input value="${esc(p.name)}" oninput="setF(${i},'name',this.value)" placeholder="Nama lengkap sesuai KTP"></label>`);
   if(on("nick")) rows.push(`<label class="f"><span>Nama alias <span class="req">*</span></span><input value="${esc(p.nick)}" oninput="setF(${i},'nick',this.value)" placeholder="nama panggilan"></label>`);
   if(on("ig")) rows.push(`<label class="f"><span>Instagram <span class="req">*</span></span><input value="${esc(p.ig)}" oninput="setF(${i},'ig',this.value)" placeholder="@username"></label>`);
-  if(on("reclub")) rows.push(`<label class="f"><span>Link Rankedclub <span class="req">*</span></span><input value="${esc(p.reclub||'')}" oninput="setF(${i},'reclub',this.value)" placeholder="https://rankedclub.com/..."></label>`);
+  if(on("reclub")) rows.push(`<label class="f"><span>Link ReClub <span class="req">*</span></span><input value="${esc(p.reclub||'')}" oninput="setF(${i},'reclub',this.value)" placeholder="https://rankedclub.com/..."></label>`);
   const phErr=(p.phone||"").trim()&&!validPhone(p.phone)?'No. HP harus berupa angka.':'';
   const emErr=(p.email||"").trim()&&!validEmail(p.email)?'Email harus lengkap & mengandung @ (nama@mail.com).':'';
   rows.push(`<div class="grid2"><label class="f"><span>No. HP <span class="req">*</span></span><input inputmode="tel" value="${esc(p.phone)}" oninput="setF(${i},'phone',this.value)" placeholder="0812..."><div class="ferr" id="phoneErr_${i}" style="color:var(--danger);font-size:11.5px;margin-top:4px;${phErr?'':'display:none'}">${esc(phErr)}</div></label><label class="f"><span>Email <span class="req">*</span></span><input type="email" value="${esc(p.email)}" oninput="setF(${i},'email',this.value)" placeholder="nama@mail.com"><div class="ferr" id="emailErr_${i}" style="color:var(--danger);font-size:11.5px;margin-top:4px;${emErr?'':'display:none'}">${esc(emErr)}</div></label></div>`);
