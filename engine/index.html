@@ -1167,6 +1167,23 @@ async function openRegBuilder(){
 const REG_FIELDS=[["ig","Instagram"],["reclub","Link Rankedclub"],["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["ktp","Upload KTP / ID"],["jersey","Ukuran jersey"]];
 // Field yang default MATI bila belum pernah diatur (event lama tetap kompatibel).
 const REG_FIELDS_OFF_BY_DEFAULT=["jersey","reclub","ktp"];
+// Template waiver/disclaimer yang selalu terisi otomatis saat membuat form baru.
+// Form lama yang sudah punya waiver tersendiri tetap dipertahankan apa adanya.
+const DEFAULT_WAIVER=`By registering for and participating in the event, I acknowledge and agree that:
+
+1. Assumption of Risk: I understand that padel involves physical risks, including injuries, accidents, or other medical emergencies. I voluntarily accept these risks and confirm that I am physically fit to participate.
+
+2. Release of Liability: To the extent permitted by applicable law, I release the Tournament Organizer, sponsors, venue, and event partners from liability for injuries, accidents, or loss of personal belongings arising from my participation, except where liability cannot legally be excluded.
+
+3. Medical Emergency: I authorize the Organizer to arrange emergency medical assistance if necessary. Any related medical expenses shall be my responsibility, subject to applicable law and insurance coverage.
+
+4. Photo & Video Consent: I consent to the use of my photographs, videos, and likeness for tournament documentation, promotional, and marketing purposes without additional compensation, subject to applicable privacy laws.
+
+5. Tournament Rules: I agree to comply with all tournament rules and understand that violations may result in disqualification.
+
+6. Personal Data: I consent to the processing of my registration information for tournament administration and related purposes, in accordance with applicable data protection laws.
+
+By submitting my registration, I confirm that I have read, understood, and agreed to this waiver and disclaimer.`;
 // Holds a freshly-picked flyer as a base64 data URL until the next save (which
 // uploads it and returns a hosted URL). Reset on every (re)render.
 var REG_FLYER_DATA="";
@@ -1247,7 +1264,7 @@ function renderRegBuilder(cfg, status){
     </div>
 
     <div class="f" style="margin-top:14px"><label>Game rules <span class="muted" style="font-weight:400">— tab "Game Rules" di halaman event</span></label><textarea id="rb_rules" rows="4">${esc(cfg.rules||"")}</textarea></div>
-    <div class="f"><label>Waiver / disclaimer</label><textarea id="rb_waiver" rows="3">${esc(cfg.waiver||"")}</textarea></div>
+    <div class="f"><label>Waiver / disclaimer</label><textarea id="rb_waiver" rows="3">${esc(cfg.waiver||DEFAULT_WAIVER)}</textarea></div>
 
     <div style="font-weight:700;margin:14px 0 6px">Timeline pendaftaran</div>
     <div class="grid">
