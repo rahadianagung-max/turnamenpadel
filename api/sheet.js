@@ -5868,14 +5868,17 @@ async function regRegisterPair(eventId, body) {
   };
   photo1 = await resolvePhoto(body.photo1, p1.name);
   photo2 = await resolvePhoto(body.photo2, p2.name);
+  let ktp1 = "", ktp2 = "";
+  ktp1 = await resolvePhoto(body.ktp1, p1.name + "_ktp");
+  ktp2 = await resolvePhoto(body.ktp2, p2.name + "_ktp");
   if (!isWaitlist) { try { if (body.paymentProof) payUrl = await uploadImageSmart(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
 
-  const mkP = (p, photo) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "", reclub: p.reclub || "",
-    nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo,
+  const mkP = (p, photo, ktp) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "", reclub: p.reclub || "",
+    nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo, ktpUrl: ktp || "",
     match: null, isNew: true });
   const answers = (body && body.answers) || {};
   const data = { category: catId, level: cat.level || "", teamName: String((body && body.teamName) || "").trim(),
-    player1: mkP(p1, photo1), player2: mkP(p2, photo2),
+    player1: mkP(p1, photo1, ktp1), player2: mkP(p2, photo2, ktp2),
     answers: { experience: String(answers.experience || "").trim(), achievements: String(answers.achievements || "").trim() },
     waiver: !!body.waiver, infoTrue: !!body.infoTrue };
   const regId = regGenId("reg");
