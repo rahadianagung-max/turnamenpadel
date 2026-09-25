@@ -234,7 +234,7 @@
       <div class="linkgrid" id="scorerGrid"></div>
     </div>
     <div class="linkblock">
-      <div class="linklabel">LED / TV — big screen</div>
+      <div class="linklabel">LED / TV — big screen <span style="font-weight:400;opacity:.7">(satu link per kategori — buka di layar berbeda, tanpa rotasi)</span></div>
       <div class="linkgrid" id="ledGrid"></div>
     </div>
     <div class="linkblock">
@@ -454,12 +454,24 @@ function renderLinks(){
   }).join("");
   // Use the event's frozen slug (rename-safe); fall back to the name-derived slug.
   const slug=String(state.event&&state.event.slug||"").trim()||slugify(state.event&&state.event.name);
-  // LED/TV: link langsung ke event ini (bukan /tv generik) — buka board TV event
-  // yang tepat tanpa harus memilih lagi lewat remote.
-  const tvUrl=ORIGIN+"/tv/"+encodeURIComponent(slug);
+  // LED/TV: link langsung ke event ini (bukan /tv generik). Bila ada 2+ kategori,
+  // beri SATU link per kategori (pakai ?cat=<tournamentId>) sehingga tiap layar
+  // menampilkan satu kategori saja — tidak berotasi bergantian.
+  const tvBase=ORIGIN+"/tv/"+encodeURIComponent(slug);
   const mbUrl=ORIGIN+"/mobile/"+encodeURIComponent(slug);
-  $("ledGrid").innerHTML=`<a class="linkchip led" href="${esc(tvUrl)}" target="_blank" rel="noopener"><span class="cn">/tv/${esc(slug)}</span> ↗</a>`
-    +`<span class="linkchip led" title="Copy" onclick="copyLink('${esc(tvUrl)}')">Copy</span>`;
+  const cats=state.categories||[];
+  let ledHtml;
+  if(cats.length>1){
+    ledHtml=cats.map(c=>{
+      const u=tvBase+"?cat="+encodeURIComponent(c.tournamentId);
+      return `<a class="linkchip led" href="${esc(u)}" target="_blank" rel="noopener"><span class="cn">TV · ${esc(catFullLabel(c))}</span> ↗</a>`
+        +`<span class="linkchip led" title="Copy" onclick="copyLink('${esc(u)}')">Copy</span>`;
+    }).join("");
+  } else {
+    ledHtml=`<a class="linkchip led" href="${esc(tvBase)}" target="_blank" rel="noopener"><span class="cn">/tv/${esc(slug)}</span> ↗</a>`
+      +`<span class="linkchip led" title="Copy" onclick="copyLink('${esc(tvBase)}')">Copy</span>`;
+  }
+  $("ledGrid").innerHTML=ledHtml;
   $("playerGrid").innerHTML=`<a class="linkchip player" href="${esc(mbUrl)}" target="_blank" rel="noopener"><span class="cn">/mobile/${esc(slug)}</span> ↗</a>`
     +`<span class="linkchip player" title="Copy" onclick="copyLink('${esc(mbUrl)}')">Copy</span>`;
   $("linksPanel").style.display="";
