@@ -1179,7 +1179,7 @@ async function openRegBuilder(){
   catch(e){ if(e.status!==404){ toast(e.message,true); } } // 404 = form baru
   renderRegBuilder(cfg, status);
 }
-const REG_FIELDS=[["ig","Instagram"],["reclub","Link Rankedclub"],["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["ktp","Upload KTP / ID"],["jersey","Ukuran jersey"]];
+const REG_FIELDS=[["ig","Instagram"],["reclub","Link ReClub"],["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["ktp","Upload KTP / ID"],["jersey","Ukuran jersey"]];
 // Field yang default MATI bila belum pernah diatur (event lama tetap kompatibel).
 const REG_FIELDS_OFF_BY_DEFAULT=["jersey","reclub","ktp"];
 // Template waiver/disclaimer yang selalu terisi otomatis saat membuat form baru.
