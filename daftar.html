@@ -163,7 +163,7 @@ function qs(){
 function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80); }
 // Full category names / levels (avoid codes like MD/WD/MIXED and raw levels).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k] || c; }
-function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k] || l; }
+function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {open:"Open",beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k] || l; }
 function catText(c){ const cl=catLabel(c.label); let lv=levelLabel(c.level);
   // Sembunyikan angka ELO mentah (mis. custom kategori "900") agar tidak membingungkan peserta.
   if(/^\d+$/.test(String(c.level||"").trim())) lv="";
@@ -208,8 +208,10 @@ const IMG_MAX_BYTES=3.5*1024*1024; // ambang aman di bawah batas request serverl
 function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId); }
 function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
 function isWL(){ return catFull(cat()); }
+// Step "Players eligibility" bisa disembunyikan dari /engine (config.hideEligibility).
+function hideElig(){ return !!(F.data && F.data.config && F.data.config.hideEligibility); }
 const STEP_NAME=["Kategori","Eligibility","Pemain 1","Pemain 2","Rangkuman","Persetujuan","Pembayaran"];
-function stepKeys(){ return isWL()? ["prep","cat","elig","p1","p2","summary","waiver","done"] : ["prep","cat","elig","p1","p2","summary","waiver","pay","done"]; }
+function stepKeys(){ const base = isWL()? ["prep","cat","elig","p1","p2","summary","waiver","done"] : ["prep","cat","elig","p1","p2","summary","waiver","pay","done"]; return hideElig()? base.filter(k=>k!=="elig") : base; }
 function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"&&x!=="prep"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
 
 async function boot(){
@@ -263,8 +265,8 @@ async function boot(){
       const c=(F.data.categories||[]).find(x=>x.tournamentId===catParam);
       if(c && !catFull(c)){
         F.catId=catParam;
-        const eligIdx=stepKeys().indexOf("elig");
-        if(F.step < eligIdx){ F.step=eligIdx; F._restored=false; }
+        const keys=stepKeys(); const jumpIdx=keys.indexOf(hideElig()?"p1":"elig");
+        if(F.step < jumpIdx){ F.step=jumpIdx; F._restored=false; }
       }
     }
   }catch(e){}
@@ -410,10 +412,10 @@ function vCat(){
     </div>
     ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
     <div class="nav"><a class="btn ghost" href="#" onclick="event.preventDefault();go('prep')">←</a>
-      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('elig')">Lanjut →</button></div></div>`;
+      <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('${hideElig()?'p1':'elig'}')">Lanjut →</button></div></div>`;
 }
 /* ---------- STEP: eligibility questions (dijawab peserta) ---------- */
-function eligOK(){ return !!(F.qExperience||"").trim(); }
+function eligOK(){ return hideElig() || !!(F.qExperience||"").trim(); }
 function updateEligNav(){ const b=document.getElementById("eligNext"); if(b) b.disabled=!eligOK(); }
 function vElig(){
   const opts=["Dibawah 1 tahun","1-2 tahun","Diatas 3 tahun"];
@@ -674,7 +676,7 @@ function vPlayer(i){ const p=F.players[i], on=fieldsOn();
     <datalist id="cities">${REG_CITIES.map(c=>`<option value="${esc(c)}">`).join("")}</datalist>
     ${teamField}
     ${block}
-    <div class="nav"><button class="btn ghost" onclick="go('${i===0?'elig':'p1'}')">←</button>
+    <div class="nav"><button class="btn ghost" onclick="go('${i===0?(hideElig()?'cat':'elig'):'p1'}')">←</button>
       <button class="btn primary" id="pNext_${i}" ${canNext?'':'disabled'} onclick="go('${i===0?'p2':'summary'}')">Lanjut →</button></div></div>`;
 }
 
