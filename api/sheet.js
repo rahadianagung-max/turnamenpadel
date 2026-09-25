@@ -510,6 +510,9 @@ function respond(statusCode, data, extraHeaders) {
 const LEVEL_ELO = {
   beginner: 600, upper_beginner: 900, lower_bronze: 1200, bronze: 1500,
   upper_bronze: 1800, silver: 2100, gold: 2500, platinum: 3000,
+  // "Open" = kategori terbuka; pemain baru mulai dari ELO Bronze (1500).
+  // Tetap tanpa batas eligibility (tidak masuk TIER_ORDER → levelBounds null).
+  open: 1500,
 };
 function levelToElo(level) {
   const s = String(level || "").toLowerCase().trim().replace(/\s+/g, "_");
@@ -5361,7 +5364,7 @@ async function mexNextRound(key) {
 // ==============================================================
 function achCatLabel(code){ const k=String(code||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||String(code||""); }
 function achLevelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_");
-  const M={beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+  const M={open:"Open",beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
   if(M[k]) return M[k]; if(/^\d+$/.test(String(l||"").trim())) return ""; return String(l||""); }
 function achStageOf(p){ return {"Juara 1":"Champion","Juara 2":"Runner-up","Juara 3":"3rd Place","Peringkat 4":"4th Place","Semifinalis":"Semifinal","Perempatfinalis":"Quarterfinal"}[p]||p; }
 // Compute achievement rows for one event from its Tournaments / Tournament_Groups
@@ -5823,6 +5826,7 @@ async function regPublic(eventId) {
       jerseyImage: config.jerseyImage || "",
       jerseySizes: Array.isArray(config.jerseySizes) ? config.jerseySizes : [],
       hidePlayers: !!config.hidePlayers,
+      hideEligibility: !!config.hideEligibility,
       theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
     categories: cats });
 }

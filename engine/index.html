@@ -473,6 +473,7 @@
         <input id="tCatOther" type="text" placeholder="e.g. Tarkam Cup, Beginner Fun" maxlength="40" /></div>
       <div class="f" id="fLevel"><label>Level (starting ELO for new players)</label>
         <select id="tLevel">
+          <option value="open">Open · dari Bronze (1500)</option>
           <option value="upper_beginner">Upper Beginner · 900</option>
           <option value="lower_bronze" selected>Lower Bronze · 1200</option>
           <option value="bronze">Bronze · 1500</option>
@@ -777,7 +778,7 @@ function toast(msg, isErr){
   clearTimeout(t._t); t._t = setTimeout(()=>{ t.className = t.className.replace("show","").trim(); }, 3200);
 }
 const val = id => document.getElementById(id).value.trim();
-const LEVEL_LABEL = {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+const LEVEL_LABEL = {open:"Open",beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
 // A tournament's level is either a known tier or, for the "Other" category, a raw ELO number.
 function levelLabel(l){ if(LEVEL_LABEL[l]) return LEVEL_LABEL[l]; return /^\d+$/.test(String(l||"")) ? "ELO "+l : (l||""); }
 
@@ -1251,6 +1252,10 @@ function renderRegBuilder(cfg, status){
     </label></div>
     <div class="f"><label>Players eligibility <span class="muted" style="font-weight:400">— tab "Players eligibility" di halaman event</span></label>
       <textarea id="rb_eligibility" rows="5" placeholder="Siapa yang boleh ikut — syarat level/ELO, gender, usia, domisili, dsb.">${esc(cfg.eligibility||"")}</textarea></div>
+    <div class="f" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;font-weight:600">
+      <input type="checkbox" id="rb_hide_elig" style="width:auto" ${cfg.hideEligibility?"checked":""}>
+      Sembunyikan step "Players eligibility" di form pendaftaran <span class="muted" style="font-weight:400">— peserta langsung ke input pemain setelah memilih kategori</span>
+    </label></div>
 
     <div class="f"><label>Contact <span class="muted" style="font-weight:400">— tab "Contact" di halaman event · satu baris satu item</span></label>
       <textarea id="rb_contact" rows="4" placeholder="WhatsApp: +62 812-xxxx-xxxx&#10;Email: panitia@turnamenpadel.com&#10;Instagram: @namaevent">${esc(cfg.contact||"")}</textarea></div>
@@ -1502,6 +1507,7 @@ function collectRegConfig(){
     contact: (document.getElementById("rb_contact")||{}).value||"",
     theme: (document.getElementById("rb_theme")||{}).value==="nightmode"?"nightmode":"daylight",
     hidePlayers: !!(document.getElementById("rb_hide_players")||{}).checked,
+    hideEligibility: !!(document.getElementById("rb_hide_elig")||{}).checked,
     categories,
     rules: (document.getElementById("rb_rules")||{}).value||"",
     waiver:(document.getElementById("rb_waiver")||{}).value||"",
