@@ -690,6 +690,7 @@
       <button type="button" class="btn btn-primary" onclick="finalizeElo(false)">Calculate final ELO</button>
       <button type="button" class="btn btn-ghost" onclick="publishVenue()" title="Register this tournament so its winners show on venue.trekkr.online">Show on Venue</button>
       <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Copy this event's rows to Tournament_Archive then clear its operational data">Archive &amp; clean up event</button>
+      <button type="button" class="btn btn-ghost" onclick="backfillAchievements()" title="Hitung ulang &amp; catat pencapaian pemain (Juara 1/2/3, Peringkat 4, Semifinalis, Perempatfinalis) untuk semua turnamen yang masih ada datanya, termasuk yang sudah diarsip. Aman diulang.">Backfill achievements (semua event)</button>
     </div>
     <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Show on Venue</b> registers this tournament on the public <code>venue.trekkr.online</code> page (podium &amp; standings). Safe to click anytime — before or after archiving.</p>
     <div class="pick" style="margin-top:12px">
@@ -2280,6 +2281,14 @@ async function loadArchivedEvents(){
     sel.innerHTML = '<option value="">— pilih event terarsip —</option>' +
       events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.venue?" · "+esc(e.venue):""}${e.date?" · "+esc(e.date):""}</option>`).join("");
   }catch(e){ sel.innerHTML = '<option value="">Gagal memuat arsip</option>'; }
+}
+async function backfillAchievements(){
+  if(!confirm("Hitung ulang & catat pencapaian pemain (Juara 1/2/3, Peringkat 4, Semifinalis, Perempatfinalis) untuk SEMUA turnamen yang masih ada datanya — termasuk yang sudah diarsip. Aman diulang. Lanjut?")) return;
+  try{
+    toast("Memproses pencapaian…");
+    const r = await api("tournament/achievements/backfill", { method:"POST", body:{} });
+    toast(`Pencapaian dicatat · ${r.rowsRecorded||0} baris · ${r.eventsWithAchievements||0} event`);
+  }catch(e){ toast("Gagal backfill: "+(e.message||e), true); }
 }
 async function archiveEvent(force){
   if(!state.event) return toast("Pilih event dulu", true);
