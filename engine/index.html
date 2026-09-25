@@ -500,7 +500,8 @@
       <select id="tourSelect" onchange="selectTournament(this.value)"><option value="">—</option></select>
       <div style="margin-top:8px;">
         <button type="button" class="btn btn-ghost btn-sm" id="editLevelBtn" style="display:none;" onclick="openLevelEditor()">✏️ Change category level</button>
-        <span class="muted" style="font-size:11.5px; margin-left:6px;">Wrong level? Change it here — groups &amp; schedule stay.</span>
+        <button type="button" class="btn btn-ghost btn-sm" id="deleteCatBtn" style="display:none;color:var(--danger);border-color:rgba(220,38,38,.4)" onclick="deleteCategory()">🗑 Delete category</button>
+        <span class="muted" style="font-size:11.5px; margin-left:6px;">Wrong level? Change it here — groups &amp; schedule stay. Salah kategori? Hapus di sini — otomatis hilang dari form pendaftaran.</span>
       </div>
     </div>
   </section>
@@ -1067,6 +1068,7 @@ async function createTournament(){
 }
 async function selectTournament(id){
   var elb=document.getElementById("editLevelBtn"); if(elb) elb.style.display = id ? "" : "none";
+  var dcb=document.getElementById("deleteCatBtn"); if(dcb) dcb.style.display = id ? "" : "none";
   if(!id){ state.tournament=null; renderContext(); setLocks(); return; }
   try{
     const { tournament, entrantCount } = await api("tournament/"+encodeURIComponent(id));
@@ -1083,6 +1085,22 @@ async function selectTournament(id){
   }catch(e){ toast(e.message, true); }
 }
 
+async function deleteCategory(){
+  if(!state.tournament) return toast("Pilih kategori dulu", true);
+  const cnt = state.entrantCount||0;
+  const warn = cnt>0
+    ? `Kategori ini punya ${cnt} peserta terdaftar. Menghapus akan menghapus kategori beserta peserta, grup, jadwal & bracket-nya, dan menghilangkannya dari form pendaftaran. Lanjut?`
+    : "Hapus kategori ini? Otomatis hilang dari form pendaftaran. Lanjut?";
+  if(!confirm(warn)) return;
+  try{
+    await api("tournament/"+encodeURIComponent(state.tournament.tournamentId), { method:"DELETE" });
+    toast("Kategori dihapus");
+    state.tournament=null; state.entrantCount=0;
+    await loadTournaments();
+    var sel=document.getElementById("tourSelect"); if(sel) sel.value="";
+    selectTournament("");
+  }catch(e){ toast(e.message, true); }
+}
 /* ---- IMPORT ---- */
 /* ---- EDIT LEVEL (perbaiki level yang salah tanpa mengulang grup/jadwal) ---- */
 const LEVEL_KEYS = ["upper_beginner","lower_bronze","bronze","upper_bronze","silver","gold","platinum"];
@@ -1146,7 +1164,9 @@ async function openRegBuilder(){
   catch(e){ if(e.status!==404){ toast(e.message,true); } } // 404 = form baru
   renderRegBuilder(cfg, status);
 }
-const REG_FIELDS=[["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["jersey","Ukuran jersey"]];
+const REG_FIELDS=[["ig","Instagram"],["reclub","Link Rankedclub"],["nick","Nama panggilan"],["dob","Tanggal lahir"],["gender","Jenis kelamin"],["region","Kota/region"],["photo","Foto"],["jersey","Ukuran jersey"]];
+// Field yang default MATI bila belum pernah diatur (event lama tetap kompatibel).
+const REG_FIELDS_OFF_BY_DEFAULT=["jersey","reclub"];
 // Holds a freshly-picked flyer as a base64 data URL until the next save (which
 // uploads it and returns a hosted URL). Reset on every (re)render.
 var REG_FLYER_DATA="";
@@ -1242,9 +1262,9 @@ function renderRegBuilder(cfg, status){
 
     <div class="f" style="margin-top:8px"><label>Rekening / e-wallet pembayaran</label><input id="rb_account" value="${esc(pay.account||"")}" placeholder="BCA 123456 a.n. …"></div>
 
-    <div style="font-weight:700;margin:14px 0 6px">Field peserta yang diminta <span class="muted" style="font-weight:400">(nama, HP, email, IG selalu wajib)</span></div>
+    <div style="font-weight:700;margin:14px 0 6px">Field peserta yang diminta <span class="muted" style="font-weight:400">(nama, HP, email selalu wajib)</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:12px">
-      ${REG_FIELDS.map(([k,lbl])=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="rb_field_${k}" ${dflt(k, k!=="jersey")?"checked":""} style="width:auto"> ${esc(lbl)}${k==="jersey"?' <span class="muted">(opsional)</span>':''}</label>`).join("")}
+      ${REG_FIELDS.map(([k,lbl])=>`<label style="display:flex;gap:6px;align-items:center;font-size:13px;cursor:pointer"><input type="checkbox" id="rb_field_${k}" ${dflt(k, REG_FIELDS_OFF_BY_DEFAULT.indexOf(k)<0)?"checked":""} style="width:auto"> ${esc(lbl)}${(k==="jersey"||k==="reclub")?' <span class="muted">(opsional)</span>':''}</label>`).join("")}
     </div>
 
     <div style="font-weight:700;margin:16px 0 6px">Ukuran jersey <span class="muted" style="font-weight:400">(tampil bila field "Ukuran jersey" aktif)</span></div>

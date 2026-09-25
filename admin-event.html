@@ -501,6 +501,7 @@ function eligChip(e){ if(!e) return ""; const s=e.state; return s==="ok"?'<span 
 function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.nick) k.push(`Alias: <b>${esc(p.nick)}</b>`);
   if(p.ig) k.push(`IG: <b>${esc(p.ig)}</b>`);
+  if(p.reclub) k.push(`Rankedclub: <a href="${esc(p.reclub)}" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">${esc(p.reclub)}</a>`);
   if(p.gender) k.push(`Gender: <b>${esc(p.gender)}</b>`);
   if(p.phone) k.push(`HP: <b>${esc(p.phone)}</b>`);
   if(p.email) k.push(`Email: <b>${esc(p.email)}</b>`);
@@ -631,11 +632,11 @@ function downloadCsv(){
     return r.status!=="rejected" && r.status!=="cancelled"; // "semua" = kecuali ditolak/batal
   });
   if(!rows.length){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Tidak ada peserta pada pilihan ini."; } return; }
-  const header=["Kategori","Nama Tim","Pemain 1","HP Pemain 1","IG Pemain 1","Jersey Pemain 1","Pemain 2","HP Pemain 2","IG Pemain 2","Jersey Pemain 2","Status"];
+  const header=["Kategori","Nama Tim","Pemain 1","HP Pemain 1","IG Pemain 1","Rankedclub Pemain 1","Jersey Pemain 1","Pemain 2","HP Pemain 2","IG Pemain 2","Rankedclub Pemain 2","Jersey Pemain 2","Status"];
   const lines=[header.map(csvCell).join(",")];
   rows.forEach(r=>{ const d=r.data||{}, p1=d.player1||{}, p2=d.player2||{};
-    lines.push([catText(d),teamName(r),p1.name||"",p1.phone||"",p1.ig||"",p1.jersey||"",
-      p2.name||"",p2.phone||"",p2.ig||"",p2.jersey||"",r.status||""].map(csvCell).join(","));
+    lines.push([catText(d),teamName(r),p1.name||"",p1.phone||"",p1.ig||"",p1.reclub||"",p1.jersey||"",
+      p2.name||"",p2.phone||"",p2.ig||"",p2.reclub||"",p2.jersey||"",r.status||""].map(csvCell).join(","));
   });
   const csv="﻿"+lines.join("\r\n"); // BOM agar Excel baca UTF-8
   const slug=(EVENT&&(EVENT.slug||EVENT.eventId))||"event";

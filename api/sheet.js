@@ -812,6 +812,10 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/") && path.endsWith("/playoff") && method === "DELETE") {
       return await tResetPlayoff(decodeURIComponent(path.replace("tournament/", "").replace("/playoff", "")));
     }
+    // Delete a whole category (tournament) — removes it from the registration form too.
+    if (/^tournament\/[^/]+$/.test(path) && method === "DELETE") {
+      return await tDeleteTournament(decodeURIComponent(path.replace("tournament/", "")));
+    }
     if (path.startsWith("tournament/") && path.endsWith("/import-preview") && method === "POST") {
       return await tImport(decodeURIComponent(path.replace("tournament/", "").replace("/import-preview", "")), { preview: true });
     }
@@ -4323,6 +4327,54 @@ async function tResetPlayoff(id) {
   }
   return respond(200, { success: true });
 }
+// Delete an entire category (tournament): its rows across the operational tabs,
+// and its entry in the linked registration form config (so the public form drops
+// it immediately). Additive to the API surface; touches no ELO calculation.
+async function tDeleteTournament(tid) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const trRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` });
+  const trRows = trRes.data.values || [];
+  const row = trRows.find((r) => r[0] === tid);
+  if (!row) return respond(404, { error: "Kategori tidak ditemukan." });
+  const eventId = row[1] || "";
+  // Rewrite a tab keeping every row whose tournament_id (at tidCol) != tid.
+  async function purge(tab, range, tidCol) {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!${range}` }).catch(() => ({ data: { values: [] } }));
+    const rows = res.data.values || [];
+    const keep = rows.filter((r) => (r[tidCol] || "") !== tid);
+    if (keep.length === rows.length) return 0;
+    await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${tab}!${range}` });
+    if (keep.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${tab}!A2`, valueInputOption: "RAW", requestBody: { values: keep } });
+    return rows.length - keep.length;
+  }
+  const removed = {
+    tournaments: await purge(TABS.t_tournaments, "A2:K", 0),
+    entrants: await purge(TABS.t_entrants, "A2:K", 0),
+    groups: await purge(TABS.t_groups, "A2:H", 0),
+    matches: await purge(TABS.t_matches, "A2:Q", 0),
+    draws: await purge(TABS.draw_results, "A2:Q", 2),
+    achievements: await purge(TABS.achievements, "A2:K", 6),
+  };
+  // Drop the category from the registration form config so the public form updates.
+  try {
+    const formId = regFormIdForEvent(eventId);
+    const fRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
+    const fRows = fRes.data.values || [];
+    const idx = fRows.findIndex((r) => r[0] === formId);
+    if (idx >= 0) {
+      let cfg = {}; try { cfg = JSON.parse(fRows[idx][4] || "{}"); } catch (e) {}
+      if (cfg.categories && cfg.categories[tid]) {
+        delete cfg.categories[tid];
+        while (fRows[idx].length < 7) fRows[idx].push("");
+        fRows[idx][4] = JSON.stringify(cfg);
+        fRows[idx][6] = new Date().toISOString();
+        await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A${idx + 2}:G${idx + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [fRows[idx]] } });
+      }
+    }
+  } catch (e) { console.error("Delete category reg-config cleanup:", e); }
+  return respond(200, { success: true, tournamentId: tid, removed });
+}
 // Assign court + planned time to playoff matches, round-by-round across tiers (shared court pool).
 // BYE matches get no court/time. Each tier's bronze is scheduled at that tier's final round level.
 function schedulePlayoff(built, sched) {
@@ -5818,7 +5870,7 @@ async function regRegisterPair(eventId, body) {
   photo2 = await resolvePhoto(body.photo2, p2.name);
   if (!isWaitlist) { try { if (body.paymentProof) payUrl = await uploadImageSmart(body.paymentProof, `pay_${safe(p1.name)}_${ts}.jpg`, folderId); } catch (e) { console.error("pay:", e.message); } }
 
-  const mkP = (p, photo) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "",
+  const mkP = (p, photo) => ({ name: String(p.name || "").trim(), phone: p.phone || "", email: p.email || "", ig: p.ig || "", reclub: p.reclub || "",
     nick: p.nick || "", dob: p.dob || "", gender: p.gender || "", region: p.region || "", jersey: p.jersey || "", photoUrl: photo,
     match: null, isNew: true });
   const answers = (body && body.answers) || {};

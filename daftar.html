@@ -171,7 +171,7 @@ function catText(c){ const cl=catLabel(c.label); let lv=levelLabel(c.level);
 
 const F = { eventId:qs(), data:null, step:0, catId:null, teamName:"", qExperience:"", qAchievements:"",
   players:[blankP(),blankP()], waiverA:false, waiverB:false, payFile:"" };
-function blankP(){ return {name:"",phone:"",email:"",ig:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,emailQ:"",emailErr:"",emailBusy:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
+function blankP(){ return {name:"",phone:"",email:"",ig:"",reclub:"",nick:"",dob:"",gender:"",region:"",jersey:"",photo:"",photoUrl:"",decision:null,chk:null,checking:false,cand:null,emailQ:"",emailErr:"",emailBusy:false,otpStage:null,otpMask:"",otpCode:"",otpErr:"",otpBusy:false,otpMsg:""}; }
 
 async function api(path, opts){
   const res = await fetch(API+"/"+path, { method:(opts&&opts.method)||"GET",
@@ -284,7 +284,7 @@ function saveDraft(){
   if(!hasContent){ return; }
   const snap={ v:2, ts:Date.now(), eventId:F.eventId, catId:F.catId, teamName:F.teamName||"", qExperience:F.qExperience||"", qAchievements:F.qAchievements||"", step:F.step,
     waiverA:!!F.waiverA, waiverB:!!F.waiverB, payFile:F.payFile||"",
-    players:(F.players||[]).map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey,photo:p.photo||"",photoUrl:p.photoUrl||"",decision:p.decision})) };
+    players:(F.players||[]).map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,reclub:p.reclub||"",nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey,photo:p.photo||"",photoUrl:p.photoUrl||"",decision:p.decision})) };
   try{ localStorage.setItem(draftKey(), JSON.stringify(snap)); }
   catch(e){ // kemungkinan quota (gambar base64 besar) → simpan tanpa gambar
     try{ const lite=JSON.parse(JSON.stringify(snap)); lite.payFile=""; lite.players.forEach(p=>{ p.photo=""; }); localStorage.setItem(draftKey(), JSON.stringify(lite)); }catch(e2){}
@@ -390,7 +390,7 @@ function vElig(){
       <button class="btn primary" id="eligNext" ${eligOK()?'':'disabled'} onclick="go('p1')">Submit &amp; continue →</button></div>`;
 }
 /* ---------- STEP: per-player (Pemain 1 lalu Pemain 2) ---------- */
-function fieldsOn(){ const f=(F.data.config&&F.data.config.fields)||{}; return function(k){ const d=(k!=="jersey"); return f[k]===undefined?d:!!f[k]; }; }
+function fieldsOn(){ const f=(F.data.config&&F.data.config.fields)||{}; const OFF={jersey:1,reclub:1}; return function(k){ const d=!OFF[k]; return f[k]===undefined?d:!!f[k]; }; }
 // Jersey sizes & size-chart image are configurable per-event in /engine.
 function jerseySizes(){ const s=(F.data.config||{}).jerseySizes; return (Array.isArray(s)&&s.length)?s:["XS","S","M","L","XL","XXL"]; }
 function jerseyOptions(sel){ return '<option value="">—</option>'+jerseySizes().map(sz=>`<option ${sel===sz?'selected':''}>${esc(sz)}</option>`).join(""); }
@@ -400,7 +400,9 @@ function jerseyChart(){ const u=(F.data.config||{}).jerseyImage; return u?`<div 
 function validEmail(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e||"").trim()); }
 function validPhone(p){ const d=String(p||"").replace(/[\s().-]/g,""); return /^\+?\d{8,15}$/.test(d); }
 function allFilled(i){ const p=F.players[i], on=fieldsOn();
-  if(!(p.name||"").trim()||!validEmail(p.email)||!validPhone(p.phone)||!(p.ig||"").trim()) return false;
+  if(!(p.name||"").trim()||!validEmail(p.email)||!validPhone(p.phone)) return false;
+  if(on("ig") && !(p.ig||"").trim()) return false;
+  if(on("reclub") && !(p.reclub||"").trim()) return false;
   if(on("nick") && !(p.nick||"").trim()) return false;
   if(on("gender") && !(p.gender||"").trim()) return false;
   if(on("dob") && !(p.dob||"").trim()) return false;
@@ -597,7 +599,8 @@ function profileForm(i,on){ const p=F.players[i];
   const rows=[];
   rows.push(`<label class="f"><span>Nama lengkap (sesuai KTP) <span class="req">*</span></span><input value="${esc(p.name)}" oninput="setF(${i},'name',this.value)" placeholder="Nama lengkap sesuai KTP"></label>`);
   if(on("nick")) rows.push(`<label class="f"><span>Nama alias <span class="req">*</span></span><input value="${esc(p.nick)}" oninput="setF(${i},'nick',this.value)" placeholder="nama panggilan"></label>`);
-  rows.push(`<label class="f"><span>Instagram <span class="req">*</span></span><input value="${esc(p.ig)}" oninput="setF(${i},'ig',this.value)" placeholder="@username"></label>`);
+  if(on("ig")) rows.push(`<label class="f"><span>Instagram <span class="req">*</span></span><input value="${esc(p.ig)}" oninput="setF(${i},'ig',this.value)" placeholder="@username"></label>`);
+  if(on("reclub")) rows.push(`<label class="f"><span>Link Rankedclub <span class="req">*</span></span><input value="${esc(p.reclub||'')}" oninput="setF(${i},'reclub',this.value)" placeholder="https://rankedclub.com/..."></label>`);
   const phErr=(p.phone||"").trim()&&!validPhone(p.phone)?'No. HP harus berupa angka.':'';
   const emErr=(p.email||"").trim()&&!validEmail(p.email)?'Email harus lengkap & mengandung @ (nama@mail.com).':'';
   rows.push(`<div class="grid2"><label class="f"><span>No. HP <span class="req">*</span></span><input inputmode="tel" value="${esc(p.phone)}" oninput="setF(${i},'phone',this.value)" placeholder="0812..."><div class="ferr" id="phoneErr_${i}" style="color:var(--danger);font-size:11.5px;margin-top:4px;${phErr?'':'display:none'}">${esc(phErr)}</div></label><label class="f"><span>Email <span class="req">*</span></span><input type="email" value="${esc(p.email)}" oninput="setF(${i},'email',this.value)" placeholder="nama@mail.com"><div class="ferr" id="emailErr_${i}" style="color:var(--danger);font-size:11.5px;margin-top:4px;${emErr?'':'display:none'}">${esc(emErr)}</div></label></div>`);
@@ -718,7 +721,7 @@ async function submitReg(){
   const btn=document.getElementById("subBtn"); if(btn){ btn.disabled=true; btn.textContent="Mengirim…"; }
   const body={ category:F.catId, waiver:F.waiverA, infoTrue:F.waiverB, teamName:(F.teamName||"").trim(),
     answers:{ experience:(F.qExperience||"").trim(), achievements:(F.qAchievements||"").trim() },
-    players:F.players.map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey})),
+    players:F.players.map(p=>({name:p.name,phone:p.phone,email:p.email,ig:p.ig,reclub:p.reclub||"",nick:p.nick,dob:p.dob,gender:p.gender,region:p.region,jersey:p.jersey})),
     photo1:F.players[0].photo||F.players[0].photoUrl||"", photo2:F.players[1].photo||F.players[1].photoUrl||"", paymentProof:isWL()?"":F.payFile };
   try{ const r=await api("reg/register/"+encodeURIComponent(F.eventId), {method:"POST", body});
     F.result=r; clearDraft(); F._restored=false; go("done");
