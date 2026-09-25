@@ -801,6 +801,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/schedule-import") && method === "POST") {
       return await tImportSchedule(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule-import", "")));
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/bulk-import") && method === "POST") {
+      return await tBulkImport(decodeURIComponent(path.replace("tournament/event/", "").replace("/bulk-import", "")), body);
+    }
     if (path === "tournament/repair-match-ids" && method === "POST") return await tRepairMatchIds(body);
     if (path === "tournament/recap" && method === "POST") return await tRecap(body);
     if (path.startsWith("tournament/") && path.endsWith("/playoff-plan") && method === "PUT") {
@@ -4660,6 +4663,192 @@ async function tSaveScheduleTimes(eventId, body) {
   }
   return respond(200, { success: true, updated, skipped, errorCount: errors.length, errors: errors.slice(0, 50) });
 }
+
+// =============================================================================
+// BULK SCHEDULE IMPORT — buat kategori + peserta + grup + jadwal SEKALI KLIK
+// dari sebuah "match list" grup (mis. hasil export Excel/Sheet). Setiap baris =
+// satu pertandingan. Kolom (dipisah TAB, "|", atau 2+ spasi), dengan/atau tanpa
+// baris header:
+//   Time | Court | Group | Team A | Players A | Team B | Players B | [Date]
+// Contoh:  10:00  1  Women's Group A  NJ  Nadya & Jenya  Team Denmark  Viktoria & Naja
+// Pemain di satu tim dipisah "&", "/", "," atau "+". "Group" seperti
+// "Women's Group A" → kategori "Women's Doubles", label grup "A".
+// body: { text, level, format, date, preview }.
+function bulkSplitCols(line) {
+  let cols;
+  if (line.includes("\t")) cols = line.split("\t");
+  else if (line.includes("|")) cols = line.split("|");
+  else cols = line.split(/\s{2,}/);
+  return cols.map((c) => String(c == null ? "" : c).trim());
+}
+function bulkSplitPlayers(s) {
+  const parts = String(s == null ? "" : s).split(/\s*[&/,+]\s*|\s*\n\s*|\s{2,}/).map((x) => x.trim()).filter(Boolean);
+  return [parts[0] || "", parts[1] || ""];
+}
+// "Women's Group A" → { cat:"Women's Doubles", label:"A" }. Generic fallback:
+// whole string is the category, label "A".
+function bulkCatAndLabel(group) {
+  const g = String(group == null ? "" : group).trim();
+  let catName = g, label = "A";
+  const m = g.match(/^(.*?)\bgroup\b\s*([A-Za-z0-9]+)\s*$/i);
+  if (m) { catName = m[1].replace(/[-–—:·|]+\s*$/, "").trim(); label = m[2].toUpperCase(); }
+  let cat;
+  if (/women/i.test(catName)) cat = "Women's Doubles";
+  else if (/\bmen\b|men'?s|mens/i.test(catName)) cat = "Men's Doubles";
+  else cat = catName || "Open";
+  return { cat, label };
+}
+function parseBulkScheduleText(text) {
+  const lines = String(text == null ? "" : text).split(/\r?\n/).map((l) => l.replace(/\s+$/, "")).filter((l) => l.trim());
+  const matches = [];
+  const warnings = [];
+  for (let li = 0; li < lines.length; li++) {
+    const raw = lines[li];
+    if (/^\s*#/.test(raw)) continue;                       // komentar / judul "### ..."
+    const c = bulkSplitCols(raw);
+    // Lewati baris header (kolom pertama bukan jam).
+    const first = (c[0] || "").toLowerCase();
+    if (/^(time|start|jam|waktu|mulai)$/.test(first)) continue;
+    if (c.length < 7) { warnings.push(`Baris ${li + 1} dilewati (kolom < 7): "${raw.slice(0, 60)}"`); continue; }
+    const time = normClock(c[0]);
+    const court = parseInt(c[1]);
+    const group = c[2];
+    const teamA = c[3], playersA = bulkSplitPlayers(c[4]);
+    const teamB = c[5], playersB = bulkSplitPlayers(c[6]);
+    const dateRaw = c[7] || "";
+    if (!time) { warnings.push(`Baris ${li + 1} dilewati (jam '${c[0]}' tidak valid)`); continue; }
+    if (isNaN(court)) { warnings.push(`Baris ${li + 1} dilewati (court '${c[1]}' tidak valid)`); continue; }
+    if (!group) { warnings.push(`Baris ${li + 1} dilewati (grup kosong)`); continue; }
+    if (!teamA || !teamB) { warnings.push(`Baris ${li + 1} dilewati (nama tim kosong)`); continue; }
+    const { cat, label } = bulkCatAndLabel(group);
+    matches.push({ time, court, group, cat, label, teamA, playersA, teamB, playersB, date: dateRaw });
+  }
+  return { matches, warnings };
+}
+// Bangun struktur kategori→grup→tim + daftar match dari hasil parse.
+function buildBulkPlan(parsed, opts) {
+  opts = opts || {};
+  const cats = new Map(); // catName -> { teams: Map(normTeam->{teamName,p1,p2,label}), labels:Set }
+  const ensureCat = (cat) => { if (!cats.has(cat)) cats.set(cat, { teams: new Map(), labels: new Set() }); return cats.get(cat); };
+  const teamKey = (name, p) => normName(name) || [normName(p[0]), normName(p[1])].sort().join("|");
+  for (const m of parsed.matches) {
+    const cd = ensureCat(m.cat); cd.labels.add(m.label);
+    const ka = teamKey(m.teamA, m.playersA);
+    if (ka && !cd.teams.has(ka)) cd.teams.set(ka, { teamName: m.teamA, p1: m.playersA[0], p2: m.playersA[1], label: m.label });
+    const kb = teamKey(m.teamB, m.playersB);
+    if (kb && !cd.teams.has(kb)) cd.teams.set(kb, { teamName: m.teamB, p1: m.playersB[0], p2: m.playersB[1], label: m.label });
+  }
+  return { cats, teamKey };
+}
+async function tBulkImport(eventId, body) {
+  const b = body || {};
+  const level = String(b.level || "open").toLowerCase().trim();
+  const format = String(b.format || "SINGLE").toUpperCase().trim();
+  const evDate = b.date ? (normDate(b.date) || "") : "";
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+
+  // Event harus ada.
+  const evRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:B` });
+  const evRow = (evRes.data.values || []).find((x) => x[0] === eventId);
+  if (!evRow) return respond(404, { error: "Event tidak ditemukan" });
+  const eventName = evRow[1] || eventId;
+
+  const parsed = parseBulkScheduleText(b.text);
+  if (!parsed.matches.length) return respond(400, { error: "Tidak ada match yang terbaca dari teks. Cek format kolom.", warnings: parsed.warnings.slice(0, 50) });
+  const { cats, teamKey } = buildBulkPlan(parsed, {});
+  const seedElo = levelToElo(level);
+
+  // Ringkasan untuk preview dan hasil.
+  const summary = [...cats.entries()].map(([cat, cd]) => {
+    const byLabel = {};
+    for (const t of cd.teams.values()) { (byLabel[t.label] = byLabel[t.label] || []).push(t.teamName); }
+    return { category: cat, code: catCode(cat),
+      groups: Object.keys(byLabel).sort().map((l) => ({ label: l, teams: byLabel[l].length })),
+      teams: cd.teams.size };
+  });
+  const totalTeams = summary.reduce((a, s) => a + s.teams, 0);
+
+  if (b.preview) {
+    return respond(200, { preview: true, event: eventName, categories: summary,
+      totalTeams, totalMatches: parsed.matches.length, warnings: parsed.warnings.slice(0, 50) });
+  }
+
+  const now = new Date().toISOString();
+  // 1) Buat satu tournament (kategori) per catName.
+  const catToTid = new Map();
+  const tourRows = [];
+  for (const [cat, cd] of cats.entries()) {
+    const id = genId("TM");
+    catToTid.set(cat, id);
+    // groupSizeTarget = ukuran grup terbesar di kategori ini (grup ditulis manual,
+    // jadi ini hanya nilai referensi yang masuk akal, bukan pemicu undian ulang).
+    const perLabel = {};
+    for (const t of cd.teams.values()) perLabel[t.label] = (perLabel[t.label] || 0) + 1;
+    const maxGroup = Math.max(3, ...Object.values(perLabel));
+    tourRows.push([id, eventId, catCode(cat), level, format, maxGroup, 2, "ACTIVE", String(b.adminUsername || ""), now]);
+  }
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A:J`, valueInputOption: "USER_ENTERED",
+    requestBody: { values: tourRows },
+  });
+
+  // 2) Entrants + 3) Groups. Bangun peta teamKey -> entrantId per kategori.
+  const entrantRows = [];
+  const groupRows = [];
+  const entrantIdByCatTeam = new Map(); // `${cat}::${key}` -> entrantId
+  for (const [cat, cd] of cats.entries()) {
+    const tid = catToTid.get(cat);
+    for (const [key, t] of cd.teams.entries()) {
+      const eid = genId("EN");
+      entrantIdByCatTeam.set(`${cat}::${key}`, eid);
+      entrantRows.push([tid, eid, t.p1 || "", "", t.p2 || "", "", seedElo, "TRUE", "TRUE", now, t.teamName || ""]);
+      groupRows.push([tid, catCode(cat), t.label, eid, t.p1 || "", t.p2 || "", seedElo, t.teamName || ""]);
+    }
+  }
+  if (entrantRows.length) {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A:K`, valueInputOption: "USER_ENTERED",
+      requestBody: { values: entrantRows },
+    });
+  }
+  // Tulis grup per kategori (rewriteGroups aman: kategori ini baru, tak ada baris lama).
+  for (const [cat, tid] of catToTid.entries()) {
+    await rewriteGroups(sheets, tid, groupRows.filter((r) => r[0] === tid));
+  }
+
+  // 4) Matches. Slot_Index = urutan waktu global (untuk pengurutan board),
+  //    Round = urutan per grup dalam urutan waktu.
+  const distinctTimes = [...new Set(parsed.matches.map((m) => m.time))].sort();
+  const slotOf = new Map(distinctTimes.map((tm, i) => [tm, i]));
+  const roundCounter = new Map(); // `${tid}::${label}` -> n
+  const matchRows = [];
+  let unresolved = 0;
+  // Urutkan agar Round naik sesuai waktu lalu court.
+  const ordered = parsed.matches.slice().sort((a, z) => (slotOf.get(a.time) - slotOf.get(z.time)) || (a.court - z.court));
+  for (const m of ordered) {
+    const tid = catToTid.get(m.cat);
+    const ka = teamKey(m.teamA, m.playersA), kb = teamKey(m.teamB, m.playersB);
+    const ea = entrantIdByCatTeam.get(`${m.cat}::${ka}`) || "";
+    const eb = entrantIdByCatTeam.get(`${m.cat}::${kb}`) || "";
+    if (!ea || !eb) { unresolved++; continue; }
+    const rk = `${tid}::${m.label}`;
+    const rn = (roundCounter.get(rk) || 0) + 1; roundCounter.set(rk, rn);
+    const dateVal = (m.date ? (normDate(m.date) || "") : "") || evDate;
+    matchRows.push([tid, genId("MT"), "GROUP", m.label, "", String(rn), String(m.court),
+      slotOf.get(m.time), m.time, ea, eb, "", "", "", "SCHEDULED", now, dateVal]);
+  }
+  const allTids = [...catToTid.values()];
+  await rewriteEventGroupMatches(sheets, allTids, matchRows);
+
+  return respond(200, {
+    success: true, event: eventName,
+    categoriesCreated: summary.length, categories: summary,
+    entrants: entrantRows.length, matches: matchRows.length, unresolved,
+    warnings: parsed.warnings.slice(0, 50),
+  });
+}
+
 async function tUpdateMatchMeta(body) {  const { matchId, court, time, date } = body || {};
   if (!matchId) return respond(400, { error: "matchId required" });
   const sheets = getSheets();
