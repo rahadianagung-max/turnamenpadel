@@ -367,11 +367,7 @@ function prepItems(){
   return items;
 }
 function prepShareText(){
-  const nm=(F.data&&(F.data.name||(F.data.event&&F.data.event.name)))||"turnamen padel";
-  let t="Halo! Aku mau daftarin tim kita ke "+nm+" 🏆\n\nTolong siapin data ini ya (buat tiap pemain):\n";
-  t+=prepItems().map(x=>"• "+x).join("\n");
-  t+="\n• Nama tim\n\nNanti aku yang lanjutkan pendaftaran & pembayaran. Kirim ke aku ya, makasih! 🙌";
-  return t;
+  return prepItems().concat(["Nama tim"]).map(function(x){ return "• "+x; }).join("\n");
 }
 function copyPrep(btn){ const t=prepShareText();
   const done=function(){ if(btn){ const o=btn.textContent; btn.textContent="✓ Tersalin"; setTimeout(function(){btn.textContent=o;},1600);} };
