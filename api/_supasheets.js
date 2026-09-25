@@ -50,6 +50,7 @@ const SHEET_MAP = {
   Draw_Log:           { table: "draw_log",            cols: ["timestamp","draw_id","tournament_id","n","pot","group_label","pair_id","at_time"] },
   Tournament_Archive: { table: "tournament_archive",  cols: ["archived_at","event_id","source_tab","row_json"] },
   Mexicano:           { table: "mexicano",            cols: ["mexicano_id","slug","data_json","updated_at"] },
+  Achievements:       { table: "achievements",        cols: ["player","player_norm","event_id","event_name","category","level","tournament_id","placement","stage","event_date","created_at"] },
 };
 
 // Per-venue match tabs (Venue_<X>) share one table, keyed by `venue`.

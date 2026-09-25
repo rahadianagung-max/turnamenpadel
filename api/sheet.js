@@ -484,6 +484,7 @@ const TABS = {
   draw_log: "Draw_Log",
   t_archive: "Tournament_Archive",
   mexicano: "Mexicano",
+  achievements: "Achievements",
 };
 const T_ARCHIVE_HEADER = ["Archived_At", "Event_ID", "Source_Tab", "Row_JSON"];
 const MEX_HEADER = ["Mexicano_ID", "Slug", "Data_JSON", "Updated_At"];
@@ -752,6 +753,16 @@ const netlifyHandler = async (event) => {
     }
     if (path.startsWith("tournament/event/") && path.endsWith("/finalize-elo") && method === "POST") {
       return await tFinalizeElo(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo", "")), body && body.force);
+    }
+    // Player achievements (podium + round reached) for the passport.
+    if (path.startsWith("achievements/player/") && method === "GET") {
+      return await achievementsForPlayer(decodeURIComponent(path.replace("achievements/player/", "")));
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/achievements") && method === "POST") {
+      return await tRecordAchievements(decodeURIComponent(path.replace("tournament/event/", "").replace("/achievements", "")));
+    }
+    if (path === "tournament/achievements/backfill" && method === "POST") {
+      return await tBackfillAchievements(body || {});
     }
     if (path.startsWith("tournament/event/") && path.endsWith("/archive") && method === "POST") {
       return await tArchiveEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/archive", "")), body || {});
@@ -5292,6 +5303,134 @@ async function mexNextRound(key) {
   return respond(200, { success: true, data });
 }
 
+// ==============================================================
+// PLAYER ACHIEVEMENTS (podium + round reached → passport)
+// Additive only: never touches ELO calculation or existing contracts.
+// ==============================================================
+function achCatLabel(code){ const k=String(code||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||String(code||""); }
+function achLevelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_");
+  const M={beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
+  if(M[k]) return M[k]; if(/^\d+$/.test(String(l||"").trim())) return ""; return String(l||""); }
+function achStageOf(p){ return {"Juara 1":"Champion","Juara 2":"Runner-up","Juara 3":"3rd Place","Peringkat 4":"4th Place","Semifinalis":"Semifinal","Perempatfinalis":"Quarterfinal"}[p]||p; }
+// Compute achievement rows for one event from its Tournaments / Tournament_Groups
+// rows and its mapped matches (GROUP+PLAYOFF, DONE). Returns rows for TABS.achievements.
+function computeEventAchievements(eventId, eventName, eventDate, trRows, grRows, matches){
+  const now = new Date().toISOString();
+  const tids = (trRows||[]).filter(t => t[1] === eventId).map(t => t[0]);
+  if (!tids.length) return [];
+  const catByTid = {}, lvlByTid = {};
+  for (const t of (trRows||[])) if (t[1] === eventId) { catByTid[t[0]] = String(t[2]||""); lvlByTid[t[0]] = String(t[3]||""); }
+  const entMap = {};
+  for (const x of (grRows||[])) if (tids.includes(x[0])) entMap[x[3]] = [x[4]||"", x[5]||""];
+  const rows = [], seen = new Set();
+  for (const tid of tids) {
+    const ply = (matches||[]).filter(m => m.tournamentId === tid && String(m.stage) === "PLAYOFF" && String(m.status) === "DONE" && m.entrantA && m.entrantB && m.winner);
+    if (!ply.length) continue;
+    const brackets = {};
+    ply.forEach(m => { const b = String(m.bracket||"MAIN"); (brackets[b]=brackets[b]||[]).push(m); });
+    for (const bk of Object.keys(brackets)) {
+      const bm = brackets[bk];
+      const numRounds = bm.reduce((mx,m)=>{ const r=parseInt(m.round); return isNaN(r)?mx:Math.max(mx,r); }, 0);
+      if (!numRounds) continue;
+      const loserOf = m => String(m.winner)===String(m.entrantA) ? m.entrantB : (String(m.winner)===String(m.entrantB) ? m.entrantA : "");
+      const atFE = fe => bm.filter(m => { const r=parseInt(m.round); return !isNaN(r) && (numRounds - r) === fe; });
+      const bronze = bm.find(m => String(m.round).toUpperCase() === "BRONZE");
+      const assign = {}; // entrantId -> placement (best wins)
+      const set = (eid, placement) => { if (eid && !assign[eid]) assign[eid] = placement; };
+      atFE(0).forEach(f => { set(f.winner, "Juara 1"); set(loserOf(f), "Juara 2"); });
+      if (bronze && String(bronze.status)==="DONE" && bronze.winner) { set(bronze.winner, "Juara 3"); set(loserOf(bronze), "Peringkat 4"); }
+      atFE(1).forEach(s => { set(loserOf(s), "Semifinalis"); });
+      atFE(2).forEach(q => { set(loserOf(q), "Perempatfinalis"); });
+      for (const eid of Object.keys(assign)) {
+        for (const nm of (entMap[eid] || [])) {
+          if (!nm) continue;
+          const key = normName(nm) + "|" + tid + "|" + assign[eid];
+          if (seen.has(key)) continue; seen.add(key);
+          rows.push([ nm, normName(nm), eventId, eventName||"", achCatLabel(catByTid[tid]), achLevelLabel(lvlByTid[tid]), tid, assign[eid], achStageOf(assign[eid]), eventDate||"", now ]);
+        }
+      }
+    }
+  }
+  return rows;
+}
+// Idempotent per event: drop this event's rows then append the freshly computed ones.
+async function recordAchievements(sheets, eventId, rows){
+  const cur = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
+  const keep = (cur.data.values || []).filter(r => r[2] !== eventId);
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
+  const all = keep.concat(rows || []);
+  if (all.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: all } });
+  return rows ? rows.length : 0;
+}
+// Public read for the player passport (trekkr) / testing.
+async function achievementsForPlayer(name){
+  const sheets = getSheets();
+  const cur = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
+  const key = normName(name);
+  const items = (cur.data.values || []).filter(r => normName(r[0]) === key || r[1] === key).map(r => ({
+    player: r[0], eventId: r[2], eventName: r[3], category: r[4], level: r[5], tournamentId: r[6], placement: r[7], stage: r[8], date: r[9] }));
+  return respond(200, { player: name, count: items.length, achievements: items });
+}
+// Recompute + record achievements for ONE event (live or already archived).
+async function tRecordAchievements(eventId){
+  const sheets = getSheets(); await ensureTabs(sheets);
+  const [evR, trR, grR, mR] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` }),
+  ]);
+  let evRow = (evR.data.values || []).find(x => x[0] === eventId);
+  if (!evRow) evRow = await findArchivedEventRow(sheets, eventId);
+  let trRows = trR.data.values || [], grRows = grR.data.values || [], matches = (mR.data.values || []).map(mapMatchRow);
+  // If the event is archived (no live tournaments for it), rebuild from the archive.
+  if (!trRows.some(t => t[1] === eventId)) {
+    const arR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_archive}!A2:D` }).catch(() => ({ data: { values: [] } }));
+    const tr = [], gr = [], mm = [];
+    for (const r of (arR.data.values || [])) { if (r[1] !== eventId) continue; let row=null; try{ row=JSON.parse(r[3]); }catch(e){} if(!Array.isArray(row)) continue;
+      if (r[2] === TABS.t_tournaments) tr.push(row); else if (r[2] === TABS.t_groups) gr.push(row); else if (r[2] === TABS.t_matches) mm.push(row); }
+    trRows = tr; grRows = gr; matches = mm.map(mapMatchRow);
+  }
+  const rows = computeEventAchievements(eventId, evRow ? (evRow[1]||"") : "", evRow ? (evRow[3]||"") : "", trRows, grRows, matches);
+  const n = await recordAchievements(sheets, eventId, rows);
+  return respond(200, { success: true, eventId, recorded: n });
+}
+// Backfill achievements for every event that still has records (live + archived).
+// Rebuilds the whole Achievements table in one write.
+async function tBackfillAchievements(body){
+  const sheets = getSheets(); await ensureTabs(sheets);
+  const [evR, trR, grR, mR, arR] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_archive}!A2:D` }).catch(() => ({ data: { values: [] } })),
+  ]);
+  const liveTr = trR.data.values || [], liveGr = grR.data.values || [], liveM = (mR.data.values || []).map(mapMatchRow);
+  const evById = {}; for (const x of (evR.data.values || [])) if (x[0]) evById[x[0]] = x;
+  const allRows = [], done = {}; const events = new Set();
+  const liveEventIds = [...new Set(liveTr.map(t => t[1]).filter(Boolean))];
+  for (const eid of liveEventIds) {
+    const evRow = evById[eid];
+    const rows = computeEventAchievements(eid, evRow ? evRow[1]||"" : "", evRow ? evRow[3]||"" : "", liveTr, liveGr, liveM);
+    done[eid] = 1; if (rows.length) { events.add(eid); allRows.push(...rows); }
+  }
+  // Archived events (skip any already covered live).
+  const byEvent = {};
+  for (const r of (arR.data.values || [])) { const eid = r[1], tab = r[2]; let row=null; try{ row=JSON.parse(r[3]); }catch(e){} if(!eid || !Array.isArray(row)) continue;
+    const b = (byEvent[eid] = byEvent[eid] || { ev:null, tr:[], gr:[], m:[] });
+    if (tab === TABS.t_events) b.ev = row; else if (tab === TABS.t_tournaments) b.tr.push(row); else if (tab === TABS.t_groups) b.gr.push(row); else if (tab === TABS.t_matches) b.m.push(row); }
+  for (const eid of Object.keys(byEvent)) {
+    if (done[eid]) continue;
+    const b = byEvent[eid];
+    const rows = computeEventAchievements(eid, b.ev ? b.ev[1]||"" : "", b.ev ? b.ev[3]||"" : "", b.tr, b.gr, b.m.map(mapMatchRow));
+    done[eid] = 1; if (rows.length) { events.add(eid); allRows.push(...rows); }
+  }
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
+  if (allRows.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: allRows } });
+  return respond(200, { success: true, eventsProcessed: Object.keys(done).length, eventsWithAchievements: events.size, rowsRecorded: allRows.length });
+}
+
 async function tFinalizeElo(eventId, force) {
   const sheets = getSheets();
   await ensureTabs(sheets);
@@ -5405,6 +5544,13 @@ async function tFinalizeElo(eventId, force) {
       await writeTournamentVenueRows(sheets, venueName, venueRows, srcTag);
     }
   } catch (e) { console.error("Tournament venue log error:", e); }
+
+  // Best-effort: record player achievements (podium + round reached) for the passport.
+  // Never affects the ELO result — wrapped so a failure here is non-fatal.
+  try {
+    const achRows = computeEventAchievements(eventId, evRow[1] || "", evRow[3] || "", (trR.data.values || []), (grR.data.values || []), all);
+    await recordAchievements(sheets, eventId, achRows);
+  } catch (e) { console.error("Achievements record error:", e); }
 
   const results = Object.values(changed).sort((a, b) => b.delta - a.delta);
   return respond(200, { success: true, sessionId, matchesReplayed: ordered.length, playersUpdated, recomputed: !!already, results });
