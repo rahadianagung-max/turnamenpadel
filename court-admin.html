@@ -454,10 +454,11 @@ function renderLinks(){
   }).join("");
   // Use the event's frozen slug (rename-safe); fall back to the name-derived slug.
   const slug=String(state.event&&state.event.slug||"").trim()||slugify(state.event&&state.event.name);
-  // LED/TV: short URL for the remote-navigable picker (easy to type on a TV remote).
-  const tvUrl=ORIGIN+"/tv";
+  // LED/TV: link langsung ke event ini (bukan /tv generik) — buka board TV event
+  // yang tepat tanpa harus memilih lagi lewat remote.
+  const tvUrl=ORIGIN+"/tv/"+encodeURIComponent(slug);
   const mbUrl=ORIGIN+"/mobile/"+encodeURIComponent(slug);
-  $("ledGrid").innerHTML=`<a class="linkchip led" href="${esc(tvUrl)}" target="_blank" rel="noopener"><span class="cn">/tv</span> ↗</a>`
+  $("ledGrid").innerHTML=`<a class="linkchip led" href="${esc(tvUrl)}" target="_blank" rel="noopener"><span class="cn">/tv/${esc(slug)}</span> ↗</a>`
     +`<span class="linkchip led" title="Copy" onclick="copyLink('${esc(tvUrl)}')">Copy</span>`;
   $("playerGrid").innerHTML=`<a class="linkchip player" href="${esc(mbUrl)}" target="_blank" rel="noopener"><span class="cn">/mobile/${esc(slug)}</span> ↗</a>`
     +`<span class="linkchip player" title="Copy" onclick="copyLink('${esc(mbUrl)}')">Copy</span>`;
