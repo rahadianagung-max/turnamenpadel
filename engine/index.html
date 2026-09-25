@@ -473,7 +473,7 @@
         <input id="tCatOther" type="text" placeholder="e.g. Tarkam Cup, Beginner Fun" maxlength="40" /></div>
       <div class="f" id="fLevel"><label>Level (starting ELO for new players)</label>
         <select id="tLevel">
-          <option value="open">Open · dari Bronze (1500)</option>
+          <option value="open">Open</option>
           <option value="upper_beginner">Upper Beginner · 900</option>
           <option value="lower_bronze" selected>Lower Bronze · 1200</option>
           <option value="bronze">Bronze · 1500</option>
@@ -1112,7 +1112,7 @@ async function deleteCategory(){
 }
 /* ---- IMPORT ---- */
 /* ---- EDIT LEVEL (perbaiki level yang salah tanpa mengulang grup/jadwal) ---- */
-const LEVEL_KEYS = ["upper_beginner","lower_bronze","bronze","upper_bronze","silver","gold","platinum"];
+const LEVEL_KEYS = ["open","upper_beginner","lower_bronze","bronze","upper_bronze","silver","gold","platinum"];
 function onElLevelChange(){
   document.getElementById("elCustomWrap").style.display =
     document.getElementById("elLevel").value === "__custom" ? "" : "none";
@@ -2629,6 +2629,7 @@ refreshAmpm();
     <p class="lead">Level menentukan <b>ELO awal pemain baru</b>. Mengubahnya <b>tidak</b> mengubah grup atau jadwal (keduanya tidak bergantung level) — hanya memperbaiki rating awal pemain baru yang dibuat di kategori ini.</p>
     <div class="f"><label>Level baru</label>
       <select id="elLevel" onchange="onElLevelChange()">
+        <option value="open">Open</option>
         <option value="upper_beginner">Upper Beginner · 900</option>
         <option value="lower_bronze">Lower Bronze · 1200</option>
         <option value="bronze">Bronze · 1500</option>
