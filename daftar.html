@@ -209,8 +209,8 @@ function cat(){ return (F.data.categories||[]).find(c=>c.tournamentId===F.catId)
 function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
 function isWL(){ return catFull(cat()); }
 const STEP_NAME=["Kategori","Eligibility","Pemain 1","Pemain 2","Rangkuman","Persetujuan","Pembayaran"];
-function stepKeys(){ return isWL()? ["cat","elig","p1","p2","summary","waiver","done"] : ["cat","elig","p1","p2","summary","waiver","pay","done"]; }
-function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
+function stepKeys(){ return isWL()? ["prep","cat","elig","p1","p2","summary","waiver","done"] : ["prep","cat","elig","p1","p2","summary","waiver","pay","done"]; }
+function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"&&x!=="prep"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
 
 async function boot(){
   if(!F.eventId){ document.getElementById("host").innerHTML='<p class="empty">Link tidak valid.</p>'; return; }
@@ -279,7 +279,7 @@ function loadDraft(){ try{ const s=localStorage.getItem(draftKey()); if(!s) retu
   return d; }catch(e){ return null; } }
 function saveDraft(){
   if(!F.eventId || !F.started) return;
-  const k=stepKeys()[F.step]; if(k==="done"||k==="info") return; // jangan simpan draft selesai
+  const k=stepKeys()[F.step]; if(k==="done"||k==="info"||k==="prep") return; // jangan simpan draft selesai
   const hasContent = !!F.catId || !!(F.teamName||"").trim() || (F.players||[]).some(p=>String(p.name||"").trim()); // jangan simpan draft kosong
   if(!hasContent){ return; }
   const snap={ v:2, ts:Date.now(), eventId:F.eventId, catId:F.catId, teamName:F.teamName||"", qExperience:F.qExperience||"", qAchievements:F.qAchievements||"", step:F.step,
@@ -303,7 +303,7 @@ function eventPageHref(){
 function head(){
   const h=document.getElementById("head");
   const k=stepKeys()[F.step];
-  if(k==="info"||k==="done"||F.step===0&&k==="cat"&&!F.started){ h.innerHTML=""; return; }
+  if(k==="info"||k==="done"||k==="prep"||F.step===0&&k==="cat"&&!F.started){ h.innerHTML=""; return; }
   const {idx,total,cur}=stepNum();
   let nodes=""; for(let n=1;n<=total;n++){ const cls=n<idx?"done":(n===idx?"cur":""); nodes+=`<div class="snode ${cls}"><div class="dot">${n<idx?"✓":n}</div>${n<total?'<div class="seg-line"></div>':''}</div>`; }
   const c=cat();
@@ -316,8 +316,8 @@ function render(){
   head();
   const k = F.started ? stepKeys()[F.step] : "info";
   const host=document.getElementById("host");
-  let html = ({info:vInfo,cat:vCat,elig:vElig,p1:()=>vPlayer(0),p2:()=>vPlayer(1),summary:vSummary,waiver:vWaiver,pay:vPay,done:vDone}[k])();
-  if(F._restored && k!=="done" && k!=="info")
+  let html = ({info:vInfo,prep:vPrep,cat:vCat,elig:vElig,p1:()=>vPlayer(0),p2:()=>vPlayer(1),summary:vSummary,waiver:vWaiver,pay:vPay,done:vDone}[k])();
+  if(F._restored && k!=="done" && k!=="info" && k!=="prep")
     html = `<div class="card" style="background:#DCFCE7;border-color:#065F46;margin-bottom:12px"><div class="row" style="justify-content:space-between;align-items:center;gap:10px"><span class="note" style="margin:0;color:#065F46">✓ Pendaftaranmu yang tertunda dipulihkan — lanjutkan dari sini.</span><a href="#" onclick="event.preventDefault();resetDraft()" class="note" style="white-space:nowrap">Mulai dari awal</a></div></div>` + html;
   host.innerHTML = html;
   if(k==='p1') updatePlayerNav(0); if(k==='p2') updatePlayerNav(1);
@@ -351,6 +351,52 @@ function vInfo(){
       <ul class="timeline">${tRow('openStart','pendaftaran dibuka')}${tRow('openEnd','pendaftaran ditutup')}${tRow('curationStart','kurasi')}${tRow('appealDeadline','batas appeal')}${tRow('tmDate','Technical Meeting + grup')}${tRow('oopDate','order of play')}</ul></div>`:''}
     <div class="nav"><button class="btn primary" ${open?'':'disabled'} onclick="start()">${open?'Daftar sekarang →':'Pendaftaran ditutup'}</button></div>`;
 }
+/* ---------- STEP: checklist persiapan (dinamis dari field yang diminta) ---------- */
+function prepItems(){
+  const on=fieldsOn();
+  const items=["Nama lengkap (sesuai KTP)","Nomor HP / WhatsApp aktif","Email aktif"];
+  if(on("ig")) items.push("Instagram (@username)");
+  if(on("reclub")) items.push("Link Rankedclub");
+  if(on("nick")) items.push("Nama panggilan");
+  if(on("dob")) items.push("Tanggal lahir");
+  if(on("gender")) items.push("Jenis kelamin (L/P)");
+  if(on("region")) items.push("Kota / domisili");
+  if(on("jersey")) items.push("Ukuran jersey");
+  if(on("photo")) items.push("Foto (pas foto / selfie, ukuran file jangan terlalu besar)");
+  return items;
+}
+function prepShareText(){
+  const nm=(F.data&&(F.data.name||(F.data.event&&F.data.event.name)))||"turnamen padel";
+  let t="Halo! Aku mau daftarin tim kita ke "+nm+" 🏆\n\nTolong siapin data ini ya (buat tiap pemain):\n";
+  t+=prepItems().map(x=>"• "+x).join("\n");
+  t+="\n• Nama tim\n\nNanti aku yang lanjutkan pendaftaran & pembayaran. Kirim ke aku ya, makasih! 🙌";
+  return t;
+}
+function copyPrep(btn){ const t=prepShareText();
+  const done=function(){ if(btn){ const o=btn.textContent; btn.textContent="✓ Tersalin"; setTimeout(function(){btn.textContent=o;},1600);} };
+  if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done,function(){ prompt("Salin checklist ini:", t); }); }
+  else { prompt("Salin checklist ini:", t); }
+}
+function sharePrepWA(){ try{ window.open("https://wa.me/?text="+encodeURIComponent(prepShareText()),"_blank","noopener"); }catch(e){} }
+function vPrep(){
+  const items=prepItems();
+  const list=items.map(function(x){ return `<li style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--slate-100)"><span style="color:var(--orange);font-weight:800;font-size:15px;line-height:1.2">☐</span><span style="line-height:1.35">${esc(x)}</span></li>`; }).join("");
+  return `<div class="card">
+    <div class="eyebrow">Persiapan pendaftaran</div>
+    <h2 style="font-size:20px;margin:6px 0 4px">Siapkan data ini dulu</h2>
+    <p class="muted" style="margin:0 0 12px;font-size:13px">Ini pendaftaran <b>ganda</b> — data <b>kedua pemain</b> diperlukan. Siapkan dulu, atau minta ke partnermu lewat WhatsApp biar cepat.</p>
+    <ul style="list-style:none;margin:0;padding:0">${list}</ul>
+    <div class="note" style="margin-top:10px">Plus <b>nama tim</b>, dan nanti <b>bukti transfer</b> saat pembayaran.</div>
+    <div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn" type="button" onclick="sharePrepWA()" style="background:#25D366;color:#fff;border-color:#1da851;box-shadow:var(--sh-sm)">📲 Kirim ke partner (WhatsApp)</button>
+      <button class="btn ghost" type="button" onclick="copyPrep(this)">⧉ Salin checklist</button>
+    </div>
+    <div class="nav" style="margin-top:16px">
+      <a class="btn ghost" href="#" onclick="event.preventDefault();F.started=false;render()">←</a>
+      <button class="btn primary" type="button" onclick="go('cat')">Lanjut, pilih kategori →</button>
+    </div>
+  </div>`;
+}
 function quotaBar(c){
   if(!c.quota) return "";
   const pct=Math.min(100,Math.round(c.filled/c.quota*100));
@@ -366,7 +412,7 @@ function vCat(){
     </label>`).join("")}
     </div>
     ${F.catId&&isWL()?`<div class="card" style="margin-top:12px;border-color:rgba(255,209,102,.4)"><b class="mono" style="color:var(--warn)">⚠ Kuota penuh · waitlist</b><div class="note">Kamu masuk antrean <b>tanpa bayar dulu</b>. Jika ada slot kosong, panitia mengundangmu via email untuk membayar.</div></div>`:''}
-    <div class="nav"><a class="btn ghost" href="${eventPageHref()}">←</a>
+    <div class="nav"><a class="btn ghost" href="#" onclick="event.preventDefault();go('prep')">←</a>
       <button class="btn primary" ${F.catId?'':'disabled'} onclick="go('elig')">Lanjut →</button></div></div>`;
 }
 /* ---------- STEP: eligibility questions (dijawab peserta) ---------- */
