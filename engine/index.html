@@ -484,6 +484,7 @@
         </select></div>
       <div class="f" id="fOtherElo" style="display:none"><label>Starting ELO for new players</label>
         <select id="tOtherElo">
+          <option value="open">Open</option>
           <option value="900">Upper Beginner · 900</option>
           <option value="1200" selected>Lower Bronze · 1200</option>
           <option value="1500">Bronze · 1500</option>
@@ -1056,9 +1057,13 @@ async function createTournament(){
   if(isOther){
     category = val("tCatOther").trim();
     if(!category) return toast("Isi nama kategori dulu", true);
-    const elo = parseInt(val("tOtherElo"));
-    if(!elo || elo < 100 || elo > 4000) return toast("ELO awal harus 100–4000", true);
-    level = String(elo);
+    const eloRaw = val("tOtherElo");
+    if(eloRaw === "open"){ level = "open"; } // Open = mulai dari Bronze (ditetapkan di backend)
+    else {
+      const elo = parseInt(eloRaw);
+      if(!elo || elo < 100 || elo > 4000) return toast("ELO awal harus 100–4000", true);
+      level = String(elo);
+    }
   }else{
     category = document.getElementById("tCat").value;
     level = document.getElementById("tLevel").value;
