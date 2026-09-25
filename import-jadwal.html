@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Import Jadwal Grup — TurnamenPadel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/tp-theme.css"/>
+<style>
+:root{--mu:var(--slate-500);--or:var(--orange);--grn:#10B981;--red:#DC2626}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 60px}
+.brand{display:inline-flex;align-items:center;gap:10px;margin-bottom:8px}
+.brand .glyph{width:34px;height:34px;border-radius:var(--r-lg);background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:900;font-size:15px;border:var(--bd)}
+.brand .name{font-family:var(--display);font-weight:900;font-size:18px;letter-spacing:-.01em}.brand .name b{color:var(--orange)}
+h1{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:clamp(26px,7vw,36px);margin:6px 0 4px}
+.k{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange)}
+.hint{color:var(--slate-600);font-size:13.5px;line-height:1.55;margin:8px 0 20px}
+.card{background:#fff;border:var(--bd);border-radius:var(--r-2xl);padding:18px 16px;margin-bottom:16px;box-shadow:var(--sh-sm)}
+.sec{font-family:var(--display);font-weight:900;text-transform:uppercase;font-size:16px;letter-spacing:.02em;color:var(--orange);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.sec .num{width:24px;height:24px;border-radius:50%;background:var(--orange);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:800;border:var(--bd)}
+label{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin:0 0 6px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:440px){.row{grid-template-columns:1fr}}
+.field{margin-bottom:13px}
+input,select,textarea{width:100%;padding:12px 13px;border:var(--bd);border-radius:var(--r-lg);background:#fff;color:var(--dark);font:inherit;font-size:15px;box-shadow:var(--sh-sm)}
+input:focus,select:focus,textarea:focus{outline:none;box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.35)}
+select{font-weight:700;cursor:pointer}
+textarea{min-height:200px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.55;white-space:pre;overflow-x:auto}
+.btn{width:100%;padding:14px;border:var(--bd);border-radius:var(--r-xl);background:var(--orange);color:#fff;font-family:var(--display);font-weight:900;font-size:16px;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;box-shadow:var(--sh);transition:transform .15s,box-shadow .15s}
+.btn:hover{transform:translate(2px,2px);box-shadow:var(--sh-sm)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:var(--sh-sm)}
+.btn.ghost{background:#fff;color:var(--dark)}
+.btn2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:440px){.btn2{grid-template-columns:1fr}}
+.msg{padding:11px 13px;border-radius:var(--r-lg);font-size:13.5px;font-weight:600;margin-bottom:14px;display:none;white-space:pre-wrap}
+.msg.ok{display:block;background:var(--mint-20);border:2px solid var(--mint);color:#065F46}
+.msg.err{display:block;background:rgba(220,38,38,.1);border:2px solid var(--red);color:var(--red)}
+.legend{background:var(--slate-50);border:var(--bd);border-radius:var(--r-lg);padding:11px 13px;font-size:12.5px;color:var(--slate-600);line-height:1.6;margin-bottom:12px}
+.legend b{color:var(--dark)}
+.legend code{font-family:var(--mono);background:var(--slate-100);padding:1px 5px;border-radius:5px;font-size:11.5px}
+.tblwrap{overflow-x:auto;border:var(--bd);border-radius:var(--r-lg);margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:360px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--slate-200)}
+th{background:var(--slate-100);color:var(--slate-600);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+tr:last-child td{border-bottom:none}
+.chip{display:inline-block;background:var(--slate-100);border:var(--bd);border-radius:20px;padding:2px 9px;font-size:11.5px;font-weight:800;font-family:var(--mono);margin:2px 4px 2px 0}
+.warns{background:var(--amber-bg);border:2px solid var(--amber-bd);border-radius:var(--r-lg);padding:11px 13px;color:var(--amber);font-size:12.5px;line-height:1.5;margin-top:10px;max-height:180px;overflow:auto}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(80px);background:var(--mint);color:var(--dark);border:var(--bd);font-weight:800;padding:12px 20px;border-radius:30px;opacity:0;transition:.3s;z-index:50;box-shadow:var(--sh)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><span class="glyph">P</span><span class="name">TURNAMEN<b>PADEL</b></span></div>
+  <div class="k">Engine · Import massal</div>
+  <h1>Import Jadwal Grup</h1>
+  <p class="hint">Tempel satu <b>daftar pertandingan grup</b> (mis. hasil export Excel/Sheet) — sistem otomatis membuat <b>kategori + peserta + grup + jadwal</b> untuk event terpilih. Sekali klik, tanpa ketik ulang.</p>
+
+  <div id="msg" class="msg"></div>
+
+  <div class="card">
+    <div class="sec"><span class="num">1</span>Tujuan &amp; setelan</div>
+    <div class="field">
+      <label>Event</label>
+      <select id="event"><option value="">Memuat…</option></select>
+    </div>
+    <div class="row">
+      <div class="field" style="margin:0">
+        <label>Level (ELO awal pemain baru)</label>
+        <select id="level">
+          <option value="open" selected>Open</option>
+          <option value="upper_beginner">Upper Beginner · 900</option>
+          <option value="lower_bronze">Lower Bronze · 1200</option>
+          <option value="bronze">Bronze · 1500</option>
+          <option value="upper_bronze">Upper Bronze · 1800</option>
+          <option value="silver">Silver · 2100</option>
+          <option value="gold">Gold · 2500</option>
+          <option value="platinum">Platinum · 3000</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0">
+        <label>Format playoff</label>
+        <select id="format">
+          <option value="SINGLE" selected>Single bracket</option>
+          <option value="SPLIT">Split (Champion + Prospect)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin:0">
+      <label>Tanggal main (opsional)</label>
+      <input id="date" type="date"/>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec"><span class="num">2</span>Tempel daftar pertandingan</div>
+    <div class="legend">
+      Satu baris = satu pertandingan. Kolom dipisah <b>TAB</b> (langsung dari Excel), <code>|</code>, atau 2+ spasi:<br>
+      <code>Time&nbsp;·&nbsp;Court&nbsp;·&nbsp;Group&nbsp;·&nbsp;Team A&nbsp;·&nbsp;Players A&nbsp;·&nbsp;Team B&nbsp;·&nbsp;Players B</code> <span style="color:var(--slate-500)">(kolom Date opsional di akhir)</span><br>
+      • Dua pemain satu tim dipisah <b>&amp;</b> <b>/</b> <b>,</b> atau <b>+</b> (mis. <code>Nadya &amp; Jenya</code>).<br>
+      • <code>Group</code> seperti <b>Women's Group A</b> → kategori <b>Women's Doubles</b>, grup <b>A</b>. <b>Men's Group C</b> → <b>Men's Doubles</b>, grup <b>C</b>.<br>
+      • Baris header (diawali <code>Time</code>) &amp; baris <code>#judul</code> otomatis dilewati.
+    </div>
+    <textarea id="bulk" placeholder="Time&#9;Court&#9;Group&#9;Team A&#9;Players A&#9;Team B&#9;Players B&#10;10:00&#9;1&#9;Women's Group A&#9;NJ&#9;Nadya & Jenya&#9;Team Denmark&#9;Viktoria & Naja"></textarea>
+    <div class="btn2" style="margin-top:12px">
+      <button class="btn ghost" id="preview">Pratinjau</button>
+      <button class="btn" id="commit" disabled>Import &amp; buat jadwal</button>
+    </div>
+  </div>
+
+  <div class="card hidden" id="resultCard">
+    <div class="sec"><span class="num">✓</span>Hasil</div>
+    <div id="result"></div>
+  </div>
+
+  <div class="card" style="background:var(--slate-50)">
+    <div class="legend" style="margin:0;background:transparent;border:none;padding:0">
+      Setelah import: buka <b>Engine</b> → pilih event ini → tiap kategori sudah punya grup &amp; jadwal siap diinput skor.
+      Urutan court/jam mengikuti dokumen. Playoff diatur belakangan lewat tombol Playoff di Engine.
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast">Tersimpan</div>
+
+<script>
+const BASE = location.protocol.startsWith("http") ? "/api" : "https://www.turnamenpadel.com/api";
+const $ = (id) => document.getElementById(id);
+let EVENTS = [];
+
+function showMsg(text, kind){ const m=$("msg"); m.textContent=text; m.className="msg "+(kind||"err"); if(kind==="ok") setTimeout(()=>{if(m.textContent===text)m.className="msg";},5000); window.scrollTo({top:0,behavior:"smooth"}); }
+function toast(t){ const el=$("toast"); el.textContent=t; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),1900); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+async function loadEvents(){
+  try{
+    const r = await fetch(`${BASE}/tournament/events`); const d = await r.json();
+    EVENTS = (d && d.events) || [];
+    const sel=$("event");
+    sel.innerHTML = EVENTS.length
+      ? '<option value="">— pilih event —</option>' + EVENTS.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name||e.eventId)}</option>`).join("")
+      : '<option value="">(belum ada event — buat dulu di Engine)</option>';
+    const pre = new URLSearchParams(location.search).get("event");
+    if(pre && EVENTS.some(e=>e.eventId===pre)) sel.value = pre;
+  }catch(e){ showMsg("Gagal memuat daftar event: "+e.message); }
+}
+
+function payload(preview){
+  return { text: $("bulk").value, level: $("level").value, format: $("format").value,
+    date: $("date").value || "", preview: !!preview };
+}
+function warnsHtml(warns){
+  if(!warns || !warns.length) return "";
+  return `<div class="warns"><b>${warns.length} baris dilewati:</b><br>${warns.map(esc).join("<br>")}</div>`;
+}
+function summaryHtml(cats){
+  const rows = (cats||[]).map(c=>`<tr><td><b>${esc(c.category)}</b> <span class="chip">${esc(c.code)}</span></td>
+    <td>${c.teams} tim</td>
+    <td>${(c.groups||[]).map(g=>`<span class="chip">Grup ${esc(g.label)}: ${g.teams}</span>`).join(" ")}</td></tr>`).join("");
+  return `<div class="tblwrap"><table><thead><tr><th>Kategori</th><th>Tim</th><th>Grup</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+$("preview").addEventListener("click", async ()=>{
+  const eventId=$("event").value;
+  if(!eventId){ showMsg("Pilih event dulu."); return; }
+  if(!$("bulk").value.trim()){ showMsg("Tempel daftar pertandingan dulu."); return; }
+  const btn=$("preview"); btn.disabled=true; btn.textContent="Memeriksa…";
+  try{
+    const r = await fetch(`${BASE}/tournament/event/${encodeURIComponent(eventId)}/bulk-import`,
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload(true))});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+    $("resultCard").classList.remove("hidden");
+    $("result").innerHTML =
+      `<p style="margin:0 0 8px"><b>${d.categories.length}</b> kategori · <b>${d.totalTeams}</b> tim · <b>${d.totalMatches}</b> match akan dibuat untuk <b>${esc(d.event)}</b>.</p>`
+      + summaryHtml(d.categories) + warnsHtml(d.warnings);
+    $("commit").disabled = false;
+    showMsg("Pratinjau siap. Periksa lalu klik Import & buat jadwal.","ok");
+  }catch(e){ showMsg("Gagal pratinjau: "+e.message); $("commit").disabled=true; }
+  finally{ btn.disabled=false; btn.textContent="Pratinjau"; }
+});
+
+$("commit").addEventListener("click", async ()=>{
+  const eventId=$("event").value;
+  if(!eventId){ showMsg("Pilih event dulu."); return; }
+  if(!confirm("Buat kategori, peserta, grup, dan jadwal untuk event ini sekarang?")) return;
+  const btn=$("commit"); btn.disabled=true; btn.textContent="Mengimpor…";
+  try{
+    const r = await fetch(`${BASE}/tournament/event/${encodeURIComponent(eventId)}/bulk-import`,
+      {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload(false))});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||("HTTP "+r.status));
+    $("resultCard").classList.remove("hidden");
+    $("result").innerHTML =
+      `<p style="margin:0 0 8px">✅ Berhasil untuk <b>${esc(d.event)}</b>: <b>${d.categoriesCreated}</b> kategori, <b>${d.entrants}</b> tim, <b>${d.matches}</b> match.`
+      + (d.unresolved? ` <span style="color:var(--red)">(${d.unresolved} match dilewati — tim tak dikenali)</span>`:"") + `</p>`
+      + summaryHtml(d.categories) + warnsHtml(d.warnings);
+    toast("Import selesai ✓");
+    showMsg("Selesai! Buka Engine → pilih event ini untuk mulai input skor.","ok");
+    btn.textContent="Selesai ✓";
+  }catch(e){ showMsg("Gagal import: "+e.message); btn.disabled=false; btn.textContent="Import & buat jadwal"; }
+});
+
+loadEvents();
+</script>
+</body>
+</html>

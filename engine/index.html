@@ -529,6 +529,7 @@
       <div class="actions">
         <a class="btn btn-primary" href="/tambah-peserta" target="_blank" rel="noopener">➕ Add participants ↗</a>
         <button type="button" class="btn btn-ghost" onclick="runImport()">⬇ Import participants</button>
+        <a class="btn btn-ghost" href="/import-jadwal" target="_blank" rel="noopener" onclick="this.href='/import-jadwal'+(window.state&&state.event?('?event='+encodeURIComponent(state.event.eventId)):'')">📋 Import jadwal grup (Excel) ↗</a>
         <span class="muted" id="importHint"></span>
       </div>
       <div class="result" id="importResult">
