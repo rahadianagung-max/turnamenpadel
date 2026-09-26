@@ -114,6 +114,7 @@
   .stable .rk{font-family:'Space Grotesk',monospace; color:var(--accent2); width:22px; text-align:center;}
   .stable .nmcell{display:flex; align-items:center; gap:6px;}
   .stable .num-c{font-family:'Space Grotesk',monospace; text-align:center; width:30px; color:var(--muted); white-space:nowrap;}
+  .stable .pts-c{color:var(--accent); font-size:14px;}
   .stable tr.top td{background:rgba(255,122,26,.10);} .stable tr.top .rk{color:var(--accent);}
   .stable tr.champ td{background:rgba(255,122,26,.10);} .stable tr.champ .rk{color:var(--accent);}
   .stable tr.prosp td{background:rgba(255,171,64,.07);} .stable tr.prosp .rk{color:var(--accent2);}
@@ -414,24 +415,27 @@ function renderStandings(cat){
   if(!cat.groups.length) return '<p class="empty">Groups not drawn yet.</p>';
   const N = cat.advancersPerGroup||0;
   const split = String(cat.format||"").toUpperCase()==="SPLIT";
-  const rankNote = "Ranked by: most wins → head-to-head → point difference → points for → points against";
+  const rankNote = "Ranked by: points (win 3 · draw 1 · loss 0) → head-to-head → point difference → points for → points against";
   return cat.groups.map(g=>{
     const denom = Math.max(1,(g.standings.length||1)-1);
     const rows = g.standings.map(s=>{
       const cls = split ? (s.rank<=N?'champ':'prosp') : (N&&s.rank<=N?'top':'');
       const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
+      const dr = (s.draws!=null)?s.draws:0;
+      const pts = (s.points!=null)?s.points:(Number(s.wins||0)*3+Number(dr));
       return `<tr class="${cls}">
         <td class="rk">${s.rank}</td>
         <td><span class="nmcell">${teamNames(cat,s.entrantId,false)}</span></td>
-        <td class="num-c">${s.played}/${denom}</td><td class="num-c">${s.wins}</td><td class="num-c">${s.losses}</td>
-        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${pa}</td></tr>`;
+        <td class="num-c">${s.played}/${denom}</td><td class="num-c">${s.wins}</td><td class="num-c">${dr}</td><td class="num-c">${s.losses}</td>
+        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${pa}</td>
+        <td class="num-c pts-c"><b>${pts}</b></td></tr>`;
     }).join("");
     const advText = split
       ? `Rank 1${N>1?`–${N}`:''} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket`
       : (N?`Top ${N} advance`:'');
     const cap = `<span>${advText?advText+' · ':''}${rankNote}</span>`;
     return `<div class="tscroll"><table class="stable"><caption>Group ${esc(g.label)}${cap}</caption>
-      <thead><tr><th>#</th><th class="l">Pair</th><th>Played</th><th>Win</th><th>Lose</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+      <thead><tr><th>#</th><th class="l">Pair</th><th>Played</th><th>W</th><th>D</th><th>L</th><th>PD</th><th>PF</th><th>PA</th><th>Pts</th></tr></thead>
       <tbody>${rows}</tbody></table></div>`;
   }).join("");
 }

@@ -249,6 +249,7 @@
   .stable td{padding:8px 10px; border-bottom:1px solid var(--line);}
   .stable .rk{font-family:'Space Mono',monospace; color:var(--accent2); width:30px;}
   .stable .num-c{font-family:'Space Mono',monospace; text-align:center; width:40px; color:var(--muted);}
+  .stable .pts-c{color:var(--accent);}
   .stable tr.top td{background:rgba(255,106,0,.07);}
   .stable tr.top .rk{color:var(--accent);}
 
@@ -2010,17 +2011,19 @@ function renderStandings(groups){
   wrap.innerHTML = groups.map(g=>{
     const rows = (g.standings||[]).map(s=>{
       const cls = split ? (s.rank<=N ? 'champ' : 'prosp') : (N && s.rank<=N ? 'top' : '');
+      const dr = (s.draws!=null)?s.draws:0;
+      const pts = (s.points!=null)?s.points:(Number(s.wins||0)*3+Number(dr));
       return `<tr class="${cls}">
         <td class="rk">${s.rank}</td><td>${esc(s.team)}</td>
-        <td class="num-c">${s.played}</td><td class="num-c">${s.wins}</td><td class="num-c">${s.losses}</td>
-        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${s.ga}</td>
+        <td class="num-c">${s.played}</td><td class="num-c">${s.wins}</td><td class="num-c">${dr}</td><td class="num-c">${s.losses}</td>
+        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${s.ga}</td><td class="num-c pts-c"><b>${pts}</b></td>
       </tr>`;
     }).join("");
     const cap = split
       ? `<span>Rank 1${N>1?`–${N}`:''} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket</span>`
       : (N ? `<span>top ${N} lolos</span>` : "");
     return `<table class="stable"><caption>Grup ${esc(g.label)}${cap}</caption>
-      <thead><tr><th>#</th><th>Pasangan</th><th class="num-c">Played</th><th class="num-c">Win</th><th class="num-c">Lose</th><th class="num-c">PD</th><th class="num-c">PF</th><th class="num-c">PA</th></tr></thead>
+      <thead><tr><th>#</th><th>Pasangan</th><th class="num-c">Played</th><th class="num-c">W</th><th class="num-c">D</th><th class="num-c">L</th><th class="num-c">PD</th><th class="num-c">PF</th><th class="num-c">PA</th><th class="num-c">Pts</th></tr></thead>
       <tbody>${rows}</tbody></table>`;
   }).join("");
 }
@@ -2098,7 +2101,7 @@ async function openSeedEditor(){
     // Flatten all teams, initial order = overall ranking (wins -> gd -> gf -> fewer ga).
     const flat=[];
     (groups||[]).forEach(g=>(g.standings||[]).forEach(s=> flat.push(s)));
-    flat.sort((a,b)=> (b.wins-a.wins) || (b.gd-a.gd) || (b.gf-a.gf) || ((a.ga||0)-(b.ga||0)));
+    flat.sort((a,b)=> ((b.points||0)-(a.points||0)) || (b.wins-a.wins) || (b.gd-a.gd) || (b.gf-a.gf) || ((a.ga||0)-(b.ga||0)));
     seedList = flat.map(s=>({ entrantId:s.entrantId, team:s.team||nameOf(s.entrantId), include:true }));
     renderSeedEditor();
   }catch(e){ toast(e.message, true); }

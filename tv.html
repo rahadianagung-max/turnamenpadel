@@ -111,6 +111,7 @@
   table.st td.nm{text-align:left; white-space:normal; line-height:1.07; padding-right:calc(var(--sfz)*.5);}
   table.st td.nm .p1{display:block; font-weight:600; color:inherit;}
   table.st td.nm .p2{display:block; font-weight:600; color:inherit;}
+  table.st td.pts{color:var(--accent); font-weight:700;}
   table.st tr:last-child td{border-bottom:none;}
   /* zebra by rank for readability: 1 white, 2 yellow, 3 white, 4 yellow … */
   table.st tbody tr:nth-child(odd) td{color:var(--text);}
@@ -412,7 +413,7 @@ function standHtml(){
   const out = state.data.categories.map(c=>{
     if(!c.groups || !c.groups.some(g=>g.standings.length)) return "";
     const N=c.advancersPerGroup||0, split=String(c.format||"").toUpperCase()==="SPLIT";
-    const rankNote = "Ranked by: most wins → head-to-head → point difference → points for → points against";
+    const rankNote = "Ranked by: points (win 3 · draw 1 · loss 0) → head-to-head → point difference → points for → points against";
     const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
     const cap = `${advText ? advText + " · " : ""}${rankNote}`;
     const cols = colsFor(c.groups.length);
@@ -421,17 +422,19 @@ function standHtml(){
       const rows=g.standings.map(s=>{
         const cls= split?(s.rank<=N?"champ":"prosp"):(N&&s.rank<=N?"top":"");
         const pa = (s.ga!=null) ? s.ga : (Number(s.gf||0)-Number(s.gd||0));
+        const dr = (s.draws!=null)?s.draws:0;
+        const pts = (s.points!=null)?s.points:(Number(s.wins||0)*3+Number(dr));
         const [p1,p2]=pairPlayers(c,s.entrantId);
         const _tn=teamNameOf(c,s.entrantId);
         const pair = _tn
           ? `<span class="p1">${esc(_tn)}</span>`
           : `<span class="p1">${esc(shortName(p1))||esc(shortName(s.team))}</span>${p2?`<span class="p2">${esc(shortName(p2))}</span>`:""}`;
         return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
-          <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
-          <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
+          <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${dr}</td><td>${s.losses}</td>
+          <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td><td class="pts"><b>${pts}</b></td></tr>`;
       }).join("");
       return `<div class="grp"><div class="grp-h">Group ${esc(g.label)}</div>
-        <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Played</th><th>Win</th><th>Lose</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+        <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Played</th><th>W</th><th>D</th><th>L</th><th>PD</th><th>PF</th><th>PA</th><th>Pts</th></tr></thead>
         <tbody>${rows}</tbody></table></div>`;
     }).join("");
     return `<div class="cat-block"><div class="cat-head">${esc(catLabel(c.category))}${cap?`<span class="cat-cap">${cap}</span>`:""}</div>
@@ -606,7 +609,7 @@ function winnersHtml(fin){
 }
 function capFor(c){
   const N=c.advancersPerGroup||0, split=String(c.format||"").toUpperCase()==="SPLIT";
-  const rankNote="Ranked by: most wins → head-to-head → point difference → points for → points against";
+  const rankNote="Ranked by: points (win 3 · draw 1 · loss 0) → head-to-head → point difference → points for → points against";
   const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
   return `${advText?advText+" · ":""}${rankNote}`;
 }
@@ -621,12 +624,14 @@ function cardHtml(c, g){
     const pair = _tn
       ? `<span class="p1">${esc(_tn)}</span>`
       : `<span class="p1">${esc(shortName(p1))||esc(shortName(s.team))}</span>${p2?`<span class="p2">${esc(shortName(p2))}</span>`:""}`;
+    const dr = (s.draws!=null)?s.draws:0;
+    const pts = (s.points!=null)?s.points:(Number(s.wins||0)*3+Number(dr));
     return `<tr class="${cls}"><td class="rk">${s.rank}</td><td class="nm">${pair}</td>
-      <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
-      <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td></tr>`;
+      <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${dr}</td><td>${s.losses}</td>
+      <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td><td class="pts"><b>${pts}</b></td></tr>`;
   }).join("");
   return `<div class="grp"><div class="grp-h">Group ${esc(g.label)} · ${g.standings.length} teams</div>
-    <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Pld</th><th>W</th><th>L</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
+    <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Pld</th><th>W</th><th>D</th><th>L</th><th>PD</th><th>PF</th><th>PA</th><th>Pts</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
 // Shrink standings font (--sfz) until ALL groups fit the column on one screen — both

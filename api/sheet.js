@@ -3619,7 +3619,11 @@ async function tGetEventSchedule(eventId) {
 // ==============================================================
 // TOURNAMENT HANDLERS (Phase 3b: standings & score entry)
 // ==============================================================
-// Standings for one group. Tiebreak: wins -> head-to-head (among tied) -> game diff -> games for.
+// Poin sistem 3-1-0: menang 3, seri 1, kalah 0.
+const WIN_PTS = 3, DRAW_PTS = 1;
+function pointsOf(s) { return (s.wins || 0) * WIN_PTS + (s.draws || 0) * DRAW_PTS; }
+// Standings for one group. Tiebreak: POINTS (3-1-0) -> head-to-head points (among
+// tied) -> game diff -> games for -> games against.
 function computeGroupStandings(matches, entrantIds) {
   const st = {};
   for (const id of entrantIds) st[id] = { entrantId: id, played: 0, wins: 0, losses: 0, draws: 0, gf: 0, ga: 0 };
@@ -3634,25 +3638,26 @@ function computeGroupStandings(matches, entrantIds) {
     else if (sb > sa) { st[b].wins++; st[a].losses++; }
     else { st[a].draws++; st[b].draws++; }
   }
-  function h2hWins(id, subset) {
-    let w = 0;
+  // Head-to-head diukur dengan poin (menang 3, seri 1) hanya di antara tim yang seri poin.
+  function h2hPoints(id, subset) {
+    let p = 0;
     for (const m of done) {
       const a = m.entrantA, b = m.entrantB, sa = Number(m.scoreA), sb = Number(m.scoreB);
-      if (a === id && subset.has(b)) { if (sa > sb) w++; }
-      else if (b === id && subset.has(a)) { if (sb > sa) w++; }
+      if (a === id && subset.has(b)) { p += sa > sb ? WIN_PTS : sa === sb ? DRAW_PTS : 0; }
+      else if (b === id && subset.has(a)) { p += sb > sa ? WIN_PTS : sb === sa ? DRAW_PTS : 0; }
     }
-    return w;
+    return p;
   }
   const arr = Object.values(st);
-  arr.forEach((s) => { s.gd = s.gf - s.ga; });
+  arr.forEach((s) => { s.gd = s.gf - s.ga; s.points = pointsOf(s); });
   arr.sort((x, y) => {
-    if (y.wins !== x.wins) return y.wins - x.wins;
-    const subset = new Set(arr.filter((s) => s.wins === x.wins).map((s) => s.entrantId));
-    const hx = h2hWins(x.entrantId, subset), hy = h2hWins(y.entrantId, subset);
+    if (y.points !== x.points) return y.points - x.points;
+    const subset = new Set(arr.filter((s) => s.points === x.points).map((s) => s.entrantId));
+    const hx = h2hPoints(x.entrantId, subset), hy = h2hPoints(y.entrantId, subset);
     if (hy !== hx) return hy - hx;
-    if (y.gd !== x.gd) return y.gd - x.gd;   // PD (points difference)
-    if (y.gf !== x.gf) return y.gf - x.gf;   // PF (points for)
-    return x.ga - y.ga;                       // PA (points against, lower is better)
+    if (y.gd !== x.gd) return y.gd - x.gd;   // PD (game difference)
+    if (y.gf !== x.gf) return y.gf - x.gf;   // PF (games for)
+    return x.ga - y.ga;                       // PA (games against, lower is better)
   });
   arr.forEach((s, i) => { s.rank = i + 1; });
   return arr;
@@ -3892,7 +3897,7 @@ async function computeTournamentStandings(sheets, id) {
   }
   return out;
 }
-const seedSort = (a, b) => a.rank - b.rank || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf;
+const seedSort = (a, b) => a.rank - b.rank || (b.points||0) - (a.points||0) || b.wins - a.wins || b.gd - a.gd || b.gf - a.gf;
 
 // Build the playoff bracket tier(s) from group standings, without touching the
 // sheet. Shared by the real generator (tGeneratePlayoff) and the projection
@@ -3943,14 +3948,14 @@ function buildPlayoffTiers(groups, format, N, crossOn) {
 }
 
 // Overall qualification: pool every team across all groups, rank them globally
-// (most wins → point diff → points for → fewer against), take the top `topN`
+// (most points 3-1-0 → point diff → points for → fewer against), take the top `topN`
 // by ranking, and seed them into a single MAIN bracket (performance seeding,
 // with same-group round-1 avoidance). Ignores group position, so e.g. the best
 // 8 teams overall advance even if 3 came from the same group.
 function buildOverallTiers(groups, topN) {
   const flat = [], groupOf = {};
   groups.forEach((g) => g.standings.forEach((s) => { flat.push(s); groupOf[s.entrantId] = g.label; }));
-  flat.sort((x, y) => (y.wins - x.wins) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga));
+  flat.sort((x, y) => ((y.points||0) - (x.points||0)) || (y.wins - x.wins) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga));
   const top = flat.slice(0, Math.max(0, topN | 0));
   const b = buildBracket(top.map((s) => s.entrantId), "MAIN", groupOf);
   const built = b.nQual >= 2 ? [{ tier: "MAIN", b }] : [];
@@ -4057,8 +4062,9 @@ function qpGroupStructs(groupList, groupMatches) {
   const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
   const groups = (groupList || []).map((g) => {
     const ids = (g.standings || []).map((s) => s.entrantId);
-    const wins = {}; (g.standings || []).forEach((s) => { wins[s.entrantId] = s.wins || 0; });
-    return { ids, wins, rem: [] };
+    // Poin sekarang (3-1-0) sebagai basis; klinch dihitung dalam poin.
+    const pts = {}; (g.standings || []).forEach((s) => { pts[s.entrantId] = (s.points != null ? s.points : pointsOf(s)); });
+    return { ids, pts, rem: [] };
   });
   const byLabel = {}; (groupList || []).forEach((g, i) => { byLabel[g.label] = groups[i]; });
   (groupMatches || []).forEach((m) => {
@@ -4068,29 +4074,39 @@ function qpGroupStructs(groupList, groupMatches) {
   });
   return groups;
 }
-// Max number of teams (id !== exclude) in group g that can finish with wins >= T
-// over all completions of g's remaining matches. forcedLoser (if set) loses all
-// its remaining matches (used to hold the team under test at its floor).
-const QP_CAP = 16; // enumeration guard (2^16); huge early-stage groups fall back to naive
+// Max number of teams (id !== exclude) in group g that can finish with POINTS >= T
+// over all completions of g's remaining matches. Each remaining match has 3 outcomes
+// (a menang +3, b menang +3, seri +1 keduanya). forcedLoser (if set) loses all its
+// remaining matches (opponents get +3), used to hold the team under test at its floor.
+const QP_CAP = 11; // enumeration guard (3^11 ≈ 177k); huge early-stage groups fall back to naive
 function qpGroupMaxAtOrAbove(g, T, exclude, forcedLoser) {
-  const base = {}; g.ids.forEach((id) => { base[id] = g.wins[id] || 0; });
+  const base = {}; g.ids.forEach((id) => { base[id] = g.pts[id] || 0; });
   const free = [];
   g.rem.forEach(([a, b]) => {
-    if (forcedLoser && (a === forcedLoser || b === forcedLoser)) { const opp = a === forcedLoser ? b : a; base[opp] = (base[opp] || 0) + 1; }
+    if (forcedLoser && (a === forcedLoser || b === forcedLoser)) { const opp = a === forcedLoser ? b : a; base[opp] = (base[opp] || 0) + WIN_PTS; }
     else free.push([a, b]);
   });
   const k = free.length;
-  if (k > QP_CAP) { let c = 0; g.ids.forEach((id) => { if (id !== exclude) { const maxW = (base[id] || 0) + free.filter(([a, b]) => a === id || b === id).length; if (maxW >= T) c++; } }); return c; }
+  // Naive upper bound (conservative → confirms fewer, tetap SAFE): tiap sisa match
+  // bisa menyumbang maksimal 3 poin ke sebuah tim.
+  if (k > QP_CAP) { let c = 0; g.ids.forEach((id) => { if (id !== exclude) { const maxP = (base[id] || 0) + free.filter(([a, b]) => a === id || b === id).length * WIN_PTS; if (maxP >= T) c++; } }); return c; }
   let best = 0;
-  for (let mask = 0; mask < (1 << k); mask++) {
+  const total = Math.pow(3, k);
+  for (let mask = 0; mask < total; mask++) {
     const w = Object.assign({}, base);
-    for (let i = 0; i < k; i++) { const [a, b] = free[i]; const winner = (mask >> i) & 1 ? a : b; w[winner] = (w[winner] || 0) + 1; }
+    let mm = mask;
+    for (let i = 0; i < k; i++) {
+      const [a, b] = free[i]; const o = mm % 3; mm = (mm - o) / 3;
+      if (o === 0) w[a] = (w[a] || 0) + WIN_PTS;
+      else if (o === 1) w[b] = (w[b] || 0) + WIN_PTS;
+      else { w[a] = (w[a] || 0) + DRAW_PTS; w[b] = (w[b] || 0) + DRAW_PTS; }
+    }
     let cnt = 0; for (const id of g.ids) { if (id !== exclude && (w[id] || 0) >= T) cnt++; }
     if (cnt > best) best = cnt;
   }
   return best;
 }
-const qpRank = (a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf);
+const qpRank = (a, b) => (Number(b.clinched) - Number(a.clinched)) || ((b.points||0) - (a.points||0)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf);
 // Overall "N besar" panel: top-N across all groups by ranking; a name shows only
 // once the team has clinched a top-N overall spot (see clinch note above).
 function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
@@ -4098,13 +4114,13 @@ function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
   const groups = qpGroupStructs(groupList, groupMatches);
   const flat = [];
   (groupList || []).forEach((g, gi) => (g.standings || []).forEach((s) => flat.push({
-    entrantId: s.entrantId, gi, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0,
+    entrantId: s.entrantId, gi, points: (s.points != null ? s.points : pointsOf(s)), wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0,
   })));
   if (!flat.length) return null;
   const genMemo = new Map();
   const genericMax = (gi, T) => { const key = gi + ":" + T; if (genMemo.has(key)) return genMemo.get(key); const v = qpGroupMaxAtOrAbove(groups[gi], T, null, null); genMemo.set(key, v); return v; };
   flat.forEach((x) => {
-    const T = x.wins;
+    const T = x.points;
     let maxAhead = qpGroupMaxAtOrAbove(groups[x.gi], T, x.entrantId, x.entrantId);
     groups.forEach((g, gi) => { if (gi !== x.gi) maxAhead += genericMax(gi, T); });
     x.clinched = maxAhead <= (N - 1);
@@ -4130,7 +4146,7 @@ function buildQualifyPanelPerGroup(groupList, groupMatches, N, nameFn) {
     // tiebreakers applied; gl.standings is already rank-ordered) are confirmed.
     const complete = (g.rem || []).length === 0;
     const finalTopN = complete ? new Set((gl.standings || []).slice(0, N).map((s) => s.entrantId)) : null;
-    const teams = (gl.standings || []).map((s) => ({ entrantId: s.entrantId, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0 }));
+    const teams = (gl.standings || []).map((s) => ({ entrantId: s.entrantId, points: (s.points != null ? s.points : pointsOf(s)), wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0 }));
     if (!teams.length) return;
     teams.forEach((x) => { x.clinched = !!(finalTopN && finalTopN.has(x.entrantId)); });
     teams.sort(qpRank);
@@ -5063,7 +5079,7 @@ async function tPublicEvent(eventId, opts) {
     const groups = [...members.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, ids]) => ({
       label,
       standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids)
-        .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, losses: s.losses, gd: s.gd, gf: s.gf, ga: s.ga })),
+        .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, losses: s.losses, draws: s.draws, points: s.points, gd: s.gd, gf: s.gf, ga: s.ga })),
     }));
     const schedule = groupMatches.slice().sort((a, b) => a.slot - b.slot || a.court - b.court).map((m) => ({
       matchId: m.matchId, court: m.court, slot: m.slot, time: m.time, date: m.date || "", groupLabel: m.groupLabel,
