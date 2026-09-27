@@ -27,11 +27,39 @@ function getSheets() {
   // Supabase via ./_supasheets. Otherwise keep using Google Sheets as before
   // (safe on/off switch — nothing changes until the env vars are set).
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
-    _sheetsClient = require("./_supasheets").makeSupabaseSheets();
+    _sheetsClient = guardInitialRows(require("./_supasheets").makeSupabaseSheets());
     return _sheetsClient;
   }
-  _sheetsClient = wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() }));
+  _sheetsClient = guardInitialRows(wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() })));
   return _sheetsClient;
+}
+// An "INITIAL" ELO_Log row seeds a NEW player's starting rating. Many flows
+// (registration, imports, check-in, passport claim…) decide "new" by looking at
+// the Players tab only, but plenty of rated players have ELO history without a
+// Players row, so those flows re-seeded them and reset a real rating (e.g. 1523
+// back to 1200). Guard every ELO_Log append in one place: drop INITIAL rows for
+// names that already have rated (non-INITIAL) history. Deliberate re-levels use
+// CURATION rows and are not affected.
+function guardInitialRows(s) {
+  try {
+    const v = s && s.spreadsheets && s.spreadsheets.values;
+    if (!v || v.__initGuard) return s;
+    const origAppend = v.append.bind(v), origGet = v.get.bind(v);
+    v.append = async (req) => {
+      const range = String((req && req.range) || "");
+      const vals = req && req.requestBody && req.requestBody.values;
+      if (!range.startsWith(TABS.elo_log + "!") || !Array.isArray(vals) || !vals.some((r) => r && r[0] === "INITIAL")) return origAppend(req);
+      const er = await origGet({ spreadsheetId: req.spreadsheetId, range: `${TABS.elo_log}!A2:B` });
+      const rated = new Set();
+      for (const r of (er.data.values || [])) if (r[1] && r[0] !== "INITIAL") rated.add(normName(r[1]));
+      const keep = vals.filter((r) => !(r && r[0] === "INITIAL" && rated.has(normName(r[1]))));
+      if (keep.length !== vals.length) console.warn("[elo] skipped INITIAL for already-rated:", vals.filter((r) => !keep.includes(r)).map((r) => r[1]).join(", "));
+      if (!keep.length) return { data: {} };
+      return origAppend({ ...req, requestBody: { ...req.requestBody, values: keep } });
+    };
+    v.__initGuard = true;
+  } catch (e) { /* fall back to the unguarded client */ }
+  return s;
 }
 // Wrap every Sheets values.* / spreadsheets.* call in withSheetsRetry so transient
 // 429 (rate limit) / 5xx / dropped-socket errors back off and retry instead of
@@ -755,7 +783,13 @@ const netlifyHandler = async (event) => {
       return await tSaveScheduleTimes(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")), body);
     }
     if (path.startsWith("tournament/event/") && path.endsWith("/finalize-elo") && method === "POST") {
-      return await tFinalizeElo(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo", "")), body && body.force);
+      return await tFinalizeElo(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo", "")), body && body.force, body && body.reviewed);
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/finalize-elo/review") && method === "POST") {
+      return await tFinalizeReview(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo/review", "")));
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/finalize-elo/rename-player") && method === "POST") {
+      return await tFinalizeRename(decodeURIComponent(path.replace("tournament/event/", "").replace("/finalize-elo/rename-player", "")), body || {});
     }
     // Player achievements (podium + round reached) for the passport.
     if (path.startsWith("achievements/player/") && method === "GET") {
@@ -5675,31 +5709,76 @@ async function tBackfillAchievements(body){
   return respond(200, { success: true, eventsProcessed: Object.keys(done).length, eventsWithAchievements: events.size, rowsRecorded: allRows.length });
 }
 
-async function tFinalizeElo(eventId, force) {
-  const sheets = getSheets();
-  await ensureTabs(sheets);
-  const sessionId = "SES_TRN_" + eventId;
-  const [evR, trR, grR, mR, elR, seR] = await Promise.all([
+// ---- Name review before a tournament's ELO is written (prevents identity mixups) ----
+// Entrant names are matched to Trekkr ratings by name only, so a one-word name
+// ("Ben") silently merges into an unrelated existing player, a title ("Counsellor",
+// "H.E. …") becomes a player, and a known player typed differently becomes a new
+// 1350-less duplicate. The review lists every entrant with its status + warnings;
+// finalize refuses to write while warnings exist unless the admin confirms.
+const T_TITLE_RE = /^(h\.?\s*e\.?|his excellency|her excellency|mr\.?|mrs\.?|ms\.?|mme\.?|madame|dr\.?|sir|counsell?or|ambassador|pak|bu|bapak|ibu)\s+/i;
+const T_TITLE_ONLY = new Set(["counsellor", "counselor", "ambassador", "madame", "sir", "mr", "mrs", "ms", "dr", "pak", "bu", "bapak", "ibu", "his excellency", "her excellency"]);
+function tStripTitle(n) { let x = normName(n); for (let i = 0; i < 3 && T_TITLE_RE.test(x); i++) x = x.replace(T_TITLE_RE, ""); return x.replace(/[.,]/g, "").replace(/\s+/g, " ").trim(); }
+function tLev(a, b) {
+  if (a === b) return 0; if (!a.length) return b.length; if (!b.length) return a.length;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+function tSimilarNames(name, known, selfKey) {
+  const base = tStripTitle(name), bt = base.split(" ").filter(Boolean);
+  if (!base) return [];
+  const out = [];
+  for (const c of known) {
+    if (c.k === selfKey) continue;
+    const cb = tStripTitle(c.name), ct = cb.split(" ").filter(Boolean);
+    let hit = false;
+    if (cb === base) hit = true;
+    else if (bt.length === 1) hit = ct.length > 1 && ct[0] === base;
+    else if (Math.abs(cb.length - base.length) <= 3 && tLev(cb, base) <= Math.max(2, Math.floor(base.length * 0.15))) hit = true;
+    else if (ct.length > 1 && ct[0] === bt[0] && tLev(ct[ct.length - 1], bt[bt.length - 1]) <= 2) hit = true;
+    else if (bt.length >= 2 && ct.length >= 2) {
+      // Every token of the shorter name matches a token of the longer one, allowing
+      // a 1-letter typo on longer tokens ("krisna wijaya kesuma" ~ "khrisna wijaya").
+      const [sh, lo] = bt.length <= ct.length ? [bt, ct] : [ct, bt];
+      hit = sh.every((t) => lo.some((u) => u === t || (t.length >= 4 && u.length >= 4 && tLev(t, u) <= 1)));
+    }
+    if (hit) out.push(c);
+  }
+  return out.sort((a, b) => (b.n - a.n)).slice(0, 4).map((c) => ({ name: c.name, elo: c.elo, matches: c.n }));
+}
+async function tEloContext(sheets, eventId, sessionId) {
+  const [evR, trR, grR, enR, mR, elR, seR, plR] = await Promise.all([
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:H` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.sessions}!A2:I` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:A` }).catch(() => ({ data: { values: [] } })),
   ]);
   const evRow = (evR.data.values || []).find((x) => x[0] === eventId);
-  if (!evRow) return respond(404, { error: "Event not found" });
-  const sessionRows = seR.data.values || [];
-  const already = sessionRows.some((r) => r[0] === sessionId);
-  if (already && !force) return respond(409, { error: "ELO event ini sudah dihitung. Kirim force=true untuk hitung ulang dari seed.", alreadyDone: true });
-
-  const tids = (trR.data.values || []).filter((x) => x[1] === eventId).map((x) => x[0]);
-  if (!tids.length) return respond(400, { error: "Belum ada kategori." });
-
-  // entrant -> [name1, name2]
-  const entMap = {};
-  for (const x of (grR.data.values || [])) if (tids.includes(x[0])) entMap[x[3]] = [x[4] || "", x[5] || ""];
-
+  const trs = (trR.data.values || []).filter((x) => x[1] === eventId);
+  const tids = trs.map((x) => x[0]);
+  const levelByTid = {}; trs.forEach((t) => { levelByTid[t[0]] = t[3] || ""; });
+  // entrant -> [name1, name2]: the LIVE entrant record wins (edits after the draw),
+  // the group snapshot is the fallback.
+  const live = {};
+  for (const x of (enR.data.values || [])) if (tids.includes(x[0]) && x[1]) live[x[1]] = { tid: x[0], names: [String(x[2] || "").trim(), String(x[4] || "").trim()], seed: parseInt(x[6]) || 0 };
+  const entMap = {}, newSeed = {};
+  for (const x of (grR.data.values || [])) {
+    if (!tids.includes(x[0])) continue;
+    const e = live[x[3]] || { tid: x[0], names: [String(x[4] || "").trim(), String(x[5] || "").trim()], seed: parseInt(x[6]) || 0 };
+    entMap[x[3]] = e.names;
+    // Starting ELO for a player with no rating yet: the entrant's seed (set from the
+    // category level at registration), else the category level itself.
+    const seed = e.seed || levelToElo(levelByTid[e.tid]);
+    e.names.forEach((n) => { if (n && !newSeed[normName(n)]) newSeed[normName(n)] = seed; });
+  }
   // Seed player state from ELO_Log, EXCLUDING this tournament's own session (so re-runs start from true seeds).
   const elRows = (elR.data.values || []).filter((r) => r[0] !== sessionId);
   const st = {};
@@ -5711,7 +5790,87 @@ async function tFinalizeElo(eventId, force) {
     if (r[0] !== "INITIAL") { st[k].elo = elo; st[k].matchCount += w + l; st[k].hist++; }
     else if (st[k].hist === 0) st[k].elo = elo;
   }
-  const getP = (name) => { const k = normName(name); if (!st[k]) st[k] = { name, elo: 1350, matchCount: 0, hist: 0 }; return st[k]; };
+  const known = new Map();
+  Object.entries(st).forEach(([k, v]) => known.set(k, { k, name: v.name, elo: v.elo, n: v.matchCount }));
+  (plR.data.values || []).forEach((r) => { const k = normName(r[0]); if (k && !known.has(k)) known.set(k, { k, name: r[0], elo: null, n: 0 }); });
+  const knownList = [...known.values()];
+  const seen = new Map();
+  Object.values(entMap).forEach((ns) => ns.forEach((n) => { if (n && !seen.has(normName(n))) seen.set(normName(n), n); }));
+  const review = [...seen.entries()].map(([k, name]) => {
+    const ex = st[k];
+    const status = ex ? "existing" : "new";
+    const warnings = [];
+    const base = tStripTitle(name);
+    if (T_TITLE_ONLY.has(normName(name).replace(/[.]/g, "")) || !base) warnings.push("title_only");
+    else if (T_TITLE_RE.test(normName(name))) warnings.push("title");
+    if (base && !base.includes(" ")) warnings.push(ex ? "one_word_existing" : "one_word");
+    const similar = status === "new" ? tSimilarNames(name, knownList, k) : [];
+    if (similar.length) warnings.push("similar");
+    return { name, status, elo: ex ? ex.elo : (newSeed[k] || 1350), matches: ex ? ex.matchCount : 0, warnings, similar };
+  }).sort((a, b) => (b.warnings.length - a.warnings.length) || a.name.localeCompare(b.name));
+  return { evRow, tids, entMap, newSeed, st, review, mRows: mR.data.values || [], grRows: grR.data.values || [], elRowsAll: elR.data.values || [], sessionRows: seR.data.values || [], trRows: trR.data.values || [] };
+}
+async function tFinalizeReview(eventId) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const ctx = await tEloContext(sheets, eventId, "SES_TRN_" + eventId);
+  if (!ctx.evRow) return respond(404, { error: "Event not found" });
+  if (!ctx.tids.length) return respond(400, { error: "Belum ada kategori." });
+  const flagged = ctx.review.filter((r) => r.warnings.length).length;
+  return respond(200, { eventId, players: ctx.review, flagged, total: ctx.review.length });
+}
+// Replace one player name across this event's entrants + group snapshot (exact
+// normName match), so a flagged name can be pointed at the right Trekkr profile
+// (or made unique) before the ELO is written.
+async function tFinalizeRename(eventId, body) {
+  const from = String((body && body.from) || "").trim(), to = String((body && body.to) || "").trim().replace(/\s+/g, " ");
+  if (!from || !to) return respond(400, { error: "from and to required" });
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const trR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` });
+  const tids = (trR.data.values || []).filter((x) => x[1] === eventId).map((x) => x[0]);
+  if (!tids.length) return respond(404, { error: "Event tidak punya kategori aktif." });
+  const k = normName(from);
+  let changed = 0;
+  for (const [tab, range, cols] of [[TABS.t_entrants, "A2:K", [2, 4]], [TABS.t_groups, "A2:H", [4, 5]]]) {
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${tab}!${range}` });
+    const rows = r.data.values || [];
+    const updates = [];
+    rows.forEach((row, i) => {
+      if (!tids.includes(row[0])) return;
+      let hit = false;
+      cols.forEach((c) => { if (normName(row[c]) === k) { row[c] = to; hit = true; } });
+      if (hit) { changed++; updates.push({ range: `${tab}!A${i + 2}:${range.split(":")[1]}${i + 2}`, values: [row] }); }
+    });
+    if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
+  }
+  return respond(200, { success: true, changed });
+}
+
+async function tFinalizeElo(eventId, force, reviewed) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const sessionId = "SES_TRN_" + eventId;
+  const ctx = await tEloContext(sheets, eventId, sessionId);
+  const evRow = ctx.evRow;
+  if (!evRow) return respond(404, { error: "Event not found" });
+  const sessionRows = ctx.sessionRows;
+  const already = sessionRows.some((r) => r[0] === sessionId);
+  if (already && !force) return respond(409, { error: "ELO event ini sudah dihitung. Kirim force=true untuk hitung ulang dari seed.", alreadyDone: true });
+
+  const tids = ctx.tids;
+  if (!tids.length) return respond(400, { error: "Belum ada kategori." });
+  const flagged = ctx.review.filter((r) => r.warnings.length);
+  if (flagged.length && !reviewed) {
+    return respond(409, { error: `${flagged.length} nama pemain perlu dicek dulu sebelum ELO dihitung.`, needsReview: true, players: ctx.review, flagged: flagged.length });
+  }
+  const entMap = ctx.entMap;
+  const st = ctx.st;
+  const elR = { data: { values: ctx.elRowsAll } };
+  const mR = { data: { values: ctx.mRows } };
+  const trR = { data: { values: ctx.trRows } };
+  const grR = { data: { values: ctx.grRows } };
+  const getP = (name) => { const k = normName(name); if (!st[k]) st[k] = { name, elo: ctx.newSeed[k] || 1350, matchCount: 0, hist: 0 }; return st[k]; };
 
   // Collect DONE matches; group stage chronologically, then playoff by round.
   const all = (mR.data.values || []).map(mapMatchRow).filter((m) =>
