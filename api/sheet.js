@@ -27,11 +27,39 @@ function getSheets() {
   // Supabase via ./_supasheets. Otherwise keep using Google Sheets as before
   // (safe on/off switch — nothing changes until the env vars are set).
   if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_KEY) {
-    _sheetsClient = require("./_supasheets").makeSupabaseSheets();
+    _sheetsClient = guardInitialRows(require("./_supasheets").makeSupabaseSheets());
     return _sheetsClient;
   }
-  _sheetsClient = wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() }));
+  _sheetsClient = guardInitialRows(wrapSheetsRetry(google.sheets({ version: "v4", auth: getAuth() })));
   return _sheetsClient;
+}
+// An "INITIAL" ELO_Log row seeds a NEW player's starting rating. Many flows
+// (registration, imports, check-in, passport claim…) decide "new" by looking at
+// the Players tab only, but plenty of rated players have ELO history without a
+// Players row, so those flows re-seeded them and reset a real rating (e.g. 1523
+// back to 1200). Guard every ELO_Log append in one place: drop INITIAL rows for
+// names that already have rated (non-INITIAL) history. Deliberate re-levels use
+// CURATION rows and are not affected.
+function guardInitialRows(s) {
+  try {
+    const v = s && s.spreadsheets && s.spreadsheets.values;
+    if (!v || v.__initGuard) return s;
+    const origAppend = v.append.bind(v), origGet = v.get.bind(v);
+    v.append = async (req) => {
+      const range = String((req && req.range) || "");
+      const vals = req && req.requestBody && req.requestBody.values;
+      if (!range.startsWith(TABS.elo_log + "!") || !Array.isArray(vals) || !vals.some((r) => r && r[0] === "INITIAL")) return origAppend(req);
+      const er = await origGet({ spreadsheetId: req.spreadsheetId, range: `${TABS.elo_log}!A2:B` });
+      const rated = new Set();
+      for (const r of (er.data.values || [])) if (r[1] && r[0] !== "INITIAL") rated.add(normName(r[1]));
+      const keep = vals.filter((r) => !(r && r[0] === "INITIAL" && rated.has(normName(r[1]))));
+      if (keep.length !== vals.length) console.warn("[elo] skipped INITIAL for already-rated:", vals.filter((r) => !keep.includes(r)).map((r) => r[1]).join(", "));
+      if (!keep.length) return { data: {} };
+      return origAppend({ ...req, requestBody: { ...req.requestBody, values: keep } });
+    };
+    v.__initGuard = true;
+  } catch (e) { /* fall back to the unguarded client */ }
+  return s;
 }
 // Wrap every Sheets values.* / spreadsheets.* call in withSheetsRetry so transient
 // 429 (rate limit) / 5xx / dropped-socket errors back off and retry instead of
