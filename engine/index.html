@@ -313,6 +313,9 @@
   .etable th.r, .etable td.r{text-align:right; font-family:'Space Mono',monospace;}
   .etable td{padding:8px 10px; border-bottom:1px solid var(--line);}
   .etable .up{color:var(--accent2);} .etable .down{color:var(--danger);}
+  .nrv-w{display:inline-block; font-size:10.5px; font-family:'Space Mono',monospace; padding:1px 6px; margin:2px 4px 2px 0; border:1px solid #F59E0B; color:#B45309; background:#FFFBEB; border-radius:4px;}
+  .nrv-ok{color:var(--faint); font-size:12px;}
+  .nrv-acts{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
 
   /* revisi: standings champ/prosp, group label, playoff card */
   .stable tr.champ td{background:rgba(255,106,0,.07);} .stable tr.champ .rk{color:var(--accent);}
@@ -697,7 +700,7 @@
   <section id="sec9" class="locked">
     <div class="sec-head"><div class="num">9</div><h2>Finish Tournament</h2>
       <span class="sub">calculate ELO for all categories in this event — run once after the tournament is truly finished</span></div>
-    <div class="elo-warn">Replays every match (group + playoff) chronologically from the seed ELO, using the Ranked Match formula. Results are written to ELO_Log as one tournament session. New players' ELO is also formed here.</div>
+    <div class="elo-warn">Replays every match (group + playoff) chronologically from the seed ELO, using the Ranked Match formula. Results are written to ELO_Log as one tournament session. New players start at their category's seed ELO (e.g. Open = 1500). Player names are checked first (one-word names, titles, look-alike profiles) before anything is written.</div>
     <div class="actions" style="margin-top:12px;">
       <button type="button" class="btn btn-primary" onclick="finalizeElo(false)">Calculate final ELO</button>
       <button type="button" class="btn btn-ghost" onclick="publishVenue()" title="Register this tournament so its winners show on venue.trekkr.online">Show on Venue</button>
@@ -2288,14 +2291,62 @@ async function savePlayoffScore(matchId){
 }
 
 /* ---- FINALIZE ELO (Phase 6) ---- */
+// Step 1: review every player name (existing Trekkr profile vs new, one-word
+// names, titles, look-alike profiles). Step 2: calculate. Ratings are matched by
+// NAME, so a wrong name here writes ELO to the wrong person.
+const NRV_LABEL = { title_only:"hanya gelar, bukan nama", title:"ada gelar (H.E./Mr./Madame…)", one_word:"nama 1 kata",
+  one_word_existing:"nama 1 kata · akan DIGABUNG ke pemain lama", similar:"mirip profil yang sudah ada" };
+let _nrvForce = false;
 async function finalizeElo(force){
   if(!state.event) return toast("Pilih event dulu", true);
   if(force && !confirm("Hitung ulang akan mengganti hasil ELO turnamen sebelumnya (dihitung ulang dari seed). Lanjut?")) return;
-  if(!force && !confirm("Hitung ELO akhir untuk semua kategori di event ini? Jalankan setelah turnamen selesai.")) return;
+  _nrvForce = !!force;
+  return loadNameReview();
+}
+async function loadNameReview(){
+  const wrap = document.getElementById("eloWrap");
+  wrap.innerHTML = '<p class="muted">Mengecek nama pemain…</p>';
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/finalize-elo/review", { method:"POST", body:{} });
+    renderNameReview(r);
+  }catch(e){ wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`; }
+}
+function renderNameReview(r){
+  const wrap = document.getElementById("eloWrap");
+  const flagged = (r.players||[]).filter(p=>p.warnings.length);
+  const rows = flagged.map((p,i)=>{
+    const sug = (p.similar||[]).map(s=>`<button type="button" class="btn btn-ghost btn-sm" data-to="${esc(s.name)}" onclick="nrvRename(${i},this.dataset.to)">Pakai profil: ${esc(s.name)}${s.elo!=null?' · '+s.elo:''}</button>`).join("");
+    return `<tr><td><b>${esc(p.name)}</b><br><span class="nrv-ok">${p.status==='existing'?'Pemain lama · ELO '+p.elo+' · '+p.matches+' match':'Pemain baru · mulai '+p.elo}</span>
+      <div>${p.warnings.map(w=>`<span class="nrv-w">${esc(NRV_LABEL[w]||w)}</span>`).join("")}</div>
+      <div class="nrv-acts">${sug}<button type="button" class="btn btn-ghost btn-sm" onclick="nrvRename(${i})">Ganti nama…</button></div></td></tr>`;
+  }).join("");
+  window._nrvFlagged = flagged;
+  const newCount = (r.players||[]).filter(p=>p.status==='new').length;
+  wrap.innerHTML = `<div class="elo-note">Cek nama sebelum ELO dihitung: <b>${r.total}</b> pemain · ${newCount} pemain baru · <b>${flagged.length}</b> perlu dicek.
+      ELO dicocokkan berdasarkan <b>nama</b>, jadi nama yang salah akan menulis ELO ke orang yang salah. Pakai nama lengkap (tanpa gelar) dan pilih profil yang sudah ada bila itu orang yang sama.</div>
+    ${flagged.length?`<table class="etable" style="margin-top:10px"><caption>Perlu dicek (${flagged.length})</caption><tbody>${rows}</tbody></table>`:'<p class="nrv-ok" style="margin-top:8px">✓ Semua nama aman.</p>'}
+    <div class="actions" style="margin-top:12px">
+      <button type="button" class="btn btn-primary" onclick="runFinalizeElo()">${flagged.length?'Nama sudah benar, hitung ELO':'Hitung ELO'}</button>
+      <button type="button" class="btn btn-ghost" onclick="loadNameReview()">Cek ulang</button>
+    </div>`;
+}
+async function nrvRename(i, to){
+  const p = (window._nrvFlagged||[])[i]; if(!p) return;
+  if(to==null){ to = prompt(`Ganti nama "${p.name}" menjadi (nama lengkap, tanpa gelar):`, p.name); if(to==null) return; }
+  to = String(to).trim(); if(!to || to===p.name) return;
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/finalize-elo/rename-player", { method:"POST", body:{ from:p.name, to }});
+    toast(`"${p.name}" → "${to}" (${r.changed} baris)`);
+    loadNameReview();
+  }catch(e){ toast(e.message, true); }
+}
+async function runFinalizeElo(){
+  const force = _nrvForce;
+  if(!confirm("Hitung ELO akhir untuk semua kategori di event ini? Jalankan setelah turnamen selesai.")) return;
   const wrap = document.getElementById("eloWrap");
   wrap.innerHTML = '<p class="muted">Menghitung…</p>';
   try{
-    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/finalize-elo", { method:"POST", body:{ force: !!force }});
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/finalize-elo", { method:"POST", body:{ force: !!force, reviewed: true }});
     renderEloResults(r);
     toast(`ELO dihitung · ${r.playersUpdated} pemain · ${r.matchesReplayed} match`);
   }catch(e){
