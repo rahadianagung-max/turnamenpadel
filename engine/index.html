@@ -249,6 +249,7 @@
   .stable td{padding:8px 10px; border-bottom:1px solid var(--line);}
   .stable .rk{font-family:'Space Mono',monospace; color:var(--accent2); width:30px;}
   .stable .num-c{font-family:'Space Mono',monospace; text-align:center; width:40px; color:var(--muted);}
+  .stable .pts-c{color:var(--accent);}
   .stable tr.top td{background:rgba(255,106,0,.07);}
   .stable tr.top .rk{color:var(--accent);}
 
@@ -504,6 +505,13 @@
         <button type="button" class="active" data-v="SINGLE" onclick="pickFormat(this)">Single bracket</button>
         <button type="button" data-v="SPLIT" onclick="pickFormat(this)">Split · Champion + Prospect</button>
       </div>
+    </div>
+    <div style="margin-top:14px" class="pick"><label>Sistem peringkat grup</label>
+      <div class="seg" id="tRankMode">
+        <button type="button" class="active" data-v="wins" onclick="pickRankMode(this)">Jumlah menang</button>
+        <button type="button" data-v="points" onclick="pickRankMode(this)">Poin 3 · 1 · 0</button>
+      </div>
+      <p style="font-size:11.5px;color:var(--muted);margin:6px 2px 0">Default <b>jumlah menang</b>. Pilih <b>Poin 3-1-0</b> bila hasil seri mungkin (mis. best-of-4): menang 3, seri 1, kalah 0.</p>
     </div>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="createTournament()">Create category</button>
@@ -986,6 +994,10 @@ function pickFormat(btn){
   state.format = btn.dataset.v;
   [...document.querySelectorAll("#tFormat button")].forEach(b=>b.classList.toggle("active", b===btn));
 }
+function pickRankMode(btn){
+  state.rankMode = btn.dataset.v;
+  [...document.querySelectorAll("#tRankMode button")].forEach(b=>b.classList.toggle("active", b===btn));
+}
 function pickSchedMode(btn){
   state.schedMode = btn.dataset.v;
   [...document.querySelectorAll("#schMode button")].forEach(b=>b.classList.toggle("active", b===btn));
@@ -1075,7 +1087,7 @@ async function createTournament(){
   try{
     const { tournamentId } = await api("tournament", { method:"POST", body:{
       eventId: state.event.eventId, category: category,
-      level: level, format: state.format,
+      level: level, format: state.format, rankMode: state.rankMode || "wins",
       groupSizeTarget: size, advancersPerGroup: val("tAdv"), adminUsername: (state.session && state.session.username) || "",
     }});
     toast("Kategori dibuat");
@@ -2000,30 +2012,48 @@ async function saveScore(matchId){
 async function loadStandings(){
   if(!state.tournament) return;
   try{
-    const { groups } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/standings");
+    const { groups, rankMode } = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/standings");
+    state.standRankMode = rankMode || (state.tournament && state.tournament.rankMode) || "wins";
     renderStandings(groups||[]);
+  }catch(e){ toast(e.message, true); }
+}
+async function setRankMode(mode){
+  if(!state.tournament) return;
+  try{
+    await api("settings", { method:"POST", body:{ key:"rankMode_"+state.tournament.tournamentId, value: mode }});
+    state.tournament.rankMode = mode; state.standRankMode = mode;
+    toast(mode==="points" ? "Peringkat: Poin 3-1-0" : "Peringkat: Jumlah menang");
+    loadStandings();
   }catch(e){ toast(e.message, true); }
 }
 function renderStandings(groups){
   const wrap = document.getElementById("standingsWrap");
+  const pts = (state.standRankMode||"wins")==="points";
+  const toggle = `<div class="pick" style="margin-bottom:12px"><label>Sistem peringkat grup</label>
+    <div class="seg">
+      <button type="button" class="${pts?'':'active'}" onclick="setRankMode('wins')">Jumlah menang</button>
+      <button type="button" class="${pts?'active':''}" onclick="setRankMode('points')">Poin 3 · 1 · 0</button>
+    </div></div>`;
   const any = groups.some(g => g.standings && g.standings.some(s=>s.played>0));
-  if(!any){ wrap.innerHTML = '<p class="empty">Belum ada skor. Input hasil match di langkah 6 dulu.</p>'; return; }
+  if(!any){ wrap.innerHTML = toggle + '<p class="empty">Belum ada skor. Input hasil match di langkah 6 dulu.</p>'; return; }
   const N = (state.tournament && state.tournament.advancersPerGroup) || 0;
   const split = state.tournament && String(state.tournament.format).toUpperCase()==="SPLIT";
-  wrap.innerHTML = groups.map(g=>{
+  wrap.innerHTML = toggle + groups.map(g=>{
     const rows = (g.standings||[]).map(s=>{
       const cls = split ? (s.rank<=N ? 'champ' : 'prosp') : (N && s.rank<=N ? 'top' : '');
+      const dr = (s.draws!=null)?s.draws:0;
+      const p = (s.points!=null)?s.points:(Number(s.wins||0)*3+Number(dr));
       return `<tr class="${cls}">
         <td class="rk">${s.rank}</td><td>${esc(s.team)}</td>
-        <td class="num-c">${s.played}</td><td class="num-c">${s.wins}</td><td class="num-c">${s.losses}</td>
-        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${s.ga}</td>
+        <td class="num-c">${s.played}</td><td class="num-c">${s.wins}</td>${pts?`<td class="num-c">${dr}</td>`:''}<td class="num-c">${s.losses}</td>
+        <td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${s.ga}</td>${pts?`<td class="num-c pts-c"><b>${p}</b></td>`:''}
       </tr>`;
     }).join("");
     const cap = split
       ? `<span>Rank 1${N>1?`–${N}`:''} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket</span>`
       : (N ? `<span>top ${N} lolos</span>` : "");
     return `<table class="stable"><caption>Grup ${esc(g.label)}${cap}</caption>
-      <thead><tr><th>#</th><th>Pasangan</th><th class="num-c">Played</th><th class="num-c">Win</th><th class="num-c">Lose</th><th class="num-c">PD</th><th class="num-c">PF</th><th class="num-c">PA</th></tr></thead>
+      <thead><tr><th>#</th><th>Pasangan</th><th class="num-c">Played</th><th class="num-c">Win</th>${pts?'<th class="num-c">Draw</th>':''}<th class="num-c">Lose</th><th class="num-c">PD</th><th class="num-c">PF</th><th class="num-c">PA</th>${pts?'<th class="num-c">Pts</th>':''}</tr></thead>
       <tbody>${rows}</tbody></table>`;
   }).join("");
 }

@@ -2288,7 +2288,11 @@ async function tCreateTournament(body) {
       parseInt(body.advancersPerGroup) || 2, "SETUP", body.adminUsername || "", now,
     ]] },
   });
-  return respond(200, { success: true, tournamentId: id });
+  // Sistem peringkat grup (opsional, dipilih saat setup): "points" (3-1-0) atau
+  // "wins" (default). Disimpan di Settings agar tidak mengubah skema kolom.
+  const rankMode = normRankMode(body.rankMode);
+  if (rankMode === "points") { try { await setSetting({ key: "rankMode_" + id, value: "points" }); } catch (e) {} }
+  return respond(200, { success: true, tournamentId: id, rankMode });
 }
 
 // Fix a mistakenly-chosen category level fast. Updates the category's level and
@@ -2424,7 +2428,8 @@ async function tGetTournament(id) {
   if (!t) return respond(404, { error: "Tournament not found" });
   const enr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:A` });
   const entrantCount = (enr.data.values || []).filter((x) => x[0] === id).length;
-  return respond(200, { tournament: t.tournament, entrantCount });
+  const rankMode = rankModeFor(await readRankModes(sheets), id);
+  return respond(200, { tournament: { ...t.tournament, rankMode }, entrantCount });
 }
 
 // Add one participant pair to Form_Responses (the tab the import reads). Lets
@@ -3653,8 +3658,17 @@ async function tGetEventSchedule(eventId) {
 // ==============================================================
 // TOURNAMENT HANDLERS (Phase 3b: standings & score entry)
 // ==============================================================
-// Standings for one group. Tiebreak: wins -> head-to-head (among tied) -> game diff -> games for.
-function computeGroupStandings(matches, entrantIds) {
+// Sistem poin (dipakai bila rankMode = "points"): menang 3, seri 1, kalah 0.
+const WIN_PTS = 3, DRAW_PTS = 1;
+function pointsOf(s) { return (s.wins || 0) * WIN_PTS + (s.draws || 0) * DRAW_PTS; }
+function normRankMode(m) { return String(m || "").toLowerCase().trim() === "points" ? "points" : "wins"; }
+// Standings for one group. `mode`:
+//   "wins"   (default) → peringkat: jumlah MENANG → head-to-head (menang) → PD → PF → PA
+//   "points" (3-1-0)   → peringkat: POIN → head-to-head (poin) → PD → PF → PA
+// `wins`, `draws`, `losses`, `gf/ga/gd`, dan `points` selalu dihitung; hanya kunci
+// pengurutan yang berubah, jadi mode "wins" identik dengan perilaku lama.
+function computeGroupStandings(matches, entrantIds, mode) {
+  const pointsMode = normRankMode(mode) === "points";
   const st = {};
   for (const id of entrantIds) st[id] = { entrantId: id, played: 0, wins: 0, losses: 0, draws: 0, gf: 0, ga: 0 };
   const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
@@ -3668,29 +3682,41 @@ function computeGroupStandings(matches, entrantIds) {
     else if (sb > sa) { st[b].wins++; st[a].losses++; }
     else { st[a].draws++; st[b].draws++; }
   }
-  function h2hWins(id, subset) {
-    let w = 0;
+  // Head-to-head diukur dengan metrik yang sama dengan mode (menang, atau poin).
+  function h2h(id, subset) {
+    let v = 0;
     for (const m of done) {
       const a = m.entrantA, b = m.entrantB, sa = Number(m.scoreA), sb = Number(m.scoreB);
-      if (a === id && subset.has(b)) { if (sa > sb) w++; }
-      else if (b === id && subset.has(a)) { if (sb > sa) w++; }
+      if (a === id && subset.has(b)) { v += sa > sb ? (pointsMode ? WIN_PTS : 1) : (pointsMode && sa === sb ? DRAW_PTS : 0); }
+      else if (b === id && subset.has(a)) { v += sb > sa ? (pointsMode ? WIN_PTS : 1) : (pointsMode && sb === sa ? DRAW_PTS : 0); }
     }
-    return w;
+    return v;
   }
+  const key = (s) => pointsMode ? s.points : s.wins;
   const arr = Object.values(st);
-  arr.forEach((s) => { s.gd = s.gf - s.ga; });
+  arr.forEach((s) => { s.gd = s.gf - s.ga; s.points = pointsOf(s); });
   arr.sort((x, y) => {
-    if (y.wins !== x.wins) return y.wins - x.wins;
-    const subset = new Set(arr.filter((s) => s.wins === x.wins).map((s) => s.entrantId));
-    const hx = h2hWins(x.entrantId, subset), hy = h2hWins(y.entrantId, subset);
+    if (key(y) !== key(x)) return key(y) - key(x);
+    const subset = new Set(arr.filter((s) => key(s) === key(x)).map((s) => s.entrantId));
+    const hx = h2h(x.entrantId, subset), hy = h2h(y.entrantId, subset);
     if (hy !== hx) return hy - hx;
-    if (y.gd !== x.gd) return y.gd - x.gd;   // PD (points difference)
-    if (y.gf !== x.gf) return y.gf - x.gf;   // PF (points for)
-    return x.ga - y.ga;                       // PA (points against, lower is better)
+    if (y.gd !== x.gd) return y.gd - x.gd;   // PD (game difference)
+    if (y.gf !== x.gf) return y.gf - x.gf;   // PF (games for)
+    return x.ga - y.ga;                       // PA (games against, lower is better)
   });
   arr.forEach((s, i) => { s.rank = i + 1; });
   return arr;
 }
+// Baca peta rankMode per-tournament dari tab Settings (key: rankMode_<tid>).
+async function readRankModes(sheets) {
+  try {
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Settings!A2:B" });
+    const map = {};
+    (res.data.values || []).forEach((r) => { if (r[0] && String(r[0]).startsWith("rankMode_")) map[r[0]] = normRankMode(r[1]); });
+    return map;
+  } catch (e) { return {}; }
+}
+function rankModeFor(map, tid) { return normRankMode((map || {})["rankMode_" + tid]); }
 async function tGetStandings(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
@@ -3709,13 +3735,14 @@ async function tGetStandings(id) {
     names[x[3]] = e ? `${e.p1} + ${e.p2}` : `${x[4] || ""} + ${x[5] || ""}`;
   }
   const matches = ((vrS[1] && vrS[1].values) || []).filter((x) => x[0] === id && x[2] === "GROUP").map(mapMatchRow);
+  const rankMode = rankModeFor(await readRankModes(sheets), id);
   const groups = [];
   for (const [label, ids] of [...members.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const gm = matches.filter((m) => m.groupLabel === label);
-    const standings = computeGroupStandings(gm, ids).map((s) => ({ ...s, team: names[s.entrantId] || s.entrantId }));
+    const standings = computeGroupStandings(gm, ids, rankMode).map((s) => ({ ...s, team: names[s.entrantId] || s.entrantId }));
     groups.push({ label, standings });
   }
-  return respond(200, { groups });
+  return respond(200, { groups, rankMode });
 }
 async function tUpdateMatchScore(body) {
   const { matchId, scoreA, scoreB } = body;
@@ -3919,10 +3946,11 @@ async function computeTournamentStandings(sheets, id) {
   for (const x of grRows) { const l = x[2]; if (!members.has(l)) members.set(l, []); members.get(l).push(x[3]); }
   const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:P` });
   const matches = (mRes.data.values || []).filter((x) => x[0] === id && x[2] === "GROUP").map(mapMatchRow);
+  const rankMode = rankModeFor(await readRankModes(sheets), id);
   const out = [];
   for (const [label, ids] of [...members.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
     const gm = matches.filter((m) => m.groupLabel === label);
-    out.push({ label, standings: computeGroupStandings(gm, ids) });
+    out.push({ label, standings: computeGroupStandings(gm, ids, rankMode) });
   }
   return out;
 }
@@ -3981,10 +4009,12 @@ function buildPlayoffTiers(groups, format, N, crossOn) {
 // by ranking, and seed them into a single MAIN bracket (performance seeding,
 // with same-group round-1 avoidance). Ignores group position, so e.g. the best
 // 8 teams overall advance even if 3 came from the same group.
-function buildOverallTiers(groups, topN) {
+function buildOverallTiers(groups, topN, mode) {
+  const pointsMode = normRankMode(mode) === "points";
+  const mk = (s) => pointsMode ? (s.points != null ? s.points : pointsOf(s)) : s.wins;
   const flat = [], groupOf = {};
   groups.forEach((g) => g.standings.forEach((s) => { flat.push(s); groupOf[s.entrantId] = g.label; }));
-  flat.sort((x, y) => (y.wins - x.wins) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga));
+  flat.sort((x, y) => (mk(y) - mk(x)) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga));
   const top = flat.slice(0, Math.max(0, topN | 0));
   const b = buildBracket(top.map((s) => s.entrantId), "MAIN", groupOf);
   const built = b.nQual >= 2 ? [{ tier: "MAIN", b }] : [];
@@ -4127,8 +4157,22 @@ function qpGroupMaxAtOrAbove(g, T, exclude, forcedLoser) {
 const qpRank = (a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf);
 // Overall "N besar" panel: top-N across all groups by ranking; a name shows only
 // once the team has clinched a top-N overall spot (see clinch note above).
-function buildQualifyPanel(groupList, groupMatches, N, nameFn) {
+function buildQualifyPanel(groupList, groupMatches, N, nameFn, mode) {
   if (!(N >= 2)) return null;
+  // Mode poin (3-1-0): matematika klinch berbasis-menang di bawah tidak berlaku
+  // (seri memberi 1 poin), jadi ambil pendekatan konservatif — nama baru muncul
+  // setelah SEMUA match grup selesai (standings final sudah urut sesuai poin),
+  // agar tak pernah mengungkap nama terlalu dini.
+  if (normRankMode(mode) === "points") {
+    const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
+    const complete = (groupMatches || []).length > 0 && (groupMatches || []).every((m) => has(m.scoreA) && has(m.scoreB));
+    const flatP = [];
+    (groupList || []).forEach((g) => (g.standings || []).forEach((s) => flatP.push(s)));
+    flatP.sort((a, b) => ((b.points || 0) - (a.points || 0)) || (b.gd - a.gd) || (b.gf - a.gf) || ((a.ga || 0) - (b.ga || 0)));
+    const slotsP = [];
+    for (let i = 0; i < N; i++) { const t = complete ? flatP[i] : null; slotsP.push({ pos: i + 1, team: t ? nameFn(t.entrantId) : "", entrantId: t ? t.entrantId : "", confirmed: !!t }); }
+    return { mode: "overall", size: N, confirmed: slotsP.filter((s) => s.confirmed).length, slots: slotsP };
+  }
   const groups = qpGroupStructs(groupList, groupMatches);
   const flat = [];
   (groupList || []).forEach((g, gi) => (g.standings || []).forEach((s) => flat.push({
@@ -4317,7 +4361,7 @@ async function tGeneratePlayoff(id, body) {
     built = [{ tier: "MAIN", b }];
     summary = [{ tier: "MAIN", method: "custom", entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length }];
   } else if (topOverall >= 2) {
-    const r = buildOverallTiers(groups, topOverall);
+    const r = buildOverallTiers(groups, topOverall, rankModeFor(await readRankModes(sheets), id));
     if (!r.built.length || r.qualified < 2) return respond(400, { error: "Perlu minimal 2 tim untuk playoff." });
     built = r.built; summary = r.summary;
   } else {
@@ -5006,8 +5050,9 @@ async function tGetPlayoff(id) {
   const mapped = mVals.map((x, i) => ({ ...mapMatchRow(x), _row: i + 2 }));
   const all = mapped.filter((m) => m.tournamentId === id && m.stage === "PLAYOFF");
   const groupMatches = mapped.filter((m) => m.tournamentId === id && m.stage === "GROUP");
+  const _rankMode = rankModeFor(await readRankModes(sheets), id);
   const groupList = [...membersByLabel.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([label, ids]) => ({ label, standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids) }));
+    .map(([label, ids]) => ({ label, standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids, _rankMode) }));
   // Projected bracket for previewing the knockout path before it is generated.
   const tRes = { data: { values: tVals } };
   const tRow = (tRes.data.values || []).find((x) => x[0] === id);
@@ -5075,6 +5120,7 @@ async function tPublicEvent(eventId, opts) {
     const name = r[0] || ""; if (!name) continue;
     players[normName(name)] = { name, display: r[3] || name, photo: r[6] || "" };
   }
+  const rankModes = await readRankModes(sheets);
   const allMatches = mRows.map(mapMatchRow);
   const tournaments = trRows.filter((x) => x[1] === eventId);
 
@@ -5094,10 +5140,11 @@ async function tPublicEvent(eventId, opts) {
     const nm = (eid) => { const e = entrants[eid]; return e ? `${e.player1} + ${e.player2}` : (eid || ""); };
     const tMatches = allMatches.filter((m) => m.tournamentId === tid);
     const groupMatches = tMatches.filter((m) => m.stage === "GROUP");
+    const rankMode = rankModeFor(rankModes, tid);
     const groups = [...members.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, ids]) => ({
       label,
-      standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids)
-        .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, losses: s.losses, gd: s.gd, gf: s.gf, ga: s.ga })),
+      standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids, rankMode)
+        .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, draws: s.draws, points: s.points, losses: s.losses, gd: s.gd, gf: s.gf, ga: s.ga })),
     }));
     const schedule = groupMatches.slice().sort((a, b) => a.slot - b.slot || a.court - b.court).map((m) => ({
       matchId: m.matchId, court: m.court, slot: m.slot, time: m.time, date: m.date || "", groupLabel: m.groupLabel,
@@ -5131,14 +5178,14 @@ async function tPublicEvent(eventId, opts) {
     if (!groupComplete) {
       if (topOverall >= 2) {
         const totalTeams = groups.reduce((s, g) => s + g.standings.length, 0);
-        qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm);
+        qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm, rankMode);
       } else {
         qualifyPanel = buildQualifyPanelPerGroup(groups, groupMatches, parseInt(t[6]) || 2, nm);
       }
     }
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
-      advancersPerGroup: parseInt(t[6]) || 2, entrants, groups, schedule,
+      advancersPerGroup: parseInt(t[6]) || 2, rankMode, entrants, groups, schedule,
       playoff: playoffPublic, playoffProjection, groupComplete, qualifyPanel,
     };
   });
