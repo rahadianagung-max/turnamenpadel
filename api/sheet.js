@@ -6222,6 +6222,7 @@ async function regPublic(eventId) {
       jerseySizes: Array.isArray(config.jerseySizes) ? config.jerseySizes : [],
       hidePlayers: !!config.hidePlayers,
       hideEligibility: !!config.hideEligibility,
+      hideQuota: !!config.hideQuota,
       theme: config.theme === "nightmode" ? "nightmode" : "daylight" },
     categories: cats });
 }

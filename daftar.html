@@ -210,6 +210,8 @@ function catFull(c){ return c && c.quota>0 && c.filled>=c.quota; }
 function isWL(){ return catFull(cat()); }
 // Step "Players eligibility" bisa disembunyikan dari /engine (config.hideEligibility).
 function hideElig(){ return !!(F.data && F.data.config && F.data.config.hideEligibility); }
+// Bar kuota (jumlah terdaftar vs slot) bisa disembunyikan dari /engine (config.hideQuota).
+function hideQuota(){ return !!(F.data && F.data.config && F.data.config.hideQuota); }
 const STEP_NAME=["Kategori","Eligibility","Pemain 1","Pemain 2","Rangkuman","Persetujuan","Pembayaran"];
 function stepKeys(){ const base = isWL()? ["prep","cat","elig","p1","p2","summary","waiver","done"] : ["prep","cat","elig","p1","p2","summary","waiver","pay","done"]; return hideElig()? base.filter(k=>k!=="elig") : base; }
 function stepNum(){ const k=stepKeys(); const cur=k[F.step]; const numbered=k.filter(x=>x!=="done"&&x!=="prep"); return {cur, idx:numbered.indexOf(cur)+1, total:numbered.length}; }
@@ -397,6 +399,7 @@ function vPrep(){
   </div>`;
 }
 function quotaBar(c){
+  if(hideQuota()) return "";
   if(!c.quota) return "";
   const pct=Math.min(100,Math.round(c.filled/c.quota*100));
   return `<div class="quota"><div class="qbar"><i style="width:${pct}%;${catFull(c)?'background:var(--danger)':''}"></i></div><span class="qnum ${catFull(c)?'full':''}">${c.filled}/${c.quota}${catFull(c)?' · penuh':''}</span></div>`;
