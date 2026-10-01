@@ -1285,6 +1285,10 @@ function renderRegBuilder(cfg, status){
       <input type="checkbox" id="rb_hide_elig" style="width:auto" ${cfg.hideEligibility?"checked":""}>
       Sembunyikan halaman "A few quick questions" di form pendaftaran <span class="muted" style="font-weight:400">— halaman Persiapan pendaftaran &amp; pilih kategori tetap ada; setelah pilih kategori peserta langsung ke input pemain</span>
     </label></div>
+    <div class="f" style="margin-top:6px"><label style="display:flex;align-items:center;gap:8px;font-weight:600">
+      <input type="checkbox" id="rb_hide_quota" style="width:auto" ${cfg.hideQuota?"checked":""}>
+      Sembunyikan bar kuota di form pendaftaran <span class="muted" style="font-weight:400">— tidak menampilkan jumlah terdaftar vs slot (mis. 10/48) saat pilih kategori</span>
+    </label></div>
 
     <div class="f"><label>Contact <span class="muted" style="font-weight:400">— tab "Contact" di halaman event · satu baris satu item</span></label>
       <textarea id="rb_contact" rows="4" placeholder="WhatsApp: +62 812-xxxx-xxxx&#10;Email: panitia@turnamenpadel.com&#10;Instagram: @namaevent">${esc(cfg.contact||"")}</textarea></div>
@@ -1537,6 +1541,7 @@ function collectRegConfig(){
     theme: (document.getElementById("rb_theme")||{}).value==="nightmode"?"nightmode":"daylight",
     hidePlayers: !!(document.getElementById("rb_hide_players")||{}).checked,
     hideEligibility: !!(document.getElementById("rb_hide_elig")||{}).checked,
+    hideQuota: !!(document.getElementById("rb_hide_quota")||{}).checked,
     categories,
     rules: (document.getElementById("rb_rules")||{}).value||"",
     waiver:(document.getElementById("rb_waiver")||{}).value||"",
