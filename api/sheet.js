@@ -804,6 +804,10 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/archive") && method === "POST") {
       return await tArchiveEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/archive", "")), body || {});
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/delete") && method === "POST") {
+      if (!isSuperadmin(body, params)) return NEED_SUPER;
+      return await tDeleteEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/delete", "")), body || {});
+    }
     if (path.startsWith("tournament/event/") && path.endsWith("/publish-venue") && method === "POST") {
       return await tPublishVenue(decodeURIComponent(path.replace("tournament/event/", "").replace("/publish-venue", "")), body || {});
     }
@@ -5371,6 +5375,95 @@ async function tArchiveEvent(eventId, body) {
     success: true, eventId, eventName, eloFinalized: eloDone,
     archivedTo: TABS.t_archive, archivedRows: archiveRows.length, removed: removedByTab,
     note: "ELO_Log, Players and Sessions were left intact. Registration tabs (RegForms/Registrations) and Form_Responses were not touched.",
+  });
+}
+
+// PERMANENT delete of an event "yang tidak jadi" — removes the event row, ALL its
+// categories (+entrants/groups/matches/draws/achievements), AND its registration
+// form + every registration. A safety copy of every removed row is written to
+// Tournament_Archive first (so a superadmin can recover from the backup if needed),
+// but the event, its categories and its form disappear from the app entirely.
+// Superadmin-only (gated in the route). Requires { confirm:true } AND
+// { confirmName } matching the event name exactly, to prevent deleting the wrong one.
+// ELO_Log / Players / Sessions are left intact (ratings never corrupted).
+async function tDeleteEvent(eventId, body) {
+  if (!eventId) return respond(400, { error: "eventId required" });
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const evR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:V` });
+  const evRows = evR.data.values || [];
+  const evRow = evRows.find((x) => x[0] === eventId);
+  if (!evRow) return respond(404, { error: "Event tidak ditemukan." });
+  const eventName = evRow[1] || "";
+  if (!body || body.confirm !== true) {
+    return respond(400, { error: "Aksi destruktif. Kirim { confirm:true }.", eventName });
+  }
+  // Typed-name guard: the client must echo the exact event name.
+  if (String(body.confirmName || "").trim() !== String(eventName).trim()) {
+    return respond(400, { error: `Nama konfirmasi tidak cocok. Ketik persis: "${eventName}".`, eventName });
+  }
+
+  const trR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` });
+  const tids = (trR.data.values || []).filter((x) => x[1] === eventId).map((x) => x[0]);
+  const tidSet = new Set(tids);
+  const formId = regFormIdForEvent(eventId);
+  const slug = String(evRow[22] || "").trim() || eventSlugify(eventName);
+  const lastSeg = (u) => { const s = String(u || "").trim().replace(/[/?#].*$/, ""); const m = s.split("/").filter(Boolean); return (m[m.length - 1] || s).toLowerCase(); };
+
+  // [tab, range, keepPredicate]
+  const targets = [
+    { tab: TABS.t_events,      range: "A2:V", keep: (x) => x[0] !== eventId },
+    { tab: TABS.t_tournaments, range: "A2:L", keep: (x) => x[1] !== eventId },
+    { tab: TABS.t_entrants,    range: "A2:K", keep: (x) => !tidSet.has(x[0]) },
+    { tab: TABS.t_groups,      range: "A2:H", keep: (x) => !tidSet.has(x[0]) },
+    { tab: TABS.t_matches,     range: "A2:Q", keep: (x) => !tidSet.has(x[0]) },
+    { tab: TABS.draw_results,  range: "A2:Q", keep: (x) => !tidSet.has(x[2]) },
+    { tab: TABS.draw_log,      range: "A2:H", keep: (x) => !tidSet.has(x[2]) },
+    { tab: TABS.achievements,  range: "A2:K", keep: (x) => !tidSet.has(x[6]) },
+    { tab: TABS.reg_forms,     range: "A2:G", keep: (x) => x[0] !== formId },
+    { tab: TABS.registrations, range: "A2:K", keep: (x) => x[1] !== formId },
+    { tab: TABS.upcoming,      range: "A2:G", keep: (x) => !(slug && lastSeg(x[5]) === slug.toLowerCase()) },
+    { tab: COMPETITIONS_TAB,   range: "A2:G", keep: (x) => x[2] !== eventId },
+  ];
+
+  const now = new Date().toISOString();
+  const plans = [];
+  const archiveRows = [];
+  for (const t of targets) {
+    let rows = [];
+    try { const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${t.tab}!${t.range}` }); rows = r.data.values || []; }
+    catch (e) { plans.push({ t, keep: [], removedCount: 0, missing: true }); continue; }
+    const keep = [], removed = [];
+    for (const x of rows) (t.keep(x) ? keep : removed).push(x);
+    plans.push({ t, keep, removedCount: removed.length });
+    for (const x of removed) archiveRows.push([now, eventId, t.tab, JSON.stringify(x)]);
+  }
+  const totalRemoved = plans.reduce((a, p) => a + p.removedCount, 0);
+
+  // Safety backup FIRST, then purge.
+  if (archiveRows.length) {
+    await ensureTabWithHeader(sheets, TABS.t_archive, T_ARCHIVE_HEADER);
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_archive}!A:D`, valueInputOption: "RAW",
+      requestBody: { values: archiveRows },
+    });
+  }
+  const removedByTab = {};
+  for (const p of plans) {
+    if (p.missing || p.removedCount === 0) { if (!p.missing) removedByTab[p.t.tab] = 0; continue; }
+    await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${p.t.tab}!${p.t.range}` });
+    if (p.keep.length) {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: `${p.t.tab}!A2`, valueInputOption: "RAW", requestBody: { values: p.keep },
+      });
+    }
+    removedByTab[p.t.tab] = p.removedCount;
+  }
+
+  return respond(200, {
+    success: true, eventId, eventName, categoriesDeleted: tids.length,
+    archivedTo: TABS.t_archive, backupRows: archiveRows.length, totalRemoved, removed: removedByTab,
+    note: "Event, kategori, form pendaftaran & registrasi dihapus. ELO_Log/Players/Sessions tidak disentuh. Salinan cadangan tersimpan di Tournament_Archive.",
   });
 }
 

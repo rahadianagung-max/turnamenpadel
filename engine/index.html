@@ -714,7 +714,9 @@
       <button type="button" class="btn btn-ghost" onclick="publishVenue()" title="Register this tournament so its winners show on venue.trekkr.online">Show on Venue</button>
       <button type="button" class="btn btn-ghost" onclick="archiveEvent(false)" title="Copy this event's rows to Tournament_Archive then clear its operational data">Archive &amp; clean up event</button>
       <button type="button" class="btn btn-ghost" onclick="backfillAchievements()" title="Hitung ulang &amp; catat pencapaian pemain (Juara 1/2/3, Peringkat 4, Semifinalis, Perempatfinalis) untuk semua turnamen yang masih ada datanya, termasuk yang sudah diarsip. Aman diulang.">Backfill achievements (semua event)</button>
+      <button type="button" class="btn btn-ghost" style="color:var(--danger);border-color:rgba(220,38,38,.4)" onclick="deleteEventPermanent()" title="HAPUS PERMANEN event ini: baris event, semua kategori (+peserta/grup/jadwal/bracket/achievements), form pendaftaran &amp; semua registrasi. Tidak bisa di-undo (ada salinan cadangan di Tournament_Archive).">🗑 Delete event (permanen)</button>
     </div>
+    <p style="font-size:12px;color:var(--danger);margin:8px 2px 0;"><b>Delete event (permanen)</b> untuk event yang <b>tidak jadi</b>: menghapus event + kategori + form pendaftaran + semua data registrasi sekaligus. Perlu ketik nama event untuk konfirmasi. ELO_Log/Players tidak disentuh.</p>
     <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Show on Venue</b> registers this tournament on the public <code>venue.trekkr.online</code> page (podium &amp; standings). Safe to click anytime — before or after archiving.</p>
     <div class="pick" style="margin-top:12px">
       <label>…or show an already-<b>archived</b> event on the venue</label>
@@ -2455,6 +2457,25 @@ async function archiveEvent(force){
       wrap.innerHTML = `<p class="empty">${esc(e.message)}</p>`;
     }
   }
+}
+async function deleteEventPermanent(){
+  if(!state.event) return toast("Pilih event dulu", true);
+  const name = state.event.name || "";
+  const typed = prompt('HAPUS PERMANEN event ini?\n\nIni menghapus: event, semua kategori (+peserta/grup/jadwal/bracket/achievements), form pendaftaran & SEMUA data registrasi. Tidak bisa di-undo (ada salinan cadangan di Tournament_Archive).\n\nUntuk konfirmasi, ketik nama event persis:\n'+name);
+  if(typed===null) return;
+  if(String(typed).trim() !== String(name).trim()){ toast("Nama tidak cocok — dibatalkan.", true); return; }
+  const wrap = document.getElementById("eloWrap");
+  wrap.innerHTML = '<p class="muted">Menghapus event…</p>';
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/delete", { method:"POST", body: regAuthBody({ confirm:true, confirmName: typed }) });
+    const per = Object.keys(r.removed||{}).map(k=>`${k}: ${r.removed[k]}`).join(" · ");
+    wrap.innerHTML = `<div class="elo-note">✓ Event "${esc(r.eventName||name)}" dihapus. Total ${r.totalRemoved||0} baris (backup ${r.backupRows||0} → ${esc(r.archivedTo||'Tournament_Archive')}).<br>Dihapus — ${esc(per||'tidak ada')}.<br><span class="muted">${esc(r.note||'')}</span></div>`;
+    toast("Event dihapus permanen");
+    // Reset pilihan & muat ulang daftar event.
+    try{ localStorage.removeItem("tp_court_admin_event"); }catch(e){}
+    state.event = null; state.tournament = null;
+    await loadEvents();
+  }catch(e){ wrap.innerHTML = `<p class="empty">${esc(e.message||"Gagal menghapus event.")}</p>`; toast(e.message||"Gagal", true); }
 }
 function renderEloResults(r){
   const wrap = document.getElementById("eloWrap");
