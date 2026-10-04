@@ -1128,8 +1128,12 @@ function verifyPassword(pw, stored) {
     const parts = s.split("$"); const salt = parts[1], h = parts[2];
     if (!salt || !h) return false;
     const crypto = require("crypto");
-    const calc = crypto.scryptSync(String(pw), salt, 32).toString("hex");
-    const a = Buffer.from(h, "hex"), b = Buffer.from(calc, "hex");
+    // Key length is derived from the STORED hash so a hash written by another app
+    // sharing this Admins table (mis. Trekkr pakai keylen 64, situs ini keylen 32)
+    // still verifies. Accept only the known lengths.
+    const a = Buffer.from(h, "hex");
+    if (a.length !== 32 && a.length !== 64) return false;
+    const b = crypto.scryptSync(String(pw), salt, a.length);
     return a.length === b.length && crypto.timingSafeEqual(a, b);
   }
   return s !== "" && s === String(pw); // legacy plaintext (akan di-hash saat login)
