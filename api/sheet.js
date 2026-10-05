@@ -5231,19 +5231,46 @@ async function tPublicEvent(eventId, opts) {
 // ==============================================================
 // TOURNAMENT HANDLERS (Phase 6: end-of-tournament ELO replay)
 // ==============================================================
-// --- Ranked Match ELO engine, copied VERBATIM from index.html (do not modify) ---
+// ==== TREKKR ELO ENGINE — single source of truth ===========================
+// Blok ini IDENTIK di trekkrgit/api/sheet.js dan turnamenpadel/api/sheet.js.
+// Semua jalur yang menulis ELO_Log (PlayRank, turnamen, Ranked Event, import,
+// submit satu match) menghitung lewat rmCalcElo di sini — jangan buat rumus
+// lain, dan kalau mengubah blok ini ubah KEDUA repo sekaligus.
+// - Rata-rata ELO tim, skala 400, bonus margin 1+min(|selisih skor|*0.04, 0.3).
+// - Kalibrasi: pemain dengan < CALIB_MATCHES match karier memakai K=CALIB_K;
+//   pemain mapan memakai rmKFactor(matchCount), diredam CALIB_DAMP x porsi lawan
+//   yang masih kalibrasi. Kalau caller tidak mengirim p.calibrating, status
+//   kalibrasi diturunkan dari p.matchCount (Σ menang+kalah dari ELO_Log).
+const CALIB_MATCHES = 16;   // "calibrating" until this many career matches (= 2 sesi Liga)
+const CALIB_K = 60;         // aggressive K during calibration (vs 40 normal early)
+const CALIB_DAMP = 0.6;     // how much a settled player's K is dampened when the
+                            // opposing team is unrated/calibrating (uncertain rating)
 function rmKFactor(n) { return n < 10 ? 40 : n < 30 ? 32 : n < 60 ? 24 : 20; }
+function rmIsCalibrating(p) {
+  if (!p) return false;
+  return p.calibrating != null ? !!p.calibrating : ((p.matchCount || 0) < CALIB_MATCHES);
+}
+function rmEffectiveK(p) { return rmIsCalibrating(p) ? CALIB_K : rmKFactor((p && p.matchCount) || 0); }
 function rmCalcElo(p1t1, p2t1, p1t2, p2t2, s1, s2) {
   const t1a = (p1t1.elo + p2t1.elo) / 2, t2a = (p1t2.elo + p2t2.elo) / 2;
   const t1r = s1 > s2 ? 1 : s1 < s2 ? 0 : .5, t2r = 1 - t1r;
   const margin = 1 + Math.min(Math.abs(s1 - s2) * .04, .3);
   const exp1 = 1 / (1 + Math.pow(10, (t2a - t1a) / 400)), exp2 = 1 - exp1;
-  const upd = (p, r, e) => {
-    const k = rmKFactor(p.matchCount || 0) * margin;
+  // Reliability damping: a result against calibrating opponents (whose rating is
+  // still uncertain) carries less information, so a SETTLED player's rating moves
+  // less against them — calibrating players keep their full (fast) K so they still
+  // converge quickly. oppFrac = share of the OPPOSING team that is calibrating.
+  const cal = (p) => (rmIsCalibrating(p) ? 1 : 0);
+  const oppFracT1 = (cal(p1t2) + cal(p2t2)) / 2; // team 1 faces team 2
+  const oppFracT2 = (cal(p1t1) + cal(p2t1)) / 2; // team 2 faces team 1
+  const upd = (p, r, e, oppFrac) => {
+    let k = rmEffectiveK(p) * margin;
+    if (!rmIsCalibrating(p)) k *= (1 - CALIB_DAMP * oppFrac);
     return { name: p.name, newElo: p.elo + Math.round(k * (r - e)), delta: Math.round(k * (r - e)), w: r === 1 ? 1 : 0, l: r === 0 ? 1 : 0 };
   };
-  return [upd(p1t1, t1r, exp1), upd(p2t1, t1r, exp1), upd(p1t2, t2r, exp2), upd(p2t2, t2r, exp2)];
+  return [upd(p1t1, t1r, exp1, oppFracT1), upd(p2t1, t1r, exp1, oppFracT1), upd(p1t2, t2r, exp2, oppFracT2), upd(p2t2, t2r, exp2, oppFracT2)];
 }
+// ==== END TREKKR ELO ENGINE ================================================
 // Write a tournament's completed matches into its venue match-log tab so player
 // passports show match history + best-performing-partner (both derived from venue
 // matches). Registers the venue + creates the tab if missing. Idempotent: rows are
