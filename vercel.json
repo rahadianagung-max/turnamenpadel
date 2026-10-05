@@ -1,4 +1,5 @@
 {
+  "regions": ["syd1"],
   "version": 2,
   "redirects": [
     { "source": "/calculator", "destination": "/simulasi", "permanent": false },
