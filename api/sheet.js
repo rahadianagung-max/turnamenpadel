@@ -656,7 +656,7 @@ const T_HEADERS = {
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO", "Team_Name"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
-  [TABS.tracked_events]: ["Name", "URL", "Date", "Venue"],
+  [TABS.tracked_events]: ["Month_Year", "Name", "Location", "Logo_URL", "URL"], // sama dengan Trekkr
   [TABS.upcoming]: ["Name", "Subtitle", "Location", "MonthYear", "LogoUrl", "Url", "Enabled"],
 };
 // Create any missing tournament tabs (with header row) so the engine is self-bootstrapping.
@@ -1175,15 +1175,17 @@ async function login({ username, password }) {
 // only the columns needed, cached at the edge.
 async function getLandingStats() {
   const sheets = getSheets();
-  // Curated "Tracked_Events" tab: Name | URL | Date | Venue. Missing tab -> [].
+  // Curated "Tracked_Events" tab (dipakai bersama Trekkr):
+  // Month_Year | Name | Location | Logo_URL | URL. Missing tab -> [].
   const [pRes, tRes] = await Promise.all([
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:A` }),
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.tracked_events}!A2:D` }).catch(() => ({ data: { values: [] } })),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.tracked_events}!A2:E` }).catch(() => ({ data: { values: [] } })),
   ]);
   const playerCount = (pRes.data.values || []).filter((r) => r[0] && String(r[0]).trim()).length;
+  const str = (v) => String(v == null ? "" : v).trim();
   const tournaments = (tRes.data.values || [])
-    .filter((x) => x[0] && String(x[0]).trim())
-    .map((x) => ({ name: x[0], url: (x[1] || "").trim(), date: x[2] || "", venue: x[3] || "" }));
+    .filter((x) => str(x[1]))
+    .map((x) => ({ name: str(x[1]), url: str(x[4]), date: str(x[0]), venue: str(x[2]), logoUrl: str(x[3]) }));
   return respond(200, { playerCount, tournaments },
     { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" });
 }
