@@ -5275,11 +5275,14 @@ function rmCalcElo(p1t1, p2t1, p1t2, p2t2, s1, s2) {
 // passports show match history + best-performing-partner (both derived from venue
 // matches). Registers the venue + creates the tab if missing. Idempotent: rows are
 // tagged by sourceTag, and a re-run replaces only this tournament's prior rows.
-async function writeTournamentVenueRows(sheets, venueName, rows, sourceTag) {
+async function writeTournamentVenueRows(sheets, venueName, rows, sourceTag, opts = {}) {
   if (!venueName || !rows || !rows.length) return;
   const now = new Date().toISOString();
-  // 1) register the venue if it isn't listed (so the passport iterates it)
-  try {
+  // 1) register the venue if it isn't listed (so the passport iterates it).
+  //    Skipped for a fallback pseudo-venue (event name, register:false): the
+  //    passport also reads orphan venue tabs, so history still shows without
+  //    adding the event to the public Venues directory.
+  if (opts.register !== false) try {
     const vr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.venues}!A2:A` });
     const have = (vr.data.values || []).some((r) => (r[0] || "").trim().toLowerCase() === venueName.trim().toLowerCase());
     if (!have) {
@@ -6092,8 +6095,11 @@ async function tFinalizeElo(eventId, force, reviewed) {
     await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: eloRows } });
   }
   // Record tournament matches into the event's venue log (for passport history + best partner).
+  // An event created without a venue falls back to its own name, so its matches
+  // still reach the players' Playing History (they used to be skipped entirely).
   try {
-    const venueName = evRow[2] || "";
+    const venueName = evRow[2] || evRow[1] || "";
+    const venueIsFallback = !evRow[2];
     if (venueName) {
       const vDate = evRow[3] || now.split("T")[0];
       const vWeek = `W${getWeekNumber(new Date(vDate))}`;
@@ -6117,7 +6123,7 @@ async function tFinalizeElo(eventId, force, reviewed) {
         const g = gendersForCat(catCode(catByTid[m.tournamentId]));
         venueRows.push([vWeek, vDate, A[0], A[1] || "", B[0], B[1] || "", Number(m.scoreA), Number(m.scoreB), g[0], g[1], g[2], g[3], srcTag]);
       }
-      await writeTournamentVenueRows(sheets, venueName, venueRows, srcTag);
+      await writeTournamentVenueRows(sheets, venueName, venueRows, srcTag, { register: !venueIsFallback });
     }
   } catch (e) { console.error("Tournament venue log error:", e); }
 
