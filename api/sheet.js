@@ -7170,6 +7170,13 @@ async function regApproveRegistration(eventId, body, params) {
   const crypto = require("crypto");
   if (!p1.passportToken) p1.passportToken = crypto.randomBytes(12).toString("hex");
   if (!p2.passportToken) p2.passportToken = crypto.randomBytes(12).toString("hex");
+  // Approved → both players become Trekkr players right away (profile, photo,
+  // contact, ELO seed), instead of waiting for them to open the email link.
+  for (const pl of [p1, p2]) {
+    if (!pl.name || pl.passportResolved) continue;
+    try { pl.passportResolved = await regResolvePlayer(sheets, pl, data); } catch (e) { console.error("approve → player:", e && e.message); }
+  }
+  data.player1 = p1; data.player2 = p2;
   await regUpdateRegStatus(sheets, ri, "approved", data);
   // Congratulations email (English) — best-effort.
   try {
@@ -7198,6 +7205,60 @@ async function regApproveRegistration(eventId, body, params) {
   } catch (e) { console.error("approve email:", e && e.message); }
   return respond(200, { success: true, status: "approved" });
 }
+// ---- Registration → Trekkr player ------------------------------------------
+// Players columns (A:M): name, ig, verified, display_name, gender, region,
+// photo_url, clubs, created_at, winner_at, tournaments, claim_email, phone.
+const REG_PCOL = { ig: "B", display_name: "D", gender: "E", region: "F", photo_url: "G", claim_email: "L", phone: "M" };
+const REG_PIDX = { ig: 1, display_name: 3, gender: 4, region: 5, photo_url: 6, claim_email: 11, phone: 12 };
+function regGenderCode(v) { const g = String(v || "").toUpperCase(); return (g === "P" || g === "F") ? "F" : (g === "L" || g === "M") ? "M" : ""; }
+// Fill ONLY empty columns of an existing Players row (never overwrites).
+async function regFillPlayerFields(sheets, playerName, fields) {
+  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const prows = pRes.data.values || [];
+  const k = prows.findIndex((r) => normName(r[0] || "") === normName(playerName));
+  if (k < 0) return 0;
+  const cur = prows[k]; let n = 0;
+  for (const [f, v] of Object.entries(fields || {})) {
+    const val = String(v == null ? "" : v).trim();
+    if (!val || !REG_PCOL[f] || String(cur[REG_PIDX[f]] || "").trim()) continue;
+    try { await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.players}!${REG_PCOL[f]}${k + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[val]] } }); n++; } catch (e) {}
+  }
+  return n;
+}
+// Create or merge a registered player into the shared Trekkr players table and
+// return the canonical Trekkr name. Same person = the account they matched at
+// registration, else an exact/normalized name, else a ≥0.9 fuzzy name match.
+// Merge fills only empty profile fields (photo, phone, IG, gender, region);
+// a new player gets every field plus an ELO seed from the category level.
+// The claim email is NOT written here — only when the player opens their link.
+async function regResolvePlayer(sheets, player, data) {
+  const name = String(player.name || "").trim();
+  if (!name) return "";
+  const pRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` });
+  const prows = pRes.data.values || [];
+  const matched = player.match && player.match.name ? String(player.match.name).trim() : "";
+  let hitIdx = matched ? prows.findIndex((r) => normName(r[0] || "") === normName(matched)) : -1;
+  if (hitIdx < 0) hitIdx = prows.findIndex((r) => normName(r[0] || "") === normName(name));
+  if (hitIdx < 0) { let best = -1, bs = 0; prows.forEach((r, k) => { const sc = ddSim(name, r[0] || ""); if (sc > bs) { bs = sc; best = k; } }); if (best >= 0 && bs >= 0.9) hitIdx = best; }
+  const fields = {
+    photo_url: player.photoUrl || "", phone: player.phone || "", ig: player.ig || "",
+    gender: regGenderCode(player.gender), region: player.region || "",
+  };
+  if (hitIdx >= 0) {
+    const canonical = prows[hitIdx][0] || name;
+    await regFillPlayerFields(sheets, canonical, fields);
+    return canonical;
+  }
+  const now2 = new Date().toISOString();
+  const seedElo = regSeedElo(data.level || "");
+  try {
+    await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED",
+      requestBody: { values: [[name, fields.ig, "FALSE", player.nick || name, fields.gender, fields.region, fields.photo_url, "", now2, "", "", "", fields.phone]] } });
+    await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
+      requestBody: { values: [["INITIAL", name, seedElo, 0, 0, 0, now2]] } });
+  } catch (e) { console.error("reg new player:", e && e.message); }
+  return name;
+}
 // Passport link handler (from the approval email). Runs the deferred Trekkr
 // check: same name → merge (use existing profile, fill empty contact fields);
 // new name → create a new player + seed ELO. Then redirects to the passport.
@@ -7218,44 +7279,16 @@ async function regPassportResolve(params) {
   if (!player.passportToken || player.passportToken !== token) return fail("Invalid or expired passport link.");
   const name = String(player.name || "").trim();
   if (!name) return fail("Player name missing.");
-  // Resolve against the shared Trekkr players table.
+  // Resolve (create/merge) if approval didn't already, then claim on first open:
+  // the email link is the player's own action, so only here is claim_email set.
   let canonical = player.passportResolved || "";
-  if (!canonical) {
-    const [pRes, eRes] = await Promise.all([
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
-      sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
-    ]);
-    const prows = pRes.data.values || [];
-    // Exact/normalized match first, then fuzzy.
-    let hitIdx = prows.findIndex((r) => normName(r[0] || "") === normName(name));
-    if (hitIdx < 0) { let best = -1, bs = 0; prows.forEach((r, k) => { const s = ddSim(name, r[0] || ""); if (s > bs) { bs = s; best = k; } }); if (best >= 0 && bs >= 0.9) hitIdx = best; }
-    if (hitIdx >= 0) {
-      // MERGE: use existing profile; fill only empty contact/photo fields.
-      canonical = prows[hitIdx][0] || name;
-      const sr = hitIdx + 2, cur = prows[hitIdx];
-      const upd = {};
-      if (!(cur[6] || "").trim() && player.photoUrl) upd["G"] = player.photoUrl;      // photo_url
-      if (!(cur[11] || "").trim() && player.email) upd["L"] = String(player.email).trim(); // claim_email
-      if (!(cur[12] || "").trim() && player.phone) upd["M"] = String(player.phone).trim(); // phone
-      for (const col of Object.keys(upd)) {
-        try { await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.players}!${col}${sr}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[upd[col]]] } }); } catch (e) {}
-      }
-    } else {
-      // NEW player + seed ELO from the category level.
-      canonical = name;
-      const gv = String(player.gender || "").toUpperCase();
-      const gender = (gv === "P" || gv === "F") ? "F" : (gv === "L" || gv === "M") ? "M" : "";
-      const now2 = new Date().toISOString();
-      const seedElo = regSeedElo(data.level || "");
-      try {
-        await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED",
-          requestBody: { values: [[name, player.ig || "", "FALSE", player.nick || name, gender, player.region || "", player.photoUrl || "", "", now2, "", "", String(player.email || "").trim(), String(player.phone || "").trim()]] } });
-        await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
-          requestBody: { values: [["INITIAL", name, seedElo, 0, 0, 0, now2]] } });
-      } catch (e) { console.error("passport new player:", e && e.message); }
-    }
-    // Remember resolution so repeat clicks don't duplicate.
-    player.passportResolved = canonical;
+  let changed = false;
+  if (!canonical) { canonical = await regResolvePlayer(sheets, player, data); player.passportResolved = canonical; changed = true; }
+  if (!player.passportClaimed) {
+    await regFillPlayerFields(sheets, canonical, { claim_email: String(player.email || "").trim() });
+    player.passportClaimed = true; changed = true;
+  }
+  if (changed) {
     if (idx === "1") data.player1 = player; else data.player2 = player;
     try { await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!I${ri + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(data)]] } }); } catch (e) {}
   }
