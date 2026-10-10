@@ -175,6 +175,9 @@
   function lines(t){ return String(t||"").split(/\r?\n/).map(function(x){return x.trim();}).filter(Boolean); }
   function checklist(t,empty){ var L=lines(t); if(!L.length) return '<span class="empty">'+esc(empty)+'</span>';
     return '<ul class="checklist">'+L.map(function(x){return '<li><span class="ms">check</span><span>'+esc(x)+'</span></li>';}).join("")+'</ul>'; }
+  // Sama seperti checklist() tapi tanpa ikon centang di awal baris (untuk Eligibility & Game Rules).
+  function linelist(t,empty){ var L=lines(t); if(!L.length) return '<span class="empty">'+esc(empty)+'</span>';
+    return '<ul class="checklist">'+L.map(function(x){return '<li><span>'+esc(x)+'</span></li>';}).join("")+'</ul>'; }
   function freetext(t,empty){ return t?'<div class="freetext">'+esc(t)+'</div>':'<span class="empty">'+esc(empty)+'</span>'; }
   function datesBody(tl){ tl=tl||{};
     var rows=[['Registration opens',tl.openStart],['Registration closes',tl.openEnd],['Curation starts',tl.curationStart],['Appeal deadline',tl.appealDeadline],['Technical meeting',tl.tmDate],['Order of play',tl.oopDate]].filter(function(r){return r[1];});
@@ -261,8 +264,8 @@
     var tabTitle={about:'About the event',elig:'Who can play',rules:'Match rules',contact:'Contact the committee',dates:'Important dates'}[ST.tab];
     var tabBody;
     if(ST.tab==='about') tabBody=freetext(C.cfg.description,'No description yet for this event.');
-    else if(ST.tab==='elig') tabBody=checklist(C.cfg.eligibility,'No eligibility info yet.');
-    else if(ST.tab==='rules') tabBody=checklist(C.cfg.rules,'No match rules yet.');
+    else if(ST.tab==='elig') tabBody=linelist(C.cfg.eligibility,'No eligibility info yet.');
+    else if(ST.tab==='rules') tabBody=linelist(C.cfg.rules,'No match rules yet.');
     else if(ST.tab==='contact') tabBody=checklist(C.cfg.contact,'No contact info yet.');
     else tabBody=datesBody(C.tl);
     var tabs='<section class="card">'+
