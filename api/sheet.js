@@ -7388,17 +7388,18 @@ async function regAppealSubmit(body) {
   }
   const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
   let proofUrl = ""; try { proofUrl = await uploadImageSmart(body.proof, `appeal_${Date.now()}.jpg`, folderId); } catch (e) {}
+  let proofUrl2 = ""; if (body.proof2) { try { proofUrl2 = await uploadImageSmart(body.proof2, `appeal_${Date.now()}_2.jpg`, folderId); } catch (e) {} }
   const appealId = regGenId("apl");
-  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A:O`, valueInputOption: "USER_ENTERED",
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A:P`, valueInputOption: "USER_ENTERED",
     requestBody: { values: [[appealId, eventId, String(body.category || ""), String(body.againstRegId || ""), String(body.againstLabel || ""),
-      name, email, phone, reason, proofUrl, new Date().toISOString(), "baru", "", "", ""]] } });
+      name, email, phone, reason, proofUrl, new Date().toISOString(), "baru", "", "", "", proofUrl2]] } });
   return respond(200, { success: true, appealId });
 }
 const regEloKey = (s) => String(s || "").trim().toLowerCase();
 async function regEventAppeals(eventId) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const [aRes, rRes, eRes] = await Promise.all([
-    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:O` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:P` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
     sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A2:G` }),
   ]);
@@ -7411,7 +7412,7 @@ async function regEventAppeals(eventId) {
     }
     return { appealId: r[0], category: r[2], againstRegId: r[3], againstLabel: r[4], appellantName: r[5],
       appellantEmail: r[6], appellantPhone: r[7], reason: r[8], proofUrl: r[9], createdAt: r[10],
-      status: r[11] || "baru", decision: r[12] || "", decidedAt: r[13] || "", note: r[14] || "", players };
+      status: r[11] || "baru", decision: r[12] || "", decidedAt: r[13] || "", note: r[14] || "", proofUrl2: r[15] || "", players };
   });
   return respond(200, { appeals: list, count: list.length });
 }

@@ -424,7 +424,8 @@ function appealCatName(a){
 function appealCard(a){
   const decided=a.decision&&a.decision!=="";
   const dchip = a.status==="applied"?'<span class="chip ok">koreksi diterapkan</span>':decided?('<span class="chip '+(a.decision==="reject"?"bad":"ok")+'">'+esc({lolos:"diloloskan",reject:"ditolak",levelup:"koreksi level"}[a.decision]||a.decision)+'</span>'):'<span class="chip warn">menunggu</span>';
-  const proof=a.proofUrl?`<div class="proof" style="margin-top:8px"><div class="note" style="margin:0 0 4px">Bukti appeal (klik untuk perbesar):</div><a href="${esc(a.proofUrl)}" target="_blank" rel="noopener"><img src="${esc(a.proofUrl)}" alt="bukti"></a></div>`:'<div class="note" style="margin-top:8px">Bukti: <span class="chip">tidak ada</span></div>';
+  const proofUrls=[a.proofUrl,a.proofUrl2].filter(Boolean);
+  const proof=proofUrls.length?`<div class="proof" style="margin-top:8px"><div class="note" style="margin:0 0 4px">Bukti appeal (klik untuk perbesar):</div><div style="display:flex;gap:8px;flex-wrap:wrap">${proofUrls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="bukti"></a>`).join("")}</div></div>`:'<div class="note" style="margin-top:8px">Bukti: <span class="chip">tidak ada</span></div>';
   const players=(a.players||[]).map(p=>esc(p.name)+(p.elo!=null?` (${esc(p.tier)} ${p.elo})`:"")).join(", ");
   // Nomor HP pihak yang terkena appeal (bisa disalin) untuk cross-check panitia.
   const phones=(a.players||[]).filter(p=>p.phone).map(p=>`${esc(p.name)}: <a href="#" onclick="copyText(event,'${esc(p.phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(p.phone)} ⧉</a>`).join("<br>");
