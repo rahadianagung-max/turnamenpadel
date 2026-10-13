@@ -170,14 +170,20 @@ function openAppeal(regId){
         <label class="f"><span>Nama kamu <span class="req">*</span></span><input id="apName" placeholder="nama lengkap"></label>
         <label class="f"><span>Email <span class="req">*</span></span><input id="apEmail" placeholder="email@mail.com"></label>
         <label class="f"><span>Alasan appeal <span class="req">*</span></span><textarea id="apReason" placeholder="jelaskan pelanggaran / alasan appeal…"></textarea></label>
-        <label class="f"><span>Bukti (foto) <span class="req">*</span></span><input id="apProof" type="file" accept="image/*" onchange="apPick(this)"></label>
-        <span class="chip ok" id="apOk" hidden>bukti terpilih ✔</span>
+        <label class="f"><span>Bukti 1 (foto) <span class="req">*</span></span><input id="apProof" type="file" accept="image/*" onchange="apPick(this,1)"></label>
+        <span class="chip ok" id="apOk" hidden>bukti 1 terpilih ✔</span>
+        <label class="f"><span>Bukti 2 (foto, opsional)</span><input id="apProof2" type="file" accept="image/*" onchange="apPick(this,2)"></label>
+        <span class="chip ok" id="apOk2" hidden>bukti 2 terpilih ✔</span>
         <div class="nav"><button class="btn ghost" onclick="closeModal()">Batal</button><button class="btn primary" onclick="submitAppeal('${esc(regId)}')">Kirim appeal</button></div>
         <p class="note">No. HP kamu diambil otomatis dari data registrasi (via email).</p>
       </div></div></div>`;
 }
-let AP_PROOF="";
-async function apPick(input){ AP_PROOF=await fileToDataUrl(input); const ok=document.getElementById("apOk"); if(ok) ok.hidden=!AP_PROOF; }
+let AP_PROOF="",AP_PROOF2="";
+async function apPick(input,slot){
+  const url=await fileToDataUrl(input);
+  if(slot===2){ AP_PROOF2=url; const ok=document.getElementById("apOk2"); if(ok) ok.hidden=!AP_PROOF2; }
+  else { AP_PROOF=url; const ok=document.getElementById("apOk"); if(ok) ok.hidden=!AP_PROOF; }
+}
 async function submitAppeal(regId){
   const pr=findPair(regId)||{p1:{},p2:{}};
   const n1=pr.p1.name||"Pemain 1", n2=pr.p2.name||"Pemain 2";
@@ -191,9 +197,9 @@ async function submitAppeal(regId){
   if(!name||!email||!reason||!AP_PROOF){ alert("Pilih pemain, lalu isi nama, email, alasan, dan bukti (foto)."); return; }
   const cb=document.getElementById("apBody"); cb.innerHTML='<p class="muted">Mengirim…</p>';
   try{
-    await api("reg/appeal",{method:"POST",body:{eventId:R.eventId,category:R.cat,againstRegId:regId,againstLabel,targetPlayer:target,targetNames,appellantName:name,appellantEmail:email,reason,proof:AP_PROOF}});
+    await api("reg/appeal",{method:"POST",body:{eventId:R.eventId,category:R.cat,againstRegId:regId,againstLabel,targetPlayer:target,targetNames,appellantName:name,appellantEmail:email,reason,proof:AP_PROOF,proof2:AP_PROOF2}});
     cb.innerHTML='<div class="chip ok">✔ Appeal terkirim</div><p class="note">Admin akan meninjau. Terima kasih.</p><button class="btn primary" style="width:100%;margin-top:8px" onclick="closeModal()">Selesai</button>';
-    AP_PROOF="";
+    AP_PROOF="";AP_PROOF2="";
   }catch(e){ cb.innerHTML='<div class="chip block">Gagal: '+esc(e.message)+'</div><button class="btn" style="width:100%;margin-top:8px" onclick="closeModal()">Tutup</button>'; }
 }
 boot();
