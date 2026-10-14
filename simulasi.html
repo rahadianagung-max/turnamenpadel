@@ -317,6 +317,18 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 .gi-cat{color:var(--text);font-weight:600}
 .gi-d{color:#C6CBD3;text-align:right;font-variant-numeric:tabular-nums}
 .gi-d .free{color:var(--green)}
+
+/* ---- Full Simulation: clean step-by-step flow ---- */
+.simflow{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.simrow{display:flex;gap:12px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.simrow .num{flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:var(--orange);color:#fff;display:grid;place-items:center;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:13px}
+.simrow .body{flex:1;min-width:0}
+.simrow .t{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:14px}
+.simrow .d{font-size:12px;color:var(--muted);margin:2px 0 8px;line-height:1.45}
+.simrow .acts{display:flex;flex-wrap:wrap;gap:8px}
+.simrow .acts button{background:var(--panel2);border:1px solid var(--line);color:var(--orange);border-radius:8px;padding:8px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:12.5px;cursor:pointer;transition:.15s}
+.simrow .acts button:hover{border-color:var(--orange)}
+.simrow .acts button.alt{color:var(--text)}
 </style>
 </head>
 <body>
@@ -346,43 +358,61 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 
   <!-- FULL SIMULATION (beta) — runs the real engine pages against an in-browser
        mock backend with fictional players. Phase 1: Registration (daftar). -->
-  <details class="adv" id="fullSim" style="margin-bottom:16px">
-    <summary>🎬 Full Simulation <span style="color:var(--amber);font-size:10px;letter-spacing:.1em">BETA</span></summary>
+  <details class="adv" id="fullSim" open style="margin-bottom:16px">
+    <summary>🎬 Coba simulasi turnamen <span style="color:var(--amber);font-size:10px;letter-spacing:.1em">BETA</span></summary>
     <div class="advbody">
-      <p class="seghelp" style="margin-bottom:12px">Jalankan proses asli engine dari <b>pendaftaran</b> sampai (nanti) leaderboard, memakai pemain fiktif — tanpa menulis apa pun ke server. <b>Fase 1</b>: tahap Pendaftaran.</p>
-      <label class="f"><span>Nama event</span><input type="text" id="fsName" value="Padel Sim Cup"></label>
-      <div class="advgrid">
-        <label class="f"><span>Level kategori</span>
-          <select id="fsLevel" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px">
-            <option value="open">Open</option><option value="beginner">Beginner</option>
-            <option value="upper_beginner">Upper Beginner</option><option value="lower_bronze">Lower Bronze</option>
-            <option value="bronze" selected>Bronze</option><option value="upper_bronze">Upper Bronze</option>
-            <option value="silver">Silver</option><option value="gold">Gold</option><option value="platinum">Platinum</option>
-          </select></label>
-        <label class="f"><span>Target pasangan</span><input type="number" id="fsQuota" value="16" min="2" max="64"></label>
+      <p class="seghelp" style="margin-bottom:12px">Rasakan seluruh proses TurnamenPadel dengan pemain contoh — dari pendaftaran sampai juara. Tidak ada data yang ditulis ke server.</p>
+
+      <button class="cta" id="fsFinish">⚡ Jalankan otomatis — lihat turnamen sampai juara</button>
+      <p class="seghelp" style="text-align:center;margin:6px 2px 2px">Satu klik menjalankan semua tahap, lalu membuka layar TV berisi juara &amp; klasemen.</p>
+
+      <details class="adv" style="margin:14px 0 0">
+        <summary>Pengaturan (opsional)</summary>
+        <div class="advbody">
+          <label class="f"><span>Nama event</span><input type="text" id="fsName" value="Padel Sim Cup"></label>
+          <div class="advgrid">
+            <label class="f"><span>Level</span>
+              <select id="fsLevel" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px">
+                <option value="open">Open</option><option value="beginner">Beginner</option>
+                <option value="upper_beginner">Upper Beginner</option><option value="lower_bronze">Lower Bronze</option>
+                <option value="bronze" selected>Bronze</option><option value="upper_bronze">Upper Bronze</option>
+                <option value="silver">Silver</option><option value="gold">Gold</option><option value="platinum">Platinum</option>
+              </select></label>
+            <label class="f"><span>Jumlah pasangan</span><input type="number" id="fsQuota" value="16" min="2" max="64"></label>
+          </div>
+          <div class="switch"><span>Sembunyikan halaman "A few quick questions"</span><input type="checkbox" id="fsHideElig"></div>
+          <div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="fsHideQuota"></div>
+          <div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="fsNight"></div>
+          <button class="cta sec" id="fsSeed" style="margin-top:10px">Terapkan &amp; buat ulang turnamen contoh</button>
+        </div>
+      </details>
+
+      <div style="border-top:1px solid var(--line);margin:16px 0 10px"></div>
+      <div class="flabel" style="margin-bottom:8px">Atau coba sendiri, tahap demi tahap</div>
+
+      <div class="simflow">
+        <div class="simrow"><div class="num">1</div><div class="body">
+          <div class="t">Pendaftaran</div><div class="d">Peserta mengisi form pendaftaran ganda.</div>
+          <div class="acts"><button id="fsDaftar">Buka form daftar</button><button class="alt" id="fsBulk">Isi 8 peserta otomatis</button></div></div></div>
+        <div class="simrow"><div class="num">2</div><div class="body">
+          <div class="t">Pembayaran</div><div class="d">Peserta mengunggah bukti transfer.</div>
+          <div class="acts"><button id="fsBayar">Buka halaman bayar</button></div></div></div>
+        <div class="simrow"><div class="num">3</div><div class="body">
+          <div class="t">Kurasi &amp; Appeal</div><div class="d">Peserta meninjau roster &amp; mengajukan banding; panitia menyetujui, menolak, atau koreksi level.</div>
+          <div class="acts"><button id="fsRoster">Sisi peserta (roster)</button><button class="alt" id="fsAdmin">Sisi panitia</button></div></div></div>
+        <div class="simrow"><div class="num">4</div><div class="body">
+          <div class="t">Undian &amp; Jadwal</div><div class="d">Panitia membagi grup dan membuat jadwal di engine.</div>
+          <div class="acts"><button id="fsEngine">Buka engine</button></div></div></div>
+        <div class="simrow"><div class="num">5</div><div class="body">
+          <div class="t">Pertandingan &amp; Skor</div><div class="d">Input skor tiap match; langsung tampil di layar penonton.</div>
+          <div class="acts"><button id="fsScorer">Meja skor</button><button class="alt" id="fsTv">Layar TV</button><button class="alt" id="fsMobile">Papan pemain</button></div></div></div>
+        <div class="simrow"><div class="num">6</div><div class="body">
+          <div class="t">Playoff &amp; Hasil</div><div class="d">Bracket gugur, juara, dan rekap ELO.</div>
+          <div class="acts"><button id="fsPlayoff">Lihat juara (TV)</button><button class="alt" id="fsRecap">Rekap ELO (engine)</button></div></div></div>
       </div>
-      <div class="switch"><span>Sembunyikan halaman "Players eligibility"</span><input type="checkbox" id="fsHideElig"></div>
-      <div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="fsHideQuota"></div>
-      <div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="fsNight"></div>
-      <button class="cta" id="fsSeed" style="margin-top:12px">① Buat / reset event simulasi</button>
-      <p class="seghelp" style="margin:10px 0 6px">Lalu buka tahap mana pun (semua berbagi data yang sama — bisa dilompati):</p>
-      <div class="advgrid">
-        <button class="cta sec" id="fsDaftar">② Pendaftaran</button>
-        <button class="cta sec" id="fsBayar">③ Pembayaran</button>
-        <button class="cta sec" id="fsRoster">④ Roster &amp; Appeal<br><small style="font-weight:500;opacity:.8">peserta</small></button>
-        <button class="cta sec" id="fsAdmin">⑤ Kurasi &amp; Appeal<br><small style="font-weight:500;opacity:.8">panitia</small></button>
-        <button class="cta sec" id="fsEngine">⑥ Undi grup &amp; Jadwal<br><small style="font-weight:500;opacity:.8">panitia · engine</small></button>
-        <button class="cta sec" id="fsScorer">⑦ Meja skor<br><small style="font-weight:500;opacity:.8">panitia · scorerdesk</small></button>
-        <button class="cta sec" id="fsCourt">⑧ Scorer lapangan<br><small style="font-weight:500;opacity:.8">marshal · court</small></button>
-        <button class="cta sec" id="fsTv">⑨ TV / LED<br><small style="font-weight:500;opacity:.8">layar</small></button>
-        <button class="cta sec" id="fsMobile">⑩ Papan pemain<br><small style="font-weight:500;opacity:.8">mobile</small></button>
-        <button class="cta sec" id="fsPlayoff">⑪ Playoff &amp; Juara<br><small style="font-weight:500;opacity:.8">TV · leaderboard</small></button>
-        <button class="cta sec" id="fsRecap">⑫ Recap &amp; Finalisasi<br><small style="font-weight:500;opacity:.8">panitia · engine</small></button>
-      </div>
-      <button class="cta sec" id="fsFinish" style="margin-top:8px">🏆 Jalankan seluruh turnamen s/d juara (otomatis)</button>
-      <button class="cta sec" id="fsBulk" style="margin-top:8px">⚡ Auto-isi 8 pendaftar fiktif (lompati pendaftaran)</button>
-      <button class="cta sec" id="fsReset" style="margin-top:8px">♻ Reset data simulasi</button>
-      <p class="seghelp" id="fsMsg" style="margin-top:10px"></p>
+
+      <p class="seghelp" id="fsMsg" style="margin-top:12px"></p>
+      <button class="cta sec" id="fsReset" style="margin-top:4px">♻ Mulai ulang (hapus data simulasi)</button>
     </div>
   </details>
 
@@ -1323,15 +1353,16 @@ showStep(1);
     if(!((SIM.load().registrations)||[]).length){ SIM.autoRegister(firstCat(), 8); }
     SIM.ensureSchedule();
   }
+  // Seed (if needed) + fill peserta + run the whole event to a champion.
+  function runWholeTournament(){ ensureScored(); SIM.ensureFinished(); }
   var SLUG = "padel-sim-cup";
   $("fsScorer").onclick = function(){ ensureScored(); openStage("/scorerdesk", "Simulasi · Meja skor (scorerdesk)"); };
-  $("fsCourt").onclick  = function(){ ensureScored(); openStage("/court1?e="+SIM.EVENT_ID, "Simulasi · Scorer lapangan (court 1)"); };
   $("fsTv").onclick     = function(){ ensureScored(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · TV / LED"); };
   $("fsMobile").onclick = function(){ ensureScored(); openStage("/mobile/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Papan pemain (mobile)"); };
 
-  $("fsPlayoff").onclick = function(){ SIM.ensureFinished(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Playoff & Juara (TV)"); };
-  $("fsRecap").onclick   = function(){ SIM.ensureFinished(); openStage("/engine", "Simulasi · Recap & Finalisasi (engine)"); };
-  $("fsFinish").onclick  = function(){ SIM.ensureFinished(); msg("✓ Turnamen dijalankan otomatis sampai juara. Buka Playoff, TV, atau Recap."); };
+  $("fsPlayoff").onclick = function(){ runWholeTournament(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Playoff & Juara (TV)"); };
+  $("fsRecap").onclick   = function(){ runWholeTournament(); openStage("/engine", "Simulasi · Recap & Finalisasi (engine)"); };
+  $("fsFinish").onclick  = function(){ runWholeTournament(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Juara & klasemen (TV)"); };
 
   $("fsBulk").onclick = function(){ ensureSeeded(); var n = SIM.autoRegister(firstCat(), 8); msg("✓ "+n+" pendaftar fiktif ditambahkan. Buka tahap Roster / Panitia."); };
 
