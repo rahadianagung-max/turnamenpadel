@@ -371,6 +371,7 @@ textarea#lfNotes:focus{border-color:var(--orange)}
         <button class="cta sec" id="fsBayar">③ Pembayaran</button>
         <button class="cta sec" id="fsRoster">④ Roster &amp; Appeal<br><small style="font-weight:500;opacity:.8">peserta</small></button>
         <button class="cta sec" id="fsAdmin">⑤ Kurasi &amp; Appeal<br><small style="font-weight:500;opacity:.8">panitia</small></button>
+        <button class="cta sec" id="fsEngine">⑥ Undi grup &amp; Jadwal<br><small style="font-weight:500;opacity:.8">panitia · engine</small></button>
       </div>
       <button class="cta sec" id="fsBulk" style="margin-top:8px">⚡ Auto-isi 8 pendaftar fiktif (lompati pendaftaran)</button>
       <button class="cta sec" id="fsReset" style="margin-top:8px">♻ Reset data simulasi</button>
@@ -1302,6 +1303,12 @@ showStep(1);
   $("fsRoster").onclick = function(){ ensureSeeded(); openStage("/roster/"+SIM.EVENT_ID+"?t=SIM", "Simulasi · Roster & Appeal (peserta)"); };
 
   $("fsAdmin").onclick = function(){ ensureSeeded(); openStage("/admin/"+SIM.EVENT_ID, "Simulasi · Kurasi & Appeal (panitia)"); };
+
+  $("fsEngine").onclick = function(){
+    ensureSeeded();
+    if(!((SIM.load().registrations)||[]).length){ SIM.autoRegister(firstCat(), 8); }
+    openStage("/engine", "Simulasi · Undi grup & Jadwal (engine)");
+  };
 
   $("fsBulk").onclick = function(){ ensureSeeded(); var n = SIM.autoRegister(firstCat(), 8); msg("✓ "+n+" pendaftar fiktif ditambahkan. Buka tahap Roster / Panitia."); };
 

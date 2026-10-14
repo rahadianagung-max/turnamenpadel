@@ -23,7 +23,7 @@
   // The admin console (admin-event.html) auto-logs-in when a token is already in
   // localStorage. Pre-seed a superadmin sim session BEFORE its script runs, so
   // the demo lands straight in the dashboard. The sim backend accepts any token.
-  if(/\/admin(-event)?(\.html|\/|$)|\/kelola/.test(location.pathname)){
+  if(/\/admin(-event)?(\.html|\/|$)|\/kelola|\/engine(\/|$)/.test(location.pathname)){
     try{
       localStorage.setItem("tp_admin_token", "SIM_TOKEN");
       localStorage.setItem("tp_admin_user", "Panitia Sim");
@@ -60,9 +60,35 @@
     if(/\/daftar(\.html|\/|$)/.test(p)) return "daftar";
     if(/\/bayar(\.html|\/|$)/.test(p)) return "bayar";
     if(/\/roster(\.html|\/|$)/.test(p)) return "roster";
+    if(/\/engine(\/|$)/.test(p)) return "engine";
     if(/\/admin(-event)?(\.html|\/|$)|\/kelola/.test(p)) return "admin";
     return "";
   }
+
+  // engine/index.html: top-level state / selectEvent / selectTournament / drawGroups /
+  // generateSchedule are barewords. Auto-focus the sim event + first category, then
+  // the user clicks the engine's own Draw/Schedule buttons (or the toolbar ones).
+  function engineSelectSim(){
+    if(typeof selectEvent !== "function" || typeof state === "undefined") return;
+    try{ var es=document.getElementById("eventSelect"); if(es) es.value = SIM.EVENT_ID; }catch(e){}
+    selectEvent(SIM.EVENT_ID);
+    var n=0, iv=setInterval(function(){ n++;
+      if(typeof state!=="undefined" && state.tournaments && state.tournaments.length && typeof selectTournament==="function"){
+        clearInterval(iv);
+        var tid=state.tournaments[0].tournamentId;
+        try{ var ts=document.getElementById("tourSelect"); if(ts) ts.value=tid; }catch(e){}
+        selectTournament(tid);
+      } else if(n>40){ clearInterval(iv); }
+    }, 150);
+  }
+  function engineAutoFocus(){
+    var n=0, iv=setInterval(function(){ n++;
+      if(typeof state!=="undefined" && state.events && state.events.length){ clearInterval(iv); engineSelectSim(); }
+      else if(n>60){ clearInterval(iv); }
+    }, 150);
+  }
+  function engineDraw(){ if(typeof drawGroups==="function") drawGroups(); else alert("Buka engine & pilih kategori dulu."); }
+  function engineSchedule(){ if(typeof generateSchedule==="function") generateSchedule(); else alert("Buka engine & pilih kategori dulu."); }
 
   // daftar.html declares its state as `const F` / top-level functions. Classic
   // scripts share the global lexical scope, so these are reachable as barewords
@@ -157,6 +183,7 @@
     else if(p==="bayar") actions = btn("simPay","🎲 Auto-kirim bukti bayar");
     else if(p==="roster") actions = btn("simAppeal","⚑ Auto-ajukan appeal") + ghost("simBulk","➕ Daftarkan N pasangan");
     else if(p==="admin") actions = btn("simApprove","✔ Approve semua pendaftar");
+    else if(p==="engine") actions = btn("simDraw","🎲 Undi grup") + btn("simSchedule","📅 Buat jadwal") + ghost("simFocus","⚙ Pilih event+kategori");
     bar.innerHTML = tag + actions +
       ghost("simReset","♻ Reset data") +
       '<span style="margin-left:auto;color:#94a3b8;font-weight:500">Mode simulasi — tak ada data yang ditulis ke server</span>';
@@ -168,7 +195,11 @@
     wire("simPay", autoPayBayar);
     wire("simAppeal", autoAppealRoster);
     wire("simApprove", approveAllAdmin);
+    wire("simDraw", engineDraw);
+    wire("simSchedule", engineSchedule);
+    wire("simFocus", engineSelectSim);
     wire("simReset", resetSim);
+    if(page()==="engine") engineAutoFocus();
   }
 
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", buildToolbar);
