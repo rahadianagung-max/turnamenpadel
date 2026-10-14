@@ -364,8 +364,17 @@ textarea#lfNotes:focus{border-color:var(--orange)}
       <div class="switch"><span>Sembunyikan halaman "Players eligibility"</span><input type="checkbox" id="fsHideElig"></div>
       <div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="fsHideQuota"></div>
       <div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="fsNight"></div>
-      <button class="cta" id="fsStart" style="margin-top:12px">▶ Mulai — tahap Pendaftaran</button>
+      <button class="cta" id="fsSeed" style="margin-top:12px">① Buat / reset event simulasi</button>
+      <p class="seghelp" style="margin:10px 0 6px">Lalu buka tahap mana pun (semua berbagi data yang sama — bisa dilompati):</p>
+      <div class="advgrid">
+        <button class="cta sec" id="fsDaftar">② Pendaftaran</button>
+        <button class="cta sec" id="fsBayar">③ Pembayaran</button>
+        <button class="cta sec" id="fsRoster">④ Roster &amp; Appeal<br><small style="font-weight:500;opacity:.8">peserta</small></button>
+        <button class="cta sec" id="fsAdmin">⑤ Kurasi &amp; Appeal<br><small style="font-weight:500;opacity:.8">panitia</small></button>
+      </div>
+      <button class="cta sec" id="fsBulk" style="margin-top:8px">⚡ Auto-isi 8 pendaftar fiktif (lompati pendaftaran)</button>
       <button class="cta sec" id="fsReset" style="margin-top:8px">♻ Reset data simulasi</button>
+      <p class="seghelp" id="fsMsg" style="margin-top:10px"></p>
     </div>
   </details>
 
@@ -1255,32 +1264,48 @@ showStep(1);
 (function(){
   "use strict";
   function $(id){ return document.getElementById(id); }
-  var start = $("fsStart"), reset = $("fsReset");
-  if(!start || !window.__SIM__) return;
+  var SIM = window.__SIM__;
+  if(!SIM || !$("fsSeed")) return;
+  function msg(t){ var m=$("fsMsg"); if(m) m.textContent=t||""; }
 
-  start.onclick = function(){
-    var opts = {
+  function readOpts(){
+    return {
       name: ($("fsName").value || "Padel Sim Cup").trim(),
       hideEligibility: $("fsHideElig").checked,
       hideQuota: $("fsHideQuota").checked,
       theme: $("fsNight").checked ? "nightmode" : "",
-      categories: [{
-        label: "Men's Doubles",
-        level: $("fsLevel").value || "bronze",
-        quota: parseInt($("fsQuota").value, 10) || 16
-      }]
+      categories: [{ label:"Men's Doubles", level: $("fsLevel").value || "bronze",
+        quota: parseInt($("fsQuota").value, 10) || 16 }]
     };
-    window.__SIM__.seedEvent(opts);
-    var frame = $("vFrame"), viewer = $("viewer"), title = $("vTitle");
-    if(title) title.textContent = "Simulasi · Pendaftaran";
-    frame.src = "/daftar/" + window.__SIM__.EVENT_ID + "?sim=1&t=" + Date.now();
+  }
+  function ensureSeeded(){ var s = SIM.load(); if(!s || !s.event) SIM.seedEvent(readOpts()); }
+  function firstCat(){ return ((SIM.load()||{}).categories || [{}])[0].tournamentId || "TM_SIM_1"; }
+  function openStage(url, title){
+    var frame = $("vFrame"), viewer = $("viewer"), t = $("vTitle");
+    if(t) t.textContent = title;
+    frame.src = url + (url.indexOf("?")>=0 ? "&" : "?") + "sim=1&t=" + Date.now();
     viewer.className = "viewer show";
+  }
+
+  $("fsSeed").onclick = function(){ SIM.seedEvent(readOpts()); msg("✓ Event simulasi dibuat. Pilih tahap di bawah."); };
+
+  $("fsDaftar").onclick = function(){ ensureSeeded(); openStage("/daftar/"+SIM.EVENT_ID, "Simulasi · Pendaftaran"); };
+
+  $("fsBayar").onclick = function(){
+    ensureSeeded();
+    var regs = (SIM.load().registrations) || [];
+    if(!regs.length){ SIM.autoRegister(firstCat(), 1); regs = SIM.load().registrations; }
+    var rid = regs[regs.length-1].reg_id;
+    openStage("/bayar/"+SIM.EVENT_ID+"?r="+encodeURIComponent(rid)+"&t=SIM", "Simulasi · Pembayaran");
   };
 
-  reset.onclick = function(){
-    window.__SIM__.reset();
-    alert("Data simulasi direset.");
-  };
+  $("fsRoster").onclick = function(){ ensureSeeded(); openStage("/roster/"+SIM.EVENT_ID+"?t=SIM", "Simulasi · Roster & Appeal (peserta)"); };
+
+  $("fsAdmin").onclick = function(){ ensureSeeded(); openStage("/admin/"+SIM.EVENT_ID, "Simulasi · Kurasi & Appeal (panitia)"); };
+
+  $("fsBulk").onclick = function(){ ensureSeeded(); var n = SIM.autoRegister(firstCat(), 8); msg("✓ "+n+" pendaftar fiktif ditambahkan. Buka tahap Roster / Panitia."); };
+
+  $("fsReset").onclick = function(){ SIM.reset(); msg("Data simulasi direset."); };
 })();
 </script>
 </body>
