@@ -20,17 +20,19 @@
   var SIM = window.__SIM__;
   var realFetch = window.fetch ? window.fetch.bind(window) : null;
 
-  // The admin console (admin-event.html) auto-logs-in when a token is already in
-  // localStorage. Pre-seed a superadmin sim session BEFORE its script runs, so
-  // the demo lands straight in the dashboard. The sim backend accepts any token.
-  if(/\/admin(-event)?(\.html|\/|$)|\/kelola|\/engine(\/|$)/.test(location.pathname)){
-    try{
-      localStorage.setItem("tp_admin_token", "SIM_TOKEN");
-      localStorage.setItem("tp_admin_user", "Panitia Sim");
-      localStorage.setItem("tp_admin_role", "superadmin");
-      localStorage.setItem("tp_admin_events", "");
-    }catch(e){}
-  }
+  // The admin / engine / scorer pages gate on a stored session (admin-event and
+  // engine on tp_admin_* ; scorer-desk redirects to /admin.html without tp_session).
+  // Pre-seed a superadmin sim session BEFORE their scripts run, so the demo lands
+  // straight in. Harmless on the public pages. The sim backend accepts any token.
+  try{
+    localStorage.setItem("tp_admin_token", "SIM_TOKEN");
+    localStorage.setItem("tp_admin_user", "Panitia Sim");
+    localStorage.setItem("tp_admin_role", "superadmin");
+    localStorage.setItem("tp_admin_events", "");
+    var simSession = JSON.stringify({ username:"Panitia Sim", role:"superadmin" });
+    localStorage.setItem("tp_session", simSession);
+    try{ sessionStorage.setItem("tp_session", simSession); }catch(e){}
+  }catch(e){}
 
   // ---- fetch interceptor ----
   window.fetch = function(input, init){
@@ -62,6 +64,10 @@
     if(/\/roster(\.html|\/|$)/.test(p)) return "roster";
     if(/\/engine(\/|$)/.test(p)) return "engine";
     if(/\/admin(-event)?(\.html|\/|$)|\/kelola/.test(p)) return "admin";
+    if(/\/scorerdesk|\/courts\b|court-admin/.test(p)) return "scorer";
+    if(/\/court\d*(\.html)?$|\/court\d/.test(p)) return "court";
+    if(/\/tv(\/|$)|\/led(\/|$)|tv\.html/.test(p)) return "tv";
+    if(/\/mobile(\/|$)|mobile\.html/.test(p)) return "mobile";
     return "";
   }
 
@@ -89,6 +95,14 @@
   }
   function engineDraw(){ if(typeof drawGroups==="function") drawGroups(); else alert("Buka engine & pilih kategori dulu."); }
   function engineSchedule(){ if(typeof generateSchedule==="function") generateSchedule(); else alert("Buka engine & pilih kategori dulu."); }
+
+  // Fill every not-yet-scored group match, then reload so the real page re-fetches.
+  function simAutoScore(){
+    var n = SIM.autoScore();
+    if(!n){ alert("Semua match sudah diberi skor."); return; }
+    alert(n + " match diberi skor otomatis. Memuat ulang…");
+    location.reload();
+  }
 
   // daftar.html declares its state as `const F` / top-level functions. Classic
   // scripts share the global lexical scope, so these are reachable as barewords
@@ -184,6 +198,7 @@
     else if(p==="roster") actions = btn("simAppeal","⚑ Auto-ajukan appeal") + ghost("simBulk","➕ Daftarkan N pasangan");
     else if(p==="admin") actions = btn("simApprove","✔ Approve semua pendaftar");
     else if(p==="engine") actions = btn("simDraw","🎲 Undi grup") + btn("simSchedule","📅 Buat jadwal") + ghost("simFocus","⚙ Pilih event+kategori");
+    else if(p==="scorer" || p==="court" || p==="tv" || p==="mobile") actions = btn("simScore","⚡ Auto-skor semua match");
     bar.innerHTML = tag + actions +
       ghost("simReset","♻ Reset data") +
       '<span style="margin-left:auto;color:#94a3b8;font-weight:500">Mode simulasi — tak ada data yang ditulis ke server</span>';
@@ -198,6 +213,7 @@
     wire("simDraw", engineDraw);
     wire("simSchedule", engineSchedule);
     wire("simFocus", engineSelectSim);
+    wire("simScore", simAutoScore);
     wire("simReset", resetSim);
     if(page()==="engine") engineAutoFocus();
   }

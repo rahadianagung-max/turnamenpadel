@@ -372,6 +372,10 @@ textarea#lfNotes:focus{border-color:var(--orange)}
         <button class="cta sec" id="fsRoster">④ Roster &amp; Appeal<br><small style="font-weight:500;opacity:.8">peserta</small></button>
         <button class="cta sec" id="fsAdmin">⑤ Kurasi &amp; Appeal<br><small style="font-weight:500;opacity:.8">panitia</small></button>
         <button class="cta sec" id="fsEngine">⑥ Undi grup &amp; Jadwal<br><small style="font-weight:500;opacity:.8">panitia · engine</small></button>
+        <button class="cta sec" id="fsScorer">⑦ Meja skor<br><small style="font-weight:500;opacity:.8">panitia · scorerdesk</small></button>
+        <button class="cta sec" id="fsCourt">⑧ Scorer lapangan<br><small style="font-weight:500;opacity:.8">marshal · court</small></button>
+        <button class="cta sec" id="fsTv">⑨ TV / LED<br><small style="font-weight:500;opacity:.8">layar</small></button>
+        <button class="cta sec" id="fsMobile">⑩ Papan pemain<br><small style="font-weight:500;opacity:.8">mobile</small></button>
       </div>
       <button class="cta sec" id="fsBulk" style="margin-top:8px">⚡ Auto-isi 8 pendaftar fiktif (lompati pendaftaran)</button>
       <button class="cta sec" id="fsReset" style="margin-top:8px">♻ Reset data simulasi</button>
@@ -1309,6 +1313,18 @@ showStep(1);
     if(!((SIM.load().registrations)||[]).length){ SIM.autoRegister(firstCat(), 8); }
     openStage("/engine", "Simulasi · Undi grup & Jadwal (engine)");
   };
+
+  // Scoring stages need groups + a schedule; ensure them (and some entrants) first.
+  function ensureScored(){
+    ensureSeeded();
+    if(!((SIM.load().registrations)||[]).length){ SIM.autoRegister(firstCat(), 8); }
+    SIM.ensureSchedule();
+  }
+  var SLUG = "padel-sim-cup";
+  $("fsScorer").onclick = function(){ ensureScored(); openStage("/scorerdesk", "Simulasi · Meja skor (scorerdesk)"); };
+  $("fsCourt").onclick  = function(){ ensureScored(); openStage("/court1?e="+SIM.EVENT_ID, "Simulasi · Scorer lapangan (court 1)"); };
+  $("fsTv").onclick     = function(){ ensureScored(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · TV / LED"); };
+  $("fsMobile").onclick = function(){ ensureScored(); openStage("/mobile/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Papan pemain (mobile)"); };
 
   $("fsBulk").onclick = function(){ ensureSeeded(); var n = SIM.autoRegister(firstCat(), 8); msg("✓ "+n+" pendaftar fiktif ditambahkan. Buka tahap Roster / Panitia."); };
 
