@@ -415,16 +415,16 @@ textarea#lfNotes:focus{border-color:var(--orange)}
       <summary>Advanced timing</summary>
       <div class="advbody">
         <div class="advgrid">
-          <label class="f"><span>Group match (min)</span><input type="number" id="mGroup" value="20" min="5" max="60"></label>
-          <label class="f"><span>Playoff match (min)</span><input type="number" id="mPlayoff" value="25" min="5" max="60"></label>
-          <label class="f"><span>Final (min)</span><input type="number" id="mFinal" value="25" min="5" max="90"></label>
+          <label class="f"><span>Group match (min)</span><input type="number" id="mGroup" value="15" min="5" max="60"></label>
+          <label class="f"><span>Playoff match (min)</span><input type="number" id="mPlayoff" value="30" min="5" max="60"></label>
+          <label class="f"><span>Final (min)</span><input type="number" id="mFinal" value="30" min="5" max="90"></label>
           <label class="f"><span>Court change (min)</span><input type="number" id="mChange" value="1" min="0" max="10"></label>
           <label class="f"><span>Break between rounds (min)</span><input type="number" id="mBreak" value="3" min="0" max="30"></label>
           <label class="f"><span>Opening (min)</span><input type="number" id="mOpen" value="15" min="0" max="60"></label>
           <label class="f"><span>Awarding (min)</span><input type="number" id="mAward" value="15" min="0" max="45"></label>
           <label class="f"><span>Safety buffer (min)</span><input type="number" id="mBuffer" value="10" min="0" max="60"></label>
         </div>
-        <p class="seghelp">Groups hold 4–7 pairs. Size 4 → top 1 advances, size 5–7 → top 2.</p>
+        <p class="seghelp">Groups hold 4–7 pairs. Top 2 of each group advance to the playoff — same as the live engine.</p>
       </div>
     </details>
 
@@ -466,7 +466,7 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 <script>
 "use strict";
 
-var R = { mGroup:20, mPlayoff:25, mFinal:25, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false, preferClean:false };
+var R = { mGroup:15, mPlayoff:30, mFinal:30, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false, preferClean:false };
 var EVENT = { start:"08:00", date:"", venue:"", city:"" };
 var GMIN=4, GMAX=7, CMIN=2, CMAX=8, KMAX=6;
 
@@ -512,7 +512,8 @@ function syncR(){
 
 /* ---------- format grup ---------- */
 function groupSizes(P,g){ var b=Math.floor(P/g),r=P%g,s=[]; for(var i=0;i<g;i++) s.push(b+(i<r?1:0)); return s; }
-function qualOf(sz){ return sz>=5?2:1; }
+/* Real engine default: 2 teams advance per group (Advance/group = 2), size-independent. */
+function qualOf(sz){ return Math.min(2, sz); }
 function buildConfig(P,g){
   var sz=groupSizes(P,g),Q=0,gm=0,par=0;
   for(var i=0;i<sz.length;i++){ Q+=qualOf(sz[i]); gm+=c2(sz[i]); par+=Math.floor(sz[i]/2); }
