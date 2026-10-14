@@ -183,6 +183,12 @@
         </div>
         <div id="jerseyPanel" class="hidden" style="margin-top:12px;border:var(--bd);border-radius:var(--r-lg);padding:14px;background:var(--inset)">
           <div style="font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:8px">Rekap jersey per ukuran</div>
+          <div class="row" style="gap:8px;margin:0 0 10px;align-items:center">
+            <label style="font-size:13px;font-weight:600;flex:0 0 auto">Kategori</label>
+            <select id="jsyCat" onchange="renderJersey()" style="flex:1;min-width:0;padding:7px 10px;border:var(--bd);border-radius:var(--r-lg);font-family:var(--body);font-size:13px;background:#fff">
+              <option value="">Semua kategori</option>
+            </select>
+          </div>
           <div class="row" style="gap:16px;margin:0 0 10px">
             <label style="font-size:13px;font-weight:600"><input type="radio" name="jsyScope" value="approved" checked style="width:auto;margin-right:5px" onchange="renderJersey()">Approved saja</label>
             <label style="font-size:13px;font-weight:600"><input type="radio" name="jsyScope" value="all" style="width:auto;margin-right:5px" onchange="renderJersey()">Semua (termasuk waiting)</label>
@@ -639,12 +645,26 @@ async function loadRegs(){
 /* ===== Rekap jersey per ukuran ===== */
 let JERSEY_TXT="";
 function toggleJersey(){ const p=document.getElementById("jerseyPanel"); if(!p) return;
-  const willShow=p.classList.contains("hidden"); p.classList.toggle("hidden"); if(willShow) renderJersey(); }
+  const willShow=p.classList.contains("hidden"); p.classList.toggle("hidden"); if(willShow){ fillJerseyCats(); renderJersey(); } }
 function jerseyScope(){ return (document.querySelector('input[name="jsyScope"]:checked')||{}).value||"approved"; }
+// Isi dropdown kategori untuk rekap jersey (kategori unik dari pendaftaran,
+// kecuali yang ditolak/batal). Pertahankan pilihan yang sedang aktif.
+function fillJerseyCats(){
+  const sel=document.getElementById("jsyCat"); if(!sel) return;
+  const cats=[], seen={};
+  (REGS||[]).forEach(r=>{ if(r.status==="rejected"||r.status==="cancelled") return;
+    const c=catText(r.data||{})||"Tanpa kategori"; if(!seen[c]){ seen[c]=1; cats.push(c); } });
+  cats.sort((a,b)=>a.localeCompare(b));
+  const cur=sel.value;
+  sel.innerHTML='<option value="">Semua kategori</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  if(cur && cats.includes(cur)) sel.value=cur;
+}
+function jerseyCat(){ return (document.getElementById("jsyCat")||{}).value||""; }
 function renderJersey(){
   const host=document.getElementById("jerseyBody"); if(!host) return;
-  const scope=jerseyScope();
-  const rows=(REGS||[]).filter(r=> scope==="approved" ? APPROVED_STATUS.has(r.status) : (r.status!=="rejected"&&r.status!=="cancelled"));
+  const scope=jerseyScope(); const catSel=jerseyCat();
+  const rows=(REGS||[]).filter(r=> (scope==="approved" ? APPROVED_STATUS.has(r.status) : (r.status!=="rejected"&&r.status!=="cancelled"))
+    && (!catSel || (catText(r.data||{})||"Tanpa kategori")===catSel));
   const counts={}; let total=0;
   rows.forEach(r=>{ const d=r.data||{}; [d.player1,d.player2].forEach(p=>{ if(!p||!(p.name||"").trim()) return; total++;
     const s=String(p.jersey||"").trim().toUpperCase();
@@ -669,8 +689,8 @@ function renderJersey(){
     <tfoot><tr><td style="padding:9px 6px;font-weight:800">Total jersey</td>
       <td style="padding:9px 6px;text-align:right;font-weight:800;color:var(--orange);font-variant-numeric:tabular-nums">${total}</td>
       <td></td></tr></tfoot></table>
-    <div class="note" style="margin-top:6px">Dihitung per pemain (2 per tim) dari ${rows.length} tim ${scope==="approved"?"approved":"(approved + waiting)"}.</div>`;
-  JERSEY_TXT="Rekap jersey ("+(scope==="approved"?"approved":"approved+waiting")+"):\n"
+    <div class="note" style="margin-top:6px">Kategori: <b>${esc(catSel||"Semua kategori")}</b> · dihitung per pemain (2 per tim) dari ${rows.length} tim ${scope==="approved"?"approved":"(approved + waiting)"}.</div>`;
+  JERSEY_TXT="Rekap jersey — "+(catSel||"Semua kategori")+" ("+(scope==="approved"?"approved":"approved+waiting")+"):\n"
     +keys.map(k=>"- "+k+": "+counts[k]).join("\n")+"\nTotal: "+total;
 }
 function copyJersey(btn){ if(!JERSEY_TXT){ return; }
