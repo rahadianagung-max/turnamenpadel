@@ -353,6 +353,34 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 .wback:hover,.wskip:hover{color:var(--orange)}
 .wmsg{font-size:12.5px;color:var(--green);text-align:center;margin-top:10px;min-height:16px}
 
+
+/* ---- wizard extras ---- */
+.wtop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.wtop .wsteps{flex:1;margin:0}
+.wreset{flex:0 0 auto;background:none;border:1px solid var(--line);border-radius:100px;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:12px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.wreset:hover{border-color:var(--orange);color:var(--orange)}
+.catrow2{display:grid;grid-template-columns:1fr 1.1fr 72px 68px auto;gap:6px;align-items:center;margin-bottom:6px}
+.catrow2 input,.catrow2 select{background:var(--panel2);border:1px solid var(--line);border-radius:9px;color:var(--text);padding:9px 10px;font-family:inherit;font-size:13.5px;min-width:0}
+.catrow2 .ci-del{background:none;border:1px solid var(--line);color:var(--muted);border-radius:9px;padding:9px 11px;cursor:pointer;font-weight:700}
+.catrow2 .ci-del:hover{border-color:var(--red);color:var(--red)}
+.cathead{display:grid;grid-template-columns:1fr 1.1fr 72px 68px;gap:6px;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:2px 0 5px}
+.fr .frcat{border-top:1px solid var(--line);margin-top:16px;padding-top:14px}
+.frcatname{font-family:'Plus Jakarta Sans',sans-serif;text-transform:uppercase;letter-spacing:.04em;font-weight:800;font-size:15px;margin-bottom:10px}
+.podium{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.pod{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 10px;text-align:center}
+.pod .rk{font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pod .who{font-weight:800;font-size:13.5px;margin-top:5px;line-height:1.25}
+.pod.gold{border-color:var(--orange);background:linear-gradient(150deg,#FFE9DE,var(--panel2) 60%)}
+.pod.gold .rk{color:var(--orange)}
+.frg{margin-top:8px}
+.frgh{font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:12.5px;margin:8px 0 4px}
+.frt{width:100%;border-collapse:collapse;font-size:12.5px}
+.frt th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:5px 6px;border-bottom:1px solid var(--line)}
+.frt td{padding:6px;border-bottom:1px solid var(--panel2);font-variant-numeric:tabular-nums}
+.frt td:nth-child(1),.frt td:nth-child(3),.frt td:nth-child(4),.frt td:nth-child(5){text-align:center}
+.frt tr.adv td{color:var(--text);font-weight:700}
+.frt tr.adv td:nth-child(1){color:var(--orange)}
+
 </style>
 </head>
 <body>
@@ -380,7 +408,10 @@ textarea#lfNotes:focus{border-color:var(--orange)}
     <div class="sub">Satu alur, dari menentukan kategori sampai juara. Tiap langkah bisa dicoba sendiri, diisi otomatis, atau dilewati — memakai pemain contoh, tanpa menulis apa pun ke server.</div>
   </header>
 
-  <div class="wsteps" id="wsteps"></div>
+  <div class="wtop">
+    <div class="wsteps" id="wsteps"></div>
+    <button class="wreset" id="wReset">\u267b Mulai ulang</button>
+  </div>
   <div id="wcard"></div>
 
   <footer>Simulasi Turnamen · TurnamenPadel — bagian dari ekosistem SportsActvd</footer>
@@ -400,6 +431,8 @@ textarea#lfNotes:focus{border-color:var(--orange)}
   var SIM = window.__SIM__;
   var SLUG = "padel-sim-cup";
   var EVENT_ID = SIM ? SIM.EVENT_ID : "EV_SIM";
+  var LEVELS = [["open","Open"],["beginner","Beginner"],["upper_beginner","Upper Beginner"],["lower_bronze","Lower Bronze"],["bronze","Bronze"],["upper_bronze","Upper Bronze"],["silver","Silver"],["gold","Gold"],["platinum","Platinum"]];
+  function levelName(l){ for(var i=0;i<LEVELS.length;i++) if(LEVELS[i][0]===l) return LEVELS[i][1]; return l||""; }
 
   /* ---- lead capture (gate) ---- */
   var USER={name:"",email:""}, LEAD_ID="";
@@ -423,14 +456,21 @@ textarea#lfNotes:focus{border-color:var(--orange)}
   $("vBack").onclick=function(){ $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){} };
 
   /* ---- config / seeding ---- */
-  var CFG={ name:"Padel Sim Cup", level:"bronze", quota:16, hideElig:false, hideQuota:false, night:false };
-  function seed(){ SIM.seedEvent({ name:CFG.name, hideEligibility:CFG.hideElig, hideQuota:CFG.hideQuota, theme:CFG.night?"nightmode":"", categories:[{label:"Men's Doubles", level:CFG.level, quota:CFG.quota}] }); }
+  var CFG={ name:"Padel Sim Cup", date:"12 Jul 2026", startTime:"08:00", numCourts:4, groupMin:15, playoffMin:30,
+            hideElig:false, hideQuota:false, night:false,
+            cats:[{label:"Men's Doubles", level:"bronze", quota:16, adv:2}] };
+  function seed(){ SIM.seedEvent({ name:CFG.name, date:CFG.date, startTime:CFG.startTime, numCourts:CFG.numCourts,
+    matchMinutes:CFG.groupMin, playoffMinutes:CFG.playoffMin,
+    hideEligibility:CFG.hideElig, hideQuota:CFG.hideQuota, theme:CFG.night?"nightmode":"",
+    categories:CFG.cats.map(function(c){ return {label:c.label, level:c.level, quota:c.quota, advancersPerGroup:c.adv, groupSizeTarget:4}; }) }); }
   function store(){ return SIM.load()||{}; }
-  function firstCat(){ return ((store().categories)||[{}])[0].tournamentId||"TM_SIM_1"; }
+  function cats(){ return (store().categories)||[]; }
+  function firstCat(){ return (cats()[0]||{}).tournamentId || "TM_SIM_1"; }
   function hasEvent(){ var s=SIM.load(); return !!(s&&s.event); }
   function regCount(){ return ((store().registrations)||[]).length; }
   function ensureEvent(){ if(!hasEvent()) seed(); }
-  function ensureData(){ ensureEvent(); if(!regCount()) SIM.autoRegister(firstCat(), CFG.quota); }
+  function regAll(){ var n=0; cats().forEach(function(c){ n+=SIM.autoRegister(c.tournamentId, c.quota||16); }); return n; }
+  function ensureData(){ ensureEvent(); if(!regCount()) regAll(); }
 
   /* ---- wizard ---- */
   var STEPS=[
@@ -440,16 +480,17 @@ textarea#lfNotes:focus{border-color:var(--orange)}
     { key:"kurasi", t:"Kurasi & Appeal" },
     { key:"undian", t:"Undian & Jadwal" },
     { key:"skor",   t:"Pertandingan" },
-    { key:"hasil",  t:"Playoff & Hasil" }
+    { key:"hasil",  t:"Hasil Akhir" }
   ];
+  var TITLE={ setup:"Kategori turnamen", daftar:"Pendaftaran", bayar:"Pembayaran", kurasi:"Kurasi & Appeal", undian:"Undian & Jadwal", skor:"Pertandingan & Skor", hasil:"Hasil Akhir" };
   var DESC={
-    setup:"Tentukan kategori, level, dan berapa pasangan yang ikut. Ini jadi dasar seluruh simulasi.",
+    setup:"Atur event, lapangan, jadwal, dan kategori. Ini jadi dasar seluruh simulasi.",
     daftar:"Peserta mengisi form pendaftaran ganda (nama, kontak, foto).",
     bayar:"Peserta mengunggah bukti transfer biaya pendaftaran.",
     kurasi:"Peserta meninjau roster & bisa ajukan banding; panitia menyetujui, menolak, atau koreksi level.",
-    undian:"Panitia membagi peserta ke grup dan membuat jadwal pertandingan.",
+    undian:"Panitia mengundi peserta ke grup (roda undian) lalu membuat jadwal pertandingan.",
     skor:"Skor tiap pertandingan diinput; langsung tampil di layar TV & papan pemain.",
-    hasil:"Babak gugur (playoff), penentuan juara, dan rekap ELO."
+    hasil:"Juara, podium, dan klasemen akhir tiap kategori."
   };
   var cur=0, maxReached=0;
   function go(i){ cur=Math.max(0,Math.min(STEPS.length-1,i)); renderStep(); window.scrollTo(0,0); }
@@ -463,44 +504,73 @@ textarea#lfNotes:focus{border-color:var(--orange)}
     }).join("");
   }
 
-  function body(step){
-    if(step!=="setup") return "";
-    var levels=[["open","Open"],["beginner","Beginner"],["upper_beginner","Upper Beginner"],["lower_bronze","Lower Bronze"],["bronze","Bronze"],["upper_bronze","Upper Bronze"],["silver","Silver"],["gold","Gold"],["platinum","Platinum"]];
+  function catRow(c,i){
+    return '<div class="catrow2" data-i="'+i+'">'
+      + '<input class="ci-label" type="text" value="'+esc(c.label)+'" placeholder="Nama kategori">'
+      + '<select class="ci-level">'+LEVELS.map(function(l){ return '<option value="'+l[0]+'"'+(l[0]===c.level?' selected':'')+'>'+l[1]+'</option>'; }).join("")+'</select>'
+      + '<input class="ci-quota" type="number" value="'+c.quota+'" min="2" max="64" title="Jumlah pasangan">'
+      + '<input class="ci-adv" type="number" value="'+c.adv+'" min="1" max="4" title="Lolos per grup">'
+      + (CFG.cats.length>1 ? '<button type="button" class="ci-del" onclick="__catDel('+i+')">\u00d7</button>' : '<span></span>')
+      + '</div>';
+  }
+  function setupBody(){
     return '<div class="wform">'
       + '<label class="f"><span>Nama event</span><input type="text" id="cName" value="'+esc(CFG.name)+'"></label>'
       + '<div class="advgrid">'
-      +   '<label class="f"><span>Level</span><select id="cLevel" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px">'
-      +     levels.map(function(l){ return '<option value="'+l[0]+'"'+(l[0]===CFG.level?' selected':'')+'>'+l[1]+'</option>'; }).join("")
-      +   '</select></label>'
-      +   '<label class="f"><span>Jumlah pasangan</span><input type="number" id="cQuota" value="'+CFG.quota+'" min="2" max="64"></label>'
+      +   '<label class="f"><span>Tanggal</span><input type="text" id="cDate" value="'+esc(CFG.date)+'" placeholder="12 Jul 2026"></label>'
+      +   '<label class="f"><span>Jam mulai</span><input type="time" id="cStart" value="'+esc(CFG.startTime)+'"></label>'
       + '</div>'
-      + '<div class="switch"><span>Sembunyikan halaman "A few quick questions"</span><input type="checkbox" id="cElig"'+(CFG.hideElig?' checked':'')+'></div>'
-      + '<div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="cQuo"'+(CFG.hideQuota?' checked':'')+'></div>'
-      + '<div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="cNight"'+(CFG.night?' checked':'')+'></div>'
+      + '<div class="advgrid">'
+      +   '<label class="f"><span>Jumlah lapangan</span><input type="number" id="cCourts" value="'+CFG.numCourts+'" min="1" max="20"></label>'
+      +   '<label class="f"><span>Durasi match grup (menit)</span><input type="number" id="cGMin" value="'+CFG.groupMin+'" min="5" max="60"></label>'
+      + '</div>'
+      + '<label class="f"><span>Durasi match playoff (menit)</span><input type="number" id="cPMin" value="'+CFG.playoffMin+'" min="5" max="90"></label>'
+      + '<div class="flabel" style="margin:8px 0 6px">Kategori <span style="font-weight:500;text-transform:none;letter-spacing:0">(nama · level · jumlah pasangan · lolos/grup)</span></div>'
+      + '<div class="cathead"><span>Kategori</span><span>Level</span><span>Pasangan</span><span>Lolos</span></div>'
+      + '<div id="catList">'+ CFG.cats.map(catRow).join("") +'</div>'
+      + '<button type="button" class="wact alt" id="catAdd" style="margin-top:6px">+ Tambah kategori</button>'
+      + '<details class="adv" style="margin-top:12px"><summary>Opsi tampilan</summary><div class="advbody">'
+      +   '<div class="switch"><span>Sembunyikan halaman "A few quick questions"</span><input type="checkbox" id="cElig"'+(CFG.hideElig?' checked':'')+'></div>'
+      +   '<div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="cQuo"'+(CFG.hideQuota?' checked':'')+'></div>'
+      +   '<div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="cNight"'+(CFG.night?' checked':'')+'></div>'
+      + '</div></details>'
       + '</div>';
   }
+  function iv(id,def){ var e=$(id); return e?(e.value||def):def; }
+  function readSetup(){
+    if(!$("cName")) return;
+    CFG.name=(iv("cName","Padel Sim Cup")||"").trim()||"Padel Sim Cup";
+    CFG.date=(iv("cDate",CFG.date)||"").trim(); CFG.startTime=iv("cStart",CFG.startTime);
+    CFG.numCourts=parseInt(iv("cCourts",4),10)||4; CFG.groupMin=parseInt(iv("cGMin",15),10)||15; CFG.playoffMin=parseInt(iv("cPMin",30),10)||30;
+    CFG.hideElig=$("cElig")?$("cElig").checked:false; CFG.hideQuota=$("cQuo")?$("cQuo").checked:false; CFG.night=$("cNight")?$("cNight").checked:false;
+    var rows=document.querySelectorAll("#catList .catrow2"); var cs=[];
+    rows.forEach(function(row){ cs.push({ label:(row.querySelector(".ci-label").value||"Kategori").trim()||"Kategori",
+      level:row.querySelector(".ci-level").value, quota:parseInt(row.querySelector(".ci-quota").value,10)||16,
+      adv:parseInt(row.querySelector(".ci-adv").value,10)||2 }); });
+    if(cs.length) CFG.cats=cs;
+  }
+  window.__catDel=function(i){ readSetup(); CFG.cats.splice(i,1); if(!CFG.cats.length) CFG.cats=[{label:"Men's Doubles",level:"bronze",quota:16,adv:2}]; renderStep(); };
 
   function actionsFor(step){
-    if(step==="setup") return '<button class="wact" id="aSetup">Buat turnamen &amp; lanjut \u2192</button><button class="wact alt" id="aAll">\u26a1 Jalankan semua otomatis \u2192 lihat juara</button>';
+    if(step==="setup") return '<button class="wact" id="aSetup">Buat turnamen &amp; lanjut \u2192</button><button class="wact alt" id="aAll">\u26a1 Jalankan semua otomatis \u2192 lihat hasil</button>';
     if(step==="daftar") return '<button class="wact" id="aOpen">Coba sendiri \u2014 buka form</button><button class="wact alt" id="aAuto">Isi peserta otomatis</button>';
     if(step==="bayar") return '<button class="wact" id="aOpen">Coba sendiri \u2014 buka halaman bayar</button><button class="wact alt" id="aAuto">Anggap semua sudah bayar</button>';
     if(step==="kurasi") return '<button class="wact" id="aOpen">Sisi peserta (roster)</button><button class="wact" id="aOpen2">Sisi panitia</button><button class="wact alt" id="aAuto">Setujui semua + contoh appeal</button>';
-    if(step==="undian") return '<button class="wact" id="aOpen">Buka engine</button><button class="wact alt" id="aAuto">Undi &amp; jadwalkan otomatis</button>';
+    if(step==="undian") return '<button class="wact" id="aOpen">Coba sendiri \u2014 roda undian</button><button class="wact alt" id="aAuto">Undi &amp; jadwalkan otomatis</button>';
     if(step==="skor") return '<button class="wact" id="aOpen">Meja skor</button><button class="wact" id="aOpen2">Layar TV</button><button class="wact" id="aOpen3">Papan pemain</button><button class="wact alt" id="aAuto">Skor semua otomatis</button>';
-    if(step==="hasil") return '<button class="wact" id="aOpen">Buat playoff &amp; lihat juara (TV)</button><button class="wact alt" id="aOpen2">Rekap ELO (engine)</button><button class="wact alt" id="aReset">\u267b Mulai ulang</button>';
     return "";
   }
-
   function msg(t){ var m=$("wMsg"); if(m) m.textContent=t||""; }
 
   function renderStep(){
     renderSteps();
     var step=STEPS[cur].key;
+    if(step==="hasil"){ renderFinal(); return; }
     var h='<div class="card wcardbody">'
       + '<div class="weyebrow">Langkah '+(cur+1)+' / '+STEPS.length+'</div>'
-      + '<h2 class="wtitle">'+esc(({setup:"Kategori turnamen",daftar:"Pendaftaran",bayar:"Pembayaran",kurasi:"Kurasi & Appeal",undian:"Undian & Jadwal",skor:"Pertandingan & Skor",hasil:"Playoff & Hasil"})[step])+'</h2>'
+      + '<h2 class="wtitle">'+esc(TITLE[step])+'</h2>'
       + '<p class="wdesc">'+esc(DESC[step])+'</p>'
-      + body(step)
+      + (step==="setup"?setupBody():"")
       + '<div class="wacts">'+actionsFor(step)+'</div>'
       + '<div class="wnav">'
       +   (cur>0?'<button class="wback" id="wPrev">\u2190 Kembali</button>':'<span></span>')
@@ -512,22 +582,18 @@ textarea#lfNotes:focus{border-color:var(--orange)}
     wire(step);
   }
 
-  function saveSetup(){
-    CFG.name=($("cName").value||"Padel Sim Cup").trim();
-    CFG.level=$("cLevel").value; CFG.quota=parseInt($("cQuota").value,10)||16;
-    CFG.hideElig=$("cElig").checked; CFG.hideQuota=$("cQuo").checked; CFG.night=$("cNight").checked;
-  }
-  function runAll(){ seed(); SIM.autoRegister(firstCat(),CFG.quota); SIM.autoCurate(); SIM.ensureFinished(); maxReached=STEPS.length-1; go(STEPS.length-1); openStage("/tv/"+SLUG+"?event="+EVENT_ID,"Juara & klasemen (TV)"); }
+  function runAll(){ seed(); regAll(); SIM.autoCurate(); SIM.ensureFinished(); maxReached=STEPS.length-1; go(STEPS.length-1); }
 
   function wire(step){
     if($("wPrev")) $("wPrev").onclick=function(){ go(cur-1); };
     if($("wSkip")) $("wSkip").onclick=function(){ advance(); };
     if(step==="setup"){
-      $("aSetup").onclick=function(){ saveSetup(); seed(); advance(); };
-      $("aAll").onclick=function(){ saveSetup(); runAll(); };
+      if($("catAdd")) $("catAdd").onclick=function(){ readSetup(); CFG.cats.push({label:"Women's Doubles",level:"bronze",quota:16,adv:2}); renderStep(); };
+      $("aSetup").onclick=function(){ readSetup(); seed(); advance(); };
+      $("aAll").onclick=function(){ readSetup(); runAll(); };
     } else if(step==="daftar"){
       $("aOpen").onclick=function(){ ensureEvent(); openStage("/daftar/"+EVENT_ID,"Pendaftaran"); };
-      $("aAuto").onclick=function(){ ensureEvent(); var n=SIM.autoRegister(firstCat(),CFG.quota); msg("\u2713 "+n+" pasangan fiktif terdaftar."); setTimeout(advance,500); };
+      $("aAuto").onclick=function(){ ensureEvent(); var n=regAll(); msg("\u2713 "+n+" pasangan fiktif terdaftar."); setTimeout(advance,500); };
     } else if(step==="bayar"){
       $("aOpen").onclick=function(){ ensureData(); var r=(store().registrations||[]); var rid=r.length?r[r.length-1].reg_id:""; openStage("/bayar/"+EVENT_ID+"?r="+encodeURIComponent(rid)+"&t=SIM","Pembayaran"); };
       $("aAuto").onclick=function(){ ensureData(); msg("\u2713 Pembayaran dianggap selesai."); setTimeout(advance,400); };
@@ -536,19 +602,56 @@ textarea#lfNotes:focus{border-color:var(--orange)}
       $("aOpen2").onclick=function(){ ensureData(); openStage("/admin/"+EVENT_ID,"Kurasi & Appeal (panitia)"); };
       $("aAuto").onclick=function(){ ensureData(); SIM.autoCurate(); msg("\u2713 Semua peserta disetujui + 1 contoh appeal."); setTimeout(advance,500); };
     } else if(step==="undian"){
-      $("aOpen").onclick=function(){ ensureData(); openStage("/engine","Undian & Jadwal (engine)"); };
+      $("aOpen").onclick=function(){ ensureData(); openStage("/draw?t="+encodeURIComponent(firstCat()),"Undian grup (roda)"); };
       $("aAuto").onclick=function(){ ensureData(); SIM.ensureSchedule(); msg("\u2713 Grup diundi & jadwal dibuat."); setTimeout(advance,500); };
     } else if(step==="skor"){
       $("aOpen").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/scorerdesk","Meja skor"); };
-      $("aOpen2").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/tv/"+SLUG+"?event="+EVENT_ID,"Layar TV"); };
+      $("aOpen2").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/tv/"+SLUG+"?event="+EVENT_ID+"&cat="+encodeURIComponent(firstCat()),"Layar TV"); };
       $("aOpen3").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/mobile/"+SLUG+"?event="+EVENT_ID,"Papan pemain"); };
       $("aAuto").onclick=function(){ ensureData(); SIM.ensureSchedule(); SIM.autoScore(); msg("\u2713 Semua pertandingan diberi skor."); setTimeout(advance,500); };
-    } else if(step==="hasil"){
-      $("aOpen").onclick=function(){ ensureData(); SIM.ensureFinished(); openStage("/tv/"+SLUG+"?event="+EVENT_ID,"Juara & klasemen (TV)"); };
-      $("aOpen2").onclick=function(){ ensureData(); SIM.ensureFinished(); openStage("/engine","Rekap ELO (engine)"); };
-      $("aReset").onclick=function(){ SIM.reset(); maxReached=0; go(0); msg("Data simulasi direset."); };
     }
   }
+
+  /* ---- final result (podium + standings) ---- */
+  function renderFinal(){
+    ensureData(); SIM.ensureFinished();
+    var d=SIM.handle("GET","tournament/event/"+EVENT_ID+"/public",null).data||{};
+    var ev=d.event||{};
+    var h='<div class="card wcardbody fr">'
+      + '<div class="weyebrow">Hasil Akhir</div>'
+      + '<h2 class="wtitle">'+esc(ev.name||"")+'</h2>'
+      + '<p class="wdesc">'+esc([ev.venue,ev.date].filter(Boolean).join(" \u00b7 "))+'</p>';
+    (d.categories||[]).forEach(function(c){
+      h+='<div class="frcat"><div class="frcatname">'+esc(c.category)+(levelName(c.level)?' \u00b7 '+esc(levelName(c.level)):'')+'</div>';
+      var br=(c.playoff||[])[0];
+      if(br){
+        var fm=br.rounds[br.numRounds-1].matches[0], champ="", runner="";
+        if(fm&&fm.status==="DONE"&&fm.winner){ if(String(fm.winner)===String(fm.entrantA)){champ=fm.teamA;runner=fm.teamB;}else{champ=fm.teamB;runner=fm.teamA;} }
+        var third=""; if(br.bronze&&br.bronze.status==="DONE"&&br.bronze.winner){ third=String(br.bronze.winner)===String(br.bronze.entrantA)?br.bronze.teamA:br.bronze.teamB; }
+        h+='<div class="podium">'
+          +'<div class="pod gold"><div class="rk">\ud83c\udfc6 Juara</div><div class="who">'+esc(champ||"\u2014")+'</div></div>'
+          +'<div class="pod"><div class="rk">Runner-up</div><div class="who">'+esc(runner||"\u2014")+'</div></div>'
+          +'<div class="pod"><div class="rk">Juara 3</div><div class="who">'+esc(third||"\u2014")+'</div></div>'
+          +'</div>';
+      }
+      var adv=c.advancersPerGroup||2;
+      (c.groups||[]).forEach(function(g){
+        h+='<div class="frg"><div class="frgh">Grup '+esc(g.label)+'</div><table class="frt"><thead><tr><th>#</th><th>Tim</th><th>M</th><th>K</th><th>SG</th></tr></thead><tbody>';
+        (g.standings||[]).forEach(function(r){ h+='<tr'+(r.rank<=adv?' class="adv"':'')+'><td>'+r.rank+'</td><td>'+esc(r.team)+'</td><td>'+r.wins+'</td><td>'+r.losses+'</td><td>'+(r.gd>0?'+':'')+r.gd+'</td></tr>'; });
+        h+='</tbody></table></div>';
+      });
+      h+='</div>';
+    });
+    h+='<div class="wacts" style="margin-top:16px"><button class="wact" id="aTv">Lihat di layar TV</button></div>';
+    h+='<div class="wnav"><button class="wback" id="wPrev">\u2190 Kembali</button><span></span></div>';
+    h+='</div>';
+    $("wcard").innerHTML=h;
+    if($("wPrev")) $("wPrev").onclick=function(){ go(cur-1); };
+    if($("aTv")) $("aTv").onclick=function(){ openStage("/tv/"+SLUG+"?event="+EVENT_ID+"&cat="+encodeURIComponent(firstCat()),"Hasil di layar TV"); };
+  }
+
+  /* persistent reset on every step */
+  if($("wReset")) $("wReset").onclick=function(){ if(!confirm("Mulai ulang & hapus data simulasi ini?")) return; SIM.reset(); maxReached=0; cur=0; renderStep(); };
 
   if(!SIM){ var a=$("app"); if(a) a.innerHTML='<p class="empty" style="padding:40px 16px;text-align:center">Komponen simulasi gagal dimuat. Muat ulang halaman.</p>'; }
 })();
