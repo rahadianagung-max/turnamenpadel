@@ -556,6 +556,17 @@ const APPROVED_STATUS=new Set(["approved","received","imported","final","accepte
 // Nama tim untuk baris ringkas (fallback: gabungan nama pemain).
 function teamName(reg){ const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
   return String(d.teamName || reg.team || [p1.name,p2.name].filter(Boolean).join(" & ") || "—"); }
+// Badge status + pembayaran, agar admin bisa membedakan:
+//  - pending  = daftar saat masih ada slot → SUDAH bayar (ada bukti transfer), tinggal di-approve
+//  - waitlist = daftar saat kuota penuh   → BELUM bayar, diundang bayar via email bila ada slot
+function regStatusBadge(reg){
+  const s=String(reg.status||"").toLowerCase();
+  if(s==="waitlist") return '<span class="chip wl">waitlist · belum bayar</span>';
+  if(APPROVED_STATUS.has(s)) return '<span class="chip ok">approved</span>';
+  if(s==="rejected") return '<span class="chip bad">ditolak</span>';
+  if(s==="cancelled") return '<span class="chip">batal</span>';
+  return '<span class="chip warn">pending · '+(reg.paymentProofUrl?'sudah bayar':'belum ada bukti')+'</span>';
+}
 // Collapsible card: baris ringkas hanya menampilkan NAMA TIM (nyaman untuk
 // ratusan peserta); klik chevron untuk detail lengkap + Approve / Reject / Delete.
 function regCard(reg){
@@ -576,7 +587,7 @@ function regCard(reg){
   const infoBlock=`<div class="pcard" style="margin-bottom:12px"><div class="kvs">${info.join("<br>")}</div></div>`;
   return `<details class="regd">
     <summary class="regsum">
-      <span class="sumtxt"><b>${team}</b></span>
+      <span class="sumtxt"><b>${team}</b> ${regStatusBadge(reg)}</span>
       <span class="chev" aria-hidden="true">▼</span>
     </summary>
     <div class="regbody">
@@ -610,11 +621,16 @@ async function loadRegs(){
     REGS=list; // simpan untuk export CSV
     const approved=list.filter(x=>APPROVED_STATUS.has(x.status));
     const waiting=list.filter(x=>!APPROVED_STATUS.has(x.status) && x.status!=="rejected" && x.status!=="cancelled");
+    // Pisahkan antrean: pending (sudah bayar, menunggu approval) vs waitlist (kuota
+    // penuh saat daftar, belum bayar) — dua hal berbeda yang dulu tercampur.
+    const waitlistL=waiting.filter(x=>String(x.status).toLowerCase()==="waitlist");
+    const pending=waiting.filter(x=>String(x.status).toLowerCase()!=="waitlist");
     const closed=list.filter(x=>x.status==="rejected"||x.status==="cancelled");
-    document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Waiting <b>${waiting.length}</b>`;
+    document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Pending <b>${pending.length}</b> · Waitlist <b>${waitlistL.length}</b>`;
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
     host.innerHTML =
-      regSection("⏳ Waiting list — menunggu approval", waiting, "Tidak ada yang menunggu approval.") +
+      regSection("⏳ Pending — sudah bayar, menunggu approval", pending, "Tidak ada yang menunggu approval.") +
+      (waitlistL.length?regSection("📋 Waitlist — kuota penuh, belum bayar", waitlistL, ""):"") +
       regSection("✅ Approved players", approved, "Belum ada yang di-approve.") +
       (closed.length?regSection("✕ Ditolak / batal", closed, ""):"");
   }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
