@@ -77,22 +77,26 @@
   function reset(){ try{ localStorage.removeItem(KEY); }catch(e){} }
 
   // Build a fresh store from the control panel's options.
-  // opts: { name, venue, date, startTime, numCourts, matchMinutes, theme,
-  //         hideEligibility, hideQuota, fields, categories:[{label,level,fee,quota}] }
+  // opts: { name, venue, date, startTime, numCourts, matchMinutes, playoffMinutes, theme,
+  //         hideEligibility, hideQuota, fields,
+  //         categories:[{label, level, fee, quota, advancersPerGroup, groupSizeTarget}] }
   function seedEvent(opts){
     opts = opts || {};
     var cats = (opts.categories||[]).map(function(c, i){
       return { tournamentId: "TM_SIM_"+(i+1), label: c.label || "Men's Doubles",
         level: String(c.level||"bronze").toLowerCase(), fee: c.fee!=null?c.fee:150000,
-        quota: c.quota!=null?c.quota:16, req: c.req||"" };
+        quota: c.quota!=null?c.quota:16, req: c.req||"",
+        advancersPerGroup: parseInt(c.advancersPerGroup,10)||2,
+        groupSizeTarget: parseInt(c.groupSizeTarget,10)||4 };
     });
-    if(!cats.length) cats = [{ tournamentId:"TM_SIM_1", label:"Men's Doubles", level:"bronze", fee:150000, quota:16, req:"" }];
+    if(!cats.length) cats = [{ tournamentId:"TM_SIM_1", label:"Men's Doubles", level:"bronze", fee:150000, quota:16, req:"", advancersPerGroup:2, groupSizeTarget:4 }];
     var store = {
       event: {
         eventId: EVENT_ID, name: opts.name || "Padel Sim Cup",
         slug: "padel-sim-cup", venue: opts.venue || "Demo Padel Arena",
         date: opts.date || "12 Jul 2026", startTime: opts.startTime || "08:00",
-        numCourts: opts.numCourts || 4, matchMinutes: opts.matchMinutes || 15, status: "open"
+        numCourts: parseInt(opts.numCourts,10) || 4, matchMinutes: parseInt(opts.matchMinutes,10) || 15,
+        playoffMinutes: parseInt(opts.playoffMinutes,10) || 30, status: "open"
       },
       config: {
         timeline: opts.timeline || { openStart:"1 Jul 2026", openEnd:"8 Jul 2026",
@@ -222,7 +226,7 @@
   // A sim category presented as an engine "tournament".
   function tournamentOf(s, cat){
     return { tournamentId:cat.tournamentId, eventId:(s.event||{}).eventId, category:cat.label,
-      level:cat.level, format:"SINGLE", rankMode:"wins", groupSizeTarget:4, advancersPerGroup:2,
+      level:cat.level, format:"SINGLE", rankMode:"wins", groupSizeTarget:(cat.groupSizeTarget||4), advancersPerGroup:(cat.advancersPerGroup||2),
       startTime:"", status:"active", playoffTopOverall:8, autoPlayoff:false };
   }
   // Entrants derived from the category's non-rejected registrations (materialized once so edits persist).
@@ -371,7 +375,7 @@
           scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status };
       });
       return { tournamentId:cat.tournamentId, category:cat.label, level:cat.level, format:"SINGLE",
-        advancersPerGroup:2, entrants:entrants, schedule:schedule,
+        advancersPerGroup:(cat.advancersPerGroup||2), entrants:entrants, schedule:schedule,
         groups:computeStandings(ts, entrants), playoff:(ts.playoff||[]), playoffProjection:[], qualifyPanel:null };
     });
     return { event:{ name:ev.name, venue:ev.venue, date:ev.date, numCourts:ev.numCourts,
@@ -395,7 +399,8 @@
       flat.sort(function(a,b){ return (b.wins-a.wins)||(b.gd-a.gd)||(b.gf-a.gf)||((a.ga||0)-(b.ga||0)); });
       flat = flat.slice(0, topOverall);
     } else {
-      stand.forEach(function(g){ (g.standings||[]).slice(0,2).forEach(function(r){ flat.push(r); }); });
+      var adv = (catOf(s, tid).advancersPerGroup) || 2;
+      stand.forEach(function(g){ (g.standings||[]).slice(0, adv).forEach(function(r){ flat.push(r); }); });
       flat.sort(function(a,b){ return (b.wins-a.wins)||(b.gd-a.gd)||(b.gf-a.gf); });
     }
     return flat.map(function(r){ return { entrantId:r.eid, team:r.team }; });
@@ -726,6 +731,22 @@
       if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
       var dg = drawGroupsFor(s, seg[1]); save(s);
       return { status:200, data:{ success:true, groupCount:dg.length, groups:dg } };
+    }
+    // The wheel draw (draw.html) commits groups via draw/commit.
+    if(method==="POST" && path==="draw/commit"){
+      if(s){ var dtid = body.tournament_id;
+        if(dtid && catOf(s, dtid).tournamentId){
+          var dts = tstate(s, dtid), gmap = {};
+          (body.results||[]).forEach(function(r){ (gmap[r.group] = gmap[r.group] || []).push({
+            entrantId:r.pair_id, player1Name:r.player1, player2Name:r.player2,
+            seedElo:parseInt(r.rating,10)||0, teamName:r.team_name||"" }); });
+          var labels = Object.keys(gmap).sort();
+          dts.groups = labels.map(function(L){ var m=gmap[L]; return { label:L, size:m.length,
+            matches:m.length*(m.length-1)/2, members:m }; });
+          dts.matches = []; save(s);
+        }
+      }
+      return { status:200, data:{ success:true } };
     }
     if(method==="GET" && /^tournament\/[^/]+\/groups$/.test(path)){
       if(!s) return { status:200, data:{ groups:[] } };
