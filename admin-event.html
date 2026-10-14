@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Admin Event · TurnamenPadel</title>
+<!-- Full Simulation mode (inert unless ?sim=1): routes /api/* to an in-browser mock, never the real server. -->
+<script>if(new URLSearchParams(location.search).get("sim")==="1"){document.write('<script src="/sim/backend.js"><\/script><script src="/sim/guard.js"><\/script>');}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>

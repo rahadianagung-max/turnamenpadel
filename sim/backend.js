@@ -103,7 +103,8 @@
         hideQuota: !!opts.hideQuota, fields: opts.fields || {}
       },
       categories: cats,
-      registrations: []
+      registrations: [],
+      appeals: []
     };
     save(store);
     return store;
@@ -148,12 +149,89 @@
     };
   }
 
+  // ---------- transforms used by the admin / roster / appeal stages ----------
+  function pget(r, i){ return (r.players && r.players[i]) || {}; }
+  function catOf(s, id){ return (s.categories||[]).find(function(c){ return c.tournamentId===id; }) || {}; }
+
+  // Stored registration -> the shape admin-event.html expects (data.player1/2).
+  function adminReg(s, r){
+    var cat = catOf(s, r.category);
+    function pa(p, photo, ktp){
+      return { name:p.name||"", phone:p.phone||"", email:p.email||"", ig:p.ig||"", reclub:p.reclub||"",
+        nick:p.nick||"", dob:p.dob||"", gender:p.gender||"", region:p.region||"", jersey:p.jersey||"",
+        photoUrl:photo||"", ktpUrl:ktp||"", elo:p.seedElo, tier:p.tier };
+    }
+    return {
+      reg_id: r.reg_id, regId: r.reg_id, status: r.status||"pending",
+      timestamp: r.created_at || r.timestamp || new Date().toISOString(),
+      teamName: r.teamName||"", category: r.category, paymentProofUrl: r.paymentProof||"",
+      data: { player1: pa(pget(r,0), r.photo1, r.ktp1), player2: pa(pget(r,1), r.photo2, r.ktp2),
+        category: r.category, level: cat.level||"", categoryLabel: cat.label||"",
+        teamName: r.teamName||"", answers: r.answers||{} }
+    };
+  }
+
+  function appealOpenNow(s){
+    var iso = s.config && s.config.timeline && s.config.timeline.appealDeadlineISO;
+    if(!iso) return true;
+    var t = Date.parse(iso);
+    return isNaN(t) ? true : (Date.now() < t);
+  }
+
+  // Public roster (reg/roster) — approved-ish pairs grouped by category.
+  function rosterPayload(s){
+    var cats = (s.categories||[]).map(function(c){
+      var pairs = (s.registrations||[]).filter(function(r){
+        return r.category===c.tournamentId && r.status!=="rejected" && r.status!=="cancelled";
+      }).map(function(r){
+        var p1 = pget(r,0), p2 = pget(r,1);
+        return { regId:r.reg_id,
+          p1:{ name:p1.name, ig:p1.ig, region:p1.region, photoUrl:r.photo1||"" },
+          p2:{ name:p2.name, ig:p2.ig, region:p2.region, photoUrl:r.photo2||"" } };
+      });
+      return { tournamentId:c.tournamentId, label:c.label, level:c.level, fee:c.fee, pairs:pairs };
+    });
+    return { name:(s.event||{}).name, appealOpen:appealOpenNow(s),
+      appealDeadline:(s.config && s.config.timeline && s.config.timeline.appealDeadline) || "",
+      categories:cats };
+  }
+
+  function appealList(s){
+    return (s.appeals||[]).map(function(a){
+      var reg = (s.registrations||[]).find(function(r){ return r.reg_id===a.againstRegId; });
+      var players = [];
+      if(reg) (reg.players||[]).forEach(function(p){ players.push({ name:p.name, phone:p.phone, elo:p.seedElo, tier:p.tier }); });
+      return { appealId:a.appealId, category:a.category, againstRegId:a.againstRegId, againstLabel:a.againstLabel,
+        appellantName:a.appellantName, appellantEmail:a.appellantEmail, appellantPhone:a.appellantPhone||"",
+        reason:a.reason, proofUrl:a.proofUrl||"", proofUrl2:a.proofUrl2||"", createdAt:a.createdAt,
+        status:a.status||"baru", decision:a.decision||"", decidedAt:a.decidedAt||"", note:a.note||"", players:players };
+    });
+  }
+
+  function activeRegCount(s){
+    return (s.registrations||[]).filter(function(r){ return r.status!=="rejected" && r.status!=="cancelled"; }).length;
+  }
+
   // ---------- router ----------
-  // path is the part AFTER /api/ , without query string. Returns {status,data}.
-  function handle(method, path, body){
+  // `rest` is everything after /api/ (may include ?query). Returns {status,data}.
+  function handle(method, rest, body){
     method = (method||"GET").toUpperCase();
     body = body || {};
     var s = load();
+
+    // Split path and query.
+    var path = String(rest||""), query = {};
+    var qi = path.indexOf("?");
+    if(qi >= 0){
+      try{ new URLSearchParams(path.slice(qi+1)).forEach(function(v,k){ query[k]=v; }); }catch(e){}
+      path = path.slice(0, qi);
+    }
+    var seg = path.split("/");
+
+    // ---- auth (sim always grants superadmin) ----
+    if(method==="POST" && path==="auth/login"){
+      return { status:200, data:{ token:"SIM_TOKEN", role:"superadmin", username: body.username || "Panitia Sim", venue:"" } };
+    }
 
     if(method==="GET" && path==="tournament/events"){
       return { status:200, data:{ events: s && s.event ? [s.event] : [] } };
@@ -162,7 +240,8 @@
       if(!s || !s.event) return { status:404, data:{ error:"Pendaftaran belum tersedia." } };
       return { status:200, data: publicPayload(s) };
     }
-    // Dedup / account lookup — the simulation treats every fictional name as new.
+
+    // ---- registration (daftar) ----
     if(method==="POST" && path==="reg/check-player") return { status:200, data:{ found:false, candidates:[] } };
     if(method==="POST" && path==="reg/lookup-email") return { status:200, data:{ found:false } };
     if(method==="POST" && path==="reg/profile/basic") return { status:200, data:{ profile:null } };
@@ -180,10 +259,96 @@
         photo1: body.photo1||"", photo2: body.photo2||"",
         ktp1: body.ktp1||"", ktp2: body.ktp2||"", paymentProof: body.paymentProof||""
       };
-      var cat = (s.categories||[]).find(function(c){ return c.tournamentId===reg.category; });
-      var waitlist = !!(cat && cat.quota>0 && filledFor(s, reg.category) >= cat.quota);
+      var rcat = catOf(s, reg.category);
+      var waitlist = !!(rcat.quota>0 && filledFor(s, reg.category) >= rcat.quota);
       s.registrations.push(reg); save(s);
       return { status:200, data:{ success:true, regId:reg.reg_id, waitlist:waitlist } };
+    }
+
+    // ---- payment (bayar) ----
+    if(method==="GET" && /^reg\/pay-info\//.test(path)){
+      if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      var pr = (s.registrations||[]).find(function(r){ return r.reg_id===query.r; }) || (s.registrations||[])[0];
+      if(!pr) return { status:404, data:{ error:"Pendaftaran tidak ditemukan." } };
+      var pc = catOf(s, pr.category);
+      return { status:200, data:{ theme:(s.config||{}).theme||"", status:pr.status||"pending",
+        team: pr.teamName || ((pget(pr,0).name||"")+" & "+(pget(pr,1).name||"")),
+        category: pc.label || "", eventName:(s.event||{}).name || "",
+        fee: pc.fee!=null?pc.fee:150000, account:"BCA 1234567890 a.n. Panitia Sim (demo)" } };
+    }
+    if(method==="POST" && path==="reg/pay"){
+      if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      var payreg = (s.registrations||[]).find(function(r){ return r.reg_id===body.regId; });
+      if(payreg){ payreg.paymentProof = body.proof || payreg.paymentProof || PLACEHOLDER_IMG; payreg.status = "received"; save(s); }
+      return { status:200, data:{ success:true } };
+    }
+
+    // ---- roster (public) ----
+    if(method==="GET" && /^reg\/roster\//.test(path)){
+      if(!s || !s.event) return { status:404, data:{ error:"Roster belum tersedia." } };
+      return { status:200, data: rosterPayload(s) };
+    }
+
+    // ---- curation / admin ----
+    if(method==="GET" && /^reg\/event\/[^/]+\/registrations$/.test(path)){
+      if(!s) return { status:200, data:{ registrations:[] } };
+      return { status:200, data:{ registrations: (s.registrations||[]).map(function(r){ return adminReg(s, r); }) } };
+    }
+    if(method==="POST" && /^reg\/event\/[^/]+\/approve$/.test(path)){
+      if(s){ var ar=(s.registrations||[]).find(function(r){return r.reg_id===body.regId;}); if(ar){ ar.status="approved"; save(s); } }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="POST" && /^reg\/event\/[^/]+\/reject$/.test(path)){
+      if(s){ var rr=(s.registrations||[]).find(function(r){return r.reg_id===body.regId;}); if(rr){ rr.status="rejected"; save(s); } }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="POST" && /^reg\/event\/[^/]+\/delete-reg$/.test(path)){
+      if(s){ s.registrations=(s.registrations||[]).filter(function(r){return r.reg_id!==body.regId;}); save(s); }
+      return { status:200, data:{ success:true } };
+    }
+
+    // ---- appeal window + blast ----
+    if(method==="POST" && /^reg\/event\/[^/]+\/appeal-deadline$/.test(path)){
+      if(s){ s.config = s.config||{}; s.config.timeline = s.config.timeline||{};
+        s.config.timeline.appealDeadlineISO = body.iso || "";
+        s.config.timeline.appealDeadline = body.iso ? new Date(body.iso).toLocaleString("id-ID") : "";
+        save(s); }
+      return { status:200, data:{ success:true, appealOpen: s?appealOpenNow(s):true } };
+    }
+    if(method==="POST" && /^reg\/event\/[^/]+\/roster-blast$/.test(path)){
+      var n = s ? activeRegCount(s) : 0;
+      return { status:200, data:{ success:true, sent:n, recipients:n } };
+    }
+
+    // ---- appeals ----
+    if(method==="GET" && /^reg\/event\/[^/]+\/appeals$/.test(path)){
+      if(!s) return { status:200, data:{ appeals:[] } };
+      return { status:200, data:{ appeals: appealList(s), count:(s.appeals||[]).length } };
+    }
+    if(method==="POST" && path==="reg/appeal"){
+      if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      s.appeals = s.appeals || [];
+      var ap = {
+        appealId: "APL_"+Date.now()+"_"+Math.floor(rnd()*100000),
+        category: body.category || "", againstRegId: body.againstRegId || "",
+        againstLabel: body.againstLabel || "", appellantName: body.appellantName || "",
+        appellantEmail: body.appellantEmail || "", appellantPhone: "",
+        reason: body.reason || "", proofUrl: body.proof || "", proofUrl2: body.proof2 || "",
+        createdAt: new Date().toISOString(), status: "baru", decision: "", decidedAt: "", note: ""
+      };
+      s.appeals.push(ap); save(s);
+      return { status:200, data:{ success:true, appealId:ap.appealId } };
+    }
+    if(method==="POST" && /^reg\/appeal\/[^/]+\/decision$/.test(path)){
+      if(s){ var aid=seg[2]; var a=(s.appeals||[]).find(function(x){return x.appealId===aid;});
+        if(a){ a.decision=body.decision||""; a.note=body.note||""; a.decidedAt=new Date().toISOString();
+          a.status = a.decision==="levelup" ? "levelup" : "decided"; save(s); } }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="POST" && /^reg\/appeal\/[^/]+\/apply-level$/.test(path)){
+      if(s){ var aid2=seg[2]; var a2=(s.appeals||[]).find(function(x){return x.appealId===aid2;});
+        if(a2){ a2.status="applied"; save(s); } }
+      return { status:200, data:{ success:true, applied:(body.players||[]).map(function(nm){ return { name:nm }; }) } };
     }
 
     // Unknown endpoint in sim mode — succeed quietly so the real page doesn't error.

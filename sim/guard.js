@@ -20,11 +20,23 @@
   var SIM = window.__SIM__;
   var realFetch = window.fetch ? window.fetch.bind(window) : null;
 
+  // The admin console (admin-event.html) auto-logs-in when a token is already in
+  // localStorage. Pre-seed a superadmin sim session BEFORE its script runs, so
+  // the demo lands straight in the dashboard. The sim backend accepts any token.
+  if(/\/admin(-event)?(\.html|\/|$)|\/kelola/.test(location.pathname)){
+    try{
+      localStorage.setItem("tp_admin_token", "SIM_TOKEN");
+      localStorage.setItem("tp_admin_user", "Panitia Sim");
+      localStorage.setItem("tp_admin_role", "superadmin");
+      localStorage.setItem("tp_admin_events", "");
+    }catch(e){}
+  }
+
   // ---- fetch interceptor ----
   window.fetch = function(input, init){
     try{
       var url = (typeof input === "string") ? input : (input && input.url) || "";
-      var m = /\/api\/([^?#]*)/.exec(url);
+      var m = /\/api\/(.*)/.exec(url);  // capture path AND query (?r=&t=&token=)
       if(m){
         var path = m[1];
         var method = ((init && init.method) || (typeof input !== "string" && input && input.method) || "GET");
@@ -44,8 +56,11 @@
 
   // ---- floating toolbar (built once the DOM is ready) ----
   function page(){
-    // Which engine page are we on? Phase 1 only knows "daftar".
-    if(/\/daftar(\/|$|\?)/.test(location.pathname) || /\/daftar/.test(location.pathname)) return "daftar";
+    var p = location.pathname;
+    if(/\/daftar(\.html|\/|$)/.test(p)) return "daftar";
+    if(/\/bayar(\.html|\/|$)/.test(p)) return "bayar";
+    if(/\/roster(\.html|\/|$)/.test(p)) return "roster";
+    if(/\/admin(-event)?(\.html|\/|$)|\/kelola/.test(p)) return "admin";
     return "";
   }
 
@@ -89,6 +104,42 @@
     SIM.reset(); location.reload();
   }
 
+  // bayar.html: PROOF (let) + submitPay() are top-level in that page.
+  function autoPayBayar(){
+    if(typeof submitPay !== "function"){ alert("Form pembayaran belum siap."); return; }
+    try{ PROOF = SIM.PLACEHOLDER_IMG; }catch(e){}
+    submitPay();
+  }
+
+  // roster.html: R / api() are top-level. File a fictional appeal on the first pair.
+  function autoAppealRoster(){
+    if(typeof R === "undefined" || !R.data){ alert("Roster belum siap."); return; }
+    var cat = (R.data.categories||[]).filter(function(c){ return c.tournamentId===R.cat; })[0] || (R.data.categories||[])[0] || {};
+    var pr = (cat.pairs||[])[0];
+    if(!pr){ alert("Belum ada pasangan untuk di-appeal. Daftarkan peserta dulu."); return; }
+    var g = SIM.genPlayer(cat.level || "bronze");
+    api("reg/appeal", { method:"POST", body:{
+      eventId: R.eventId, category: R.cat, againstRegId: pr.regId,
+      againstLabel: (pr.p1.name+" + "+pr.p2.name)+" — di-appeal: "+pr.p1.name,
+      targetPlayer: "p1", targetNames: pr.p1.name,
+      appellantName: g.name, appellantEmail: g.email,
+      reason: "Diduga bermain di atas level kategori (sandbagging).",
+      proof: SIM.PLACEHOLDER_IMG, proof2: ""
+    }}).then(function(){ alert("Appeal fiktif terkirim thd "+pr.p1.name+". Buka tahap Panitia untuk memutuskan."); })
+       .catch(function(e){ alert("Gagal: "+(e&&e.message||e)); });
+  }
+
+  // admin-event.html: approve every waiting registration in one go.
+  function approveAllAdmin(){
+    var st = SIM.load(); if(!st){ return; }
+    var pend = (st.registrations||[]).filter(function(r){ return r.status!=="approved" && r.status!=="rejected" && r.status!=="cancelled"; });
+    if(!pend.length){ alert("Tidak ada pendaftar yang menunggu approval."); return; }
+    pend.forEach(function(r){ r.status = "approved"; });
+    SIM.save(st);
+    if(typeof loadRegs === "function") loadRegs();
+    alert(pend.length + " pendaftar di-approve.");
+  }
+
   function buildToolbar(){
     if(document.getElementById("simBar")) return;
     var bar = document.createElement("div");
@@ -101,15 +152,23 @@
     var btn = function(id,label){ return '<button id="'+id+'" style="border:0;border-radius:8px;padding:8px 12px;cursor:pointer;font:700 12px system-ui,sans-serif;background:#FF5722;color:#fff">'+label+'</button>'; };
     var ghost = function(id,label){ return '<button id="'+id+'" style="border:1px solid #334155;border-radius:8px;padding:8px 12px;cursor:pointer;font:700 12px system-ui,sans-serif;background:transparent;color:#cbd5e1">'+label+'</button>'; };
     var p = page();
-    bar.innerHTML = tag +
-      (p==="daftar" ? btn("simFill","🎲 Auto-isi formulir") + ghost("simBulk","➕ Daftarkan N pasangan") : "") +
+    var actions = "";
+    if(p==="daftar") actions = btn("simFill","🎲 Auto-isi formulir") + ghost("simBulk","➕ Daftarkan N pasangan");
+    else if(p==="bayar") actions = btn("simPay","🎲 Auto-kirim bukti bayar");
+    else if(p==="roster") actions = btn("simAppeal","⚑ Auto-ajukan appeal") + ghost("simBulk","➕ Daftarkan N pasangan");
+    else if(p==="admin") actions = btn("simApprove","✔ Approve semua pendaftar");
+    bar.innerHTML = tag + actions +
       ghost("simReset","♻ Reset data") +
       '<span style="margin-left:auto;color:#94a3b8;font-weight:500">Mode simulasi — tak ada data yang ditulis ke server</span>';
     document.body.appendChild(bar);
     document.body.style.paddingBottom = "64px";
-    var f = document.getElementById("simFill"); if(f) f.onclick = autofillDaftar;
-    var b = document.getElementById("simBulk"); if(b) b.onclick = bulkRegister;
-    var r = document.getElementById("simReset"); if(r) r.onclick = resetSim;
+    var wire = function(id, fn){ var el = document.getElementById(id); if(el) el.onclick = fn; };
+    wire("simFill", autofillDaftar);
+    wire("simBulk", bulkRegister);
+    wire("simPay", autoPayBayar);
+    wire("simAppeal", autoAppealRoster);
+    wire("simApprove", approveAllAdmin);
+    wire("simReset", resetSim);
   }
 
   if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", buildToolbar);
