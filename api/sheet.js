@@ -7333,15 +7333,20 @@ async function regPassportResolve(params) {
   const dest = `https://trekkr.online/player/${encodeURIComponent(canonical || name)}`;
   return respond(302, { redirect: dest }, { Location: dest });
 }
-// Admin reject: mark a registration "rejected" (removed from the public roster).
+// Admin "reject" = move to the waiting list (NOT a permanent decline). The pair
+// leaves the public roster (regRoster excludes "waitlist") and frees its slot
+// (regCategoryCounts does not count "waitlist" as filled), but stays visible in
+// the admin participant list under the waiting-list section. Any payment proof is
+// kept, so a paid pair bumped here still shows "sudah bayar". Permanent removal is
+// Delete only. No email is sent (same as before).
 async function regRejectRegistration(eventId, body, params) {
   if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const formId = regFormIdForEvent(eventId);
   const { ri } = await regFindRegRow(sheets, formId, String((body && body.regId) || "").trim());
   if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
-  await regUpdateRegStatus(sheets, ri, "rejected");
-  return respond(200, { success: true, status: "rejected" });
+  await regUpdateRegStatus(sheets, ri, "waitlist");
+  return respond(200, { success: true, status: "waitlist" });
 }
 // Admin hard-delete: permanently remove a registration row.
 async function regDeleteRegistration(eventId, body, params) {

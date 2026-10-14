@@ -373,17 +373,18 @@ async function loadCategories(){
     const d=await api("reg/public/"+encodeURIComponent(EVENT.eventId));
     const cats=(d&&d.categories)||[];
     if(!cats.length){ host.innerHTML='<p class="muted">Belum ada kategori / formulir pendaftaran.</p>'; return; }
-    host.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Kategori</th><th>Terisi</th><th>Kuota</th><th>Status</th></tr></thead><tbody>`+
+    // Kolom terpisah agar tiap angka jelas maknanya:
+    //  Pending  = sudah daftar + bayar, belum di-approve admin
+    //  Approved = roster final
+    //  Status   = penuh / sisa slot (dihitung dari Pending + Approved yang mengunci slot)
+    //  Waiting list = daftar saat kuota penuh (belum bayar) + tim yang dipindah dari roster
+    host.innerHTML=`<div class="tbl-wrap"><table><thead><tr><th>Kategori</th><th>Pending</th><th>Approved</th><th>Kuota</th><th>Status</th><th>Waiting list</th></tr></thead><tbody>`+
       cats.map(c=>{ const filled=c.filled||0, quota=c.quota||0, approved=c.approved||0, waitlist=c.waitlist||0;
         const pending=Math.max(0, filled-approved); const full=quota>0&&filled>=quota;
         const st= quota? (full?'<span class="chip bad">penuh</span>':'<span class="chip ok">'+(quota-filled)+' slot</span>') : '<span class="chip">tanpa kuota</span>';
-        // "Terisi" = slot terpakai (approved + pending). Rinci agar tidak rancu dengan
-        // daftar Approved di bawah: pending = sudah daftar, belum di-approve admin.
-        const bd=[]; if(approved) bd.push(approved+' approved');
-        if(pending) bd.push(`<span style="color:#B45309;font-weight:700">${pending} pending</span>`);
-        if(waitlist) bd.push(waitlist+' waitlist');
-        const sub=(pending||waitlist)?`<div style="font-size:11px;font-weight:600;color:#64748B;margin-top:3px;line-height:1.3">${bd.join(' · ')}</div>`:'';
-        return `<tr><td><b>${esc(catLabel(c.label||c.category))}</b>${c.level?' · '+esc(levelLabel(c.level)):''}</td><td class="mono"><b>${filled}</b>${sub}</td><td class="mono">${quota||'—'}</td><td>${st}</td></tr>`; }).join("")+
+        const pend = pending?`<b style="color:#B45309">${pending}</b>`:'<span class="muted">0</span>';
+        const wl = waitlist?`<b style="color:#1E40AF">${waitlist}</b>`:'<span class="muted">0</span>';
+        return `<tr><td><b>${esc(catLabel(c.label||c.category))}</b>${c.level?' · '+esc(levelLabel(c.level)):''}</td><td class="mono">${pend}</td><td class="mono"><b>${approved}</b></td><td class="mono">${quota||'—'}</td><td>${st}</td><td class="mono">${wl}</td></tr>`; }).join("")+
       `</tbody></table></div>`;
     renderAppealDeadline((d&&d.config&&d.config.timeline)||{});
   }catch(e){ host.innerHTML=e.status===404?'<p class="muted">Belum ada formulir pendaftaran untuk event ini.</p>':('<p class="muted">Gagal memuat kategori: '+esc(e.message)+'</p>'); renderAppealDeadline({}); }
@@ -577,7 +578,7 @@ function regCard(reg){
   const phoneRow=phone?`<div class="note" style="margin-top:10px">HP Pemain 1: <a href="#" onclick="copyText(event,'${esc(phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(phone)} ⧉</a></div>`:'';
   const acts=[];
   if(reg.status!=="approved") acts.push(`<button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>`);
-  if(reg.status!=="rejected") acts.push(`<button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">✕ Reject</button>`);
+  if(reg.status!=="waitlist") acts.push(`<button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">↓ Pindah ke waiting list</button>`);
   acts.push(`<button class="btn ghost sm danger" onclick="deleteReg('${esc(reg.regId)}')">🗑 Delete</button>`);
   // Info: kategori + jawaban form eligibility (Q1 lama bermain, Q2 prestasi).
   const ans=d.answers||{};
@@ -630,7 +631,7 @@ async function loadRegs(){
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
     host.innerHTML =
       regSection("⏳ Pending — sudah bayar, menunggu approval", pending, "Tidak ada yang menunggu approval.") +
-      (waitlistL.length?regSection("📋 Waitlist — kuota penuh, belum bayar", waitlistL, ""):"") +
+      (waitlistL.length?regSection("📋 Waiting list — di luar roster (daftar saat penuh / dipindah)", waitlistL, ""):"") +
       regSection("✅ Approved players", approved, "Belum ada yang di-approve.") +
       (closed.length?regSection("✕ Ditolak / batal", closed, ""):"");
   }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
@@ -735,7 +736,7 @@ async function approveReg(regId){
   }catch(e){ alert("Gagal approve: "+((e&&e.message)||e)); }
 }
 async function rejectReg(regId){
-  if(!confirm("Tolak pendaftaran ini? Peserta tidak akan tampil di daftar pemain.")) return;
+  if(!confirm("Pindahkan ke waiting list? Tim keluar dari roster & slotnya dibuka kembali, tapi tetap ada di daftar peserta (tanpa email). Untuk menghapus permanen, pakai Delete.")) return;
   try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/reject",{method:"POST",body:{token:TOKEN,regId}});
     await loadRegs(); if(typeof loadCategories==="function") loadCategories();
   }catch(e){ alert("Gagal reject: "+((e&&e.message)||e)); }
