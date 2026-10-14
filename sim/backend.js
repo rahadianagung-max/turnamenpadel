@@ -488,6 +488,26 @@
     }
   }
 
+  // Approve every waiting registration and file one sample appeal (curation step).
+  function autoCurate(s){
+    s = s || load(); if(!s) return;
+    (s.registrations||[]).forEach(function(r){ if(r.status!=="rejected" && r.status!=="cancelled") r.status="approved"; });
+    s.appeals = s.appeals || [];
+    if(!s.appeals.length){
+      var reg = (s.registrations||[])[0];
+      if(reg){
+        var p1 = pget(reg,0), p2 = pget(reg,1);
+        var g = genPlayer((catOf(s, reg.category)||{}).level || "bronze");
+        s.appeals.push({ appealId:"APL_"+Date.now()+"_"+Math.floor(rnd()*100000), category:reg.category,
+          againstRegId:reg.reg_id, againstLabel:((p1.name||"")+" + "+(p2.name||""))+" — di-appeal: "+(p1.name||""),
+          appellantName:g.name, appellantEmail:g.email, appellantPhone:"",
+          reason:"Diduga bermain di atas level kategori (sandbagging).", proofUrl:PLACEHOLDER_IMG, proofUrl2:"",
+          createdAt:new Date().toISOString(), status:"baru", decision:"", decidedAt:"", note:"" });
+      }
+    }
+    save(s);
+  }
+
   // Run the whole event to completion: schedule -> score groups -> build + play playoff.
   function ensureFinished(s){
     s = s || load(); if(!s) return;
@@ -831,7 +851,7 @@
     LEVEL_ELO: LEVEL_ELO, LEVEL_LABEL: LEVEL_LABEL,
     load: load, save: save, reset: reset, seedEvent: seedEvent,
     autoRegister: autoRegister, genPlayer: genPlayer, genPair: genPair,
-    ensureSchedule: ensureSchedule, autoScore: autoScoreAll, ensureFinished: ensureFinished,
+    ensureSchedule: ensureSchedule, autoScore: autoScoreAll, autoCurate: autoCurate, ensureFinished: ensureFinished,
     handle: handle
   };
 })();

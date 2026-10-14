@@ -329,6 +329,30 @@ textarea#lfNotes:focus{border-color:var(--orange)}
 .simrow .acts button{background:var(--panel2);border:1px solid var(--line);color:var(--orange);border-radius:8px;padding:8px 12px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:12.5px;cursor:pointer;transition:.15s}
 .simrow .acts button:hover{border-color:var(--orange)}
 .simrow .acts button.alt{color:var(--text)}
+
+/* ---- Single-flow wizard ---- */
+.wsteps{display:flex;gap:6px;overflow-x:auto;padding:2px 0 10px;margin-bottom:14px}
+.wstep{flex:0 0 auto;display:flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);border-radius:100px;padding:7px 12px;cursor:default;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;font-size:12px;font-weight:600}
+.wstep .n{width:20px;height:20px;border-radius:50%;background:var(--panel2);display:grid;place-items:center;font-size:11px;font-weight:800;color:var(--muted)}
+.wstep.on{border-color:var(--orange);color:var(--text)}
+.wstep.on .n{background:var(--orange);color:#fff}
+.wstep.done{cursor:pointer}
+.wstep.done .n{background:var(--green);color:#fff}
+.wcardbody{padding:20px}
+.weyebrow{font-family:'Plus Jakarta Sans',sans-serif;text-transform:uppercase;letter-spacing:.12em;font-size:11px;font-weight:700;color:var(--orange)}
+.wtitle{font-size:22px;font-weight:800;margin:6px 0 6px}
+.wdesc{font-size:13.5px;color:var(--muted);line-height:1.55;margin:0 0 16px}
+.wform{margin-bottom:8px}
+.wacts{display:flex;flex-direction:column;gap:9px}
+.wact{width:100%;background:var(--orange);color:#fff;border:0;border-radius:11px;padding:14px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:15px;cursor:pointer;transition:.15s}
+.wact:hover{filter:brightness(1.07)}
+.wact.alt{background:var(--panel2);border:1px solid var(--line);color:var(--text)}
+.wact.alt:hover{border-color:var(--orange)}
+.wnav{display:flex;justify-content:space-between;gap:10px;margin-top:16px}
+.wback,.wskip{background:none;border:0;color:var(--muted);font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:13px;cursor:pointer;padding:6px 2px}
+.wback:hover,.wskip:hover{color:var(--orange)}
+.wmsg{font-size:12.5px;color:var(--green);text-align:center;margin-top:10px;min-height:16px}
+
 </style>
 </head>
 <body>
@@ -352,1021 +376,181 @@ textarea#lfNotes:focus{border-color:var(--orange)}
       <div class="brand"><span class="brand-dot"></span><b>TurnamenPadel</b></div>
       <div class="whoami" id="whoami"></div>
     </div>
-    <h1>Tournament <em>Simulator</em></h1>
-    <div class="sub">Plan, feel it, then make it real — format, schedule, and a live preview of the player &amp; TV screens.</div>
+    <h1>Simulasi <em>Turnamen</em></h1>
+    <div class="sub">Satu alur, dari menentukan kategori sampai juara. Tiap langkah bisa dicoba sendiri, diisi otomatis, atau dilewati — memakai pemain contoh, tanpa menulis apa pun ke server.</div>
   </header>
 
-  <!-- FULL SIMULATION (beta) — runs the real engine pages against an in-browser
-       mock backend with fictional players. Phase 1: Registration (daftar). -->
-  <details class="adv" id="fullSim" open style="margin-bottom:16px">
-    <summary>🎬 Coba simulasi turnamen <span style="color:var(--amber);font-size:10px;letter-spacing:.1em">BETA</span></summary>
-    <div class="advbody">
-      <p class="seghelp" style="margin-bottom:12px">Rasakan seluruh proses TurnamenPadel dengan pemain contoh — dari pendaftaran sampai juara. Tidak ada data yang ditulis ke server.</p>
+  <div class="wsteps" id="wsteps"></div>
+  <div id="wcard"></div>
 
-      <button class="cta" id="fsFinish">⚡ Jalankan otomatis — lihat turnamen sampai juara</button>
-      <p class="seghelp" style="text-align:center;margin:6px 2px 2px">Satu klik menjalankan semua tahap, lalu membuka layar TV berisi juara &amp; klasemen.</p>
-
-      <details class="adv" style="margin:14px 0 0">
-        <summary>Pengaturan (opsional)</summary>
-        <div class="advbody">
-          <label class="f"><span>Nama event</span><input type="text" id="fsName" value="Padel Sim Cup"></label>
-          <div class="advgrid">
-            <label class="f"><span>Level</span>
-              <select id="fsLevel" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px">
-                <option value="open">Open</option><option value="beginner">Beginner</option>
-                <option value="upper_beginner">Upper Beginner</option><option value="lower_bronze">Lower Bronze</option>
-                <option value="bronze" selected>Bronze</option><option value="upper_bronze">Upper Bronze</option>
-                <option value="silver">Silver</option><option value="gold">Gold</option><option value="platinum">Platinum</option>
-              </select></label>
-            <label class="f"><span>Jumlah pasangan</span><input type="number" id="fsQuota" value="16" min="2" max="64"></label>
-          </div>
-          <div class="switch"><span>Sembunyikan halaman "A few quick questions"</span><input type="checkbox" id="fsHideElig"></div>
-          <div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="fsHideQuota"></div>
-          <div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="fsNight"></div>
-          <button class="cta sec" id="fsSeed" style="margin-top:10px">Terapkan &amp; buat ulang turnamen contoh</button>
-        </div>
-      </details>
-
-      <div style="border-top:1px solid var(--line);margin:16px 0 10px"></div>
-      <div class="flabel" style="margin-bottom:8px">Atau coba sendiri, tahap demi tahap</div>
-
-      <div class="simflow">
-        <div class="simrow"><div class="num">1</div><div class="body">
-          <div class="t">Pendaftaran</div><div class="d">Peserta mengisi form pendaftaran ganda.</div>
-          <div class="acts"><button id="fsDaftar">Buka form daftar</button><button class="alt" id="fsBulk">Isi 8 peserta otomatis</button></div></div></div>
-        <div class="simrow"><div class="num">2</div><div class="body">
-          <div class="t">Pembayaran</div><div class="d">Peserta mengunggah bukti transfer.</div>
-          <div class="acts"><button id="fsBayar">Buka halaman bayar</button></div></div></div>
-        <div class="simrow"><div class="num">3</div><div class="body">
-          <div class="t">Kurasi &amp; Appeal</div><div class="d">Peserta meninjau roster &amp; mengajukan banding; panitia menyetujui, menolak, atau koreksi level.</div>
-          <div class="acts"><button id="fsRoster">Sisi peserta (roster)</button><button class="alt" id="fsAdmin">Sisi panitia</button></div></div></div>
-        <div class="simrow"><div class="num">4</div><div class="body">
-          <div class="t">Undian &amp; Jadwal</div><div class="d">Panitia membagi grup dan membuat jadwal di engine.</div>
-          <div class="acts"><button id="fsEngine">Buka engine</button></div></div></div>
-        <div class="simrow"><div class="num">5</div><div class="body">
-          <div class="t">Pertandingan &amp; Skor</div><div class="d">Input skor tiap match; langsung tampil di layar penonton.</div>
-          <div class="acts"><button id="fsScorer">Meja skor</button><button class="alt" id="fsTv">Layar TV</button><button class="alt" id="fsMobile">Papan pemain</button></div></div></div>
-        <div class="simrow"><div class="num">6</div><div class="body">
-          <div class="t">Playoff &amp; Hasil</div><div class="d">Bracket gugur, juara, dan rekap ELO.</div>
-          <div class="acts"><button id="fsPlayoff">Lihat juara (TV)</button><button class="alt" id="fsRecap">Rekap ELO (engine)</button></div></div></div>
-      </div>
-
-      <p class="seghelp" id="fsMsg" style="margin-top:12px"></p>
-      <button class="cta sec" id="fsReset" style="margin-top:4px">♻ Mulai ulang (hapus data simulasi)</button>
-    </div>
-  </details>
-
-  <div class="steps" id="steps"></div>
-
-  <!-- STEP 1: SETUP -->
-  <div id="S1">
-    <div class="card">
-      <h2>What do you know?</h2>
-      <div class="unit" id="modeSeg" style="grid-template-columns:1fr 1fr">
-        <button type="button" data-mode="players" aria-pressed="true">My participants</button>
-        <button type="button" data-mode="capacity" aria-pressed="false">My courts &amp; time</button>
-      </div>
-      <div class="seghelp" id="modeHelp">You know how many pairs will play — we plan the schedule and courts.</div>
-    </div>
-
-    <div class="card">
-      <h2>Number of categories</h2>
-      <div class="hint">e.g. Men's, Women's, Mixed…</div>
-      <div class="stepper">
-        <button type="button" data-step="catCount" data-d="-1">−</button>
-        <input type="number" id="catCount" value="1" min="1" max="6">
-        <button type="button" data-step="catCount" data-d="1">+</button>
-      </div>
-      <div class="seghelp" id="catHelp"></div>
-    </div>
-
-    <div class="card" id="cardPairs">
-      <h2>Pairs per category</h2>
-      <div class="hint" id="pairsHint">How many pairs (teams) are you planning for?</div>
-      <div id="pairsBody"></div>
-      <div class="seghelp" id="pHelp"></div>
-    </div>
-
-    <div class="card" id="cardCap" style="display:none">
-      <h2>Courts &amp; time available</h2>
-      <div class="hint">We recommend the most pairs that fit in your window.</div>
-      <div class="grid2">
-        <label class="f"><span>Courts</span>
-          <div class="stepper"><button type="button" data-step="capCourts" data-d="-1">−</button><input type="number" id="capCourts" value="6" min="1" max="12"><button type="button" data-step="capCourts" data-d="1">+</button></div>
-        </label>
-        <label class="f"><span>Hours available</span>
-          <div class="stepper"><button type="button" data-step="capHours" data-d="-1">−</button><input type="number" id="capHours" value="12" min="2" max="24" step="0.5"><button type="button" data-step="capHours" data-d="1">+</button></div>
-        </label>
-      </div>
-      <div class="seghelp" id="capHelp"></div>
-    </div>
-
-    <div class="card" id="cardFmt">
-      <h2>Tournament format</h2>
-      <div class="hint">Your priority — this drives how groups are split.</div>
-      <div class="fmtctrl" id="fmtCtrl"></div>
-    </div>
-
-    <div class="card">
-      <h2>Schedule &amp; location</h2>
-      <div class="grid2">
-        <label class="f"><span>Tournament start time</span><input type="text" id="evStart" value="08:00" placeholder="08:00" inputmode="numeric"></label>
-        <label class="f"><span>Tournament date</span><input type="text" id="evDate" placeholder="12 Jul 2026"></label>
-      </div>
-      <label class="f"><span>Location (city)</span><input type="text" id="evCity" placeholder="Jakarta"></label>
-    </div>
-
-    <div class="card">
-      <h2>Options</h2>
-      <div class="switch"><span>3rd-place playoff (parallel with the finals)</span><input type="checkbox" id="opt3rd" checked></div>
-      <div class="switch"><span>Lock number of pairs (keep as entered, even if it creates byes)</span><input type="checkbox" id="optLock"></div>
-      <div class="switch"><span>Finals run simultaneously across categories <small style="color:var(--muted)">(turn off → one category at a time to podium)</small></span><input type="checkbox" id="optFinalSeq" checked></div>
-    </div>
-
-    <details class="adv" id="advPanel">
-      <summary>Advanced timing</summary>
-      <div class="advbody">
-        <div class="advgrid">
-          <label class="f"><span>Group match (min)</span><input type="number" id="mGroup" value="15" min="5" max="60"></label>
-          <label class="f"><span>Playoff match (min)</span><input type="number" id="mPlayoff" value="30" min="5" max="60"></label>
-          <label class="f"><span>Final (min)</span><input type="number" id="mFinal" value="30" min="5" max="90"></label>
-          <label class="f"><span>Court change (min)</span><input type="number" id="mChange" value="1" min="0" max="10"></label>
-          <label class="f"><span>Break between rounds (min)</span><input type="number" id="mBreak" value="3" min="0" max="30"></label>
-          <label class="f"><span>Opening (min)</span><input type="number" id="mOpen" value="15" min="0" max="60"></label>
-          <label class="f"><span>Awarding (min)</span><input type="number" id="mAward" value="15" min="0" max="45"></label>
-          <label class="f"><span>Safety buffer (min)</span><input type="number" id="mBuffer" value="10" min="0" max="60"></label>
-        </div>
-        <p class="seghelp">Groups hold 4–7 pairs. Top 2 of each group advance to the playoff — same as the live engine.</p>
-      </div>
-    </details>
-
-    <button class="cta" id="toCourts">Next — Courts</button>
-    <button class="cta" id="toResultCap" style="display:none">See recommendation</button>
-  </div>
-
-  <!-- STEP 2: COURTS -->
-  <div id="S2" style="display:none">
-    <button class="back" id="backS1">← Edit setup</button>
-    <div class="card">
-      <h2>Number of courts</h2>
-      <div class="hint" id="courtsHint">How many courts do you have available?</div>
-      <div class="stepper">
-        <button type="button" data-step="courts" data-d="-1">−</button>
-        <input type="number" id="courts" value="3" min="1" max="12">
-        <button type="button" data-step="courts" data-d="1">+</button>
-      </div>
-    </div>
-    <button class="cta" id="toResult">See result</button>
-  </div>
-
-  <!-- STEP 3: RESULT -->
-  <div id="S3" style="display:none"></div>
-
-  <!-- STEP 4: SIMULATION -->
-  <div id="S4" style="display:none"></div>
-
-  <footer>Tournament Simulator<br>TurnamenPadel — part of the SportsActvd ecosystem</footer>
+  <footer>Simulasi Turnamen · TurnamenPadel — bagian dari ekosistem SportsActvd</footer>
 </div>
-
-<div class="overlay" id="ov"><div class="sheet" id="ovBody"></div></div>
 
 <div class="viewer" id="viewer">
-  <div class="vbar"><button class="vback" id="vBack">← Back to simulation</button><b id="vTitle">Preview</b><span class="vnote">Best viewed on a TV or desktop screen.</span></div>
-  <iframe id="vFrame" title="Preview"></iframe>
+  <div class="vbar"><button class="vback" id="vBack">← Kembali ke simulasi</button><b id="vTitle">Pratinjau</b><span class="vnote">Paling nyaman dilihat di layar TV atau desktop.</span></div>
+  <iframe id="vFrame" title="Pratinjau"></iframe>
 </div>
 
-<script>
-"use strict";
-
-var R = { mGroup:15, mPlayoff:30, mFinal:30, mChange:1, mBreak:3, mOpen:15, mAward:15, buffer:10, third:true, lockInput:false, finalSeq:false, preferClean:false };
-var EVENT = { start:"08:00", date:"", venue:"", city:"" };
-var GMIN=4, GMAX=7, CMIN=2, CMAX=8, KMAX=6;
-
-var USER={name:"",email:""};
-/* Lead capture → backend (fire-and-forget; never blocks or breaks the UI). */
-var API = (location.protocol.indexOf("http")===0) ? "/api" : "https://www.turnamenpadel.com/api";
-var LEAD_ID = "";
-function newLeadId(){ try{ return crypto.randomUUID(); }catch(e){ return "cl-"+Date.now()+"-"+Math.random().toString(16).slice(2); } }
-function postLead(path, body){
-  try{
-    fetch(API+"/"+path, { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(body||{}), keepalive:true })
-      .catch(function(e){ console.error("lead post failed", e); });
-  }catch(e){ console.error("lead post failed", e); }
-}
-var UNIT="pair";
-var A={ step:1, total:0, fmt:"balanced", k:0, sizes:null, adjTotal:0, courts:0, rate:300000 };
-var B={ step:1, courts:4, hours:10, fmt:"balanced", pick:null, rate:300000 };
-var LAST=null;
-
-var FORMATS=[
-  {id:"fast",    t:"Fast",     d:"Small groups (size 4), fewest matches, shortest event."},
-  {id:"balanced",t:"Balanced", d:"Mixed groups of 4–6. A compromise between duration and matches played. Our recommendation."},
-  {id:"fair",    t:"Fair",     d:"Large groups (size 5–7), everyone plays more, longest event."}
-];
-
-function $(id){ return document.getElementById(id); }
-function n(id){ return parseFloat($(id).value)||0; }
-function esc(s){ return String(s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
-function rp(v){ return "Rp "+Math.round(v).toLocaleString("id-ID"); }
-function hm(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h===0? mm+" min" : h+" hr"+(mm?" "+mm+" min":""); }
-function el(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+":"+(mm<10?"0":"")+mm; }
-function bigTime(m){ m=Math.round(m); var h=Math.floor(m/60),mm=m%60; return h+'<small>h</small>'+(mm<10?"0":"")+mm+'<small>m</small>'; }
-function isPow2(x){ return x>=1 && (x&(x-1))===0; }
-function pow2ceil(x){ var b=1; while(b<x) b*=2; return b; }
-function c2(x){ return x*(x-1)/2; }
-function syncR(){
-  R.mGroup=n("mGroup"); R.mPlayoff=n("mPlayoff"); R.mFinal=n("mFinal"); R.mChange=n("mChange");
-  R.mBreak=n("mBreak"); R.mOpen=n("mOpen"); R.mAward=n("mAward"); R.buffer=n("mBuffer"); R.third=$("opt3rd").checked;
-  R.lockInput=$("optLock").checked; R.finalSeq=!$("optFinalSeq").checked; /* toggle = "finals simultaneous"; finalSeq means sequential */
-  EVENT.start=($("evStart").value||"08:00").trim(); EVENT.date=($("evDate").value||"").trim();
-  EVENT.city=($("evCity").value||"").trim();
-}
-
-/* ---------- format grup ---------- */
-function groupSizes(P,g){ var b=Math.floor(P/g),r=P%g,s=[]; for(var i=0;i<g;i++) s.push(b+(i<r?1:0)); return s; }
-/* Real engine default: 2 teams advance per group (Advance/group = 2), size-independent. */
-function qualOf(sz){ return Math.min(2, sz); }
-function buildConfig(P,g){
-  var sz=groupSizes(P,g),Q=0,gm=0,par=0;
-  for(var i=0;i<sz.length;i++){ Q+=qualOf(sz[i]); gm+=c2(sz[i]); par+=Math.floor(sz[i]/2); }
-  var B2=pow2ceil(Math.max(Q,2));
-  return { g:g, sizes:sz, Q:Q, groupMatches:gm, maxPar:par, B:B2, byes:B2-Q,
-           clean:isPow2(Q)&&Q>=2, valid:Math.min.apply(null,sz)>=GMIN && Math.max.apply(null,sz)<=GMAX };
-}
-function allConfigs(P){
-  if(P<GMIN) return [];
-  var lo=Math.ceil(P/GMAX), hi=Math.floor(P/GMIN), out=[];
-  for(var g=lo;g<=hi;g++){ var c=buildConfig(P,g); if(c.valid) out.push(c); }
-  return out;
-}
-function bestConfig(P,mode){
-  var cands=allConfigs(P); if(!cands.length) return null;
-  var byMatch=cands.slice().sort(function(a,b){ return a.groupMatches-b.groupMatches; });
-  var cleanOnes=cands.filter(function(c){ return c.clean; }).sort(function(a,b){ return a.groupMatches-b.groupMatches; });
-  /* When the pair count is locked, keep it exact AND prefer a bye-free (clean) bracket. */
-  if(R.preferClean && cleanOnes.length) return cleanOnes[0];
-  if(mode==="fast") return byMatch[0];
-  if(mode==="fair") return cleanOnes.length ? cleanOnes[cleanOnes.length-1] : byMatch[byMatch.length-1];
-  if(!cleanOnes.length) return byMatch[0];
-  return (cleanOnes[0].groupMatches <= byMatch[0].groupMatches*1.35) ? cleanOnes[0] : byMatch[0];
-}
-function sizesLabel(sz){
-  var m={}; sz.forEach(function(s){ m[s]=(m[s]||0)+1; });
-  return Object.keys(m).sort(function(a,b){return b-a;}).map(function(k){ return m[k]+(m[k]>1?" groups of ":" group of ")+k; }).join(" + ");
-}
-function playoffRounds(Q){
-  if(Q<2) return [];
-  var Bp=pow2ceil(Q), r=[], adv, first=Q-Bp/2;
-  if(first>0){ r.push(first); adv=Bp/2; } else adv=Q;
-  while(adv>1){ adv=adv/2; r.push(adv); }
-  return r;
-}
-function roundName(d){ return ["Final","Semifinal","Quarterfinal","Round of 16","Round of 32","Round of 64"][d]||"Early Round"; }
-
-/* ---------- engine ---------- */
-function computeEvent(pairsList, courts, mode){
-  var info=[];
-  for(var i=0;i<pairsList.length;i++){
-    var conf=bestConfig(pairsList[i],mode); if(!conf) return null;
-    info.push({ name:"Category "+(i+1), pairs:pairsList[i], conf:conf, rounds:playoffRounds(conf.Q) });
-  }
-  var blocks=[], totalGM=0, totalPar=0, minSlots=1;
-  info.forEach(function(x){
-    totalGM+=x.conf.groupMatches; totalPar+=x.conf.maxPar;
-    minSlots=Math.max(minSlots, Math.ceil(x.conf.groupMatches/x.conf.maxPar));
-  });
-  var gPar=Math.max(1,Math.min(courts,totalPar));
-  var gSlots=Math.max(minSlots, Math.ceil(totalGM/gPar));
-  blocks.push({ key:"group", label:"Group Stage", short:"GRUP", matches:totalGM, courts:gPar,
-                slots:gSlots, dur:gSlots*(R.mGroup+R.mChange), brk:0,
-                detail:info.map(function(x){ return x.name+": "+x.conf.groupMatches; }) });
-
-  var maxDepth=0; info.forEach(function(x){ maxDepth=Math.max(maxDepth,x.rounds.length); });
-  var thirdCount=R.third ? info.filter(function(x){ return x.rounds.length>=2; }).length : 0;
-  var thirdParallel=(info.length+thirdCount)<=courts;
-
-  var sequential = R.finalSeq && info.length>1;
-  if(!sequential){
-    /* Final serempak: babak playoff kedua kategori berjalan paralel per kedalaman bracket. */
-    for(var d=maxDepth-1; d>=0; d--){
-      var m=0, det=[];
-      info.forEach(function(x){
-        var L=x.rounds.length, idx=L-1-d;
-        if(idx>=0 && idx<L && x.rounds[idx]>0){ m+=x.rounds[idx]; det.push(x.name+": "+x.rounds[idx]); }
-      });
-      if(thirdCount && d===0 && thirdParallel){ m+=thirdCount; det.push("3rd place: "+thirdCount+" (parallel)"); }
-      if(thirdCount && d===1 && !thirdParallel){ m+=thirdCount; det.push("3rd place: "+thirdCount); }
-      if(m===0) continue;
-      var md=(d===0)?R.mFinal:R.mPlayoff;
-      var par=Math.max(1,Math.min(courts,m));
-      blocks.push({ key:d===0?"final":"po", label:roundName(d), short:roundName(d).toUpperCase(),
-                    matches:m, courts:par, slots:Math.ceil(m/par),
-                    dur:Math.ceil(m/par)*(md+R.mChange), brk:R.mBreak, detail:det });
-    }
-  } else {
-    /* Kategori berurutan: satu kategori tuntas sampai podium, baru kategori berikutnya. */
-    info.forEach(function(x){
-      var L=x.rounds.length;
-      for(var ri=0; ri<L; ri++){
-        var d=L-1-ri, mm=x.rounds[ri];
-        if(mm<=0) continue;
-        var md=(d===0)?R.mFinal:R.mPlayoff;
-        var par=Math.max(1,Math.min(courts,mm));
-        blocks.push({ key:d===0?"final":"po", label:x.name+" · "+roundName(d),
-                      short:(x.name+" "+roundName(d)).toUpperCase(),
-                      matches:mm, courts:par, slots:Math.ceil(mm/par),
-                      dur:Math.ceil(mm/par)*(md+R.mChange), brk:R.mBreak, detail:[x.name+": "+mm] });
-      }
-      if(R.third && x.rounds.length>=2){
-        blocks.push({ key:"po", label:x.name+" · 3rd place", short:(x.name+" 3RD PLACE").toUpperCase(),
-                      matches:1, courts:1, slots:1, dur:(R.mPlayoff+R.mChange), brk:R.mBreak, detail:[x.name+": 1"] });
-      }
-    });
-  }
-
-  var playDur=0; blocks.forEach(function(b){ playDur+=b.brk+b.dur; });
-  var totalMinutes=R.mOpen+playDur+R.mAward+R.buffer;
-
-  var courtsInfo=[];
-  for(var k=1;k<=courts;k++){
-    var t=0,lastBusy=0;
-    blocks.forEach(function(b){ t+=b.brk+b.dur; if(b.courts>=k) lastBusy=t; });
-    var rented=lastBusy>0 ? R.mOpen+lastBusy : 0;
-    courtsInfo.push({ no:k, endMin:R.mOpen+lastBusy, hours:Math.ceil(rented/30)/2, used:lastBusy>0 });
-  }
-  return { info:info, blocks:blocks, courtsInfo:courtsInfo, playDur:playDur, totalMinutes:totalMinutes,
-           totalMatches:blocks.reduce(function(a,b){return a+b.matches;},0),
-           totalPairs:info.reduce(function(a,x){return a+x.pairs;},0),
-           courts:courts, mode:mode,
-           actualCourtHours:courtsInfo.reduce(function(a,c){return a+c.hours;},0),
-           fullCourtHours:Math.ceil(totalMinutes/30)/2*courts,
-           thirdParallel:thirdParallel, tooManyCats:info.length>courts, finalSeq:sequential };
-}
-
-/* ---------- rekomendasi ---------- */
-function evenSplit(total,k){
-  var b=Math.floor(total/k), r=total%k, s=[];
-  for(var i=0;i<k;i++) s.push(b+(i<r?1:0));
-  return s.sort(function(a,b2){ return b2-a; });
-}
-function allClean(sizes,mode){
-  return sizes.every(function(p){ var c=bestConfig(p,mode); return c && c.byes===0; });
-}
-function recommendForK(target,k,mode){
-  for(var d=0; d<=20; d++){
-    var cands = d===0 ? [target] : [target+d, target-d];
-    for(var i=0;i<cands.length;i++){
-      var tot=cands[i];
-      if(tot < GMIN*k || tot > 400) continue;
-      var sizes=evenSplit(tot,k);
-      if(Math.max.apply(null,sizes) > 40) continue;
-      if(allClean(sizes,mode)) return { k:k, total:tot, sizes:sizes, delta:tot-target };
-    }
-  }
-  return null;
-}
-/* Revisi 1 — "kunci input": pertahankan jumlah pair persis, bagi rata ke k kategori,
-   tanpa batas 40/kategori dan boleh menerima bye. */
-function exactForK(total,k,mode){
-  if(total < GMIN*k) return null;
-  var sizes=evenSplit(total,k), byes=0;
-  for(var i=0;i<sizes.length;i++){ var c=bestConfig(sizes[i],mode); if(!c) return null; byes+=c.byes; }
-  return { k:k, total:total, sizes:sizes, delta:0, byes:byes, locked:true };
-}
-function courtOptions(sizes,mode){
-  var rows=[];
-  for(var c=CMIN;c<=CMAX;c++){
-    var ev=computeEvent(sizes,c,mode);
-    if(ev) rows.push({courts:c, ev:ev});
-  }
-  return rows;
-}
-function pickCourts(rows,nCat){
-  for(var i=0;i<rows.length-1;i++){
-    var gain=rows[i].ev.totalMinutes-rows[i+1].ev.totalMinutes;
-    if(rows[i].courts>=nCat && gain<20) return rows[i].courts;
-  }
-  return CMAX;
-}
-function fmtLabel(id){ for(var i=0;i<FORMATS.length;i++) if(FORMATS[i].id===id) return FORMATS[i].t; return id; }
-
-/* ---------- komponen hasil ---------- */
-function runSheet(ev){
-  var total=ev.playDur||1;
-  var h='<div class="runsheet"><div class="rs-scale"><span>'+el(R.mOpen)+'</span><span>'+el(R.mOpen+ev.playDur)+'</span></div>';
-  for(var k=1;k<=ev.courts;k++){
-    h+='<div class="rs-row"><div class="rs-lab">Court<b>'+k+'</b></div><div class="rs-bar">';
-    ev.blocks.forEach(function(b){
-      if(b.brk>0) h+='<div class="seg brk" style="flex:'+(b.brk/total)+'"></div>';
-      if(b.courts>=k) h+='<div class="seg '+b.key+'" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.08)?esc(b.short):"")+'</div>';
-      else h+='<div class="seg free" style="flex:'+(b.dur/total)+'">'+((b.dur/total>.13)?"FREE":"")+'</div>';
-    });
-    h+='</div></div>';
-  }
-  h+='<div class="rs-peak">'+(ev.finalSeq?'↑ categories one at a time to podium — finishes at '+el(R.mOpen+ev.playDur):'↑ all finals simultaneous — event peak at '+el(R.mOpen+ev.playDur))+'</div>'+
-    '<div class="legend">'+
-    '<span><i style="background:#8A4110"></i>Group</span>'+
-    '<span><i style="background:#C25100"></i>Playoff</span>'+
-    '<span><i style="background:var(--orange)"></i>Final + 3rd place</span>'+
-    '<span><i style="background:repeating-linear-gradient(45deg,#DCFCE7,#DCFCE7 3px,#BBF7D0 3px,#BBF7D0 6px)"></i>Court free</span></div></div>';
-  return h;
-}
-/* ===== new flow state ===== */
-var ST={ step:1, mode:"players", pairs:32, K:1, courts:3, capCourts:6, capHours:12, fmt:"balanced", catPairs:[32], catNames:[""], chosen:null, rec1:null, rec2:null };
-
-/* ---------- schedule timing helpers ---------- */
-function annotateTimes(ev){
-  var t=_tmin(EVENT.start);
-  ev.startAbs=t; ev.openStart=t; t+=R.mOpen;
-  ev.groupStart=null; ev.groupEnd=null;
-  ev.blocks.forEach(function(b){
-    t+=b.brk; b.startMin=t; t+=b.dur; b.endMin=t;
-    if(b.key==="group"){ ev.groupStart=b.startMin; ev.groupEnd=b.endMin; }
-  });
-  ev.awardStart=t;
-  ev.finishMin=ev.startAbs+ev.totalMinutes;
-  return ev;
-}
-
-/* ---------- category split for fixed K ---------- */
-/* Per-category sizes: 2+ categories use the exact numbers the user typed (each may
-   differ); a single category uses the auto/adjusted split from lock state. */
-function sizesForPlan(F,lock){
-  var K=ST.K;
-  if(K>=2){
-    var s=ST.catPairs.slice(0,K), byes=0;
-    for(var i=0;i<s.length;i++){ var c=bestConfig(s[i],F); if(!c) return null; byes+=c.byes; }
-    return { sizes:s, total:s.reduce(function(a,b){return a+b;},0), adjusted:false, byes:byes };
-  }
-  var P=ST.catPairs[0]||ST.pairs;
-  if(lock){ var e=exactForK(P,1,F); return e?{sizes:e.sizes,total:P,adjusted:false,byes:e.byes}:null; }
-  var r=recommendForK(P,1,F);
-  if(r) return {sizes:r.sizes,total:r.total,adjusted:r.total!==P,byes:0};
-  var e2=exactForK(P,1,F); return e2?{sizes:e2.sizes,total:P,adjusted:false,byes:e2.byes}:null;
-}
-function makeRec(courts,F,seq,lock){
-  var savedClean=R.preferClean; R.preferClean=!!lock;
-  var sz=sizesForPlan(F,lock);
-  if(!sz){ R.preferClean=savedClean; return null; }
-  var savedSeq=R.finalSeq; R.finalSeq=seq;
-  var ev=computeEvent(sz.sizes,courts,F);
-  R.finalSeq=savedSeq; R.preferClean=savedClean;
-  if(!ev) return null;
-  annotateTimes(ev);
-  ev.info.forEach(function(x,i){ x.title=(ST.catNames[i]&&ST.catNames[i].trim())||x.name; });
-  return { P:sz.total, K:ST.K, courts:courts, fmt:F, seq:seq, lock:lock, sizes:sz.sizes,
-           adjTotal:sz.total, adjusted:sz.adjusted, byes:sz.byes||0, ev:ev, totalMinutes:ev.totalMinutes,
-           names:ST.catNames.slice(0,ST.K) };
-}
-function buildRecommendations(){
-  var C=ST.courts, F=ST.fmt, seq=R.finalSeq, lock=R.lockInput;
-  var rec1=makeRec(C,F,seq,lock);
-  if(!rec1) return { rec1:null, rec2:null };
-  var best=null;
-  ["fast","balanced","fair"].forEach(function(f2){
-    [false,true].forEach(function(s2){
-      if(f2===F && s2===seq) return;
-      var r=makeRec(C,f2,s2,lock);
-      if(!r) return;
-      if(!best || r.totalMinutes<best.totalMinutes) best=r;
-    });
-  });
-  var rec2=(best && best.totalMinutes <= rec1.totalMinutes-15) ? best : null;
-  return { rec1:rec1, rec2:rec2 };
-}
-function recDiff(a,b){
-  var parts=[];
-  if(a.fmt!==b.fmt) parts.push(fmtLabel(b.fmt)+" format");
-  if(a.seq!==b.seq) parts.push(b.seq?"finals one category at a time":"simultaneous finals");
-  return { changes:parts.join(" + ")||"a tuned schedule", save:a.totalMinutes-b.totalMinutes };
-}
-
-/* ---------- narrative / run-down ---------- */
-function narrative(rec){
-  var ev=rec.ev, P=rec.adjTotal||rec.P, K=rec.K, C=rec.courts;
-  var startS=_tstr(ev.startAbs), xd=Math.floor(ev.finishMin/1440), finishS=_tstr(ev.finishMin)+(xd>0?" +"+xd+"d":"");
-  var catWord=K>1?(K+" categories"):"1 category";
-  var seq=rec.seq && K>1;
-  var lines=[{ tm:startS, label:"<b>Opening</b>" }];
-  if(!seq){
-    var poB=ev.blocks.filter(function(b){ return b.key==="po"; });
-    var fB=ev.blocks.filter(function(b){ return b.key==="final"; });
-    lines.push({ tm:_tstr(ev.groupStart), label:"<b>Group stage</b>"+(K>1?" — all categories":"") });
-    if(poB.length) lines.push({ tm:_tstr(poB[0].startMin), label:"<b>Playoffs</b> begin" });
-    if(fB.length) lines.push({ tm:_tstr(fB[0].startMin), label:"<b>Finals</b>"+(K>1?" — all categories together":"") });
-  } else {
-    lines.push({ tm:_tstr(ev.groupStart)+"–"+_tstr(ev.groupEnd), label:"<b>Group stage</b> — all categories" });
-    ev.info.forEach(function(x,ci){
-      var bs=ev.blocks.filter(function(b){ return b.label.indexOf(x.name)===0; });
-      if(!bs.length) return;
-      var fin=bs.filter(function(b){ return b.key==="final"; })[0];
-      lines.push({ tm:_tstr(bs[0].startMin), label:"<b>"+esc(x.name)+"</b> — playoff"+(fin?", final "+_tstr(fin.startMin):"")+(ci>0?" (same format)":"") });
-    });
-  }
-  lines.push({ tm:_tstr(ev.awardStart), label:"<b>Awarding</b>" });
-  var html='<div class="rundown">'+lines.map(function(l){
-    return '<div class="rl"><span class="tm">'+esc(l.tm)+'</span><span class="lb">'+l.label+'</span></div>';
-  }).join("")+'</div>';
-  var txt="Tournament with "+P+" pairs across "+catWord+" on "+C+" courts. Format: "+fmtLabel(rec.fmt)+
-    ". Finals: "+(seq?"one category at a time to podium":"simultaneous")+
-    ". Estimated start "+startS+", finish by "+finishS+" (~"+hm(ev.totalMinutes)+"). Run-down: "+
-    lines.map(function(l){ return l.tm+" "+l.label.replace(/<[^>]+>/g,""); }).join("; ")+".";
-  return { html:html, text:txt, startS:startS, finishS:finishS };
-}
-
-/* ---------- result rendering ---------- */
-function groupsInfo(rec){
-  var rows=rec.ev.info.map(function(x){
-    var nm=x.title||x.name;
-    return '<div class="gi-row"><span class="gi-cat">'+esc(nm)+'</span><span class="gi-d">'+
-      x.pairs+' pairs · '+sizesLabel(x.conf.sizes)+' · '+x.conf.Q+' advance'+
-      (x.conf.byes?' · '+x.conf.byes+' bye'+(x.conf.byes>1?'s':''):'')+'</span></div>';
-  }).join("");
-  return '<div class="gi"><div class="gi-h">Groups per category</div>'+rows+'</div>';
-}
-function courtAlloc(rec){
-  var ev=rec.ev, s=_tmin(EVENT.start), end=0;
-  ev.courtsInfo.forEach(function(c){ if(c.endMin>end) end=c.endMin; });
-  var rows=ev.courtsInfo.map(function(c){
-    if(!c.used) return '<div class="gi-row"><span class="gi-cat">Court '+c.no+'</span><span class="gi-d">not needed</span></div>';
-    var free = c.endMin<end ? ' · <span class="free">free after '+_tstr(s+c.endMin)+'</span>' : '';
-    return '<div class="gi-row"><span class="gi-cat">Court '+c.no+'</span><span class="gi-d">'+c.hours+' hr'+free+'</span></div>';
-  }).join("");
-  return '<div class="gi"><div class="gi-h">Court hours needed</div>'+rows+'</div>';
-}
-function recCard(rec, isAlt, diff){
-  var ev=rec.ev, nr=narrative(rec);
-  var adjNote = rec.adjusted ? " · adjusted to "+rec.adjTotal+" pairs for a bye-free bracket"
-              : (rec.byes ? " · "+rec.byes+" bye"+(rec.byes>1?"s":"") : "");
-  var title = isAlt ? "Alternative — faster" : "Recommended";
-  var sub = isAlt ? ("Change: "+esc(diff.changes)) : (fmtLabel(rec.fmt)+" · "+((rec.seq&&rec.K>1)?"sequential finals":"simultaneous finals"));
-  var tag = isAlt ? ('<span class="rectag">Saves '+hm(diff.save)+'</span>') : '<span class="rectag">Your setup</span>';
-  var breakdown="";
-  if(rec.K>1){
-    breakdown=" ("+rec.sizes.map(function(s,i){ var nm=rec.names&&rec.names[i]&&rec.names[i].trim(); return (nm?esc(nm)+" ":"")+s; }).join(" + ")+" pairs)";
-  }
-  var prose = "A tournament with <b>"+(rec.adjTotal||rec.P)+" pairs</b> across <b>"+rec.K+" categor"+(rec.K>1?"ies":"y")+
-    "</b>"+breakdown+" on <b>"+rec.courts+" courts</b>"+adjNote+", estimated to start at <b>"+nr.startS+"</b> and finish by <b>"+nr.finishS+"</b>.";
-  return '<button class="rec '+(isAlt?"alt":"reco")+'" data-pick="'+(isAlt?"2":"1")+'">'+
-    '<div class="rechead"><div><div class="rectitle">'+title+'</div>'+
-      '<div style="font-size:12px;color:var(--muted);margin-top:3px">'+esc(sub)+'</div></div>'+
-      '<div class="recbig">'+hm(ev.totalMinutes).replace(" hr","h").replace(" min","m")+'<small>DURATION</small></div></div>'+
-    '<div class="recnarr">'+prose+'</div>'+
-    groupsInfo(rec)+courtAlloc(rec)+
-    nr.html+
-    '<div class="recmeta"><span class="chip"><b>'+ev.totalMatches+'</b> matches</span>'+
-      '<span class="chip">start <b>'+nr.startS+'</b></span><span class="chip">finish <b>'+nr.finishS+'</b></span>'+tag+'</div>'+
-    '<div class="recpick">Choose this &amp; simulate <span>→</span></div></button>';
-}
-function renderResult(capInfo){
-  if(!capInfo){ syncSetup(); ST.courts=Math.max(1,Math.min(12,Math.round(n("courts")))); }
-  var backStep = (ST.mode==="capacity") ? 1 : 2;
-  var backLbl = (ST.mode==="capacity") ? "Edit setup" : "Edit courts";
-  var recs=buildRecommendations();
-  ST.rec1=recs.rec1; ST.rec2=recs.rec2;
-  var h='<button class="back" id="bkR">← '+backLbl+'</button>';
-  if(!recs.rec1){
-    h+='<div class="advice err"><b class="h">Can’t build this format</b>Try adjusting the number of pairs, categories, or courts.</div>';
-    $("S3").innerHTML=h; $("bkR").onclick=function(){ showStep(backStep); }; showStep(3); return;
-  }
-  if(capInfo){
-    h+='<div class="advice good" style="margin-bottom:12px"><b class="h">Most that fits your window</b>On <b>'+ST.capCourts+' courts</b> in <b>'+ST.capHours+'h</b> for <b>'+ST.K+' categor'+(ST.K>1?"ies":"y")+'</b>, the optimal is <b>'+capInfo.p+' pairs per category</b> ('+capInfo.tot+' total) — finishing in '+hm(capInfo.min)+' of your '+ST.capHours+'h. You can still edit it as a normal plan.</div>';
-  }
-  h+='<div class="secthead" style="margin-bottom:10px"><h3>Your result</h3><span class="note">'+(recs.rec2?"2 options":"1 option")+'</span></div>';
-  h+=recCard(recs.rec1, false, null);
-  if(recs.rec2) h+=recCard(recs.rec2, true, recDiff(recs.rec1,recs.rec2));
-  else h+='<div class="advice info" style="margin-top:4px"><b class="h">No faster combination</b>At '+ST.pairs+' pairs on '+ST.courts+' courts, this is already the most efficient setup.</div>';
-  $("S3").innerHTML=h;
-  $("bkR").onclick=function(){ showStep(backStep); };
-  Array.prototype.forEach.call($("S3").querySelectorAll("[data-pick]"), function(b){
-    b.onclick=function(){ pickRec(b.getAttribute("data-pick")); };
-  });
-  showStep(3);
-}
-function findCapacityRec(){
-  var K=ST.K, C=ST.capCourts, budget=ST.capHours*60, best=null;
-  ["fast","balanced","fair"].forEach(function(F){
-    for(var p=GMIN; p<=80; p++){
-      var sizes=[]; for(var i=0;i<K;i++) sizes.push(p);
-      var ev=computeEvent(sizes,C,F);
-      if(!ev) continue;
-      if(ev.totalMinutes<=budget){
-        var tot=p*K;
-        if(!best || tot>best.tot || (tot===best.tot && ev.totalMinutes<best.min)) best={p:p,F:F,tot:tot,min:ev.totalMinutes};
-      } else break;
-    }
-  });
-  return best;
-}
-function pickRec(which){
-  var rec = which==="2" ? ST.rec2 : ST.rec1;
-  if(!rec) return;
-  ST.chosen=rec;
-  R.finalSeq=rec.seq;
-  LAST={ mode:"SIM", ev:rec.ev, fmt:rec.fmt, rate:0, courts:rec.courts, target:rec.P };
-  renderSim();
-  showStep(4);
-}
-
-/* ---------- simulation page (S4) ---------- */
-function renderSim(){
-  var rec=ST.chosen, ev=rec.ev, nr=narrative(rec);
-  var data=buildDemoFromPlan();
-  try{ localStorage.setItem("tp_demo_data", JSON.stringify(data)); }catch(e){}
-  var h='<button class="back" id="bkS3">← Back to result</button>'+
-    '<div class="simhero"><div class="eyebrow">Tournament simulation · '+esc(nr.startS)+'–'+esc(nr.finishS)+'</div>'+
-    '<h2>Feel your tournament</h2>'+
-    '<p>'+(rec.adjTotal||rec.P)+' pairs · '+rec.K+' categor'+(rec.K>1?"ies":"y")+' · '+rec.courts+' courts. The screens below are filled from your plan — real groups, real times, live scores and standings, as if the tournament is mid-run.</p>'+
-    '<div class="devnote">These screens are built for a TV or computer display. On a phone they will look cramped — open them on a big screen for the full effect.</div>'+
-    '<div class="simbtns">'+
-      '<button class="simbtn" data-view="mobile"><span class="ic">📱</span><b>Player page</b><small>Each player’s schedule, court &amp; next match.</small></button>'+
-      '<button class="simbtn" data-view="scorer"><span class="ic">🖊️</span><b>Scorer page</b><small>Court-by-court score entry desk.</small></button>'+
-      '<button class="simbtn" data-view="tv"><span class="ic">📺</span><b>TV LED page</b><small>Live scores &amp; group standings for venue screens.</small></button>'+
-    '</div></div>'+
-    interestedBlock();
-  $("S4").innerHTML=h;
-  $("bkS3").onclick=function(){ showStep(3); };
-  Array.prototype.forEach.call($("S4").querySelectorAll("[data-view]"), function(b){
-    b.onclick=function(){ openViewer(b.getAttribute("data-view")); };
-  });
-  bindInterested();
-}
-function openViewer(view){
-  var map={ mobile:{url:"/mobile-demo.html",title:"Player page"},
-            scorer:{url:"/scorer-demo.html",title:"Scorer page"},
-            tv:{url:"/tv-demo.html",title:"TV LED page"} };
-  var m=map[view]; if(!m) return;
-  $("vTitle").textContent=m.title;
-  $("vFrame").src=m.url+"?t="+Date.now();
-  $("viewer").className="viewer show";
-}
-
-/* ---------- interested / lead ---------- */
-function interestedBlock(){
-  return '<div class="svc"><h3>Yes, I’m interested</h3>'+
-    '<p>Like what you see? Leave your phone number and pick how you’d like to work with us. We’ll reach out within one business day.</p>'+
-    '<label class="f"><span>Phone / WhatsApp <span style="color:var(--orange)">*</span></span><input type="text" id="svcPhone" placeholder="08xxxxxxxxxx" inputmode="numeric"></label>'+
-    '<div class="svcbtns">'+
-      '<button class="svcbtn" data-svc="Full operation (referee, scorer, tournament director)"><span class="tg">Done for you</span><b>Full operation</b><span>Referee, scorer &amp; tournament director — we run it end-to-end.</span></button>'+
-      '<button class="svcbtn" data-svc="Engine only"><span class="tg">Self-service</span><b>Engine only</b><span>License the engine and run it yourself with the full toolkit.</span></button>'+
-    '</div>'+
-    '<div class="svcmsg" id="svcMsg">Nothing is sent until you pick one of the two options above.</div>'+
-    '<div class="resetrow"><button class="back" id="svcReset">↺ Reset &amp; start over</button></div></div>';
-}
-function bindInterested(){
-  Array.prototype.forEach.call($("S4").querySelectorAll("[data-svc]"), function(b){
-    b.onclick=function(){ submitService(b.getAttribute("data-svc")); };
-  });
-  var r=$("svcReset"); if(r) r.onclick=resetAll;
-}
-function submitService(service){
-  var phone=($("svcPhone").value||"").trim(), msg=$("svcMsg");
-  if(phone.replace(/\D/g,"").length<8){ msg.style.color="var(--red)"; msg.textContent="Please enter a valid phone number first."; return; }
-  var rec=ST.chosen, nr=narrative(rec);
-  var body={
-    name:USER.name, whatsapp:phone, email:USER.email,
-    date:EVENT.date, city:EVENT.city, venue:"",
-    participants:(rec.adjTotal||rec.P)*2, courts:rec.courts, category:[rec.K+" categor"+(rec.K>1?"ies":"y")],
-    package:service, notes:nr.text, source:"turnamenpadel.com/simulasi",
-    lead_id: LEAD_ID||(LEAD_ID=newLeadId())
-  };
-  postLead("leads", body);
-  $("ovBody").innerHTML='<div class="okmark">✓</div><h3 style="text-align:center">Request sent</h3>'+
-    '<p class="s" style="text-align:center">Thanks '+esc(USER.name||"")+'! Your tournament brief &amp; simulation summary are in. Our team will contact you at <b style="color:var(--text)">'+esc(phone)+'</b>, usually within one business day.</p>'+
-    '<button class="cta" id="ovClose">Close</button>';
-  $("ov").className="overlay show";
-  $("ovClose").onclick=function(){ $("ov").className="overlay"; };
-}
-function resetAll(){
-  ST.chosen=null; ST.rec1=null; ST.rec2=null;
-  $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){}
-  $("S3").innerHTML=""; $("S4").innerHTML="";
-  showStep(1);
-}
-/* ---- simulasi data dari rencana (untuk layar mobile & TV) ---- */
-var TPNAMES=['Andi','Budi','Citra','Dewi','Eka','Fajar','Gita','Hadi','Indra','Joko','Kira','Lina','Maya','Nanda','Oka','Putri','Rama','Sari','Tari','Umar','Vino','Wira','Yoga','Zaki','Bayu','Cinta','Doni','Esa','Fika','Galih','Hana','Iqbal','Jihan','Kemal','Laras','Miko','Nadia','Owen','Pita','Rizki','Sena','Tio','Ubai','Vera','Wina','Xena','Yudha','Zahra','Arya','Bella','Cakra','Dinda','Elang','Fira','Gala','Hesti','Ilham','Jasmine'];
-function _ri(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
-function _shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t; } return a; }
-function _pnorm(s){ return String(s==null?'':s).trim().toLowerCase().replace(/\s+/g,' '); }
-function _tmin(s){ var p=String(s||'08:00').split(':'); return (parseInt(p[0],10)||8)*60+(parseInt(p[1],10)||0); }
-function _tstr(m){ m=((Math.round(m)%1440)+1440)%1440; var h=Math.floor(m/60),mm=m%60; return (h<10?'0':'')+h+':'+(mm<10?'0':'')+mm; }
-function _seedPos(n){ if(n===1)return[0]; var prev=_seedPos(n/2),res=[]; prev.forEach(function(p){ res.push(p); res.push(n-1-p); }); return res; }
-function _grank(teams){ return teams.slice().sort(function(a,b){ return b.W-a.W || (b.gf-b.ga)-(a.gf-a.ga) || b.gf-a.gf; }); }
-function buildDemoFromPlan(){
-  var ev=LAST&&LAST.ev; if(!ev) return null;
-  var courts=Math.max(1,ev.courts), startM=_tmin(EVENT.start), slotLen=R.mGroup+R.mChange;
-  var CATNAMES=["Men's Doubles","Women's Doubles","Mixed Doubles","Open","Category 5","Category 6"];
-  var players={}, cats=[], allGroupMatches=[], pool=_shuffle(TPNAMES.slice()), pc=0;
-
-  ev.info.forEach(function(catInfo,ci){
-    var sizes=catInfo.conf.sizes, groups=[], teams=[], entrants={};
-    for(var gi=0; gi<sizes.length; gi++){
-      var letter=String.fromCharCode(65+gi), gt=[];
-      for(var si=0; si<sizes[gi]; si++){
-        var p1=pool[pc%pool.length]; pc++; var p2=pool[pc%pool.length]; pc++;
-        var eid="C"+ci+"_"+letter+(si+1);
-        [p1,p2].forEach(function(nm){ if(nm && !players[_pnorm(nm)]) players[_pnorm(nm)]={name:nm,display:nm,photo:''}; });
-        entrants[eid]={player1:p1,player2:p2,seedElo:1500};
-        var t={eid:eid,p1:p1,p2:p2,team:p1+" + "+p2,group:gi,P:0,W:0,gf:0,ga:0};
-        gt.push(t); teams.push(t);
-      }
-      groups.push({letter:letter,teams:gt});
-    }
-    var gm=[];
-    groups.forEach(function(g){ for(var i=0;i<g.teams.length;i++)for(var j=i+1;j<g.teams.length;j++) gm.push({cat:ci,gl:g.letter,a:g.teams[i],b:g.teams[j],sa:null,sb:null}); });
-    gm.forEach(function(m){ allGroupMatches.push(m); });
-    var catNm=(ST.catNames[ci]&&ST.catNames[ci].trim())||CATNAMES[ci]||("Category "+(ci+1));
-    cats.push({ci:ci,name:catNm,groups:groups,teams:teams,entrants:entrants,gm:gm,conf:catInfo.conf});
-  });
-
-  /* jadwal grup: interleave antar-grup, sebar ke court, jam nyata dari EVENT.start */
-  var byKey={}, order=[];
-  allGroupMatches.forEach(function(m){ var k=m.cat+'-'+m.gl; if(!byKey[k]){byKey[k]=[];order.push(k);} byKey[k].push(m); });
-  var inter=[], more=true;
-  while(more){ more=false; order.forEach(function(k){ if(byKey[k].length){ inter.push(byKey[k].shift()); more=true; } }); }
-  var lastSlot=0;
-  inter.forEach(function(m,i){ m.court=(i%courts)+1; m.slot=Math.floor(i/courts)+1; m.time=_tstr(startM+(m.slot-1)*slotLen); lastSlot=Math.max(lastSlot,m.slot); });
-  /* Live mid-group-stage: play ~2/3 of the slots and leave the rest upcoming, so the
-     screens look like a tournament in progress and the TV shows the GROUP STAGE. */
-  var cutoff = lastSlot<=2 ? 1 : Math.max(1, Math.round(lastSlot*0.66));
-  inter.forEach(function(m){
-    if(m.slot<=cutoff){ var w=6,l=_ri(0,5); if(Math.random()<0.5){m.sa=w;m.sb=l;}else{m.sa=l;m.sb=w;}
-      m.a.P++;m.b.P++;m.a.gf+=+m.sa;m.a.ga+=+m.sb;m.b.gf+=+m.sb;m.b.ga+=+m.sa; if(+m.sa>+m.sb)m.a.W++; else m.b.W++; }
-  });
-
-  var outCats=cats.map(function(C){
-    var adv=qualOf(Math.max.apply(null,C.conf.sizes)); /* top-N seragam untuk preview */
-    var groupsOut=C.groups.map(function(g){
-      var ord=_grank(g.teams);
-      return { label:g.letter, standings:ord.map(function(t,idx){
-        return { rank:idx+1, entrantId:t.eid, team:t.team, played:t.P, wins:t.W, losses:Math.max(0,t.P-t.W), gf:t.gf, ga:t.ga, gd:t.gf-t.ga };
-      }) };
-    });
-    var sched=C.gm.map(function(m){
-      var d=(m.sa!=null&&m.sb!=null);
-      return { matchId:'C'+C.ci+'_'+m.gl+'_'+m.a.eid+'_'+m.b.eid, court:m.court, slot:m.slot, time:m.time, groupLabel:m.gl,
-        entrantA:m.a.eid, entrantB:m.b.eid, teamA:m.a.team, teamB:m.b.team,
-        scoreA:d?+m.sa:'', scoreB:d?+m.sb:'', winner:d?(+m.sa>+m.sb?m.a.eid:m.b.eid):'', status:d?'DONE':'SCHEDULED', updatedAt:'' };
-    });
-    /* Live mid-group-stage: no playoff generated yet, so the TV shows group standings. */
-    return { tournamentId:'TSIM'+C.ci, category:C.name, level:'bronze', format:'SINGLE', status:'RUNNING',
-      advancersPerGroup:adv, entrants:C.entrants, groups:groupsOut, schedule:sched, playoff:[] };
-  });
-
-  return {
-    event:{ name:(EVENT.city?EVENT.city+" Open":"Padel Sim Cup"), venue:(EVENT.city||"Demo Venue"), date:(EVENT.date||"2026-07-12"), numCourts:courts, matchMinutes:R.mGroup },
-    players:players, categories:outCats, sponsors:[], mobileBanner:'' };
-}
-
-/* ================= STEP NAV + UI ================= */
-function stepsBar(cur){
-  var cap=ST.mode==="capacity";
-  var names = cap ? ["Setup","Result","Simulate"] : ["Setup","Courts","Result","Simulate"];
-  var disp = cap ? ({1:1,3:2,4:3}[cur]||1) : cur;
-  var h="";
-  names.forEach(function(nm,i){
-    if(i) h+='<span class="bar"></span>';
-    h+='<span class="s '+(disp===i+1?"on":(disp>i+1?"done":""))+'"><span class="dot">'+(i+1)+'</span><span class="nm">'+nm+'</span></span>';
-  });
-  $("steps").innerHTML=h;
-}
-function setMode(m){
-  ST.mode=m;
-  var cap=m==="capacity";
-  Array.prototype.forEach.call($("modeSeg").querySelectorAll("button"), function(b){
-    b.setAttribute("aria-pressed", b.getAttribute("data-mode")===m ? "true":"false");
-  });
-  $("cardPairs").style.display=cap?"none":"";
-  $("cardCap").style.display=cap?"":"none";
-  $("cardFmt").style.display=cap?"none":"";
-  $("toCourts").style.display=cap?"none":"";
-  $("toResultCap").style.display=cap?"":"none";
-  $("modeHelp").textContent = cap
-    ? "You know your courts and hours — we recommend the most pairs that fit."
-    : "You know how many pairs will play — we plan the schedule and courts.";
-  stepsBar(1);
-}
-function showStep(step){
-  ST.step=step;
-  ["S1","S2","S3","S4"].forEach(function(id,i){ $(id).style.display=(i+1===step)?"":"none"; });
-  stepsBar(step);
-  window.scrollTo({top:0,behavior:"smooth"});
-}
-function syncSetup(){
-  syncR();
-  ST.K=Math.max(1,Math.min(KMAX,Math.round(n("catCount"))));
-  ensureCats(ST.K);
-  recomputeTotal();
-  ST.capCourts=Math.max(1,Math.min(12,Math.round(n("capCourts"))));
-  ST.capHours=Math.max(2,Math.min(24,n("capHours")||12));
-}
-function buildFmt(){
-  $("fmtCtrl").innerHTML=FORMATS.map(function(f){
-    return '<button type="button" data-fmt="'+f.id+'" aria-pressed="'+(ST.fmt===f.id)+'"><strong>'+f.t+'</strong><span>'+f.d+'</span></button>';
-  }).join("");
-  Array.prototype.forEach.call($("fmtCtrl").querySelectorAll("button"), function(b){
-    b.onclick=function(){ ST.fmt=b.getAttribute("data-fmt"); buildFmt(); };
-  });
-}
-/* ---- dynamic per-category pair inputs ---- */
-function pairMinMax(){ return ST.K>=2 ? {min:GMIN,max:80} : {min:GMIN,max:200}; }
-function ensureCats(K){
-  ST.K=Math.max(1,Math.min(KMAX,K));
-  var arr=ST.catPairs.slice();
-  while(arr.length<ST.K) arr.push(arr.length?arr[arr.length-1]:24);
-  arr=arr.slice(0,ST.K).map(function(v){ return Math.max(GMIN,Math.round(v)||24); });
-  ST.catPairs=arr;
-  var nm=ST.catNames.slice(); while(nm.length<ST.K) nm.push(""); ST.catNames=nm.slice(0,ST.K);
-}
-function recomputeTotal(){ ST.pairs=ST.catPairs.slice(0,ST.K).reduce(function(a,b){return a+(Math.round(b)||0);},0); }
-function refreshTot(){ var el=$("catTot"); if(el) el.textContent=ST.pairs; }
-function stepperHtml(i,val,mm){
-  return '<div class="stepper"><button type="button" data-pc="minus" data-i="'+i+'">−</button>'+
-    '<input type="number" class="pcin" data-i="'+i+'" value="'+val+'" min="'+mm.min+'" max="'+mm.max+'">'+
-    '<button type="button" data-pc="plus" data-i="'+i+'">+</button></div>';
-}
-function renderPairs(){
-  var mm=pairMinMax(), body=$("pairsBody"), h="";
-  if(ST.K<=1){
-    $("pairsHint").textContent="How many pairs (teams) are you planning for?";
-    h=stepperHtml(0, ST.catPairs[0]||32, mm);
-  } else {
-    $("pairsHint").textContent="Pairs per category — each can differ. Name is optional.";
-    for(var i=0;i<ST.K;i++){
-      h+='<div class="catrow"><input type="text" class="catname" data-i="'+i+'" placeholder="Category '+(i+1)+' (optional)" value="'+esc(ST.catNames[i]||"")+'">'+stepperHtml(i, ST.catPairs[i]||24, mm)+'</div>';
-    }
-    recomputeTotal();
-    h+='<div class="catrowtot"><span>Total: <b id="catTot">'+ST.pairs+'</b> pairs</span><button type="button" class="mini-btn" id="splitEven">Split evenly</button></div>';
-  }
-  body.innerHTML=h;
-  bindPairs();
-  updateHelp();
-}
-function bindPairs(){
-  var body=$("pairsBody");
-  Array.prototype.forEach.call(body.querySelectorAll(".pcin"), function(inp){
-    inp.oninput=function(){ ST.catPairs[+inp.getAttribute("data-i")]=Math.max(0,Math.round(parseFloat(inp.value)||0)); recomputeTotal(); refreshTot(); updateHelp(); };
-  });
-  Array.prototype.forEach.call(body.querySelectorAll(".catname"), function(inp){
-    inp.oninput=function(){ ST.catNames[+inp.getAttribute("data-i")]=inp.value; };
-  });
-  Array.prototype.forEach.call(body.querySelectorAll("[data-pc]"), function(b){
-    b.onclick=function(){
-      var i=+b.getAttribute("data-i"), d=b.getAttribute("data-pc")==="plus"?1:-1, mm=pairMinMax();
-      var v=Math.min(mm.max, Math.max(mm.min, (Math.round(ST.catPairs[i])||0)+d));
-      ST.catPairs[i]=v; var inp=body.querySelector('.pcin[data-i="'+i+'"]'); if(inp) inp.value=v;
-      recomputeTotal(); refreshTot(); updateHelp();
-    };
-  });
-  var se=$("splitEven"); if(se) se.onclick=function(){ ST.catPairs=evenSplit(ST.pairs||(24*ST.K), ST.K); renderPairs(); };
-}
-function onCatChange(){ ensureCats(Math.max(1,Math.round(n("catCount")))); renderPairs(); }
-function updateCatHelp(){
-  if(ST.K<=1){ $("catHelp").innerHTML="Single category."; return; }
-  $("catHelp").innerHTML = ST.K+" categories: <b>"+ST.catPairs.slice(0,ST.K).join(" + ")+"</b> = "+ST.pairs+" pairs.";
-}
-function updateHelp(){
-  recomputeTotal();
-  if(ST.K<=1){
-    var p=ST.catPairs[0]||0;
-    $("pHelp").innerHTML = p+" pairs = <b>"+(p*2)+" players</b>. Recommended: even counts and their multiples (16, 24, 32, 48…) give clean, bye-free brackets — any number works.";
-  } else {
-    $("pHelp").innerHTML = "<b>"+ST.pairs+"</b> pairs total = <b>"+(ST.pairs*2)+"</b> players across "+ST.K+" categories.";
-  }
-  updateCatHelp();
-}
-
-/* ---------- gate ---------- */
-$("gBtn").onclick=function(){
-  var nm=$("gName").value.trim(), em=$("gEmail").value.trim();
-  if(nm.length<2){ $("gErr").textContent="Please enter your name."; $("gErr").style.display="block"; return; }
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){ $("gErr").textContent="That email doesn’t look right."; $("gErr").style.display="block"; return; }
-  USER.name=nm; USER.email=em;
-  LEAD_ID = newLeadId();
-  postLead("calc/gate", { lead_id:LEAD_ID, name:nm, email:em, source:"turnamenpadel.com/simulasi", user_agent:navigator.userAgent });
-  $("gate").style.display="none"; $("app").style.display="";
-  $("whoami").innerHTML=esc(nm)+"<br>"+esc(em);
-};
-$("gEmail").onkeydown=function(e){ if(e.key==="Enter") $("gBtn").click(); };
-
-/* ---------- setup handlers ---------- */
-Array.prototype.forEach.call($("modeSeg").querySelectorAll("button"), function(b){
-  b.onclick=function(){ setMode(b.getAttribute("data-mode")); };
-});
-$("catCount").oninput=onCatChange;
-Array.prototype.forEach.call(document.querySelectorAll("[data-step]"), function(e2){
-  e2.onclick=function(){
-    var t=$(e2.getAttribute("data-step")), d=+e2.getAttribute("data-d"), st=parseFloat(t.step)||1;
-    var v=(parseFloat(t.value)||0)+d*st;
-    t.value=Math.min(parseFloat(t.max), Math.max(parseFloat(t.min), v));
-    if(t.id==="catCount") onCatChange();
-  };
-});
-$("toCourts").onclick=function(){
-  syncSetup();
-  var tooSmall=ST.catPairs.slice(0,ST.K).some(function(v){ return v<GMIN; });
-  if(tooSmall){ alert("Each category needs at least "+GMIN+" pairs."); return; }
-  $("courtsHint").innerHTML="For <b>"+ST.pairs+" pairs</b> across <b>"+ST.K+"</b> categor"+(ST.K>1?"ies":"y")+" — how many courts do you have?";
-  showStep(2);
-};
-$("backS1").onclick=function(){ showStep(1); };
-$("toResult").onclick=function(){ renderResult(); };
-$("toResultCap").onclick=function(){
-  syncSetup();
-  var cap=findCapacityRec();
-  if(!cap){
-    ST.rec1=null; ST.rec2=null;
-    $("S3").innerHTML='<button class="back" id="bkR">← Edit setup</button><div class="advice err"><b class="h">Doesn’t fit</b>Even the smallest bracket for '+ST.K+' categor'+(ST.K>1?"ies":"y")+' won’t fit in '+ST.capHours+'h on '+ST.capCourts+' courts. Add hours or courts.</div>';
-    $("bkR").onclick=function(){ showStep(1); }; showStep(3); return;
-  }
-  ST.catPairs=[]; for(var i=0;i<ST.K;i++) ST.catPairs.push(cap.p);
-  ST.fmt=cap.F; ST.courts=ST.capCourts;
-  renderResult(cap);
-};
-
-/* ---------- viewer + overlay ---------- */
-$("vBack").onclick=function(){ $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){} };
-$("ov").onclick=function(e){ if(e.target===$("ov")) $("ov").className="overlay"; };
-
-/* ---------- init ---------- */
-buildFmt();
-ensureCats(1);
-renderPairs();
-setMode("players");
-showStep(1);
-</script>
-
-<!-- Full Simulation orchestrator (Phase 1: Registration) -->
 <script src="/sim/backend.js"></script>
 <script>
 (function(){
   "use strict";
   function $(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   var SIM = window.__SIM__;
-  if(!SIM || !$("fsSeed")) return;
-  function msg(t){ var m=$("fsMsg"); if(m) m.textContent=t||""; }
-
-  function readOpts(){
-    return {
-      name: ($("fsName").value || "Padel Sim Cup").trim(),
-      hideEligibility: $("fsHideElig").checked,
-      hideQuota: $("fsHideQuota").checked,
-      theme: $("fsNight").checked ? "nightmode" : "",
-      categories: [{ label:"Men's Doubles", level: $("fsLevel").value || "bronze",
-        quota: parseInt($("fsQuota").value, 10) || 16 }]
-    };
-  }
-  function ensureSeeded(){ var s = SIM.load(); if(!s || !s.event) SIM.seedEvent(readOpts()); }
-  function firstCat(){ return ((SIM.load()||{}).categories || [{}])[0].tournamentId || "TM_SIM_1"; }
-  function openStage(url, title){
-    var frame = $("vFrame"), viewer = $("viewer"), t = $("vTitle");
-    if(t) t.textContent = title;
-    frame.src = url + (url.indexOf("?")>=0 ? "&" : "?") + "sim=1&t=" + Date.now();
-    viewer.className = "viewer show";
-  }
-
-  $("fsSeed").onclick = function(){ SIM.seedEvent(readOpts()); msg("✓ Event simulasi dibuat. Pilih tahap di bawah."); };
-
-  $("fsDaftar").onclick = function(){ ensureSeeded(); openStage("/daftar/"+SIM.EVENT_ID, "Simulasi · Pendaftaran"); };
-
-  $("fsBayar").onclick = function(){
-    ensureSeeded();
-    var regs = (SIM.load().registrations) || [];
-    if(!regs.length){ SIM.autoRegister(firstCat(), 1); regs = SIM.load().registrations; }
-    var rid = regs[regs.length-1].reg_id;
-    openStage("/bayar/"+SIM.EVENT_ID+"?r="+encodeURIComponent(rid)+"&t=SIM", "Simulasi · Pembayaran");
-  };
-
-  $("fsRoster").onclick = function(){ ensureSeeded(); openStage("/roster/"+SIM.EVENT_ID+"?t=SIM", "Simulasi · Roster & Appeal (peserta)"); };
-
-  $("fsAdmin").onclick = function(){ ensureSeeded(); openStage("/admin/"+SIM.EVENT_ID, "Simulasi · Kurasi & Appeal (panitia)"); };
-
-  $("fsEngine").onclick = function(){
-    ensureSeeded();
-    if(!((SIM.load().registrations)||[]).length){ SIM.autoRegister(firstCat(), 8); }
-    openStage("/engine", "Simulasi · Undi grup & Jadwal (engine)");
-  };
-
-  // Scoring stages need groups + a schedule; ensure them (and some entrants) first.
-  function ensureScored(){
-    ensureSeeded();
-    if(!((SIM.load().registrations)||[]).length){ SIM.autoRegister(firstCat(), 8); }
-    SIM.ensureSchedule();
-  }
-  // Seed (if needed) + fill peserta + run the whole event to a champion.
-  function runWholeTournament(){ ensureScored(); SIM.ensureFinished(); }
   var SLUG = "padel-sim-cup";
-  $("fsScorer").onclick = function(){ ensureScored(); openStage("/scorerdesk", "Simulasi · Meja skor (scorerdesk)"); };
-  $("fsTv").onclick     = function(){ ensureScored(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · TV / LED"); };
-  $("fsMobile").onclick = function(){ ensureScored(); openStage("/mobile/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Papan pemain (mobile)"); };
+  var EVENT_ID = SIM ? SIM.EVENT_ID : "EV_SIM";
 
-  $("fsPlayoff").onclick = function(){ runWholeTournament(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Playoff & Juara (TV)"); };
-  $("fsRecap").onclick   = function(){ runWholeTournament(); openStage("/engine", "Simulasi · Recap & Finalisasi (engine)"); };
-  $("fsFinish").onclick  = function(){ runWholeTournament(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Juara & klasemen (TV)"); };
+  /* ---- lead capture (gate) ---- */
+  var USER={name:"",email:""}, LEAD_ID="";
+  function newLeadId(){ try{ return crypto.randomUUID(); }catch(e){ return "cl-"+Date.now()+"-"+Math.random().toString(16).slice(2); } }
+  var API=(location.protocol.indexOf("http")===0)?"/api":"https://www.turnamenpadel.com/api";
+  function postLead(path, b){ try{ fetch(API+"/"+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(b||{}),keepalive:true}).catch(function(){}); }catch(e){} }
 
-  $("fsBulk").onclick = function(){ ensureSeeded(); var n = SIM.autoRegister(firstCat(), 8); msg("✓ "+n+" pendaftar fiktif ditambahkan. Buka tahap Roster / Panitia."); };
+  $("gBtn").onclick=function(){
+    var nm=$("gName").value.trim(), em=$("gEmail").value.trim(), err=$("gErr");
+    if(!nm||!/.+@.+\..+/.test(em)){ if(err){err.style.display="";err.textContent="Isi nama & email yang valid.";} return; }
+    USER.name=nm; USER.email=em; LEAD_ID=newLeadId();
+    postLead("calc/gate",{ lead_id:LEAD_ID, name:nm, email:em, source:"turnamenpadel.com/simulasi", user_agent:navigator.userAgent });
+    $("whoami").innerHTML=esc(nm)+"<br>"+esc(em);
+    $("gate").style.display="none"; $("app").style.display="";
+    renderStep();
+  };
+  $("gEmail").onkeydown=function(e){ if(e.key==="Enter") $("gBtn").click(); };
 
-  $("fsReset").onclick = function(){ SIM.reset(); msg("Data simulasi direset."); };
+  /* ---- viewer ---- */
+  function openStage(url,title){ var f=$("vFrame"); if($("vTitle")) $("vTitle").textContent=title||"Pratinjau"; f.src=url+(url.indexOf("?")>=0?"&":"?")+"sim=1&t="+Date.now(); $("viewer").className="viewer show"; }
+  $("vBack").onclick=function(){ $("viewer").className="viewer"; try{ $("vFrame").src="about:blank"; }catch(e){} };
+
+  /* ---- config / seeding ---- */
+  var CFG={ name:"Padel Sim Cup", level:"bronze", quota:16, hideElig:false, hideQuota:false, night:false };
+  function seed(){ SIM.seedEvent({ name:CFG.name, hideEligibility:CFG.hideElig, hideQuota:CFG.hideQuota, theme:CFG.night?"nightmode":"", categories:[{label:"Men's Doubles", level:CFG.level, quota:CFG.quota}] }); }
+  function store(){ return SIM.load()||{}; }
+  function firstCat(){ return ((store().categories)||[{}])[0].tournamentId||"TM_SIM_1"; }
+  function hasEvent(){ var s=SIM.load(); return !!(s&&s.event); }
+  function regCount(){ return ((store().registrations)||[]).length; }
+  function ensureEvent(){ if(!hasEvent()) seed(); }
+  function ensureData(){ ensureEvent(); if(!regCount()) SIM.autoRegister(firstCat(), CFG.quota); }
+
+  /* ---- wizard ---- */
+  var STEPS=[
+    { key:"setup",  t:"Kategori" },
+    { key:"daftar", t:"Pendaftaran" },
+    { key:"bayar",  t:"Pembayaran" },
+    { key:"kurasi", t:"Kurasi & Appeal" },
+    { key:"undian", t:"Undian & Jadwal" },
+    { key:"skor",   t:"Pertandingan" },
+    { key:"hasil",  t:"Playoff & Hasil" }
+  ];
+  var DESC={
+    setup:"Tentukan kategori, level, dan berapa pasangan yang ikut. Ini jadi dasar seluruh simulasi.",
+    daftar:"Peserta mengisi form pendaftaran ganda (nama, kontak, foto).",
+    bayar:"Peserta mengunggah bukti transfer biaya pendaftaran.",
+    kurasi:"Peserta meninjau roster & bisa ajukan banding; panitia menyetujui, menolak, atau koreksi level.",
+    undian:"Panitia membagi peserta ke grup dan membuat jadwal pertandingan.",
+    skor:"Skor tiap pertandingan diinput; langsung tampil di layar TV & papan pemain.",
+    hasil:"Babak gugur (playoff), penentuan juara, dan rekap ELO."
+  };
+  var cur=0, maxReached=0;
+  function go(i){ cur=Math.max(0,Math.min(STEPS.length-1,i)); renderStep(); window.scrollTo(0,0); }
+  function advance(){ if(cur<STEPS.length-1){ maxReached=Math.max(maxReached,cur+1); go(cur+1); } }
+  window.__wizGo=function(i){ if(i<=maxReached) go(i); };
+
+  function renderSteps(){
+    $("wsteps").innerHTML = STEPS.map(function(s,i){
+      var cls = i<cur?"done":(i===cur?"on":"");
+      return '<button class="wstep '+cls+'" onclick="__wizGo('+i+')"><span class="n">'+(i<cur?"\u2713":(i+1))+'</span><span class="l">'+esc(s.t)+'</span></button>';
+    }).join("");
+  }
+
+  function body(step){
+    if(step!=="setup") return "";
+    var levels=[["open","Open"],["beginner","Beginner"],["upper_beginner","Upper Beginner"],["lower_bronze","Lower Bronze"],["bronze","Bronze"],["upper_bronze","Upper Bronze"],["silver","Silver"],["gold","Gold"],["platinum","Platinum"]];
+    return '<div class="wform">'
+      + '<label class="f"><span>Nama event</span><input type="text" id="cName" value="'+esc(CFG.name)+'"></label>'
+      + '<div class="advgrid">'
+      +   '<label class="f"><span>Level</span><select id="cLevel" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px">'
+      +     levels.map(function(l){ return '<option value="'+l[0]+'"'+(l[0]===CFG.level?' selected':'')+'>'+l[1]+'</option>'; }).join("")
+      +   '</select></label>'
+      +   '<label class="f"><span>Jumlah pasangan</span><input type="number" id="cQuota" value="'+CFG.quota+'" min="2" max="64"></label>'
+      + '</div>'
+      + '<div class="switch"><span>Sembunyikan halaman "A few quick questions"</span><input type="checkbox" id="cElig"'+(CFG.hideElig?' checked':'')+'></div>'
+      + '<div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="cQuo"'+(CFG.hideQuota?' checked':'')+'></div>'
+      + '<div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="cNight"'+(CFG.night?' checked':'')+'></div>'
+      + '</div>';
+  }
+
+  function actionsFor(step){
+    if(step==="setup") return '<button class="wact" id="aSetup">Buat turnamen &amp; lanjut \u2192</button><button class="wact alt" id="aAll">\u26a1 Jalankan semua otomatis \u2192 lihat juara</button>';
+    if(step==="daftar") return '<button class="wact" id="aOpen">Coba sendiri \u2014 buka form</button><button class="wact alt" id="aAuto">Isi peserta otomatis</button>';
+    if(step==="bayar") return '<button class="wact" id="aOpen">Coba sendiri \u2014 buka halaman bayar</button><button class="wact alt" id="aAuto">Anggap semua sudah bayar</button>';
+    if(step==="kurasi") return '<button class="wact" id="aOpen">Sisi peserta (roster)</button><button class="wact" id="aOpen2">Sisi panitia</button><button class="wact alt" id="aAuto">Setujui semua + contoh appeal</button>';
+    if(step==="undian") return '<button class="wact" id="aOpen">Buka engine</button><button class="wact alt" id="aAuto">Undi &amp; jadwalkan otomatis</button>';
+    if(step==="skor") return '<button class="wact" id="aOpen">Meja skor</button><button class="wact" id="aOpen2">Layar TV</button><button class="wact" id="aOpen3">Papan pemain</button><button class="wact alt" id="aAuto">Skor semua otomatis</button>';
+    if(step==="hasil") return '<button class="wact" id="aOpen">Buat playoff &amp; lihat juara (TV)</button><button class="wact alt" id="aOpen2">Rekap ELO (engine)</button><button class="wact alt" id="aReset">\u267b Mulai ulang</button>';
+    return "";
+  }
+
+  function msg(t){ var m=$("wMsg"); if(m) m.textContent=t||""; }
+
+  function renderStep(){
+    renderSteps();
+    var step=STEPS[cur].key;
+    var h='<div class="card wcardbody">'
+      + '<div class="weyebrow">Langkah '+(cur+1)+' / '+STEPS.length+'</div>'
+      + '<h2 class="wtitle">'+esc(({setup:"Kategori turnamen",daftar:"Pendaftaran",bayar:"Pembayaran",kurasi:"Kurasi & Appeal",undian:"Undian & Jadwal",skor:"Pertandingan & Skor",hasil:"Playoff & Hasil"})[step])+'</h2>'
+      + '<p class="wdesc">'+esc(DESC[step])+'</p>'
+      + body(step)
+      + '<div class="wacts">'+actionsFor(step)+'</div>'
+      + '<div class="wnav">'
+      +   (cur>0?'<button class="wback" id="wPrev">\u2190 Kembali</button>':'<span></span>')
+      +   ((step!=="setup"&&cur<STEPS.length-1)?'<button class="wskip" id="wSkip">Lewati \u2192</button>':'<span></span>')
+      + '</div>'
+      + '<p class="wmsg" id="wMsg"></p>'
+      + '</div>';
+    $("wcard").innerHTML=h;
+    wire(step);
+  }
+
+  function saveSetup(){
+    CFG.name=($("cName").value||"Padel Sim Cup").trim();
+    CFG.level=$("cLevel").value; CFG.quota=parseInt($("cQuota").value,10)||16;
+    CFG.hideElig=$("cElig").checked; CFG.hideQuota=$("cQuo").checked; CFG.night=$("cNight").checked;
+  }
+  function runAll(){ seed(); SIM.autoRegister(firstCat(),CFG.quota); SIM.autoCurate(); SIM.ensureFinished(); maxReached=STEPS.length-1; go(STEPS.length-1); openStage("/tv/"+SLUG+"?event="+EVENT_ID,"Juara & klasemen (TV)"); }
+
+  function wire(step){
+    if($("wPrev")) $("wPrev").onclick=function(){ go(cur-1); };
+    if($("wSkip")) $("wSkip").onclick=function(){ advance(); };
+    if(step==="setup"){
+      $("aSetup").onclick=function(){ saveSetup(); seed(); advance(); };
+      $("aAll").onclick=function(){ saveSetup(); runAll(); };
+    } else if(step==="daftar"){
+      $("aOpen").onclick=function(){ ensureEvent(); openStage("/daftar/"+EVENT_ID,"Pendaftaran"); };
+      $("aAuto").onclick=function(){ ensureEvent(); var n=SIM.autoRegister(firstCat(),CFG.quota); msg("\u2713 "+n+" pasangan fiktif terdaftar."); setTimeout(advance,500); };
+    } else if(step==="bayar"){
+      $("aOpen").onclick=function(){ ensureData(); var r=(store().registrations||[]); var rid=r.length?r[r.length-1].reg_id:""; openStage("/bayar/"+EVENT_ID+"?r="+encodeURIComponent(rid)+"&t=SIM","Pembayaran"); };
+      $("aAuto").onclick=function(){ ensureData(); msg("\u2713 Pembayaran dianggap selesai."); setTimeout(advance,400); };
+    } else if(step==="kurasi"){
+      $("aOpen").onclick=function(){ ensureData(); openStage("/roster/"+EVENT_ID+"?t=SIM","Roster & Appeal (peserta)"); };
+      $("aOpen2").onclick=function(){ ensureData(); openStage("/admin/"+EVENT_ID,"Kurasi & Appeal (panitia)"); };
+      $("aAuto").onclick=function(){ ensureData(); SIM.autoCurate(); msg("\u2713 Semua peserta disetujui + 1 contoh appeal."); setTimeout(advance,500); };
+    } else if(step==="undian"){
+      $("aOpen").onclick=function(){ ensureData(); openStage("/engine","Undian & Jadwal (engine)"); };
+      $("aAuto").onclick=function(){ ensureData(); SIM.ensureSchedule(); msg("\u2713 Grup diundi & jadwal dibuat."); setTimeout(advance,500); };
+    } else if(step==="skor"){
+      $("aOpen").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/scorerdesk","Meja skor"); };
+      $("aOpen2").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/tv/"+SLUG+"?event="+EVENT_ID,"Layar TV"); };
+      $("aOpen3").onclick=function(){ ensureData(); SIM.ensureSchedule(); openStage("/mobile/"+SLUG+"?event="+EVENT_ID,"Papan pemain"); };
+      $("aAuto").onclick=function(){ ensureData(); SIM.ensureSchedule(); SIM.autoScore(); msg("\u2713 Semua pertandingan diberi skor."); setTimeout(advance,500); };
+    } else if(step==="hasil"){
+      $("aOpen").onclick=function(){ ensureData(); SIM.ensureFinished(); openStage("/tv/"+SLUG+"?event="+EVENT_ID,"Juara & klasemen (TV)"); };
+      $("aOpen2").onclick=function(){ ensureData(); SIM.ensureFinished(); openStage("/engine","Rekap ELO (engine)"); };
+      $("aReset").onclick=function(){ SIM.reset(); maxReached=0; go(0); msg("Data simulasi direset."); };
+    }
+  }
+
+  if(!SIM){ var a=$("app"); if(a) a.innerHTML='<p class="empty" style="padding:40px 16px;text-align:center">Komponen simulasi gagal dimuat. Muat ulang halaman.</p>'; }
 })();
 </script>
 </body>
