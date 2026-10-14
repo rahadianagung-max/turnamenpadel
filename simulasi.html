@@ -344,6 +344,31 @@ textarea#lfNotes:focus{border-color:var(--orange)}
     <div class="sub">Plan, feel it, then make it real — format, schedule, and a live preview of the player &amp; TV screens.</div>
   </header>
 
+  <!-- FULL SIMULATION (beta) — runs the real engine pages against an in-browser
+       mock backend with fictional players. Phase 1: Registration (daftar). -->
+  <details class="adv" id="fullSim" style="margin-bottom:16px">
+    <summary>🎬 Full Simulation <span style="color:var(--amber);font-size:10px;letter-spacing:.1em">BETA</span></summary>
+    <div class="advbody">
+      <p class="seghelp" style="margin-bottom:12px">Jalankan proses asli engine dari <b>pendaftaran</b> sampai (nanti) leaderboard, memakai pemain fiktif — tanpa menulis apa pun ke server. <b>Fase 1</b>: tahap Pendaftaran.</p>
+      <label class="f"><span>Nama event</span><input type="text" id="fsName" value="Padel Sim Cup"></label>
+      <div class="advgrid">
+        <label class="f"><span>Level kategori</span>
+          <select id="fsLevel" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:12px 13px;font-family:inherit;font-size:15px">
+            <option value="open">Open</option><option value="beginner">Beginner</option>
+            <option value="upper_beginner">Upper Beginner</option><option value="lower_bronze">Lower Bronze</option>
+            <option value="bronze" selected>Bronze</option><option value="upper_bronze">Upper Bronze</option>
+            <option value="silver">Silver</option><option value="gold">Gold</option><option value="platinum">Platinum</option>
+          </select></label>
+        <label class="f"><span>Target pasangan</span><input type="number" id="fsQuota" value="16" min="2" max="64"></label>
+      </div>
+      <div class="switch"><span>Sembunyikan halaman "Players eligibility"</span><input type="checkbox" id="fsHideElig"></div>
+      <div class="switch"><span>Sembunyikan bar kuota</span><input type="checkbox" id="fsHideQuota"></div>
+      <div class="switch"><span>Tema malam (nightmode)</span><input type="checkbox" id="fsNight"></div>
+      <button class="cta" id="fsStart" style="margin-top:12px">▶ Mulai — tahap Pendaftaran</button>
+      <button class="cta sec" id="fsReset" style="margin-top:8px">♻ Reset data simulasi</button>
+    </div>
+  </details>
+
   <div class="steps" id="steps"></div>
 
   <!-- STEP 1: SETUP -->
@@ -1222,6 +1247,41 @@ ensureCats(1);
 renderPairs();
 setMode("players");
 showStep(1);
+</script>
+
+<!-- Full Simulation orchestrator (Phase 1: Registration) -->
+<script src="/sim/backend.js"></script>
+<script>
+(function(){
+  "use strict";
+  function $(id){ return document.getElementById(id); }
+  var start = $("fsStart"), reset = $("fsReset");
+  if(!start || !window.__SIM__) return;
+
+  start.onclick = function(){
+    var opts = {
+      name: ($("fsName").value || "Padel Sim Cup").trim(),
+      hideEligibility: $("fsHideElig").checked,
+      hideQuota: $("fsHideQuota").checked,
+      theme: $("fsNight").checked ? "nightmode" : "",
+      categories: [{
+        label: "Men's Doubles",
+        level: $("fsLevel").value || "bronze",
+        quota: parseInt($("fsQuota").value, 10) || 16
+      }]
+    };
+    window.__SIM__.seedEvent(opts);
+    var frame = $("vFrame"), viewer = $("viewer"), title = $("vTitle");
+    if(title) title.textContent = "Simulasi · Pendaftaran";
+    frame.src = "/daftar/" + window.__SIM__.EVENT_ID + "?sim=1&t=" + Date.now();
+    viewer.className = "viewer show";
+  };
+
+  reset.onclick = function(){
+    window.__SIM__.reset();
+    alert("Data simulasi direset.");
+  };
+})();
 </script>
 </body>
 </html>
