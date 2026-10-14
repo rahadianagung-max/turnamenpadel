@@ -296,6 +296,88 @@
     return { scheduledMatches:flat.length, slotsUsed:Math.ceil(flat.length/Math.max(1,numCourts)), numCourts:numCourts };
   }
 
+  // Draw + schedule every category that isn't ready yet (used before scoring stages).
+  function ensureSchedule(s){
+    s = s || load(); if(!s) return;
+    (s.categories||[]).forEach(function(cat){
+      var ts = tstate(s, cat.tournamentId);
+      if(!ts.groups || !ts.groups.length) drawGroupsFor(s, cat.tournamentId);
+    });
+    var any = (s.categories||[]).some(function(cat){ return (tstate(s, cat.tournamentId).matches||[]).length; });
+    if(!any) genSchedule(s);
+    save(s);
+  }
+
+  function findMatch(s, matchId){
+    var ks = Object.keys(s.tstate||{});
+    for(var i=0;i<ks.length;i++){ var arr=s.tstate[ks[i]].matches||[];
+      for(var j=0;j<arr.length;j++) if(arr[j].matchId===matchId) return arr[j]; }
+    return null;
+  }
+  function setScore(m, sa, sb){
+    m.scoreA = sa; m.scoreB = sb;
+    m.winner = sa>sb ? m.entrantA : (sb>sa ? m.entrantB : "");
+    m.status = "DONE";
+  }
+  // Auto-simulate every not-yet-scored group match (best-of to 6).
+  function autoScoreAll(s){
+    s = s || load(); if(!s) return 0;
+    var n = 0;
+    (s.categories||[]).forEach(function(cat){
+      (tstate(s, cat.tournamentId).matches||[]).forEach(function(m){
+        if(m.status==="DONE") return;
+        var loser = Math.floor(rnd()*5); // 0..4
+        if(rnd()<0.5) setScore(m, 6, loser); else setScore(m, loser, 6);
+        n++;
+      });
+    });
+    save(s);
+    return n;
+  }
+
+  // ---------- public live payload (court-admin / court / mobile / tv) ----------
+  function computeStandings(ts, entrants){
+    var nameOf = function(eid){ var e=entrants[eid]||{}; return e.teamName || ((e.player1||"")+" + "+(e.player2||"")); };
+    return (ts.groups||[]).map(function(g){
+      var stat = {};
+      g.members.forEach(function(mm){ stat[mm.entrantId] = { eid:mm.entrantId, team:nameOf(mm.entrantId),
+        played:0, wins:0, losses:0, draws:0, gf:0, ga:0 }; });
+      (ts.matches||[]).forEach(function(m){
+        if(m.groupLabel!==g.label || m.status!=="DONE") return;
+        var A=stat[m.entrantA], B=stat[m.entrantB]; if(!A||!B) return;
+        var sa=parseInt(m.scoreA)||0, sb=parseInt(m.scoreB)||0;
+        A.played++; B.played++; A.gf+=sa; A.ga+=sb; B.gf+=sb; B.ga+=sa;
+        if(sa>sb){ A.wins++; B.losses++; } else if(sb>sa){ B.wins++; A.losses++; } else { A.draws++; B.draws++; }
+      });
+      var rows = Object.keys(stat).map(function(k){ var r=stat[k]; r.gd=r.gf-r.ga; r.points=r.wins*3+r.draws; return r; });
+      rows.sort(function(a,b){ return (b.wins-a.wins) || (b.gd-a.gd) || (b.gf-a.gf); });
+      rows.forEach(function(r,i){ r.rank=i+1; });
+      return { label:g.label, standings:rows };
+    });
+  }
+  function publicLive(s){
+    var ev = s.event || {};
+    var cats = (s.categories||[]).map(function(cat){
+      var ts = tstate(s, cat.tournamentId);
+      var entrants = {};
+      entrantsFor(s, cat.tournamentId).forEach(function(e){
+        entrants[e.entrantId] = { player1:e.player1Name, player2:e.player2Name, teamName:e.teamName, seedElo:e.seedElo };
+      });
+      var nameOf = function(eid){ var e=entrants[eid]||{}; return e.teamName || ((e.player1||"")+" + "+(e.player2||"")); };
+      var schedule = (ts.matches||[]).map(function(m){
+        return { matchId:m.matchId, court:m.court||0, slot:m.slot||0, time:m.time||"", date:m.date||"",
+          groupLabel:m.groupLabel, entrantA:m.entrantA, entrantB:m.entrantB,
+          teamA:nameOf(m.entrantA), teamB:nameOf(m.entrantB),
+          scoreA:m.scoreA, scoreB:m.scoreB, winner:m.winner, status:m.status };
+      });
+      return { tournamentId:cat.tournamentId, category:cat.label, level:cat.level, format:"SINGLE",
+        advancersPerGroup:2, entrants:entrants, schedule:schedule,
+        groups:computeStandings(ts, entrants), playoff:[], playoffProjection:[], qualifyPanel:null };
+    });
+    return { event:{ name:ev.name, venue:ev.venue, date:ev.date, numCourts:ev.numCourts,
+      startTime:ev.startTime, slug:ev.slug, matchMinutes:ev.matchMinutes }, categories:cats, liveEventId:ev.eventId };
+  }
+
   // ---------- router ----------
   // `rest` is everything after /api/ (may include ?query). Returns {status,data}.
   function handle(method, rest, body){
@@ -542,6 +624,28 @@
     }
     if(method==="GET" && path==="tournament/archived-events") return { status:200, data:{ events:[] } };
 
+    // ---- scoring (court-admin / court / mobile / tv) ----
+    if(method==="GET" && /^tournament\/event\/[^/]+\/public$/.test(path)){
+      if(!s || !s.event) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      return { status:200, data: publicLive(s) };
+    }
+    if(method==="GET" && path==="settings"){
+      return { status:200, data:{ settings:{ liveEventId: (s && s.event) ? s.event.eventId : "" } } };
+    }
+    if(method==="POST" && path==="settings") return { status:200, data:{ success:true } };
+    if(method==="PUT" && path==="tournament/match"){
+      if(s){ var gm=findMatch(s, body.matchId); if(gm){ setScore(gm, parseInt(body.scoreA)||0, parseInt(body.scoreB)||0); save(s); return { status:200, data:{ success:true, winner:gm.winner, status:"DONE" } }; } }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="PUT" && path==="tournament/playoff/match"){
+      if(s){ var pm=findMatch(s, body.matchId); if(pm){ setScore(pm, parseInt(body.scoreA)||0, parseInt(body.scoreB)||0); save(s); } }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="PUT" && path==="tournament/match/meta"){
+      if(s){ var mm2=findMatch(s, body.matchId); if(mm2){ if(body.court!=null && body.court!=="") mm2.court=parseInt(body.court)||mm2.court; if(body.time!=null && body.time!=="") mm2.time=body.time; save(s); } }
+      return { status:200, data:{ success:true } };
+    }
+
     // Unknown endpoint in sim mode — succeed quietly so the real page doesn't error.
     return { status:200, data:{} };
   }
@@ -551,6 +655,7 @@
     LEVEL_ELO: LEVEL_ELO, LEVEL_LABEL: LEVEL_LABEL,
     load: load, save: save, reset: reset, seedEvent: seedEvent,
     autoRegister: autoRegister, genPlayer: genPlayer, genPair: genPair,
+    ensureSchedule: ensureSchedule, autoScore: autoScoreAll,
     handle: handle
   };
 })();
