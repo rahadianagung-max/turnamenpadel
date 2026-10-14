@@ -103,6 +103,12 @@
     alert(n + " match diberi skor otomatis. Memuat ulang…");
     location.reload();
   }
+  // Run the whole event to a champion (schedule -> group scores -> bracket -> podium).
+  function simFinish(){
+    SIM.ensureFinished();
+    alert("Turnamen dijalankan otomatis sampai juara. Memuat ulang…");
+    location.reload();
+  }
 
   // daftar.html declares its state as `const F` / top-level functions. Classic
   // scripts share the global lexical scope, so these are reachable as barewords
@@ -197,8 +203,8 @@
     else if(p==="bayar") actions = btn("simPay","🎲 Auto-kirim bukti bayar");
     else if(p==="roster") actions = btn("simAppeal","⚑ Auto-ajukan appeal") + ghost("simBulk","➕ Daftarkan N pasangan");
     else if(p==="admin") actions = btn("simApprove","✔ Approve semua pendaftar");
-    else if(p==="engine") actions = btn("simDraw","🎲 Undi grup") + btn("simSchedule","📅 Buat jadwal") + ghost("simFocus","⚙ Pilih event+kategori");
-    else if(p==="scorer" || p==="court" || p==="tv" || p==="mobile") actions = btn("simScore","⚡ Auto-skor semua match");
+    else if(p==="engine") actions = btn("simDraw","🎲 Undi grup") + btn("simSchedule","📅 Buat jadwal") + btn("simFinish","🏆 Playoff otomatis") + ghost("simFocus","⚙ Pilih event+kategori");
+    else if(p==="scorer" || p==="court" || p==="tv" || p==="mobile") actions = btn("simScore","⚡ Auto-skor semua") + ghost("simFinish","🏆 Jalankan s/d juara");
     bar.innerHTML = tag + actions +
       ghost("simReset","♻ Reset data") +
       '<span style="margin-left:auto;color:#94a3b8;font-weight:500">Mode simulasi — tak ada data yang ditulis ke server</span>';
@@ -214,6 +220,7 @@
     wire("simSchedule", engineSchedule);
     wire("simFocus", engineSelectSim);
     wire("simScore", simAutoScore);
+    wire("simFinish", simFinish);
     wire("simReset", resetSim);
     if(page()==="engine") engineAutoFocus();
   }
