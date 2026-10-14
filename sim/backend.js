@@ -372,10 +372,133 @@
       });
       return { tournamentId:cat.tournamentId, category:cat.label, level:cat.level, format:"SINGLE",
         advancersPerGroup:2, entrants:entrants, schedule:schedule,
-        groups:computeStandings(ts, entrants), playoff:[], playoffProjection:[], qualifyPanel:null };
+        groups:computeStandings(ts, entrants), playoff:(ts.playoff||[]), playoffProjection:[], qualifyPanel:null };
     });
     return { event:{ name:ev.name, venue:ev.venue, date:ev.date, numCourts:ev.numCourts,
       startTime:ev.startTime, slug:ev.slug, matchMinutes:ev.matchMinutes }, categories:cats, liveEventId:ev.eventId };
+  }
+
+  // ---------- playoff (bracket) ----------
+  function nameOfEnt(s, tid, eid){
+    if(!eid) return "";
+    var e = entrantsFor(s, tid).filter(function(x){ return x.entrantId===eid; })[0];
+    return e ? (e.teamName || (e.player1Name+" + "+e.player2Name)) : "";
+  }
+  // Qualified teams, ordered as seeds: top-N overall, or top-2 per group then ranked overall.
+  function qualifiedSeeds(s, tid, topOverall){
+    var ts = tstate(s, tid);
+    var entrants = {}; entrantsFor(s, tid).forEach(function(e){ entrants[e.entrantId]={player1:e.player1Name,player2:e.player2Name,teamName:e.teamName}; });
+    var stand = computeStandings(ts, entrants);
+    var flat = [];
+    if(topOverall>=2){
+      stand.forEach(function(g){ (g.standings||[]).forEach(function(r){ flat.push(r); }); });
+      flat.sort(function(a,b){ return (b.wins-a.wins)||(b.gd-a.gd)||(b.gf-a.gf)||((a.ga||0)-(b.ga||0)); });
+      flat = flat.slice(0, topOverall);
+    } else {
+      stand.forEach(function(g){ (g.standings||[]).slice(0,2).forEach(function(r){ flat.push(r); }); });
+      flat.sort(function(a,b){ return (b.wins-a.wins)||(b.gd-a.gd)||(b.gf-a.gf); });
+    }
+    return flat.map(function(r){ return { entrantId:r.eid, team:r.team }; });
+  }
+  // Standard bracket seed order for a power-of-two size B.
+  function seedSlots(B){
+    var r=[1,2];
+    while(r.length<B){ var m=r.length*2+1, nx=[]; r.forEach(function(sd){ nx.push(sd); nx.push(m-sd); }); r=nx; }
+    return r;
+  }
+  function propagatePlayoff(s, tid, br){
+    var rounds = br.rounds;
+    for(var r=0;r<rounds.length-1;r++){
+      rounds[r].matches.forEach(function(m){
+        if(!m.winner) return;
+        var nxt = rounds[r+1].matches[Math.floor(m.idx/2)];
+        if(!nxt) return;
+        if(m.idx%2===0){ nxt.entrantA=m.winner; nxt.teamA=nameOfEnt(s,tid,m.winner); }
+        else { nxt.entrantB=m.winner; nxt.teamB=nameOfEnt(s,tid,m.winner); }
+      });
+    }
+    if(br.bronze && br.numRounds>=2){
+      var semis = rounds[br.numRounds-2] ? rounds[br.numRounds-2].matches : [];
+      var losers = [];
+      semis.forEach(function(m){ if(m.winner && m.entrantA && m.entrantB){
+        losers.push(String(m.winner)===String(m.entrantA)?m.entrantB:m.entrantA); } });
+      br.bronze.entrantA=losers[0]||""; br.bronze.teamA=nameOfEnt(s,tid,losers[0]||"");
+      br.bronze.entrantB=losers[1]||""; br.bronze.teamB=nameOfEnt(s,tid,losers[1]||"");
+    }
+  }
+  function buildPlayoff(s, tid, topOverall){
+    var qual = qualifiedSeeds(s, tid, topOverall);
+    var n = qual.length; if(n<2){ tstate(s,tid).playoff=[]; return []; }
+    var B=1; while(B<n) B*=2;
+    var slots = seedSlots(B);
+    var numRounds = Math.round(Math.log(B)/Math.LN2);
+    var date = (s.event||{}).date || "";
+    var rounds = [];
+    var r1 = [];
+    for(var i=0;i<B/2;i++){
+      var sa=slots[i*2], sb=slots[i*2+1];
+      var ea = sa<=n ? qual[sa-1] : null, eb = sb<=n ? qual[sb-1] : null;
+      var m = { matchId:"P_"+tid+"_1_"+i, round:1, idx:i,
+        entrantA:ea?ea.entrantId:"", entrantB:eb?eb.entrantId:"",
+        teamA:ea?ea.team:"", teamB:eb?eb.team:"", scoreA:"", scoreB:"", winner:"", status:"PENDING", court:0, time:"", date:date };
+      if(ea && !eb){ m.winner=ea.entrantId; m.status="BYE"; }
+      else if(!ea && eb){ m.winner=eb.entrantId; m.status="BYE"; }
+      r1.push(m);
+    }
+    rounds.push({ round:1, matches:r1 });
+    for(var rr=2; rr<=numRounds; rr++){
+      var cnt = B/Math.pow(2,rr), ms=[];
+      for(var j=0;j<cnt;j++) ms.push({ matchId:"P_"+tid+"_"+rr+"_"+j, round:rr, idx:j,
+        entrantA:"", entrantB:"", teamA:"", teamB:"", scoreA:"", scoreB:"", winner:"", status:"PENDING", court:0, time:"", date:date });
+      rounds.push({ round:rr, matches:ms });
+    }
+    var bronze = numRounds>=2 ? { matchId:"P_"+tid+"_BRONZE", round:"BRONZE", idx:0,
+      entrantA:"", entrantB:"", teamA:"", teamB:"", scoreA:"", scoreB:"", winner:"", status:"PENDING", court:0, time:"", date:date } : null;
+    var br = { tier:"MAIN", nQual:n, numRounds:numRounds, rounds:rounds, bronze:bronze,
+      method: topOverall>=2 ? "overall" : "cross", entrants:n };
+    propagatePlayoff(s, tid, br);
+    tstate(s, tid).playoff = [br];
+    return [br];
+  }
+  function findPlayoffMatch(s, matchId){
+    var ks = Object.keys(s.tstate||{});
+    for(var i=0;i<ks.length;i++){
+      var brs = s.tstate[ks[i]].playoff || [];
+      for(var b=0;b<brs.length;b++){
+        var br=brs[b];
+        for(var r=0;r<br.rounds.length;r++){ var ms=br.rounds[r].matches;
+          for(var j=0;j<ms.length;j++) if(ms[j].matchId===matchId) return { tid:ks[i], br:br, m:ms[j] }; }
+        if(br.bronze && br.bronze.matchId===matchId) return { tid:ks[i], br:br, m:br.bronze };
+      }
+    }
+    return null;
+  }
+  // Auto-play an entire bracket round by round (used by auto-score / ensureFinished).
+  function autoPlayBracket(s, tid, br){
+    for(var r=0;r<br.rounds.length;r++){
+      br.rounds[r].matches.forEach(function(m){
+        if(m.status==="DONE" || m.status==="BYE") return;
+        if(!m.entrantA || !m.entrantB) return;
+        var lo=Math.floor(rnd()*5); if(rnd()<0.5) setScore(m,6,lo); else setScore(m,lo,6);
+      });
+      propagatePlayoff(s, tid, br);
+    }
+    if(br.bronze && br.bronze.entrantA && br.bronze.entrantB && br.bronze.status!=="DONE"){
+      var lo2=Math.floor(rnd()*5); if(rnd()<0.5) setScore(br.bronze,6,lo2); else setScore(br.bronze,lo2,6);
+    }
+  }
+
+  // Run the whole event to completion: schedule -> score groups -> build + play playoff.
+  function ensureFinished(s){
+    s = s || load(); if(!s) return;
+    ensureSchedule(s);
+    autoScoreAll(s);
+    (s.categories||[]).forEach(function(cat){
+      var ts = tstate(s, cat.tournamentId);
+      if(!ts.playoff || !ts.playoff.length) buildPlayoff(s, cat.tournamentId, 0);
+      (ts.playoff||[]).forEach(function(br){ autoPlayBracket(s, cat.tournamentId, br); });
+    });
+    save(s);
   }
 
   // ---------- router ----------
@@ -606,10 +729,31 @@
     }
     if(method==="GET" && /^tournament\/[^/]+\/standings$/.test(path)){
       if(!s) return { status:200, data:{ groups:[], rankMode:"wins" } };
-      return { status:200, data:{ groups: tstate(s, seg[1]).groups || [], rankMode:"wins" } };
+      var stEnt={}; entrantsFor(s, seg[1]).forEach(function(e){ stEnt[e.entrantId]={player1:e.player1Name,player2:e.player2Name,teamName:e.teamName}; });
+      return { status:200, data:{ groups: computeStandings(tstate(s, seg[1]), stEnt), rankMode:"wins" } };
     }
     if(method==="GET" && /^tournament\/[^/]+\/playoff$/.test(path)){
-      return { status:200, data:{ brackets:[], groups:[] } };
+      if(!s) return { status:200, data:{ brackets:[], projection:[], qualifyPanel:null, topOverall:0, autoPlayoff:{auto:false} } };
+      var pts = tstate(s, seg[1]);
+      return { status:200, data:{ brackets: pts.playoff||[], projection:[], qualifyPanel:null,
+        topOverall: pts.topOverall||0, autoPlayoff:{ auto: !!pts.autoPlayoff } } };
+    }
+    if(method==="POST" && /^tournament\/[^/]+\/playoff$/.test(path)){
+      if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      var brs = buildPlayoff(s, seg[1], parseInt(body.topOverall)||0); save(s);
+      return { status:200, data:{ brackets: brs.map(function(b){ return { tier:b.tier, entrants:b.entrants, method:b.method }; }) } };
+    }
+    if(method==="DELETE" && /^tournament\/[^/]+\/playoff$/.test(path)){
+      if(s){ tstate(s, seg[1]).playoff=[]; save(s); }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="PUT" && /^tournament\/[^/]+\/playoff-plan$/.test(path)){
+      if(s){ tstate(s, seg[1]).topOverall = parseInt(body.topOverall)||0; save(s); }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="PUT" && /^tournament\/[^/]+\/playoff-auto$/.test(path)){
+      if(s){ tstate(s, seg[1]).autoPlayoff = !!body.auto; save(s); }
+      return { status:200, data:{ success:true } };
     }
     if((method==="POST"||method==="PUT") && /^tournament\/event\/[^/]+\/schedule$/.test(path)){
       if(!s) return { status:200, data:{ scheduledMatches:0 } };
@@ -638,8 +782,40 @@
       return { status:200, data:{ success:true } };
     }
     if(method==="PUT" && path==="tournament/playoff/match"){
-      if(s){ var pm=findMatch(s, body.matchId); if(pm){ setScore(pm, parseInt(body.scoreA)||0, parseInt(body.scoreB)||0); save(s); } }
+      if(s){ var pf=findPlayoffMatch(s, body.matchId);
+        if(pf){ setScore(pf.m, parseInt(body.scoreA)||0, parseInt(body.scoreB)||0); propagatePlayoff(s, pf.tid, pf.br); save(s);
+          return { status:200, data:{ success:true, winner:pf.m.winner } }; } }
       return { status:200, data:{ success:true } };
+    }
+
+    // ---- finalize ELO / publish (recap wrap-up; all mock — never touches real ELO) ----
+    if(method==="POST" && /^tournament\/event\/[^/]+\/finalize-elo\/review$/.test(path)){
+      var rv = [];
+      if(s) (s.categories||[]).forEach(function(cat){ entrantsFor(s, cat.tournamentId).forEach(function(e){
+        rv.push({ name:e.player1Name, status:"new", elo:e.seedElo, matches:0, warnings:[], similar:[] });
+        rv.push({ name:e.player2Name, status:"new", elo:e.seedElo, matches:0, warnings:[], similar:[] });
+      }); });
+      return { status:200, data:{ total:rv.length, players:rv } };
+    }
+    if(method==="POST" && /^tournament\/event\/[^/]+\/finalize-elo\/rename-player$/.test(path)){
+      return { status:200, data:{ success:true, changed:1 } };
+    }
+    if(method==="POST" && /^tournament\/event\/[^/]+\/finalize-elo$/.test(path)){
+      var results = [], replayed = 0;
+      if(s) (s.categories||[]).forEach(function(cat){
+        var ts2 = tstate(s, cat.tournamentId);
+        replayed += (ts2.matches||[]).filter(function(m){ return m.status==="DONE"; }).length;
+        entrantsFor(s, cat.tournamentId).forEach(function(e){
+          [e.player1Name, e.player2Name].forEach(function(nm){
+            var delta = Math.floor(rnd()*70) - 30;
+            results.push({ name:nm, oldElo:e.seedElo, newElo:e.seedElo+delta, delta:delta });
+          });
+        });
+      });
+      return { status:200, data:{ playersUpdated:results.length, matchesReplayed:replayed, recomputed:!!body.force, results:results } };
+    }
+    if(method==="POST" && /^tournament\/event\/[^/]+\/(publish-venue|archive)$/.test(path)){
+      return { status:200, data:{ success:true, published:true } };
     }
     if(method==="PUT" && path==="tournament/match/meta"){
       if(s){ var mm2=findMatch(s, body.matchId); if(mm2){ if(body.court!=null && body.court!=="") mm2.court=parseInt(body.court)||mm2.court; if(body.time!=null && body.time!=="") mm2.time=body.time; save(s); } }
@@ -655,7 +831,7 @@
     LEVEL_ELO: LEVEL_ELO, LEVEL_LABEL: LEVEL_LABEL,
     load: load, save: save, reset: reset, seedEvent: seedEvent,
     autoRegister: autoRegister, genPlayer: genPlayer, genPair: genPair,
-    ensureSchedule: ensureSchedule, autoScore: autoScoreAll,
+    ensureSchedule: ensureSchedule, autoScore: autoScoreAll, ensureFinished: ensureFinished,
     handle: handle
   };
 })();

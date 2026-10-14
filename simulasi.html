@@ -376,7 +376,10 @@ textarea#lfNotes:focus{border-color:var(--orange)}
         <button class="cta sec" id="fsCourt">⑧ Scorer lapangan<br><small style="font-weight:500;opacity:.8">marshal · court</small></button>
         <button class="cta sec" id="fsTv">⑨ TV / LED<br><small style="font-weight:500;opacity:.8">layar</small></button>
         <button class="cta sec" id="fsMobile">⑩ Papan pemain<br><small style="font-weight:500;opacity:.8">mobile</small></button>
+        <button class="cta sec" id="fsPlayoff">⑪ Playoff &amp; Juara<br><small style="font-weight:500;opacity:.8">TV · leaderboard</small></button>
+        <button class="cta sec" id="fsRecap">⑫ Recap &amp; Finalisasi<br><small style="font-weight:500;opacity:.8">panitia · engine</small></button>
       </div>
+      <button class="cta sec" id="fsFinish" style="margin-top:8px">🏆 Jalankan seluruh turnamen s/d juara (otomatis)</button>
       <button class="cta sec" id="fsBulk" style="margin-top:8px">⚡ Auto-isi 8 pendaftar fiktif (lompati pendaftaran)</button>
       <button class="cta sec" id="fsReset" style="margin-top:8px">♻ Reset data simulasi</button>
       <p class="seghelp" id="fsMsg" style="margin-top:10px"></p>
@@ -1325,6 +1328,10 @@ showStep(1);
   $("fsCourt").onclick  = function(){ ensureScored(); openStage("/court1?e="+SIM.EVENT_ID, "Simulasi · Scorer lapangan (court 1)"); };
   $("fsTv").onclick     = function(){ ensureScored(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · TV / LED"); };
   $("fsMobile").onclick = function(){ ensureScored(); openStage("/mobile/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Papan pemain (mobile)"); };
+
+  $("fsPlayoff").onclick = function(){ SIM.ensureFinished(); openStage("/tv/"+SLUG+"?event="+SIM.EVENT_ID, "Simulasi · Playoff & Juara (TV)"); };
+  $("fsRecap").onclick   = function(){ SIM.ensureFinished(); openStage("/engine", "Simulasi · Recap & Finalisasi (engine)"); };
+  $("fsFinish").onclick  = function(){ SIM.ensureFinished(); msg("✓ Turnamen dijalankan otomatis sampai juara. Buka Playoff, TV, atau Recap."); };
 
   $("fsBulk").onclick = function(){ ensureSeeded(); var n = SIM.autoRegister(firstCat(), 8); msg("✓ "+n+" pendaftar fiktif ditambahkan. Buka tahap Roster / Panitia."); };
 
