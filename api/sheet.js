@@ -3715,6 +3715,42 @@ function computeGroupStandings(matches, entrantIds, mode) {
     return x.ga - y.ga;                       // PA (games against, lower is better)
   });
   arr.forEach((s, i) => { s.rank = i + 1; });
+  // Tie-breaker annotation (additive; does NOT change the order above). Groups
+  // entrants that share the same primary key (wins, or points) into clusters and
+  // records what separated them so the board can flag it: head-to-head for a pair,
+  // or the deciding PD/PF/PA for a 3+ way tie. Fields: tieSize, tieBreak
+  // ("h2h"|"pd"|"pf"|"pa"|"same"), h2h ("win"|"lose") for 2-way head-to-head.
+  const clusters = [];
+  let cur = [];
+  for (const s of arr) {
+    if (cur.length && key(cur[0]) === key(s)) cur.push(s);
+    else { if (cur.length) clusters.push(cur); cur = [s]; }
+  }
+  if (cur.length) clusters.push(cur);
+  const allSame = (vals) => vals.every((x) => x === vals[0]);
+  for (const cl of clusters) {
+    if (cl.length < 2) continue;
+    const ids = new Set(cl.map((s) => s.entrantId));
+    cl.forEach((s) => { s.tieSize = cl.length; });
+    if (cl.length === 2) {
+      const [a, b] = cl;
+      const ha = h2h(a.entrantId, ids), hb = h2h(b.entrantId, ids);
+      if (ha !== hb) { a.tieBreak = b.tieBreak = "h2h"; a.h2h = "win"; b.h2h = "lose"; }
+      else if (a.gd !== b.gd) { a.tieBreak = b.tieBreak = "pd"; }
+      else if (a.gf !== b.gf) { a.tieBreak = b.tieBreak = "pf"; }
+      else if (a.ga !== b.ga) { a.tieBreak = b.tieBreak = "pa"; }
+      else { a.tieBreak = b.tieBreak = "same"; }
+    } else {
+      // 3+ way: the first criterion in [h2h, PD, PF, PA] that is not identical
+      // across the whole cluster is the effective decider.
+      let crit = "same";
+      if (!allSame(cl.map((s) => h2h(s.entrantId, ids)))) crit = "h2h";
+      else if (!allSame(cl.map((s) => s.gd))) crit = "pd";
+      else if (!allSame(cl.map((s) => s.gf))) crit = "pf";
+      else if (!allSame(cl.map((s) => s.ga))) crit = "pa";
+      cl.forEach((s) => { s.tieBreak = crit; });
+    }
+  }
   return arr;
 }
 // Baca peta rankMode per-tournament dari tab Settings (key: rankMode_<tid>).
@@ -5128,7 +5164,9 @@ async function tPublicEvent(eventId, opts) {
   const players = {};
   for (const r of plRows) {
     const name = r[0] || ""; if (!name) continue;
-    players[normName(name)] = { name, display: r[3] || name, photo: r[6] || "" };
+    // gender (col E) exposed so the board can show a man/woman fallback icon when a
+    // player has no photo. Additive field — does not change any existing contract.
+    players[normName(name)] = { name, display: r[3] || name, photo: r[6] || "", gender: (r[4] || "M").toUpperCase() };
   }
   const rankModes = await readRankModes(sheets);
   const allMatches = mRows.map(mapMatchRow);
@@ -5154,7 +5192,7 @@ async function tPublicEvent(eventId, opts) {
     const groups = [...members.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([label, ids]) => ({
       label,
       standings: computeGroupStandings(groupMatches.filter((m) => m.groupLabel === label), ids, rankMode)
-        .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, draws: s.draws, points: s.points, losses: s.losses, gd: s.gd, gf: s.gf, ga: s.ga })),
+        .map((s) => ({ rank: s.rank, entrantId: s.entrantId, team: nm(s.entrantId), played: s.played, wins: s.wins, draws: s.draws, points: s.points, losses: s.losses, gd: s.gd, gf: s.gf, ga: s.ga, tieSize: s.tieSize || 0, tieBreak: s.tieBreak || "", h2h: s.h2h || "" })),
     }));
     const schedule = groupMatches.slice().sort((a, b) => a.slot - b.slot || a.court - b.court).map((m) => ({
       matchId: m.matchId, court: m.court, slot: m.slot, time: m.time, date: m.date || "", groupLabel: m.groupLabel,
