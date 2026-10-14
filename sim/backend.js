@@ -104,7 +104,8 @@
       },
       categories: cats,
       registrations: [],
-      appeals: []
+      appeals: [],
+      tstate: {}
     };
     save(store);
     return store;
@@ -210,6 +211,89 @@
 
   function activeRegCount(s){
     return (s.registrations||[]).filter(function(r){ return r.status!=="rejected" && r.status!=="cancelled"; }).length;
+  }
+
+  // ---------- engine (groups / schedule) helpers ----------
+  function tstate(s, tid){
+    s.tstate = s.tstate || {};
+    s.tstate[tid] = s.tstate[tid] || { entrants:null, groups:[], matches:[] };
+    return s.tstate[tid];
+  }
+  // A sim category presented as an engine "tournament".
+  function tournamentOf(s, cat){
+    return { tournamentId:cat.tournamentId, eventId:(s.event||{}).eventId, category:cat.label,
+      level:cat.level, format:"SINGLE", rankMode:"wins", groupSizeTarget:4, advancersPerGroup:2,
+      startTime:"", status:"active", playoffTopOverall:8, autoPlayoff:false };
+  }
+  // Entrants derived from the category's non-rejected registrations (materialized once so edits persist).
+  function entrantsFor(s, tid){
+    var ts = tstate(s, tid);
+    if(ts.entrants) return ts.entrants;
+    var cat = catOf(s, tid);
+    var base = LEVEL_ELO[cat.level] || 1500;
+    var regs = (s.registrations||[]).filter(function(r){ return r.category===tid && r.status!=="rejected" && r.status!=="cancelled"; });
+    ts.entrants = regs.map(function(r, i){
+      var p1 = pget(r,0), p2 = pget(r,1);
+      var e1 = p1.seedElo || base, e2 = p2.seedElo || base;
+      return { entrantId:"ENT_"+tid+"_"+(i+1), player1Name:p1.name||("Pemain "+(i*2+1)),
+        player2Name:p2.name||("Pemain "+(i*2+2)), seedElo:Math.round((e1+e2)/2),
+        teamName:r.teamName||"", isNewP1:false, isNewP2:false };
+    });
+    return ts.entrants;
+  }
+  // Same split rule as engine computeSizesJS (min group 3).
+  function splitSizes(n, target){
+    target = Math.max(3, target||4);
+    if(n<=0) return [];
+    var g = Math.max(1, Math.ceil(n/target));
+    while(g>1 && Math.floor(n/g)<3) g--;
+    var base = Math.floor(n/g), rem = n%g, out = [];
+    for(var i=0;i<g;i++) out.push(base + (i<rem?1:0));
+    return out;
+  }
+  function drawGroupsFor(s, tid){
+    var ts = tstate(s, tid);
+    var ents = entrantsFor(s, tid).slice();
+    for(var i=ents.length-1;i>0;i--){ var j=Math.floor(rnd()*(i+1)); var t=ents[i]; ents[i]=ents[j]; ents[j]=t; } // shuffle
+    var tour = tournamentOf(s, catOf(s, tid));
+    var sizes = splitSizes(ents.length, tour.groupSizeTarget);
+    var groups = [], idx = 0;
+    for(var gi=0; gi<sizes.length; gi++){
+      var members = [];
+      for(var k=0;k<sizes[gi];k++){ var e=ents[idx++]; if(e) members.push({ entrantId:e.entrantId,
+        player1Name:e.player1Name, player2Name:e.player2Name, seedElo:e.seedElo, teamName:e.teamName }); }
+      groups.push({ label:String.fromCharCode(65+gi), size:members.length,
+        matches:members.length*(members.length-1)/2, members:members });
+    }
+    ts.groups = groups; ts.matches = [];
+    return groups;
+  }
+  // Round-robin group matches across all drawn categories, assigned to courts/time slots.
+  function genSchedule(s){
+    var ev = s.event || {}, numCourts = ev.numCourts || 4, mm = ev.matchMinutes || 15;
+    var sp = String(ev.startTime||"08:00").split(":"), startMin = (parseInt(sp[0])||8)*60 + (parseInt(sp[1])||0);
+    var flat = [];
+    (s.categories||[]).forEach(function(cat){
+      var ts = tstate(s, cat.tournamentId);
+      if(!ts.groups || !ts.groups.length) return;
+      var ms = [];
+      ts.groups.forEach(function(g){
+        for(var a=0;a<g.members.length;a++) for(var b=a+1;b<g.members.length;b++){
+          ms.push({ matchId:"M_"+cat.tournamentId+"_"+(ms.length+1), stage:"GROUP", groupLabel:g.label,
+            entrantA:g.members[a].entrantId, entrantB:g.members[b].entrantId,
+            scoreA:"", scoreB:"", winner:"", status:"PENDING" });
+        }
+      });
+      ts.matches = ms;
+      ms.forEach(function(m){ flat.push(m); });
+    });
+    flat.forEach(function(m, i){
+      var court = (i % numCourts) + 1, sl = Math.floor(i / numCourts), tmin = startMin + sl*mm;
+      m.court = court; m.slot = sl;
+      m.time = String(Math.floor(tmin/60)).padStart(2,"0")+":"+String(tmin%60).padStart(2,"0");
+      m.date = ev.date || "";
+    });
+    return { scheduledMatches:flat.length, slotsUsed:Math.ceil(flat.length/Math.max(1,numCourts)), numCourts:numCourts };
   }
 
   // ---------- router ----------
@@ -350,6 +434,113 @@
         if(a2){ a2.status="applied"; save(s); } }
       return { status:200, data:{ success:true, applied:(body.players||[]).map(function(nm){ return { name:nm }; }) } };
     }
+
+    // ---- engine: event / category create (if driven from the engine UI) ----
+    if(method==="POST" && path==="tournament/event"){
+      if(!s) s = seedEvent({});
+      if(body.name) s.event.name = body.name;
+      if(body.venue) s.event.venue = body.venue;
+      if(body.date) s.event.date = body.date;
+      if(body.startTime) s.event.startTime = body.startTime;
+      if(body.numCourts) s.event.numCourts = parseInt(body.numCourts)||s.event.numCourts;
+      if(body.matchMinutes) s.event.matchMinutes = parseInt(body.matchMinutes)||s.event.matchMinutes;
+      save(s);
+      return { status:200, data:{ eventId: s.event.eventId } };
+    }
+    if(method==="POST" && path==="tournament"){
+      if(!s) s = seedEvent({});
+      var tid = "TM_SIM_"+((s.categories||[]).length+1);
+      s.categories.push({ tournamentId:tid, label:body.category||"Kategori", level:String(body.level||"bronze"),
+        fee:150000, quota:16, req:"" });
+      save(s);
+      return { status:200, data:{ tournamentId:tid } };
+    }
+
+    // ---- engine: tournaments / entrants / groups / schedule ----
+    if(method==="GET" && path==="tournament/list"){
+      if(!s) return { status:200, data:{ tournaments:[] } };
+      return { status:200, data:{ tournaments:(s.categories||[]).map(function(c){ return tournamentOf(s, c); }) } };
+    }
+    if(method==="GET" && /^tournament\/[^/]+$/.test(path)){
+      if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      var gcat = catOf(s, seg[1]);
+      if(!gcat.tournamentId) return { status:404, data:{ error:"Kategori tidak ditemukan." } };
+      return { status:200, data:{ tournament:tournamentOf(s, gcat), entrantCount:entrantsFor(s, seg[1]).length } };
+    }
+    if(method==="DELETE" && /^tournament\/[^/]+$/.test(path)){
+      if(s){ s.categories = (s.categories||[]).filter(function(c){ return c.tournamentId!==seg[1]; });
+        s.registrations = (s.registrations||[]).filter(function(r){ return r.category!==seg[1]; });
+        if(s.tstate) delete s.tstate[seg[1]]; save(s); }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="PUT" && /^tournament\/[^/]+\/level$/.test(path)){
+      if(s){ var lc=catOf(s, seg[1]); if(lc.tournamentId){ lc.level=String(body.level||lc.level); save(s); } }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="GET" && /^tournament\/[^/]+\/entrants$/.test(path)){
+      if(!s) return { status:200, data:{ entrants:[] } };
+      return { status:200, data:{ entrants: entrantsFor(s, seg[1]) } };
+    }
+    if(method==="PUT" && path==="tournament/entrant"){
+      if(s){ Object.keys(s.tstate||{}).forEach(function(tid){
+        var arr = (s.tstate[tid].entrants)||[];
+        arr.forEach(function(e){ if(e.entrantId===body.entrantId){ var u=body.updates||{};
+          if(u.player1Name!=null) e.player1Name=u.player1Name;
+          if(u.player2Name!=null) e.player2Name=u.player2Name;
+          if(u.teamName!=null) e.teamName=u.teamName;
+          if(u.seedElo!=null) e.seedElo=parseInt(u.seedElo)||e.seedElo; } });
+      }); save(s); }
+      return { status:200, data:{ success:true } };
+    }
+    if((method==="POST"||method==="PUT") && /^tournament\/[^/]+\/import/.test(path)){
+      if(!s) return { status:200, data:{ entrants:[], imported:0, preview:[] } };
+      var ie = entrantsFor(s, seg[1]);
+      return { status:200, data:{ entrants:ie, preview:ie, imported:ie.length, added:ie.length } };
+    }
+    if(method==="POST" && /^tournament\/[^/]+\/draw$/.test(path)){
+      if(!s) return { status:404, data:{ error:"Event tidak ditemukan." } };
+      var dg = drawGroupsFor(s, seg[1]); save(s);
+      return { status:200, data:{ success:true, groupCount:dg.length, groups:dg } };
+    }
+    if(method==="GET" && /^tournament\/[^/]+\/groups$/.test(path)){
+      if(!s) return { status:200, data:{ groups:[] } };
+      return { status:200, data:{ groups: tstate(s, seg[1]).groups || [] } };
+    }
+    if(method==="PUT" && /^tournament\/[^/]+\/groups$/.test(path)){
+      if(s){ var tsg = tstate(s, seg[1]);
+        var byId = {}; entrantsFor(s, seg[1]).forEach(function(e){ byId[e.entrantId]=e; });
+        tsg.groups = (body.groups||[]).map(function(gp, gi){
+          var members = (gp.entrantIds||[]).map(function(id){ var e=byId[id]||{};
+            return { entrantId:id, player1Name:e.player1Name, player2Name:e.player2Name, seedElo:e.seedElo, teamName:e.teamName }; });
+          return { label:String.fromCharCode(65+gi), size:members.length,
+            matches:members.length*(members.length-1)/2, members:members };
+        });
+        save(s); }
+      return { status:200, data:{ success:true } };
+    }
+    if(method==="GET" && /^tournament\/[^/]+\/matches$/.test(path)){
+      if(!s) return { status:200, data:{ matches:[] } };
+      return { status:200, data:{ matches: tstate(s, seg[1]).matches || [] } };
+    }
+    if(method==="GET" && /^tournament\/[^/]+\/standings$/.test(path)){
+      if(!s) return { status:200, data:{ groups:[], rankMode:"wins" } };
+      return { status:200, data:{ groups: tstate(s, seg[1]).groups || [], rankMode:"wins" } };
+    }
+    if(method==="GET" && /^tournament\/[^/]+\/playoff$/.test(path)){
+      return { status:200, data:{ brackets:[], groups:[] } };
+    }
+    if((method==="POST"||method==="PUT") && /^tournament\/event\/[^/]+\/schedule$/.test(path)){
+      if(!s) return { status:200, data:{ scheduledMatches:0 } };
+      if(method==="PUT") return { status:200, data:{ updated:(body.edits||[]).length, skipped:0, errorCount:0 } };
+      if(body.numCourts) s.event.numCourts = parseInt(body.numCourts)||s.event.numCourts;
+      if(body.matchMinutes) s.event.matchMinutes = parseInt(body.matchMinutes)||s.event.matchMinutes;
+      if(body.startTime) s.event.startTime = body.startTime;
+      var sch = genSchedule(s); save(s);
+      return { status:200, data:{ engine:"grid-parallel-v1", mode:(body.mode==="intense"?"intense":"normal"),
+        courtLayout:"parallel", scheduledMatches:sch.scheduledMatches, slotsUsed:sch.slotsUsed,
+        numCourts:sch.numCourts, breaks:body.breaks||[], categoryStarts:{}, clashes:[] } };
+    }
+    if(method==="GET" && path==="tournament/archived-events") return { status:200, data:{ events:[] } };
 
     // Unknown endpoint in sim mode — succeed quietly so the real page doesn't error.
     return { status:200, data:{} };
