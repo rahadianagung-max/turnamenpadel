@@ -247,6 +247,13 @@
   .qrow.ok{background:var(--orange-10);}
   .qgblk{margin-top:10px;}
   .qglabel{font-family:var(--mono); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:6px;}
+  .qrow .qgrp{flex:0 0 auto; font-family:var(--mono); font-size:8.5px; font-weight:700; color:var(--slate-500); letter-spacing:.02em;}
+  .qsec{margin-top:10px;}
+  .qseclabel{font-family:var(--mono); font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin-bottom:6px;}
+  .brulebox{background:var(--orange-10); border:2px solid var(--orange); border-radius:var(--r-2xl); padding:11px 13px; margin:2px 0 14px;}
+  .bruleh{font-family:var(--display); font-weight:900; font-size:14px; letter-spacing:-.01em; color:var(--accent);}
+  .brulebody{font-family:var(--sans); font-size:12px; color:var(--slate-700); line-height:1.5; margin-top:5px;}
+  .brulebody b{color:var(--accent); font-weight:800;}
   @media(max-width:380px){ .qgrid{grid-template-columns:1fr;} }
 
   /* event picker */
@@ -582,10 +589,25 @@ function derivePodium(b){
 // Provisional qualification panel: confirmed names (clinched a spot) vs TBC.
 // Supports overall top-N mode and per-group mode.
 function qpRows(slots){
-  return slots.map(s=>`<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
-    + (s.confirmed ? `<span class="qnm">${esc(dispPair(s.team))}</span><span class="qtag">✓ Qualified</span>`
-                   : `<span class="qnm tbc">TBC</span>`)
-    + `</div>`).join("");
+  return slots.map(s=>{
+    const showGrp = s.group && (s.confirmed || s.kind==="direct");
+    const grp = showGrp ? `<span class="qgrp">Grp ${esc(s.group)}</span>` : "";
+    return `<div class="qrow ${s.confirmed?'ok':'tbc'}"><span class="qpos">${s.pos}</span>`
+      + (s.confirmed ? `<span class="qnm">${esc(dispPair(s.team))}</span>${grp}<span class="qtag">✓</span>`
+                     : `<span class="qnm tbc">TBC</span>${grp}`)
+      + `</div>`;
+  }).join("");
+}
+const ordinal = n => { const a=["th","st","nd","rd"], v=n%100; return n+(a[(v-20)%10]||a[v]||a[0]); };
+// Rules box for the seed system (top-N overall with best-3rd wildcards). Shown on the
+// bracket page so players understand how the 16 are chosen.
+function bracketRulesBox(cat){
+  const N = cat.topOverall||0; if(N<2) return "";
+  const adv = cat.advancersPerGroup||2, ng = (cat.groups||[]).length; if(!ng) return "";
+  const direct = Math.min(N, adv*ng), wild = Math.max(0, N-direct);
+  if(wild<=0) return "";
+  return `<div class="brulebox"><div class="bruleh">Qualification · Top ${N}</div>`
+    + `<div class="brulebody">Top ${adv} of each group advance directly (<b>${direct}</b> teams). The last <b>${wild}</b> spot${wild>1?'s':''} go to the best ${wild} <b>${ordinal(adv+1)}-placed</b> team${wild>1?'s':''} across all groups, ranked by record (wins → point diff → points for → points against).</div></div>`;
 }
 function qualifyPanelHtml(cat){
   const q = cat.qualifyPanel;
@@ -597,18 +619,29 @@ function qualifyPanelHtml(cat){
       + `<div class="qcap">Top ${q.perGroupN} per group &middot; ✓ = already qualified &middot; TBC = still being contested</div>${blocks}</div>`;
   }
   if(!q.slots || !q.slots.length) return "";
-  return `<div class="qpanel"><div class="qhead">Provisional Seeds &middot; Top ${q.size}</div>`
-    + `<div class="qcap">${q.confirmed}/${q.size} already qualified &middot; TBC = still being contested &middot; final order once groups finish</div>`
-    + `<div class="qgrid">${qpRows(q.slots)}</div></div>`;
+  const head = `<div class="qhead">Provisional Qualification &middot; Top ${q.size}</div>`
+    + `<div class="qcap">${q.confirmed}/${q.size} already qualified &middot; TBC = still being contested</div>`;
+  // Legacy flat payload (no direct/wildcard split): render a single grid.
+  if(q.directCount==null) return `<div class="qpanel">${head}<div class="qgrid">${qpRows(q.slots)}</div></div>`;
+  const directSlots = q.slots.filter(s=>s.kind!=="wildcard");
+  const wildSlots = q.slots.filter(s=>s.kind==="wildcard");
+  const sec=(t,sl)=> sl.length ? `<div class="qsec"><div class="qseclabel">${t}</div><div class="qgrid">${qpRows(sl)}</div></div>` : "";
+  return `<div class="qpanel">${head}`
+    + sec(`Direct &middot; top ${q.adv} of each group`, directSlots)
+    + (q.wildCount>0 ? sec(`Wildcard &middot; best ${q.wildCount} ${ordinal(q.adv+1)} place`, wildSlots) : "")
+    + `</div>`;
 }
 function renderBracket(cat){
+  const rules = bracketRulesBox(cat);
   const panel = qualifyPanelHtml(cat);
   if(!cat.playoff.length){
-    const proj = cat.playoffProjection||[];
-    if(proj.some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))) return panel + renderBracketProjection(proj);
-    return panel || '<p class="empty">Playoff bracket not available yet.</p>';
+    // Before the playoff starts: provisional qualification + rules only. The old
+    // "projected bracket" (Winner Grup A vs …) is intentionally not shown — it was
+    // ambiguous for group counts that aren't a power of two.
+    const pre = rules + panel;
+    return pre.trim() ? pre : '<p class="empty">Playoff bracket not available yet.</p>';
   }
-  return panel + cat.playoff.map(b=>{
+  return rules + panel + cat.playoff.map(b=>{
     const pd = derivePodium(b);
     const pod = (pd.champion||pd.runnerUp||pd.third) ? `<div class="podium">
       <div class="pod g"><div class="rk">🏆 Champion</div><div class="who">${esc(dispPair(pd.champion))||"—"}</div></div>
