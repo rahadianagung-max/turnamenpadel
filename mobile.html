@@ -319,17 +319,14 @@ function applyTheme(mode){
 }
 function initTheme(){
   let saved=null; try{ saved = localStorage.getItem(THEME_KEY); }catch(e){}
-  applyTheme(saved || (systemDark() ? "dark" : "light"));
+  // Always open in light (broken-white) by default, regardless of the phone's OS
+  // theme; the viewer's own toggle choice (stored) still wins.
+  applyTheme(saved || "light");
   const btn = document.getElementById("themeBtn");
   if(btn) btn.addEventListener("click", ()=>{
     const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     applyTheme(next); try{ localStorage.setItem(THEME_KEY, next); }catch(e){}
   });
-  // Follow the OS only while the viewer hasn't picked a mode themselves.
-  try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e)=>{
-    let s=null; try{ s=localStorage.getItem(THEME_KEY); }catch(err){}
-    if(!s) applyTheme(e.matches ? "dark" : "light");
-  }); }catch(e){}
 }
 initTheme();
 
