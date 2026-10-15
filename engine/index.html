@@ -621,9 +621,9 @@
     </div>
     <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. Courts fill automatically — with spare courts a group can split across several to finish sooner; otherwise it stays 1 group per court.</p>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Prefilled from the event settings — edit here and regenerate to update them. Custom court numbers and breaks are under <b>Advanced</b>.</p>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="schLockGroups" checked style="width:auto" onchange="renderCatStarts()">
-      <span><b>Batch by group order</b> — finish batch 1 (A–D) on all courts before batch 2 (E–H) starts. Slightly longer, but tidier. <span style="color:var(--muted)">(For multi-category events this is the default; set each category separately below.)</span></span>
+    <label id="schLockGroupsRow" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="schLockGroups" checked style="width:auto">
+      <span><b>Batch by group order</b> — finish batch 1 (A–D) on all courts before batch 2 (E–H) starts. Slightly longer, but tidier.</span>
     </label>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate schedule</button>
@@ -1080,12 +1080,18 @@ function autoSplitCourts(){
 function renderCatStarts(){
   const wrap = document.getElementById("catStartsWrap"); if(!wrap) return;
   const ts = state.tournaments || [];
+  // The single event-wide "Batch by group order" checkbox only applies to single-category
+  // events. For multi-category events each category has its OWN independent toggle below,
+  // so hide the global one — it was what made every category follow the same setting.
+  const globalRow = document.getElementById("schLockGroupsRow");
+  if(globalRow) globalRow.style.display = (ts.length > 1) ? "none" : "";
   if(ts.length <= 1){ wrap.innerHTML = ""; return; }
   const evStart = val("schStart") || (state.event && state.event.startTime) || "09:00";
   const savedCourts = loadCatCourts();
   const savedLock = loadCatLock();
-  const globalLock = (document.getElementById("schLockGroups")||{}).checked;
-  const lockOf = (tid) => (savedLock[tid] !== undefined) ? savedLock[tid] : globalLock;
+  // Each category defaults to batched (true) unless the user set it otherwise for THIS
+  // event; one category's toggle never changes another's.
+  const lockOf = (tid) => (savedLock[tid] !== undefined) ? savedLock[tid] : true;
   const mode = getCatMode();
   const optStyle = 'flex:1;min-width:180px;display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;font-size:12.5px;line-height:1.4';
   const onStyle = ';border-color:var(--orange);background:rgba(255,106,0,.08)';
@@ -1098,7 +1104,7 @@ function renderCatStarts(){
     + '<div class="grid">' + ts.map(t =>
         '<div class="f"><label>'+esc(t.category)+' — jam mulai'+(mode==="sequential"?' (auto/override)':'')+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+(mode==="sequential"?"auto":esc(evStart))+'"></div>'
         + '<div class="f"><label>'+esc(t.category)+' — court'+(mode==="parallel"?' <span style="color:var(--orange);font-weight:600">(isi agar tak tercampur)</span>':'')+'</label><input type="text" data-court-tid="'+esc(t.tournamentId)+'" value="'+esc(savedCourts[t.tournamentId]||"")+'" placeholder="mis. 1,2,3,4" oninput="renderCatMixWarn()"></div>'
-        + '<div class="f" style="justify-content:flex-end"><label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" data-lock-tid="'+esc(t.tournamentId)+'" '+(lockOf(t.tournamentId)?"checked":"")+' style="width:auto"><span>Batch by group order <span style="color:var(--muted)">('+esc(t.category)+')</span></span></label></div>'
+        + '<div class="f" style="justify-content:flex-end"><label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" data-lock-tid="'+esc(t.tournamentId)+'" '+(lockOf(t.tournamentId)?"checked":"")+' style="width:auto" onchange="collectCatLock()"><span>Batch by group order <span style="color:var(--muted)">('+esc(t.category)+')</span></span></label></div>'
       ).join("") + '</div>'
     + (mode==="parallel" ? '<div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="autoSplitCourts()">⎟⎟ Bagi court otomatis per kategori</button></div>' : '')
     + '<div id="catMixWarn"></div>'
