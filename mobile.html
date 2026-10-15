@@ -488,10 +488,22 @@ function renderSchedule(cat){
 
   // DEFAULT MODE (this category). Player filter narrows to the selected player.
   if(!cat.schedule.length) return ctl + `<div class="schedempty">No group-stage schedule for this category yet.</div>`;
-  // "currently playing" = earliest non-DONE match per court, by that same time order.
-  const firstByCourt = {};
-  cat.schedule.slice().sort(cmp).forEach(m=>{ if(m.status!=="DONE" && firstByCourt[m.court]===undefined) firstByCourt[m.court]=m.matchId; });
-  const playing = new Set(Object.values(firstByCourt));
+  // "Currently playing" is keyed by TIME (urutan jam), not each court in isolation.
+  // The live wave = the latest time slot any court has reached; every court's non-DONE
+  // match on that wave is marked NOW PLAYING together, so a court lagging on an unscored
+  // earlier match still shows its current-wave match as live (not a stale earlier one).
+  // A court that is genuinely ahead falls back to its own earliest non-DONE match.
+  const sorted = cat.schedule.slice().sort(cmp);
+  const curByCourt = {};
+  sorted.forEach(m=>{ if(m.status!=="DONE" && curByCourt[m.court]===undefined) curByCourt[m.court]=m; });
+  let lead = null;
+  Object.values(curByCourt).forEach(m=>{ if(!lead || dkey(m)>dkey(lead) || (dkey(m)===dkey(lead) && tmin(m)>tmin(lead))) lead=m; });
+  const sameWave = (a,b)=> !!a && !!b && dkey(a)===dkey(b) && tmin(a)===tmin(b);
+  const playing = new Set();
+  Object.keys(curByCourt).forEach(ct=>{
+    const onLead = lead ? sorted.find(m=> String(m.court)===String(ct) && m.status!=="DONE" && sameWave(m,lead)) : null;
+    playing.add((onLead||curByCourt[ct]).matchId);
+  });
 
   let list = cat.schedule.slice().sort(cmp);
   let nextCard = "";

@@ -841,7 +841,14 @@ function render(){
   const perCourt={};
   feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
   const courts=Object.keys(perCourt).sort((a,b)=>a-b);
-  const playing=courts.map(ct=>perCourt[ct][0]).filter(Boolean);
+  // "Now playing" is keyed by TIME, not each court in isolation: the live wave = the
+  // latest time slot any court has reached; every court's non-DONE match on that wave is
+  // shown together, so a court lagging on an unscored earlier match still shows its
+  // current-wave match (not a stale earlier one). A court genuinely ahead keeps its own.
+  let lead=null;
+  courts.forEach(ct=>{ const m=perCourt[ct][0]; if(!m) return; if(!lead || fDateKey(m)>fDateKey(lead) || (fDateKey(m)===fDateKey(lead) && fTimeMin(m)>fTimeMin(lead))) lead=m; });
+  const sameWave=(a,b)=> !!a && !!b && fDateKey(a)===fDateKey(b) && fTimeMin(a)===fTimeMin(b);
+  const playing=courts.map(ct=>{ const onLead=lead?perCourt[ct].find(m=>sameWave(m,lead)):null; return onLead||perCourt[ct][0]; }).filter(Boolean);
   // Upcoming: flat queue ordered chronologically. Cap must exceed one slot's worth of
   // matches (≈ number of courts) so the NEXT time slot shows too, not just the immediate one.
   const UP_MAX=8;
