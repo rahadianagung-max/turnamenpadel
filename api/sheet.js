@@ -4055,14 +4055,26 @@ function buildPlayoffTiers(groups, format, N, crossOn) {
 // by ranking, and seed them into a single MAIN bracket (performance seeding,
 // with same-group round-1 avoidance). Ignores group position, so e.g. the best
 // 8 teams overall advance even if 3 came from the same group.
-function buildOverallTiers(groups, topN, mode) {
+function buildOverallTiers(groups, topN, mode, adv) {
   const pointsMode = normRankMode(mode) === "points";
   const mk = (s) => pointsMode ? (s.points != null ? s.points : pointsOf(s)) : s.wins;
-  const flat = [], groupOf = {};
-  groups.forEach((g) => g.standings.forEach((s) => { flat.push(s); groupOf[s.entrantId] = g.label; }));
-  flat.sort((x, y) => (mk(y) - mk(x)) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga));
-  const top = flat.slice(0, Math.max(0, topN | 0));
-  const b = buildBracket(top.map((s) => s.entrantId), "MAIN", groupOf);
+  const byRec = (x, y) => (mk(y) - mk(x)) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga);
+  adv = (adv | 0) >= 1 ? (adv | 0) : 2;
+  // Qualification rule: the top `adv` of EACH group qualify directly; any remaining
+  // slots up to topN are filled by the best of the rest (wildcard — e.g. the best
+  // 3rd-placed teams, by record). So group winners/runners-up are never pushed out
+  // by a strong 3rd from another group.
+  const groupOf = {}, direct = [], rest = [];
+  groups.forEach((g) => g.standings.forEach((s) => {
+    groupOf[s.entrantId] = g.label;
+    if ((s.rank || 99) <= adv) direct.push(s); else rest.push(s);
+  }));
+  rest.sort(byRec);
+  let quals;
+  if ((topN | 0) <= direct.length) quals = direct.slice().sort(byRec).slice(0, topN | 0);
+  else quals = direct.concat(rest.slice(0, (topN | 0) - direct.length));
+  const seeded = quals.slice().sort(byRec);  // performance seeding among the qualifiers
+  const b = buildBracket(seeded.map((s) => s.entrantId), "MAIN", groupOf);
   const built = b.nQual >= 2 ? [{ tier: "MAIN", b }] : [];
   const summary = built.map(({ tier, b }) => ({ tier, method: "overall", entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length }));
   return { built, summary, qualified: b.nQual };
@@ -4203,40 +4215,38 @@ function qpGroupMaxAtOrAbove(g, T, exclude, forcedLoser) {
 const qpRank = (a, b) => (Number(b.clinched) - Number(a.clinched)) || (b.wins - a.wins) || (b.gd - a.gd) || (b.gf - a.gf);
 // Overall "N besar" panel: top-N across all groups by ranking; a name shows only
 // once the team has clinched a top-N overall spot (see clinch note above).
-function buildQualifyPanel(groupList, groupMatches, N, nameFn, mode) {
+function buildQualifyPanel(groupList, groupMatches, N, nameFn, mode, adv) {
   if (!(N >= 2)) return null;
-  // Mode poin (3-1-0): matematika klinch berbasis-menang di bawah tidak berlaku
-  // (seri memberi 1 poin), jadi ambil pendekatan konservatif — nama baru muncul
-  // setelah SEMUA match grup selesai (standings final sudah urut sesuai poin),
-  // agar tak pernah mengungkap nama terlalu dini.
-  if (normRankMode(mode) === "points") {
-    const has = (v) => v !== "" && v !== null && v !== undefined && !isNaN(Number(v));
-    const complete = (groupMatches || []).length > 0 && (groupMatches || []).every((m) => has(m.scoreA) && has(m.scoreB));
-    const flatP = [];
-    (groupList || []).forEach((g) => (g.standings || []).forEach((s) => flatP.push(s)));
-    flatP.sort((a, b) => ((b.points || 0) - (a.points || 0)) || (b.gd - a.gd) || (b.gf - a.gf) || ((a.ga || 0) - (b.ga || 0)));
-    const slotsP = [];
-    for (let i = 0; i < N; i++) { const t = complete ? flatP[i] : null; slotsP.push({ pos: i + 1, team: t ? nameFn(t.entrantId) : "", entrantId: t ? t.entrantId : "", confirmed: !!t }); }
-    return { mode: "overall", size: N, confirmed: slotsP.filter((s) => s.confirmed).length, slots: slotsP };
-  }
-  const groups = qpGroupStructs(groupList, groupMatches);
-  const flat = [];
-  (groupList || []).forEach((g, gi) => (g.standings || []).forEach((s) => flat.push({
-    entrantId: s.entrantId, gi, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0,
-  })));
-  if (!flat.length) return null;
-  const genMemo = new Map();
-  const genericMax = (gi, T) => { const key = gi + ":" + T; if (genMemo.has(key)) return genMemo.get(key); const v = qpGroupMaxAtOrAbove(groups[gi], T, null, null); genMemo.set(key, v); return v; };
-  flat.forEach((x) => {
-    const T = x.wins;
-    let maxAhead = qpGroupMaxAtOrAbove(groups[x.gi], T, x.entrantId, x.entrantId);
-    groups.forEach((g, gi) => { if (gi !== x.gi) maxAhead += genericMax(gi, T); });
-    x.clinched = maxAhead <= (N - 1);
+  adv = (adv | 0) >= 1 ? (adv | 0) : 2;
+  // Qualification = top `adv` of each group (direct) + the best of the rest
+  // (wildcard, e.g. best 3rd-placed teams) to fill up to N. Direct names are
+  // revealed once that group has finished all its matches; wildcard names only
+  // once EVERY group is complete (then the best remaining are known for sure).
+  const gs = qpGroupStructs(groupList, groupMatches);
+  const pointsMode = normRankMode(mode) === "points";
+  const mk = (s) => pointsMode ? (s.points != null ? s.points : 0) : (s.wins || 0);
+  const byRec = (x, y) => (mk(y) - mk(x)) || ((y.gd || 0) - (x.gd || 0)) || ((y.gf || 0) - (x.gf || 0)) || ((x.ga || 0) - (y.ga || 0));
+  const direct = [], rest = [];
+  (groupList || []).forEach((g, gi) => {
+    const gc = gs[gi] && gs[gi].rem.length === 0;
+    (g.standings || []).forEach((s) => {
+      const rec = { entrantId: s.entrantId, group: g.label, gComplete: !!gc, wins: s.wins || 0, gd: s.gd || 0, gf: s.gf || 0, ga: s.ga || 0, points: s.points, rank: s.rank };
+      if ((s.rank || 99) <= adv) direct.push(rec); else rest.push(rec);
+    });
   });
-  flat.sort(qpRank);
-  const slots = [];
-  for (let i = 0; i < N; i++) { const t = flat[i]; slots.push({ pos: i + 1, team: t && t.clinched ? nameFn(t.entrantId) : "", entrantId: t && t.clinched ? t.entrantId : "", confirmed: !!(t && t.clinched) }); }
-  return { mode: "overall", size: N, confirmed: slots.filter((s) => s.confirmed).length, slots };
+  if (!direct.length && !rest.length) return null;
+  const allComplete = gs.length > 0 && gs.every((g) => g.rem.length === 0) && (groupMatches || []).length > 0;
+  const directCount = Math.min(N, direct.length);
+  const wildCount = Math.max(0, N - directCount);
+  const directSorted = direct.slice().sort(byRec).slice(0, directCount);
+  const wildSorted = rest.slice().sort(byRec).slice(0, wildCount);
+  const slots = []; let pos = 1;
+  directSorted.forEach((r) => slots.push({ pos: pos++, kind: "direct", group: r.group,
+    team: r.gComplete ? nameFn(r.entrantId) : "", entrantId: r.gComplete ? r.entrantId : "", confirmed: !!r.gComplete }));
+  wildSorted.forEach((r) => slots.push({ pos: pos++, kind: "wildcard", group: r.group,
+    team: allComplete ? nameFn(r.entrantId) : "", entrantId: allComplete ? r.entrantId : "", confirmed: !!allComplete }));
+  while (slots.length < N) slots.push({ pos: pos++, kind: slots.length < directCount ? "direct" : "wildcard", group: "", team: "", entrantId: "", confirmed: false });
+  return { mode: "overall", size: N, adv, directCount, wildCount, confirmed: slots.filter((s) => s.confirmed).length, slots };
 }
 // Per-group panel: for each group, the top-N teams that advance. A name shows
 // once the team has clinched a top-N spot WITHIN ITS OWN GROUP (single-group
@@ -4407,7 +4417,7 @@ async function tGeneratePlayoff(id, body) {
     built = [{ tier: "MAIN", b }];
     summary = [{ tier: "MAIN", method: "custom", entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length }];
   } else if (topOverall >= 2) {
-    const r = buildOverallTiers(groups, topOverall, rankModeFor(await readRankModes(sheets), id));
+    const r = buildOverallTiers(groups, topOverall, rankModeFor(await readRankModes(sheets), id), N);
     if (!r.built.length || r.qualified < 2) return respond(400, { error: "Perlu minimal 2 tim untuk playoff." });
     built = r.built; summary = r.summary;
   } else {
@@ -5115,7 +5125,7 @@ async function tGetPlayoff(id) {
   if (!groupComplete) {
     if (topOverall >= 2) {
       const totalTeams = groupList.reduce((s, g) => s + g.standings.length, 0);
-      qualifyPanel = buildQualifyPanel(groupList, groupMatches, Math.min(topOverall, totalTeams), nm);
+      qualifyPanel = buildQualifyPanel(groupList, groupMatches, Math.min(topOverall, totalTeams), nm, null, (tRow && parseInt(tRow[6])) || 2);
     } else {
       qualifyPanel = buildQualifyPanelPerGroup(groupList, groupMatches, (tRow && parseInt(tRow[6])) || 2, nm);
     }
@@ -5226,14 +5236,14 @@ async function tPublicEvent(eventId, opts) {
     if (!groupComplete) {
       if (topOverall >= 2) {
         const totalTeams = groups.reduce((s, g) => s + g.standings.length, 0);
-        qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm, rankMode);
+        qualifyPanel = buildQualifyPanel(groups, groupMatches, Math.min(topOverall, totalTeams), nm, rankMode, parseInt(t[6]) || 2);
       } else {
         qualifyPanel = buildQualifyPanelPerGroup(groups, groupMatches, parseInt(t[6]) || 2, nm);
       }
     }
     return {
       tournamentId: tid, category: t[2], level: t[3], format: t[4], status: t[7],
-      advancersPerGroup: parseInt(t[6]) || 2, rankMode, entrants, groups, schedule,
+      advancersPerGroup: parseInt(t[6]) || 2, topOverall: parseInt(t[10]) || 0, rankMode, entrants, groups, schedule,
       playoff: playoffPublic, playoffProjection, groupComplete, qualifyPanel,
     };
   });
