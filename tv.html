@@ -192,6 +192,11 @@
   .bracket-block.proj .bt{color:var(--accent);} .bmatch.proj{border-style:dashed;} .bteam.proj{color:var(--muted); font-style:italic;}
 
   /* provisional qualification strip */
+  .qrulebox{flex:0 0 auto; background:var(--accent-10); border:2px solid var(--accent); border-radius:14px; padding:1vh 1.2vw; margin-bottom:1.2vh;}
+  .qruleh{font-family:var(--disp); font-weight:900; font-size:clamp(14px,1.4vw,26px); letter-spacing:-.01em; color:var(--accent);}
+  .qruleb{font-family:var(--body); font-size:clamp(11px,1vw,20px); color:var(--text); line-height:1.5; margin-top:.5vh;}
+  .qruleb b{color:var(--accent); font-weight:800;}
+  .qchip .qg{flex:0 0 auto; font-family:var(--mono); font-weight:700; font-size:clamp(8px,.68vw,12px); color:var(--muted); letter-spacing:.02em;}
   .qpanel{flex:0 0 auto; margin-bottom:1.2vh;}
   .qh{font-family:var(--disp); font-weight:900; font-size:clamp(14px,1.4vw,24px); margin-bottom:.7vh;}
   .qh .qsub{font-family:var(--mono); font-weight:400; font-size:clamp(9px,.8vw,14px); color:var(--muted); margin-left:.6vw;}
@@ -582,40 +587,47 @@ function bracketHtml(){
   if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
   return rotateCats(cats).map(c => (c.playoff||[]).map(b => oneBracket(c,b)).join("")).join("");
 }
-// Projected (simulated) bracket: placeholder seeds shown before the group stage
-// finishes. Cells carry teamA/teamB labels (e.g. "Winner Grup A") instead of
-// real entrant ids.
-function bteamProj(label){
-  if(!label) return `<div class="bteam tbd"><span class="bnm">TBD</span></div>`;
-  return `<div class="bteam proj"><span class="bnm">${esc(label)}</span></div>`;
-}
-function bcellProj(c,m){
-  const bye=m.status==="BYE";
-  return `<div class="bmatch proj ${bye?'bye':''}">${bteamProj(m.teamA)}${bye?bteamProj(''):bteamProj(m.teamB)}</div>`;
-}
-function hasProjection(){
-  return (state.data.categories||[]).some(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
-}
-// Compact provisional qualification strip for the LED board (clinched vs TBC).
+// Provisional qualification chips (clinched vs TBC). Shows the group tag for a
+// direct slot, or for a confirmed wildcard.
 function tvQpChips(slots, c){
   const nm=(s)=>{ const t=(c&&s.entrantId)?teamNameOf(c,s.entrantId):""; return t?esc(t):esc(firstNames(s.team)); };
-  return slots.map(s=>`<div class="qchip ${s.confirmed?'ok':'tbc'}"><span class="qp">${s.pos}</span>`
-    +(s.confirmed?`<span class="qn">${nm(s)}</span>`:`<span class="qn tbc">TBC</span>`)+`</div>`).join("");
+  return slots.map(s=>{
+    const showG = s.group && (s.confirmed || s.kind==="direct");
+    const g = showG ? `<span class="qg">${esc(s.group)}</span>` : "";
+    return `<div class="qchip ${s.confirmed?'ok':'tbc'}"><span class="qp">${s.pos}</span>`
+      +(s.confirmed?`<span class="qn">${nm(s)}</span>`:`<span class="qn tbc">TBC</span>`)+g+`</div>`;
+  }).join("");
+}
+function tvOrd(n){ const a=["th","st","nd","rd"], v=n%100; return n+(a[(v-20)%10]||a[v]||a[0]); }
+// Rules box for the seed system (top-N overall with best-3rd wildcards).
+function tvRulesBox(c){
+  const N=c.topOverall||0; if(N<2) return ""; const adv=c.advancersPerGroup||2, ng=(c.groups||[]).length; if(!ng) return "";
+  const direct=Math.min(N, adv*ng), wild=Math.max(0, N-direct); if(wild<=0) return "";
+  return `<div class="qrulebox"><div class="qruleh">Qualification · Top ${N}</div>`
+    +`<div class="qruleb">Top ${adv} of each group advance directly (<b>${direct}</b>). The last <b>${wild}</b> spot${wild>1?'s':''} go to the best ${wild} <b>${tvOrd(adv+1)}-placed</b> team${wild>1?'s':''} across all groups, by record.</div></div>`;
 }
 function tvQualifyPanelHtml(c){
   const q=c.qualifyPanel; if(!q) return "";
   if(q.mode==="group"){
     if(!q.groups||!q.groups.length) return "";
-    const blocks=q.groups.map(g=>`<div class="qgblk"><div class="qgl">Grup ${esc(g.label)}</div><div class="qchips">${tvQpChips(g.slots, c)}</div></div>`).join("");
-    return `<div class="qpanel"><div class="qh">Lolos Playoff Sementara <span class="qsub">top ${q.perGroupN}/grup &middot; TBC = diperebutkan</span></div>${blocks}</div>`;
+    const blocks=q.groups.map(g=>`<div class="qgblk"><div class="qgl">Group ${esc(g.label)}</div><div class="qchips">${tvQpChips(g.slots, c)}</div></div>`).join("");
+    return `<div class="qpanel"><div class="qh">Provisional Qualification <span class="qsub">top ${q.perGroupN}/group &middot; TBC = being contested</span></div>${blocks}</div>`;
   }
   if(!q.slots||!q.slots.length) return "";
-  return `<div class="qpanel"><div class="qh">Unggulan Sementara &middot; ${q.size} Besar <span class="qsub">${q.confirmed}/${q.size} pasti lolos &middot; TBC = diperebutkan</span></div><div class="qchips">${tvQpChips(q.slots, c)}</div></div>`;
+  const head=`<div class="qh">Provisional Qualification &middot; Top ${q.size} <span class="qsub">${q.confirmed}/${q.size} qualified &middot; TBC = being contested</span></div>`;
+  if(q.directCount==null) return `<div class="qpanel">${head}<div class="qchips">${tvQpChips(q.slots, c)}</div></div>`;
+  const dir=q.slots.filter(s=>s.kind!=="wildcard"), wild=q.slots.filter(s=>s.kind==="wildcard");
+  const sec=(t,sl)=> sl.length?`<div class="qgblk"><div class="qgl">${t}</div><div class="qchips">${tvQpChips(sl, c)}</div></div>`:"";
+  return `<div class="qpanel">${head}`
+    + sec(`Direct · top ${q.adv} of each group`, dir)
+    + (q.wildCount>0? sec(`Wildcard · best ${q.wildCount} ${tvOrd(q.adv+1)} place`, wild):"")
+    + `</div>`;
 }
-function projectionHtml(){
-  const cats = (state.data.categories||[]).filter(c => (c.playoffProjection||[]).some(b => (b.rounds||[]).some(r => (r.matches||[]).length)));
-  if(!cats.length) return '<div class="center">Playoff bracket not available yet.</div>';
-  return rotateCats(cats).map(c => tvQualifyPanelHtml(c) + (c.playoffProjection||[]).map(b => oneBracket(c,b,bcellProj)).join("")).join("");
+// Full-screen qualification view (rules box + 2-section panel) for the group stage.
+function tvQualView(c){ return tvRulesBox(c) + tvQualifyPanelHtml(c); }
+// Categories using the wildcard seed system that still have an open qualify panel.
+function tvQualCats(){
+  return (state.data.categories||[]).filter(c => c.qualifyPanel && c.qualifyPanel.mode==="overall" && (c.qualifyPanel.wildCount||0)>0);
 }
 // Find a finished bracket (champion decided) to showcase; prefer non-Prospect tiers.
 function finishedPodium(){
@@ -756,22 +768,18 @@ function renderRight(){
     else { titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); }
     updateRotCountdown(); updateCenterCat(); return;
   }
-  // Group stage: show Group Standings only. The simulated/projected playoff
-  // bracket is intentionally NOT rotated in — the bracket appears only once the
-  // real playoff has started (hasPlayoff above).
+  // Group stage: rotate Group Standings with a Provisional Qualification screen
+  // for categories that use the wildcard seed system (top-N with best-3rd spots).
+  // The old projected bracket ("Winner Grup A vs …") is never shown.
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
-  // Show every category's standings together (each as its own labelled block)
-  // instead of rotating one at a time — clearer when categories run in separate batches.
+  const qualCats = tvQualCats();
   STAND_PAGES=1; ROT_N=1; ROT_LABELS=[]; titleEl.textContent="Group Standings";
-  if(legendEl) legendEl.hidden = !cats.length;
-  if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
+  if(!cats.length && !qualCats.length){ if(legendEl) legendEl.hidden=true; wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
   // Build the standings HTML for a set of categories and shrink-to-fit; returns the font px it settled on.
   const renderCats=(list)=>{
     const blocks=list.map(c=>{
       const cap=capFor(c);
       const groups=c.groups.filter(g=>g.standings.length);
-      // Two-row layout: 2 groups -> side by side; else fill top row left→right, then
-      // the rest below. 4 -> 2x2, 6 -> 3x3(top)+3(bottom), 8 -> 4x2, and so on.
       const ng=groups.length;
       const cols = ng<=2 ? ng : Math.ceil(ng/2);
       const cards=groups.map(g=>cardHtml(c,g)).join("");
@@ -781,17 +789,26 @@ function renderRight(){
     wrap.innerHTML=`<div class="fit">${blocks}</div>`;
     return fitStandings();
   };
-  // Show every category together WHEN it fits at a legible size. If several
-  // categories would shrink below readability (bottom groups get clipped), split
-  // into one-category-per-screen pages that rotate every 60s — each group stays
-  // full and legible instead of being cut off.
-  const MIN_LEGIBLE=11;
-  const bestAll=renderCats(cats);
-  if(cats.length>1 && bestAll<MIN_LEGIBLE){
-    STAND_PAGES=cats.length; ROT_N=cats.length; ROT_LABELS=cats.map(catFullLabel);
-    const cur=cats[CAT_ROT % cats.length];
-    titleEl.textContent="Group Standings · "+catLabel(cur.category);
-    renderCats([cur]);
+  // Decide standings pages: all categories together when legible, else one per screen.
+  let standPages = [];
+  if(cats.length){
+    const MIN_LEGIBLE=11;
+    const bestAll=renderCats(cats);
+    standPages = (cats.length>1 && bestAll<MIN_LEGIBLE) ? cats.map(c=>[c]) : [cats];
+  }
+  // Full rotation = standings page(s) + one qualification screen per wildcard category.
+  const pages = standPages.map(cl=>({stand:cl})).concat(qualCats.map(c=>({qual:c})));
+  STAND_PAGES = pages.length; ROT_N = pages.length;
+  ROT_LABELS = pages.map(p=> p.qual ? (catLabel(p.qual.category)+" · Qualification") : (p.stand.length===1 ? catFullLabel(p.stand[0]) : "Group Standings"));
+  const cur = pages[CAT_ROT % pages.length];
+  if(cur.qual){
+    titleEl.textContent = "Qualification · "+catLabel(cur.qual.category);
+    if(legendEl) legendEl.hidden = true;
+    wrap.innerHTML = tvQualView(cur.qual);
+  } else {
+    titleEl.textContent = "Group Standings" + (cur.stand.length===1 ? " · "+catLabel(cur.stand[0].category) : "");
+    if(legendEl) legendEl.hidden = false;
+    renderCats(cur.stand);
   }
   updateRotCountdown();
   updateCenterCat();
