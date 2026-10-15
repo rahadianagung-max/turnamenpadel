@@ -1027,6 +1027,56 @@ function loadCatLock(){ try{ return JSON.parse(localStorage.getItem(catLockKey()
 function saveCatLock(obj){ try{ localStorage.setItem(catLockKey(), JSON.stringify(obj)); }catch(e){} }
 function setCatMode(v){ window._catMode = v; renderCatStarts(); }
 function getCatMode(){ return window._catMode || "parallel"; }
+// Resolve the event's court list (custom numbers if given, else 1..N).
+function eventCourtList(){
+  const spec = (val("schCourtNums")||"").trim();
+  if(spec){ const nums = spec.split(/[^0-9]+/).map(x=>parseInt(x)).filter(x=>!isNaN(x)&&x>0); if(nums.length) return [...new Set(nums)]; }
+  const n = parseInt(val("schCourts"))||0; return Array.from({length:n},(_,i)=>i+1);
+}
+// In parallel mode, two categories "mix" (interleave on the same courts) unless every
+// category is confined to its own, non-overlapping set of courts. Report that state so
+// we can warn the user live.
+function catMixReport(){
+  const ts = state.tournaments || [];
+  if(ts.length < 2 || getCatMode() !== "parallel") return { willMix:false };
+  const inputs = [...document.querySelectorAll('#catStartsWrap input[data-court-tid]')];
+  if(!inputs.length) return { willMix:false };
+  let anyEmpty = false; const seen = {};
+  inputs.forEach(el=>{
+    const nums = (el.value||"").trim().split(/[^0-9]+/).map(x=>parseInt(x)).filter(x=>!isNaN(x)&&x>0);
+    if(!nums.length) anyEmpty = true; else nums.forEach(n=>{ seen[n] = (seen[n]||0)+1; });
+  });
+  const overlap = Object.values(seen).some(v=>v>1);
+  return { willMix: anyEmpty || overlap, anyEmpty, overlap };
+}
+function renderCatMixWarn(){
+  const el = document.getElementById("catMixWarn"); if(!el) return;
+  const r = catMixReport();
+  if(!r.willMix){ el.innerHTML = ""; return; }
+  const why = r.anyEmpty
+    ? "Ada kategori yang <b>court-nya kosong</b> (pakai semua court), jadi matchnya akan tercampur dengan kategori lain di court yang sama."
+    : "Ada court yang <b>dipakai lebih dari satu kategori</b>, jadi matchnya akan tercampur di court itu.";
+  el.innerHTML = '<div style="margin-top:8px;border:1px solid var(--orange);background:rgba(255,106,0,.08);border-radius:10px;padding:9px 11px;font-size:12px;line-height:1.5">'
+    + '⚠ <b>Kategori akan tercampur di court yang sama.</b> '+why
+    + ' Agar tidak tercampur, beri tiap kategori court sendiri yang tidak beririsan (mis. court 1–4 vs 5–8), lalu Generate ulang.</div>';
+}
+// Fill the per-category court fields with non-overlapping court ranges, split as evenly
+// as possible. Only writes the inputs — the user still reviews/edits before generating.
+function autoSplitCourts(){
+  const ts = state.tournaments || [];
+  if(ts.length < 2) return;
+  const courts = eventCourtList();
+  if(courts.length < ts.length){ toast("Court lebih sedikit dari jumlah kategori — isi court manual.", true); return; }
+  const base = Math.floor(courts.length / ts.length); let rem = courts.length % ts.length; let idx = 0;
+  ts.forEach(t=>{
+    const take = base + (rem>0?1:0); if(rem>0) rem--;
+    const chunk = courts.slice(idx, idx+take); idx += take;
+    const el = document.querySelector('#catStartsWrap input[data-court-tid="'+String(t.tournamentId).replace(/["\\]/g,'\\$&')+'"]');
+    if(el) el.value = chunk.join(",");
+  });
+  renderCatMixWarn();
+  toast("Court dibagi otomatis per kategori — cek & sesuaikan bila perlu, lalu Generate.");
+}
 function renderCatStarts(){
   const wrap = document.getElementById("catStartsWrap"); if(!wrap) return;
   const ts = state.tournaments || [];
@@ -1047,15 +1097,18 @@ function renderCatStarts(){
     + '</div>'
     + '<div class="grid">' + ts.map(t =>
         '<div class="f"><label>'+esc(t.category)+' — jam mulai'+(mode==="sequential"?' (auto/override)':'')+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+(mode==="sequential"?"auto":esc(evStart))+'"></div>'
-        + '<div class="f"><label>'+esc(t.category)+' — court</label><input type="text" data-court-tid="'+esc(t.tournamentId)+'" value="'+esc(savedCourts[t.tournamentId]||"")+'" placeholder="mis. 1,2,3,4"></div>'
+        + '<div class="f"><label>'+esc(t.category)+' — court'+(mode==="parallel"?' <span style="color:var(--orange);font-weight:600">(isi agar tak tercampur)</span>':'')+'</label><input type="text" data-court-tid="'+esc(t.tournamentId)+'" value="'+esc(savedCourts[t.tournamentId]||"")+'" placeholder="mis. 1,2,3,4" oninput="renderCatMixWarn()"></div>'
         + '<div class="f" style="justify-content:flex-end"><label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" data-lock-tid="'+esc(t.tournamentId)+'" '+(lockOf(t.tournamentId)?"checked":"")+' style="width:auto"><span>Batch by group order <span style="color:var(--muted)">('+esc(t.category)+')</span></span></label></div>'
       ).join("") + '</div>'
-    + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">'
+    + (mode==="parallel" ? '<div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="autoSplitCourts()">⎟⎟ Bagi court otomatis per kategori</button></div>' : '')
+    + '<div id="catMixWarn"></div>'
+    + '<p style="font-size:11.5px;color:var(--muted);margin:6px 0 0">'
       + (mode==="sequential"
           ? 'Jam kosong = <b>dihitung otomatis</b> (kategori berikut mulai setelah yang sebelumnya selesai); isi untuk override. '
           : 'Semua kategori mulai jam <b>'+esc(evStart)+'</b>. ')
-      + '<b>Court</b> kosong = boleh pakai semua court. Isi court berbeda per kategori agar tidak tercampur — mis. Women <code>1,2,3,4</code> dan Fixed Mixed <code>5,6,7</code>. '
+      + '<b>Court</b> kosong = kategori itu boleh pakai semua court — sehingga <b>tercampur</b> dengan kategori lain di court yang sama. Agar <b>tidak tercampur</b>, beri tiap kategori court sendiri yang tidak beririsan — mis. Women <code>1,2,3,4</code> dan Fixed Mixed <code>5,6,7,8</code> (atau klik <b>Bagi court otomatis</b>). '
       + '<b>Batch by group order</b> bisa diatur <b>berbeda tiap kategori</b> — centang yang ingin dibatch A–D lalu E–H, lepas yang ingin dibagi paralel antar-court. (Court &amp; batch disimpan otomatis per event di browser ini.)</p>';
+  renderCatMixWarn();
 }
 function collectCatStarts(){
   const out = {};
