@@ -622,8 +622,8 @@
     <p style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. Courts fill automatically — with spare courts a group can split across several to finish sooner; otherwise it stays 1 group per court.</p>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Prefilled from the event settings — edit here and regenerate to update them. Custom court numbers and breaks are under <b>Advanced</b>.</p>
     <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
-      <input type="checkbox" id="schLockGroups" checked style="width:auto">
-      <span><b>Batch by group order</b> — finish batch 1 (A–D) on all courts before batch 2 (E–H) starts. Slightly longer, but tidier.</span>
+      <input type="checkbox" id="schLockGroups" checked style="width:auto" onchange="renderCatStarts()">
+      <span><b>Batch by group order</b> — finish batch 1 (A–D) on all courts before batch 2 (E–H) starts. Slightly longer, but tidier. <span style="color:var(--muted)">(For multi-category events this is the default; set each category separately below.)</span></span>
     </label>
     <div class="actions">
       <button type="button" class="btn btn-primary" onclick="generateSchedule()">Generate schedule</button>
@@ -1022,6 +1022,9 @@ async function loadTournaments(){
 function catCourtKey(){ return "tp_catcourts_" + ((state.event && state.event.eventId) || ""); }
 function loadCatCourts(){ try{ return JSON.parse(localStorage.getItem(catCourtKey()) || "{}"); }catch(e){ return {}; } }
 function saveCatCourts(obj){ try{ localStorage.setItem(catCourtKey(), JSON.stringify(obj)); }catch(e){} }
+function catLockKey(){ return "tp_catlock_" + ((state.event && state.event.eventId) || ""); }
+function loadCatLock(){ try{ return JSON.parse(localStorage.getItem(catLockKey()) || "{}"); }catch(e){ return {}; } }
+function saveCatLock(obj){ try{ localStorage.setItem(catLockKey(), JSON.stringify(obj)); }catch(e){} }
 function setCatMode(v){ window._catMode = v; renderCatStarts(); }
 function getCatMode(){ return window._catMode || "parallel"; }
 function renderCatStarts(){
@@ -1030,6 +1033,9 @@ function renderCatStarts(){
   if(ts.length <= 1){ wrap.innerHTML = ""; return; }
   const evStart = val("schStart") || (state.event && state.event.startTime) || "09:00";
   const savedCourts = loadCatCourts();
+  const savedLock = loadCatLock();
+  const globalLock = (document.getElementById("schLockGroups")||{}).checked;
+  const lockOf = (tid) => (savedLock[tid] !== undefined) ? savedLock[tid] : globalLock;
   const mode = getCatMode();
   const optStyle = 'flex:1;min-width:180px;display:flex;gap:8px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:9px 11px;cursor:pointer;font-size:12.5px;line-height:1.4';
   const onStyle = ';border-color:var(--orange);background:rgba(255,106,0,.08)';
@@ -1042,12 +1048,14 @@ function renderCatStarts(){
     + '<div class="grid">' + ts.map(t =>
         '<div class="f"><label>'+esc(t.category)+' — jam mulai'+(mode==="sequential"?' (auto/override)':'')+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+(mode==="sequential"?"auto":esc(evStart))+'"></div>'
         + '<div class="f"><label>'+esc(t.category)+' — court</label><input type="text" data-court-tid="'+esc(t.tournamentId)+'" value="'+esc(savedCourts[t.tournamentId]||"")+'" placeholder="mis. 1,2,3,4"></div>'
+        + '<div class="f" style="justify-content:flex-end"><label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" data-lock-tid="'+esc(t.tournamentId)+'" '+(lockOf(t.tournamentId)?"checked":"")+' style="width:auto"><span>Batch by group order <span style="color:var(--muted)">('+esc(t.category)+')</span></span></label></div>'
       ).join("") + '</div>'
     + '<p style="font-size:11.5px;color:var(--muted);margin:4px 0 0">'
       + (mode==="sequential"
           ? 'Jam kosong = <b>dihitung otomatis</b> (kategori berikut mulai setelah yang sebelumnya selesai); isi untuk override. '
           : 'Semua kategori mulai jam <b>'+esc(evStart)+'</b>. ')
-      + '<b>Court</b> kosong = boleh pakai semua court. Isi court berbeda per kategori agar tidak tercampur — mis. Women <code>1,2,3,4</code> dan Fixed Mixed <code>5,6,7</code>. (Court disimpan otomatis per event di browser ini.)</p>';
+      + '<b>Court</b> kosong = boleh pakai semua court. Isi court berbeda per kategori agar tidak tercampur — mis. Women <code>1,2,3,4</code> dan Fixed Mixed <code>5,6,7</code>. '
+      + '<b>Batch by group order</b> bisa diatur <b>berbeda tiap kategori</b> — centang yang ingin dibatch A–D lalu E–H, lepas yang ingin dibagi paralel antar-court. (Court &amp; batch disimpan otomatis per event di browser ini.)</p>';
 }
 function collectCatStarts(){
   const out = {};
@@ -1058,6 +1066,15 @@ function collectCatCourts(){
   const out = {};
   document.querySelectorAll('#catStartsWrap input[data-court-tid]').forEach(i => { const v=(i.value||"").trim(); if(v) out[i.getAttribute('data-court-tid')] = v; });
   saveCatCourts(out);
+  return out;
+}
+// Per-category "Batch by group order" toggles (multi-category events only). Each
+// category can be batched (A–D then E–H) or left to split across courts in parallel,
+// independently of the others.
+function collectCatLock(){
+  const out = {};
+  document.querySelectorAll('#catStartsWrap input[data-lock-tid]').forEach(i => { out[i.getAttribute('data-lock-tid')] = !!i.checked; });
+  saveCatLock(out);
   return out;
 }
 // Show the free-text name + custom ELO inputs only for the "Other" category.
@@ -1914,6 +1931,7 @@ async function generateSchedule(){
       startTime: val("schStart"), numCourts: val("schCourts"), matchMinutes: val("schMin"), courtNumbers: val("schCourtNums"),
       breaks: collectBreaks(), categoryStarts: collectCatStarts(), categoryCourts: collectCatCourts(), mode: state.schedMode || "normal",
       catMode: ((state.tournaments||[]).length>1 ? getCatMode() : undefined),
+      categoryLock: ((state.tournaments||[]).length>1 ? collectCatLock() : undefined),
       lockGroups: (document.getElementById("schLockGroups")||{}).checked || false
     }});
     if(r && r.courtCollisionCount){ toast("⚠ "+r.courtCollisionCount+" slot court bentrok antar-batch — ada kategori yang meleber ke jam batch lain di court sama. Lebarkan jeda atau kurangi match.", true); }
