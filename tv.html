@@ -8,207 +8,241 @@
 <script>if(new URLSearchParams(location.search).get("sim")==="1"){document.write('<script src="/sim/backend.js"><\/script><script src="/sim/guard.js"><\/script>');}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;600;700&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet" />
 <style>
+  /* PlayRank-home neo-brutalist skin for the TV/LED board. Token NAMES are kept
+     (--bg/--panel/--line/--text/--muted/--accent/--accent2/--grad) so the per-event
+     theme override (applyTvTheme) and the fit-to-screen logic keep working. Light
+     default; dark follows the viewer's OS. */
   :root{
-    --bg:#000000; --panel:#121110; --panel2:#171513; --line:#332a24;
-    --text:#fdf4ee; --muted:#bfa091; --faint:#856a5d;
-    --accent:#FF5722; --accent2:#FFB000; --hot:#FF3830; --danger:#ff5a4d;
-    --grad:linear-gradient(90deg,#FF3830,#FFB000);
+    --bg:#EFEADF; --panel:#FBF8F1; --panel2:#ECE6DA; --line:#0F172A;
+    --text:#0F172A; --muted:#475569; --faint:#64748B; --soft:#CBD5E1;
+    --accent:#FF5722; --accent-10:rgba(255,87,34,.12); --accent2:#B45309;
+    --blue:#2563EB; --blue-bg:#DBEAFE; --silver:#64748B;
+    --hot:#FF3830; --danger:#DC2626; --shadow:#0F172A;
+    --grad:linear-gradient(90deg,#FF5722,#FF7A45);
+    --disp:'Plus Jakarta Sans',system-ui,sans-serif;
+    --mono:'Space Grotesk',ui-monospace,monospace;
+    --body:'Inter',system-ui,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --bg:#0B0A08; --panel:#16130E; --panel2:#201B14; --line:#3A3228;
+    --text:#F2EADF; --muted:#C4BEAE; --faint:#8A8370; --soft:#4A4537;
+    --accent:#FF6A3D; --accent-10:rgba(255,106,61,.14); --accent2:#FFB000;
+    --blue:#7DA2FF; --blue-bg:#1E2A44; --silver:#AEB6C2; --shadow:#000;
+    --grad:linear-gradient(90deg,#FF6A3D,#FF925F); color-scheme:dark;
+  }}
+  :root[data-theme="dark"]{
+    --bg:#0B0A08; --panel:#16130E; --panel2:#201B14; --line:#3A3228;
+    --text:#F2EADF; --muted:#C4BEAE; --faint:#8A8370; --soft:#4A4537;
+    --accent:#FF6A3D; --accent-10:rgba(255,106,61,.14); --accent2:#FFB000;
+    --blue:#7DA2FF; --blue-bg:#1E2A44; --silver:#AEB6C2; --shadow:#000;
+    --grad:linear-gradient(90deg,#FF6A3D,#FF925F); color-scheme:dark;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
+  [hidden]{display:none!important;}
   html,body{height:100%;}
-  body{background:#000; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; overflow:hidden;}
+  body{background:var(--bg); color:var(--text); font-family:var(--body); overflow:hidden;}
+  .material-symbols-outlined{font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal; line-height:1;
+    vertical-align:middle; font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;}
   .screen{height:100vh; display:flex; flex-direction:column; padding:2vh 2.2vw;}
-  /* top bar */
-  .bar{display:grid; grid-template-columns:1fr auto 1fr; align-items:start; flex:0 0 auto; margin-bottom:1.2vh;}
-  .ev{grid-column:2; text-align:center;}
-  .ev .nm{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(34px,5vw,92px); line-height:1; letter-spacing:-.02em;
+  @keyframes liveblink{0%,62%{opacity:1} 63%,100%{opacity:.22}}
+
+  /* top bar: category (left) · event name (center) · QR + date + LIVE (right) */
+  .bar{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:1.2vw; flex:0 0 auto; margin-bottom:1.2vh;}
+  .catbox{grid-column:1; justify-self:start; min-width:0;}
+  .catname{font-family:var(--disp); font-weight:900; font-size:clamp(16px,1.7vw,36px); letter-spacing:-.01em; line-height:1.03; color:var(--text);}
+  .catnext{font-family:var(--mono); font-size:clamp(9px,.8vw,16px); color:var(--faint); margin-top:.5vh; letter-spacing:.02em;}
+  .catnext b{color:var(--accent2);}
+  .ev{grid-column:2; text-align:center; min-width:0;}
+  .ev .nm{font-family:var(--disp); font-weight:900; font-size:clamp(26px,3vw,64px); line-height:1; letter-spacing:-.02em; text-transform:uppercase;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .title{grid-column:3; justify-self:end; text-align:right; font-family:'Space Mono',monospace;}
-  .title .tt{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(16px,1.8vw,34px); line-height:1.05; letter-spacing:-.01em; color:var(--text);}
-  .title .td{font-size:clamp(10px,.9vw,16px); color:var(--muted); letter-spacing:.06em; margin-top:.5vh;}
-  .title .l{font-size:clamp(9px,.8vw,13px); color:var(--accent); letter-spacing:.12em; margin-top:.6vh; animation:liveblink 1.4s steps(1,end) infinite;}
-  .qr{grid-column:1; justify-self:start; display:flex; align-items:center; gap:.7vw;}
-  .qr .qrimg{background:#fff; padding:.5vw; border-radius:10px; line-height:0; box-shadow:0 0 0 1px var(--line);}
-  .qr .qrimg img{display:block; width:clamp(72px,6vw,120px); height:clamp(72px,6vw,120px);}
-  .qr .qrlabel{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em;
-    font-size:clamp(9px,.78vw,13px); color:var(--accent2); line-height:1.35;}
+  .meta{grid-column:3; justify-self:end; display:flex; align-items:center; gap:clamp(8px,.9vw,18px);}
+  .qr{display:flex; align-items:center; gap:.7vw;}
+  .qr .qrimg{background:#fff; padding:.4vw; border:2px solid var(--line); border-radius:9px; line-height:0; box-shadow:3px 3px 0 0 var(--shadow);}
+  .qr .qrimg img{display:block; width:clamp(60px,5vw,104px); height:clamp(60px,5vw,104px);}
+  .qr .qrlabel{font-family:var(--mono); text-transform:uppercase; letter-spacing:.08em; font-weight:700;
+    font-size:clamp(9px,.74vw,13px); color:var(--accent2); line-height:1.35;}
+  .title{text-align:right; font-family:var(--mono);}
+  .title .tt{font-family:var(--disp); font-weight:800; font-size:clamp(12px,1.1vw,20px); line-height:1.05; color:var(--muted);}
+  .title .td{font-family:var(--mono); font-size:clamp(10px,.82vw,16px); color:var(--faint); letter-spacing:.04em; margin-top:.4vh;}
+  .title .l{display:inline-flex; align-items:center; gap:6px; margin-top:.7vh; font-family:var(--mono); font-weight:800;
+    font-size:clamp(9px,.78vw,14px); letter-spacing:.08em; color:#fff; background:var(--accent); border:2px solid var(--line);
+    border-radius:999px; box-shadow:2px 2px 0 0 var(--shadow); padding:3px 10px;}
+  .title .l::before{content:""; width:8px; height:8px; border-radius:50%; background:#fff; animation:liveblink 1.4s steps(1,end) infinite;}
+
   /* main split */
   .main{flex:1 1 auto; min-height:0; display:flex; gap:1.6vw;}
-  .left{flex:0 0 36%; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
+  .left{flex:0 0 35%; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; gap:1vh;}
   .right{flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
-  .col-title{font-family:'Space Mono',monospace; letter-spacing:.16em; text-transform:uppercase; color:var(--accent2);
-    font-size:clamp(10px,.85vw,15px); margin:0 0 1vh; flex:0 0 auto;}
-  .col-title.up{margin-top:1.4vh;}
-  .col-title.live{color:var(--accent); animation:liveblink 1.4s steps(1,end) infinite;}
+  #leftTitle{display:none;}  /* "Now Playing" heading removed per request */
+  .col-title{font-family:var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--accent2); font-weight:800;
+    font-size:clamp(11px,.9vw,16px); margin:0 0 1vh; flex:0 0 auto;}
+  .col-title.up{margin-top:.4vh;}
+  .col-title.live{color:var(--accent);}
   .col-title.live::before{content:"\25CF  ";}
-  .rot-cd{font-family:'Space Mono',monospace; font-size:clamp(9px,.82vw,14px); letter-spacing:.06em; color:var(--muted); margin:-.2vh 0 1vh; flex:0 0 auto;}
-  @keyframes liveblink{0%,62%{opacity:1} 63%,100%{opacity:.22}}
-  /* avatars */
-  .av{ --s:42px; position:relative; width:var(--s); height:var(--s); border-radius:50%; overflow:hidden;
+  .rot-cd{display:none;}  /* countdown shown under the category name instead */
+
+  /* avatars — square tile, gender-icon fallback */
+  .av{ --s:42px; position:relative; width:var(--s); height:var(--s); border-radius:calc(var(--s)*.22); overflow:hidden;
     display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;
-    background:linear-gradient(135deg,#3a241b,#1c120c); border:1px solid var(--line);}
-  .av img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .av i{ font-style:normal; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; color:var(--accent2); font-size:calc(var(--s)*.44); }
-  /* now playing cards — one readable row per court (scales to many simultaneous matches) */
-  #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:.8vh;}
+    background:var(--panel2); border:2px solid var(--line); box-shadow:2px 2px 0 0 var(--shadow);}
+  .av img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .av .material-symbols-outlined{color:var(--faint); font-size:calc(var(--s)*.62);}
+
+  /* now playing */
+  #nowWrap{flex:1 1 auto; min-height:0; overflow:hidden; display:flex; flex-direction:column; gap:1vh;}
   .np-card{flex:1 1 0; min-height:0; overflow:hidden; display:flex; flex-direction:row; align-items:center; gap:1vw;
-    border:1.5px solid rgba(255,122,26,.7); border-radius:14px;
-    background:linear-gradient(180deg,rgba(255,122,26,.12),rgba(255,122,26,.04)); padding:.5vh 1.2vw;}
-  .np-court{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--accent);
-    border-radius:6px; padding:.45vh .7vw; font-size:clamp(10px,.95vw,17px); letter-spacing:.03em; white-space:nowrap;}
-  /* Teams flow left on one line (same as UPCOMING) so full names show; names get
-     the width first and only ellipsis when the line truly overflows. Bigger font. */
-  .np-teams{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:.7vw; overflow:hidden; white-space:nowrap;
-    font-size:clamp(12px,1.05vw,18px);}
-  .np-teams .npt{font-weight:800; min-width:0; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;}
+    border:2.5px solid var(--line); border-radius:16px; background:var(--panel); box-shadow:5px 5px 0 0 var(--accent); padding:.6vh 1.2vw;}
+  .np-court{flex:0 0 auto; font-family:var(--mono); font-weight:800; color:#fff; background:var(--accent);
+    border:2px solid var(--line); border-radius:8px; box-shadow:2px 2px 0 0 var(--shadow); padding:.5vh .8vw;
+    font-size:clamp(11px,1vw,19px); letter-spacing:.03em; white-space:nowrap;}
+  .np-teams{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:.7vw; overflow:hidden; white-space:nowrap; font-size:clamp(13px,1.15vw,22px);}
+  .np-teams .npt{font-family:var(--disp); font-weight:800; min-width:0; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;}
   .np-teams .amp{color:var(--faint); font-weight:600; padding:0 .18em;}
-  .np-x{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2);
-    font-size:.68em; letter-spacing:.1em;}
-  .np-meta{flex:0 1 auto; max-width:26%; font-family:'Space Mono',monospace; color:var(--muted);
-    font-size:clamp(9px,.8vw,14px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;}
-  .np-dot{flex:0 0 auto; width:clamp(9px,.8vw,15px); height:clamp(9px,.8vw,15px);
-    border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent);
-    animation:liveblink 1.4s steps(1,end) infinite;}
-  .np-empty,.up-empty{color:var(--faint); font-family:'Space Mono',monospace; font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
-  /* remote-navigable event picker (short URL /tv or /led, no slug typing) */
-  .tvpick-ov{position:fixed; inset:0; z-index:100; background:radial-gradient(1100px 600px at 84% -12%,rgba(255,106,0,.10),transparent 55%),#000; padding:5vh 6vw; overflow:auto; display:flex; flex-direction:column;}
-  .tvpick-brand{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(22px,3vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:.6vh;}
-  .tvpick-h{font-family:'Space Mono',monospace; letter-spacing:.14em; text-transform:uppercase; color:var(--accent2); font-size:clamp(11px,1.1vw,18px); margin-bottom:3vh;}
-  .tvpick-h b{color:var(--accent);}
-  .tvpick-list{display:flex; flex-direction:column; gap:1.4vh; max-width:min(94vw,1000px);}
-  .tvpick-row{display:flex; align-items:center; gap:1.6vw; padding:1.8vh 1.8vw; border:2px solid var(--line); border-radius:16px; background:var(--panel);}
-  .tvpick-row.on{border-color:var(--accent); background:linear-gradient(180deg,rgba(255,122,26,.18),rgba(255,122,26,.04)); box-shadow:0 0 0 3px rgba(255,122,26,.22);}
-  .tvpick-n{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:#000; background:var(--muted); border-radius:9px; padding:.5vh 1.1vw; font-size:clamp(15px,1.5vw,26px); min-width:2.2em; text-align:center;}
-  .tvpick-row.on .tvpick-n{background:var(--accent);}
-  .tvpick-nm{flex:1 1 auto; min-width:0; font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(22px,2.6vw,46px); line-height:1.02; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .tvpick-mt{flex:0 0 auto; font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(12px,1.15vw,20px); white-space:nowrap;}
-  .tvpick-cd{margin-top:2.4vh; font-family:'Space Mono',monospace; color:var(--muted); font-size:clamp(12px,1.1vw,18px);}
-  .tvpick-cd b{color:var(--accent2);}
-  /* upcoming — compact single-line queue, ordered by time; capped so Now Playing stays bigger */
-  #nextWrap{flex:0 0 auto; min-height:clamp(80px,11vh,170px); display:flex; flex-direction:column; gap:.6vh;}
-  .up-row{display:flex; align-items:center; gap:.8vw; border:1px solid var(--line); border-radius:8px; background:var(--panel); padding:.5vh .9vw;}
-  .up-time{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--text); font-size:clamp(11px,.95vw,17px); letter-spacing:.02em;}
-  .up-court{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent2); font-size:clamp(9px,.78vw,13px); letter-spacing:.02em; min-width:2.4em;}
-  .up-teams{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:.55vw; overflow:hidden; white-space:nowrap; font-size:clamp(11px,.92vw,16px);}
-  .up-teams b{font-weight:600; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;}
-  .up-x{flex:0 0 auto; font-family:'Space Mono',monospace; color:var(--faint); font-size:clamp(9px,.78vw,13px); text-transform:uppercase;}
-  /* standings — fill right column */
-  #standWrap{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:1.4vh;}
+  .np-x{flex:0 0 auto; font-family:var(--mono); font-weight:800; color:var(--faint); font-size:.62em; letter-spacing:.1em;}
+  .np-meta{flex:0 1 auto; max-width:24%; font-family:var(--mono); font-weight:700; color:var(--muted); font-size:clamp(9px,.82vw,15px);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right;}
+  .np-dot{flex:0 0 auto; width:clamp(9px,.8vw,15px); height:clamp(9px,.8vw,15px); border-radius:50%; background:var(--accent);
+    box-shadow:0 0 10px var(--accent); animation:liveblink 1.4s steps(1,end) infinite;}
+  .np-empty,.up-empty{color:var(--faint); font-family:var(--mono); font-size:clamp(13px,1.1vw,18px); padding:2vh 0;}
+
+  /* upcoming */
+  #nextWrap{flex:0 0 auto; min-height:clamp(80px,12vh,180px); display:flex; flex-direction:column; gap:.7vh;}
+  .up-row{display:flex; align-items:center; gap:.9vw; border:2px solid var(--line); border-radius:10px; background:var(--panel);
+    box-shadow:2px 2px 0 0 var(--shadow); padding:.6vh 1vw;}
+  .up-time{flex:0 0 auto; font-family:var(--mono); font-weight:700; color:var(--text); font-size:clamp(11px,1vw,18px); letter-spacing:.02em;}
+  .up-court{flex:0 0 auto; font-family:var(--mono); font-weight:700; color:var(--accent2); font-size:clamp(9px,.78vw,14px); white-space:nowrap;}
+  .up-teams{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:.6vw; overflow:hidden; white-space:nowrap; font-size:clamp(11px,.98vw,18px);}
+  .up-teams b{font-family:var(--disp); font-weight:700; overflow:hidden; text-overflow:ellipsis; flex:0 1 auto;}
+  .up-x{flex:0 0 auto; font-family:var(--mono); color:var(--faint); font-size:clamp(9px,.78vw,13px); text-transform:uppercase;}
+
+  /* standings (keeps --sfz so fit-to-screen still works) */
+  #standWrap{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:1.2vh;}
   .fit{--sfz:15px; display:flex; flex-direction:column; gap:calc(var(--sfz)*.9); align-content:start;}
   .cat-block{display:flex; flex-direction:column;}
-  .cat-block + .cat-block{margin-top:calc(var(--sfz)*.5);}
-  .cat-head{flex:0 0 auto; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
-  .cat-cap{font-family:'Space Mono',monospace; font-weight:400; font-size:calc(var(--sfz)*.7); color:var(--muted); letter-spacing:.02em;}
-  .grp-grid{display:grid; gap:calc(var(--sfz)*.55) calc(var(--sfz)*.6); align-content:start;}
-  .grp{overflow:hidden; border:1px solid var(--line); border-radius:calc(var(--sfz)*.7); background:var(--panel); padding:calc(var(--sfz)*.5) calc(var(--sfz)*.6); display:flex; flex-direction:column;}
-  .grp-h{flex:0 0 auto; font-family:'Space Mono',monospace; font-weight:700; color:var(--accent); font-size:calc(var(--sfz)*.95); letter-spacing:.04em; margin-bottom:calc(var(--sfz)*.3);}
-  table.st{width:100%; border-collapse:collapse; table-layout:auto;}
-  table.st th{font-family:'Space Mono',monospace; font-weight:400; color:var(--faint); text-transform:uppercase; letter-spacing:.03em;
-    font-size:calc(var(--sfz)*.66); text-align:center; padding:calc(var(--sfz)*.18) calc(var(--sfz)*.3); border-bottom:1px solid var(--line); white-space:nowrap;}
+  .cat-block + .cat-block{margin-top:calc(var(--sfz)*.6);}
+  .cat-head{flex:0 0 auto; font-family:var(--disp); font-weight:900; font-size:calc(var(--sfz)*1.5); display:flex; align-items:baseline; gap:.9vw; flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.5);}
+  .cat-cap{font-family:var(--mono); font-weight:400; font-size:calc(var(--sfz)*.72); color:var(--muted); letter-spacing:.02em;}
+  .grp-grid{display:grid; gap:calc(var(--sfz)*.6) calc(var(--sfz)*.6); align-content:start;}
+  .grp{overflow:hidden; border:2px solid var(--line); border-radius:calc(var(--sfz)*.7); background:var(--panel);
+    box-shadow:3px 3px 0 0 var(--shadow); padding:calc(var(--sfz)*.55) calc(var(--sfz)*.65); display:flex; flex-direction:column;}
+  .grp-h{flex:0 0 auto; font-family:var(--disp); font-weight:900; color:var(--text); font-size:calc(var(--sfz)*1.08); letter-spacing:-.01em; margin-bottom:calc(var(--sfz)*.35);}
+  table.st{width:100%; border-collapse:collapse; table-layout:auto; font-variant-numeric:tabular-nums;}
+  table.st th{font-family:var(--mono); font-weight:700; color:var(--faint); text-transform:uppercase; letter-spacing:.03em;
+    font-size:calc(var(--sfz)*.64); text-align:center; padding:calc(var(--sfz)*.2) calc(var(--sfz)*.28); border-bottom:2px solid var(--line); white-space:nowrap;}
   table.st th.nm{text-align:left;}
-  table.st td{font-size:var(--sfz); padding:calc(var(--sfz)*.16) calc(var(--sfz)*.32); text-align:center; border-bottom:1px solid rgba(60,41,32,.55); white-space:nowrap; vertical-align:middle;}
-  table.st td.rk{font-family:'Space Mono',monospace; width:1.8em;}
-  table.st td.nm{text-align:left; white-space:normal; line-height:1.07; padding-right:calc(var(--sfz)*.5);}
-  table.st td.nm .p1{display:block; font-weight:600; color:inherit;}
-  table.st td.nm .p2{display:block; font-weight:600; color:inherit;}
-  table.st td.pts{color:var(--accent); font-weight:700;}
+  table.st td{font-size:var(--sfz); padding:calc(var(--sfz)*.2) calc(var(--sfz)*.3); text-align:center; border-bottom:1px solid var(--soft); white-space:nowrap; vertical-align:middle; color:var(--text);}
+  table.st td.rk{font-family:var(--mono); font-weight:700; color:var(--accent2); width:1.8em;}
+  table.st td.nm{text-align:left; white-space:normal; line-height:1.07; padding-right:calc(var(--sfz)*.4);}
+  table.st td.nm .p1{display:block; font-family:var(--disp); font-weight:800; color:inherit;}
+  table.st td.nm .p2{display:block; font-weight:600; color:var(--muted);}
+  table.st td.pts{color:var(--accent); font-weight:800;}
   table.st tr:last-child td{border-bottom:none;}
-  /* zebra by rank for readability: 1 white, 2 yellow, 3 white, 4 yellow … */
-  table.st tbody tr:nth-child(odd) td{color:var(--text);}
-  table.st tbody tr:nth-child(even) td{color:var(--accent2); background:rgba(255,171,64,.07);}
-  .center{display:flex; align-items:center; justify-content:center; height:100%; color:var(--faint);
-    font-family:'Space Mono',monospace; font-size:clamp(14px,1.4vw,22px); text-align:center; padding:2vh;}
-  /* footer */
-  .footer{flex:0 0 auto; display:flex; justify-content:flex-end; align-items:baseline; gap:.6vw; margin-top:1.2vh;}
-  .footer .pwr{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); color:var(--faint); letter-spacing:.1em; text-transform:uppercase;}
-  .footer .logo-sm{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; font-size:clamp(14px,1.4vw,24px); letter-spacing:-.01em;
+  table.st tbody tr.top td,table.st tbody tr.champ td{background:var(--accent-10);}
+  table.st tbody tr.top td.rk,table.st tbody tr.champ td.rk{color:var(--accent);}
+  table.st tbody tr.prosp td{background:rgba(255,122,26,.06);}
+  /* ranking legend (standings only) */
+  .tv-legend{flex:0 0 auto; display:flex; flex-wrap:wrap; gap:.4vw 1.2vw; align-items:center; margin-top:1vh;
+    border:2px solid var(--line); border-radius:12px; background:var(--panel); box-shadow:3px 3px 0 0 var(--shadow);
+    padding:.8vh 1.1vw; font-family:var(--mono); color:var(--muted); font-size:clamp(9px,.78vw,15px);}
+  .tv-legend b{color:var(--text); font-weight:800;}
+  .tv-legend .rule b{color:var(--accent);}
+  .center{display:flex; align-items:center; justify-content:center; height:100%; color:var(--faint); font-family:var(--mono);
+    font-size:clamp(14px,1.4vw,22px); text-align:center; padding:2vh;}
+
+  /* brand pill — bottom-right */
+  .footer{position:fixed; right:max(12px,env(safe-area-inset-right,0px)); bottom:calc(1.4vh + env(safe-area-inset-bottom,0px)); z-index:40;
+    display:flex; align-items:center; gap:7px; background:var(--panel); border:2px solid var(--line); border-radius:999px;
+    box-shadow:2px 2px 0 0 var(--shadow); padding:4px 12px;}
+  .footer .pwr{font-family:var(--mono); font-size:clamp(8px,.68vw,12px); color:var(--faint); letter-spacing:.08em; text-transform:uppercase;}
+  .footer .logo-sm{font-family:var(--disp); font-weight:900; font-size:clamp(12px,1vw,18px); letter-spacing:-.01em;
     background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  /* playoff bracket — mobile-style cards, laid out as left→right round columns for TV */
+
+  /* playoff bracket */
   .bracket-block{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
   .bracket-block + .bracket-block{margin-top:1.4vh;}
-  .bt{flex:0 0 auto; font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:clamp(15px,1.5vw,26px); margin-bottom:.8vh;}
-  /* podium row: Champion / Runner-up / 3rd — same as mobile */
-  .bpodium{flex:0 0 auto; display:flex; gap:.9vw; margin-bottom:1.4vh;}
-  .bpod{flex:1; min-width:0; border:1px solid var(--line); border-radius:12px; background:var(--panel); padding:1vh 1vw;}
-  .bpod .bpk{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,13px); letter-spacing:.05em; text-transform:uppercase; color:var(--muted);}
-  .bpod .bpw{font-weight:700; font-size:clamp(13px,1.25vw,22px); margin-top:.5vh; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .bpod.g{border-color:rgba(255,122,26,.5); background:rgba(255,122,26,.09);} .bpod.g .bpk{color:var(--accent);}
-  .bpod.b .bpk{color:var(--accent2);}
-  /* round columns */
+  .bt{flex:0 0 auto; font-family:var(--disp); font-weight:900; font-size:clamp(15px,1.5vw,28px); margin-bottom:1vh; letter-spacing:-.01em;}
+  .bpodium{flex:0 0 auto; display:flex; gap:1vw; margin-bottom:1.4vh;}
+  .bpod{flex:1; min-width:0; border:2px solid var(--line); border-radius:13px; background:var(--panel); box-shadow:4px 4px 0 0 var(--shadow); padding:1vh 1vw;}
+  .bpod .bpk{font-family:var(--mono); font-weight:800; font-size:clamp(9px,.8vw,14px); letter-spacing:.05em; text-transform:uppercase; color:var(--muted);}
+  .bpod .bpw{font-family:var(--disp); font-weight:800; font-size:clamp(14px,1.3vw,24px); margin-top:.5vh; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .bpod.g{border-color:var(--accent); background:var(--accent-10);} .bpod.g .bpk{color:var(--accent);}
+  .bpod.g .bpw{color:var(--accent);} .bpod.s .bpk{color:var(--silver);} .bpod.b .bpk{color:var(--accent2);}
   .bracket{flex:1 1 auto; min-height:0; display:flex; gap:1vw; align-items:stretch; overflow:hidden;}
   .bround{flex:1 1 0; min-width:0; display:flex; flex-direction:column;}
-  /* The first round holds the most teams (e.g. 16), so give it extra width so
-     full team names fit instead of being truncated. */
   .bround.wide{flex:2.4 1 0;}
-  .bround.narrow{flex:0 0 auto; width:clamp(140px,13vw,220px);}
-  .brh{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:clamp(9px,.78vw,13px); color:var(--faint);
-    text-transform:uppercase; letter-spacing:.06em; margin-bottom:.8vh; padding-bottom:.6vh; border-bottom:1px solid var(--line); text-align:left;}
+  .bround.narrow{flex:0 0 auto; width:clamp(140px,13vw,230px);}
+  .brh{flex:0 0 auto; font-family:var(--mono); font-weight:700; font-size:clamp(9px,.78vw,14px); color:var(--faint);
+    text-transform:uppercase; letter-spacing:.06em; margin-bottom:.8vh; padding-bottom:.6vh; border-bottom:2px solid var(--line); text-align:left;}
   .brcol{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:1vh;}
-  /* The first (densest) round shares its column height equally across matches so
-     all of them (e.g. 8 in a Round of 16) always fit — the bottom match is never
-     clipped off-screen. Sparse later rounds keep their centred spacing. */
-  .bround.wide .brcol{justify-content:flex-start; gap:.5vh;}
+  .bround.wide .brcol{justify-content:flex-start; gap:.6vh;}
   .bround.wide .bmatch{flex:1 1 0; min-height:0; overflow:hidden; justify-content:center;}
-  .bmatch{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.85vh .8vw; display:flex; flex-direction:column; gap:.3vh;}
+  .bmatch{border:2px solid var(--line); border-radius:11px; background:var(--panel); box-shadow:3px 3px 0 0 var(--shadow); padding:.9vh .8vw; display:flex; flex-direction:column; gap:.35vh;}
   .bmatch.bye{opacity:.45;}
-  .bmeta{font-family:'Space Mono',monospace; font-size:clamp(8px,.72vw,12px); color:var(--faint); letter-spacing:.02em; margin-bottom:.2vh;}
+  .bmeta{font-family:var(--mono); font-size:clamp(8px,.72vw,12px); color:var(--faint); letter-spacing:.02em; margin-bottom:.2vh;}
   .bteam{display:flex; align-items:center; gap:.4vw; min-width:0;}
-  .bteam.win{color:var(--accent); font-weight:700;}
+  .bteam.win{color:var(--accent); font-weight:800;}
   .bteam.tbd{color:var(--faint); font-style:italic;}
-  /* Wrap to up to 2 lines instead of a 1-line ellipsis, so long team names
-     (e.g. "Borro padel club") stay fully readable in the bracket. Font size is
-     adaptive per bracket via --bfz (set in JS): big for few teams, smaller as the
-     draw grows so all 16/32 fit on screen. */
-  .bteam .bnm{flex:1 1 auto; min-width:0; font-size:var(--bfz,clamp(11px,.98vw,18px)); line-height:1.12; word-break:break-word; overflow:hidden;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
-  .bteam .bsc{flex:0 0 auto; font-family:'Space Mono',monospace; font-size:var(--bfz,clamp(11px,1vw,18px)); margin-left:auto; padding-left:.4vw;}
-  /* Density: tighten spacing as the draw grows so every match still fits vertically. */
-  .bracket-block.dense .bmatch{padding:.55vh .65vw; gap:.2vh;}
-  .bracket-block.dense .brcol{gap:.55vh;}
-  .bracket-block.dense .brh{margin-bottom:.5vh; padding-bottom:.4vh;}
-  .bracket-block.xdense .bmatch{padding:.35vh .5vw; gap:.1vh;}
-  .bracket-block.xdense .brcol{gap:.3vh;}
-  .bracket-block.xdense .brh{margin-bottom:.35vh; padding-bottom:.3vh; font-size:clamp(8px,.66vw,11px);}
-  .bracket-block.xdense .bmeta{display:none;}
-  /* projected (simulated) bracket */
-  .bracket-block.proj .bt{color:var(--accent);}
-  .bmatch.proj{border-style:dashed;}
-  .bteam.proj{color:var(--muted); font-style:italic;}
+  .bteam .bnm{flex:1 1 auto; min-width:0; font-family:var(--disp); font-weight:700; font-size:var(--bfz,clamp(11px,.98vw,18px)); line-height:1.12; word-break:break-word; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .bteam.win .bnm{font-weight:800;}
+  .bteam .bsc{flex:0 0 auto; font-family:var(--mono); font-weight:700; font-size:var(--bfz,clamp(11px,1vw,18px)); margin-left:auto; padding-left:.4vw;}
+  .bracket-block.dense .bmatch{padding:.6vh .65vw; gap:.2vh;} .bracket-block.dense .brcol{gap:.6vh;} .bracket-block.dense .brh{margin-bottom:.5vh; padding-bottom:.4vh;}
+  .bracket-block.xdense .bmatch{padding:.4vh .5vw; gap:.1vh;} .bracket-block.xdense .brcol{gap:.35vh;} .bracket-block.xdense .brh{margin-bottom:.35vh; padding-bottom:.3vh; font-size:clamp(8px,.66vw,11px);} .bracket-block.xdense .bmeta{display:none;}
+  .bracket-block.proj .bt{color:var(--accent);} .bmatch.proj{border-style:dashed;} .bteam.proj{color:var(--muted); font-style:italic;}
+
   /* provisional qualification strip */
   .qpanel{flex:0 0 auto; margin-bottom:1.2vh;}
-  .qh{font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:clamp(14px,1.4vw,24px); margin-bottom:.7vh;}
-  .qh .qsub{font-family:'Space Mono',monospace; font-weight:400; font-size:clamp(9px,.8vw,14px); color:var(--muted); margin-left:.6vw;}
-  .qchips{display:grid; grid-template-columns:repeat(4,1fr); gap:.6vw .6vw;}
-  .qchip{display:flex; align-items:center; gap:.4vw; border:1px solid var(--line); border-radius:8px; padding:.5vh .6vw; min-width:0;}
-  .qchip .qp{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,14px); color:var(--muted); flex:0 0 auto;}
-  .qchip .qn{flex:1 1 auto; min-width:0; font-size:clamp(11px,.95vw,17px); font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .qh{font-family:var(--disp); font-weight:900; font-size:clamp(14px,1.4vw,24px); margin-bottom:.7vh;}
+  .qh .qsub{font-family:var(--mono); font-weight:400; font-size:clamp(9px,.8vw,14px); color:var(--muted); margin-left:.6vw;}
+  .qchips{display:grid; grid-template-columns:repeat(4,1fr); gap:.6vw;}
+  .qchip{display:flex; align-items:center; gap:.4vw; border:2px solid var(--line); border-radius:9px; background:var(--panel); box-shadow:2px 2px 0 0 var(--shadow); padding:.5vh .6vw; min-width:0;}
+  .qchip .qp{font-family:var(--mono); font-weight:700; font-size:clamp(9px,.8vw,14px); color:var(--muted); flex:0 0 auto;}
+  .qchip .qn{flex:1 1 auto; min-width:0; font-family:var(--disp); font-weight:800; font-size:clamp(11px,.95vw,17px); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .qchip .qn.tbc{color:var(--faint); font-style:italic; font-weight:400;}
-  .qchip.ok{border-color:rgba(255,122,26,.5); background:rgba(255,122,26,.08);}
+  .qchip.ok{border-color:var(--accent); background:var(--accent-10);}
   .qgblk{margin-bottom:.8vh;}
-  .qgl{font-family:'Space Mono',monospace; font-size:clamp(9px,.8vw,14px); letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:.4vh;}
-  /* winners podium (left column when finished) */
-  .winners{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:2.2vh;}
-  .winners .win-head{font-family:'Space Mono',monospace; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-size:clamp(11px,1vw,17px);}
-  .win-row{display:flex; flex-direction:column; align-items:center; gap:.8vh; text-align:center;}
-  .win-row .wlabel{font-family:'Space Mono',monospace; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-size:clamp(10px,.9vw,15px);}
-  .win-row .wpair{display:flex; justify-content:center;}
-  .win-row .wpair .av{margin-left:-8px; box-shadow:0 0 0 3px #000;} .win-row .wpair .av:first-child{margin-left:0;}
-  .win-row .wnames{font-family:'Plus Jakarta Sans',sans-serif; font-weight:800; line-height:1.1;}
-  .win-row.champ .wlabel{color:var(--accent); font-size:clamp(14px,1.3vw,24px);}
-  .win-row.champ .wpair .av{box-shadow:0 0 0 3px #000, 0 0 26px rgba(255,122,26,.55);}
-  .win-row.champ .wnames{font-size:clamp(20px,2.1vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .win-row.ru .wlabel{color:var(--accent2);}
-  .win-row.ru .wnames{font-size:clamp(15px,1.5vw,30px);}
-  .win-row.third .wnames{font-size:clamp(13px,1.2vw,23px); color:var(--muted);}
-  /* sponsor reel overlay — pure black, full-bleed adaptive logo, no white anywhere */
-  #sponsorOverlay{position:fixed; inset:0; z-index:9999; background:#000;
-    display:none; align-items:center; justify-content:center;}
+  .qgl{font-family:var(--mono); font-weight:800; font-size:clamp(9px,.8vw,14px); letter-spacing:.06em; text-transform:uppercase; color:var(--accent); margin-bottom:.4vh;}
+
+  /* full-screen winners — three equal placements side by side */
+  .winners3{flex:1 1 auto; min-height:0; display:grid; grid-template-columns:repeat(3,1fr); gap:1.4vw; align-items:stretch; margin-top:1vh;}
+  .wcard{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1.8vh; text-align:center;
+    background:var(--panel); border:2.5px solid var(--line); border-radius:20px; box-shadow:6px 6px 0 0 var(--shadow); padding:2vh 1vw;}
+  .wcard.champ{border-color:var(--accent); box-shadow:7px 7px 0 0 var(--accent); background:var(--accent-10);}
+  .wrank{font-family:var(--mono); font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--muted);
+    font-size:clamp(13px,1.4vw,30px); display:flex; align-items:center; gap:9px;}
+  .wcard.champ .wrank{color:var(--accent);} .wcard.ru .wrank{color:var(--accent2);} .wcard.third .wrank{color:var(--silver);}
+  .wcard .wpair{display:flex; gap:1vw;}
+  .wcard .av{--s:clamp(60px,6.4vw,150px); border-radius:18px;}
+  .wcard.champ .av{border-color:var(--accent); box-shadow:5px 5px 0 0 var(--accent);}
+  .wteam{font-family:var(--disp); font-weight:900; line-height:1.04; font-size:clamp(22px,2.7vw,60px);}
+  .wcard.champ .wteam{color:var(--accent);}
+  .wplayers{font-family:var(--mono); color:var(--muted); font-size:clamp(11px,1.05vw,22px); letter-spacing:.02em; line-height:1.3;}
+  .wstat{font-family:var(--mono); font-weight:800; font-size:clamp(13px,1.3vw,28px); letter-spacing:.04em;}
+  .wstat .w{color:var(--accent);} .wstat .l{color:var(--faint);} .wstat .sep{color:var(--soft);}
+
+  /* event picker (remote) */
+  .tvpick-ov{position:fixed; inset:0; z-index:100; background:var(--bg); padding:5vh 6vw; overflow:auto; display:flex; flex-direction:column;}
+  .tvpick-brand{font-family:var(--disp); font-weight:900; font-size:clamp(22px,3vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:.6vh;}
+  .tvpick-h{font-family:var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--accent2); font-size:clamp(11px,1.1vw,18px); margin-bottom:3vh;}
+  .tvpick-h b{color:var(--accent);}
+  .tvpick-list{display:flex; flex-direction:column; gap:1.4vh; max-width:min(94vw,1000px);}
+  .tvpick-row{display:flex; align-items:center; gap:1.6vw; padding:1.6vh 1.6vw; border:2px solid var(--line); border-radius:14px; background:var(--panel); box-shadow:3px 3px 0 0 var(--shadow);}
+  .tvpick-row.on{border-color:var(--accent); background:var(--accent-10); box-shadow:4px 4px 0 0 var(--accent);}
+  .tvpick-n{flex:0 0 auto; font-family:var(--mono); font-weight:700; color:#fff; background:var(--muted); border:2px solid var(--line); border-radius:9px; padding:.5vh 1.1vw; font-size:clamp(15px,1.5vw,26px); min-width:2.2em; text-align:center;}
+  .tvpick-row.on .tvpick-n{background:var(--accent);}
+  .tvpick-nm{flex:1 1 auto; min-width:0; font-family:var(--disp); font-weight:900; font-size:clamp(22px,2.6vw,46px); line-height:1.02; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .tvpick-mt{flex:0 0 auto; font-family:var(--mono); color:var(--muted); font-size:clamp(12px,1.15vw,20px); white-space:nowrap;}
+  .tvpick-cd{margin-top:2.4vh; font-family:var(--mono); color:var(--muted); font-size:clamp(12px,1.1vw,18px);}
+  .tvpick-cd b{color:var(--accent);}
+
+  /* sponsor reel overlay — stays black so logos sit on a neutral ground */
+  #sponsorOverlay{position:fixed; inset:0; z-index:9999; background:#000; display:none; align-items:center; justify-content:center;}
   #sponsorOverlay.show{display:flex; animation:spFade .4s ease;}
   @keyframes spFade{from{opacity:0}to{opacity:1}}
   #sponsorOverlay img{width:100%; height:100%; object-fit:contain; display:block;}
-  #spCountdown{position:fixed; left:1.2vw; bottom:1vh; z-index:50; font-family:'Space Mono',monospace; font-size:clamp(7px,.55vw,10px); color:var(--faint); background:rgba(0,0,0,.45); border:1px solid var(--line); border-radius:999px; padding:.35vh .8vw; letter-spacing:.05em;}
+  #spCountdown{position:fixed; left:1.2vw; bottom:1vh; z-index:50; font-family:var(--mono); font-size:clamp(7px,.55vw,10px); color:var(--faint); background:var(--panel); border:2px solid var(--line); border-radius:999px; padding:.35vh .8vw; letter-spacing:.05em;}
+
 </style>
 </head>
 <body>
@@ -216,12 +250,18 @@
 <div id="spCountdown"></div>
 <div class="screen">
   <div class="bar">
-    <div class="qr" id="qrBox" style="display:none">
-      <div class="qrimg"><img id="qrImg" alt="QR" /></div>
-      <div class="qrlabel">Scan to stay updated<br>live on your phone</div>
+    <div class="catbox">
+      <div class="catname" id="catName">—</div>
+      <div class="catnext" id="catNext"></div>
     </div>
     <div class="ev"><div class="nm" id="evnm">—</div></div>
-    <div class="title"><div class="tt" id="evTitle">—</div><div class="td" id="evDate"></div><div class="l" id="livedot">● LIVE</div></div>
+    <div class="meta">
+      <div class="qr" id="qrBox" style="display:none">
+        <div class="qrimg"><img id="qrImg" alt="QR" /></div>
+        <div class="qrlabel">Scan to follow<br>live on your phone</div>
+      </div>
+      <div class="title"><div class="tt" id="evTitle"></div><div class="td" id="evDate"></div><div class="l" id="livedot">LIVE</div></div>
+    </div>
   </div>
   <div class="main">
     <div class="left" id="leftCol">
@@ -234,9 +274,13 @@
       <div class="col-title" id="rightTitle">Group Standings</div>
       <div class="rot-cd" id="rotCountdown" style="display:none"></div>
       <div id="standWrap"><div class="center">Loading tournament data…</div></div>
+      <div class="tv-legend" id="tvLegend" hidden>
+        <div><b>P</b> Played · <b>W</b> Win · <b>L</b> Loss · <b>PD</b> Point diff · <b>PF</b> Points for · <b>PA</b> Points against</div>
+        <div class="rule"><b>Ranking</b> Most wins → Head-to-head (H2H) → PD → PF → PA</div>
+      </div>
     </div>
   </div>
-  <div class="footer"><span class="logo-sm">turnamenpadel.com</span></div>
+  <div class="footer"><span class="pwr">powered by</span><span class="logo-sm">turnamenpadel.com</span></div>
 </div>
 
 <script>
@@ -281,6 +325,7 @@ const ROT_MS = 60000;      // 60s per category
 let nextRotAt = 0;         // timestamp of the next category switch (for the countdown)
 let ROT_N = 0;             // categories in the currently shown rotating view (>1 => rotating)
 let STAND_PAGES = 1;       // group-standings pages (>1 => split per category & rotating)
+let ROT_LABELS = [];       // labels of the categories currently rotating (for the "Next:" line)
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
 // Full category names (avoid codes like MD/WD/MIXED on the LED board).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
@@ -310,7 +355,7 @@ function catFullLabel(c){ return catLabel(c.category)+(levelLabel(c.level)?" · 
 // rotation so the centre name matches the standings/bracket being shown; when
 // several categories share the screen it lists them all.
 function updateCenterCat(){
-  const el=document.getElementById("evnm"); if(!el||!state.data) return;
+  const el=document.getElementById("catName"); if(!el||!state.data) return;
   const cats=state.data.categories||[]; let label="";
   if(CAT_LABEL){ label=CAT_LABEL; }
   else if(cats.length<=1){ label=cats.length?catFullLabel(cats[0]):((state.data.event&&state.data.event.name)||""); }
@@ -325,8 +370,9 @@ function updateCenterCat(){
 }
 
 function photoOf(name){ const p=state.data.players && state.data.players[normName(name)]; return (p&&p.photo)?p.photo:""; }
-function avatar(name,size){ const ph=photoOf(name); const init=(String(name||"?").trim()[0]||"?").toUpperCase();
-  return `<span class="av" style="--s:${size}"><i>${esc(init)}</i>${ph?`<img src="${esc(ph)}" alt="" onerror="this.remove()"/>`:""}</span>`; }
+function genderIcon(name){ const p=state.data&&state.data.players&&state.data.players[normName(name)]; const g=(p&&p.gender?String(p.gender):"M").toUpperCase(); return g.charAt(0)==="F"?"woman":"man"; }
+function avatar(name,size){ const ph=photoOf(name);
+  return `<span class="av" style="--s:${size}">${ph?`<img src="${esc(ph)}" alt="" onerror="this.closest('.av').innerHTML='<span class=&quot;material-symbols-outlined&quot;>'+'person'+'</span>'"/>`:`<span class="material-symbols-outlined">${genderIcon(name)}</span>`}</span>`; }
 function pairPlayers(c, eid){ const e=c.entrants && c.entrants[eid]; if(!e) return [eid||"TBD",""]; return [e.player1||"", e.player2||""]; }
 
 function teamNameOf(c, eid){ const e=c.entrants && c.entrants[eid]; return e && e.teamName ? String(e.teamName).trim() : ""; }
@@ -602,14 +648,41 @@ function winnerRow(cls, label, teamStr, sz, c, eid){
     <div class="wpair">${players.map(n=>avatar(n,sz)).join("")}</div>
     <div class="wnames">${players.map(n=>esc(shortName(n))).join(" & ")}</div></div>`;
 }
+// Total wins/losses for an entrant across the group stage + playoff (incl. 3rd-place match).
+function tallyWL(c, eid){
+  let w=0,l=0; const E=String(eid);
+  (c.groups||[]).forEach(g=>(g.standings||[]).forEach(s=>{ if(String(s.entrantId)===E){ w+=Number(s.wins||0); l+=Number(s.losses||0); } }));
+  const countM=(m)=>{ if(!m||m.status!=="DONE"||!m.winner) return; if(String(m.entrantA)===E||String(m.entrantB)===E){ if(String(m.winner)===E) w++; else l++; } };
+  (c.playoff||[]).forEach(b=>{ (b.rounds||[]).forEach(r=>(r.matches||[]).forEach(countM)); countM(b.bronze); });
+  return {w,l};
+}
+// A category's finished bracket (champion decided), preferring non-Prospect tiers.
+function catFinishedPodium(c){
+  let fb=null;
+  for(const b of (c.playoff||[])){ const pod=derivePodium(b); if(pod.champion){ const e={c,b,pod}; if(b.tier!=="PROSPECT") return e; if(!fb) fb=e; } }
+  return fb;
+}
 function winnersHtml(fin){
   const p=fin.pod, c=fin.c;
-  const tierExtra = (fin.b.tier && fin.b.tier!=="MAIN") ? " · "+(TIER[fin.b.tier]||fin.b.tier) : "";
-  return `<div class="winners">
-    <div class="win-head">${esc(catLabel(fin.c.category))}${esc(tierExtra)}</div>
-    ${winnerRow("champ","🏆 Champion", p.champion, "clamp(56px,5.2vw,128px)", c, p.champE)}
-    ${winnerRow("ru","🥈 Runner-up", p.runnerUp, "clamp(42px,3.6vw,86px)", c, p.ruE)}
-    ${winnerRow("third","🥉 3rd Place", p.third, "clamp(34px,2.8vw,64px)", c, p.thirdE)}
+  const card=(cls,rank,medal,eid,teamStr)=>{
+    if(!eid && !teamStr) return "";
+    const tn=(eid?teamNameOf(c,eid):"")||"";
+    const players = eid ? pairPlayers(c,eid).filter(Boolean) : splitPair(teamStr);
+    const avs = players.map(n=>avatar(n,"clamp(60px,6.4vw,150px)")).join("");
+    const team = tn || (players.map(n=>esc(shortName(n))).join(" & ")) || esc(firstNames(teamStr));
+    const pl = players.map(n=>esc(dispName(n))).join(" · ");
+    const wl = eid ? tallyWL(c,eid) : null;
+    return `<div class="wcard ${cls}"><div class="wrank">${medal} ${rank}</div>`
+      + `<div class="wpair">${avs}</div>`
+      + `<div class="wteam">${team}</div>`
+      + (pl?`<div class="wplayers">${pl}</div>`:"")
+      + (wl?`<div class="wstat"><span class="w">${wl.w}W</span> <span class="sep">·</span> <span class="l">${wl.l}L</span></div>`:"")
+      + `</div>`;
+  };
+  return `<div class="winners3">
+    ${card("champ","Champion","🏆",p.champE,p.champion)}
+    ${card("ru","Runner-up","🥈",p.ruE,p.runnerUp)}
+    ${card("third","3rd Place","🥉",p.thirdE,p.third)}
   </div>`;
 }
 function capFor(c){
@@ -672,9 +745,16 @@ function renderRight(){
   const titleEl=document.getElementById("rightTitle");
   const wrap=document.getElementById("standWrap");
   const catSuffix=(list)=> list.length>1 ? " · "+catLabel(list[CAT_ROT % list.length].category) : "";
+  const legendEl=document.getElementById("tvLegend");
   if(hasPlayoff){
     const bcats=(state.data.categories||[]).filter(c=>(c.playoff||[]).length);
-    ROT_N=bcats.length; titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); updateRotCountdown(); return;
+    ROT_N=bcats.length; ROT_LABELS=bcats.map(catFullLabel);
+    if(legendEl) legendEl.hidden=true;
+    const cur=bcats.length?bcats[CAT_ROT % bcats.length]:null;
+    const fin=cur?catFinishedPodium(cur):null;
+    if(fin){ titleEl.textContent="Champions"+catSuffix(bcats); wrap.innerHTML=winnersHtml(fin); }
+    else { titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); }
+    updateRotCountdown(); updateCenterCat(); return;
   }
   // Group stage: show Group Standings only. The simulated/projected playoff
   // bracket is intentionally NOT rotated in — the bracket appears only once the
@@ -682,7 +762,8 @@ function renderRight(){
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
   // Show every category's standings together (each as its own labelled block)
   // instead of rotating one at a time — clearer when categories run in separate batches.
-  STAND_PAGES=1; ROT_N=1; titleEl.textContent="Group Standings";
+  STAND_PAGES=1; ROT_N=1; ROT_LABELS=[]; titleEl.textContent="Group Standings";
+  if(legendEl) legendEl.hidden = !cats.length;
   if(!cats.length){ wrap.innerHTML='<div class="center">No standings yet — enter group scores first.</div>'; updateRotCountdown(); return; }
   // Build the standings HTML for a set of categories and shrink-to-fit; returns the font px it settled on.
   const renderCats=(list)=>{
@@ -707,7 +788,7 @@ function renderRight(){
   const MIN_LEGIBLE=11;
   const bestAll=renderCats(cats);
   if(cats.length>1 && bestAll<MIN_LEGIBLE){
-    STAND_PAGES=cats.length; ROT_N=cats.length;
+    STAND_PAGES=cats.length; ROT_N=cats.length; ROT_LABELS=cats.map(catFullLabel);
     const cur=cats[CAT_ROT % cats.length];
     titleEl.textContent="Group Standings · "+catLabel(cur.category);
     renderCats([cur]);
@@ -717,12 +798,12 @@ function renderRight(){
 }
 // Countdown to the next category switch, shown under the panel title.
 function updateRotCountdown(){
-  const el=document.getElementById("rotCountdown");
+  const el=document.getElementById("catNext");
   if(!el) return;
-  if(ROT_N<=1){ el.style.display="none"; return; }
+  if(ROT_N<=1 || !ROT_LABELS || ROT_LABELS.length<=1){ el.textContent=""; return; }
   const rem=Math.max(0, Math.round((nextRotAt-Date.now())/1000));
-  el.style.display="";
-  el.textContent="↻ Next category in "+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0");
+  const nxt=ROT_LABELS[(CAT_ROT+1)%ROT_LABELS.length]||"";
+  el.innerHTML="Next: "+esc(nxt)+" · in <b>"+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0")+"</b>";
 }
 function render(){
   if(!state.data) return;
@@ -819,7 +900,8 @@ async function load(){
     }
     applyTvTheme(d.event && d.event.theme);
     preloadSponsors(d.sponsors);
-    document.getElementById("evTitle").textContent=d.event.name||"Tournament";
+    document.getElementById("evnm").textContent=d.event.name||"Tournament";
+    document.getElementById("evTitle").textContent=d.event.venue||"";
     document.getElementById("evDate").textContent=fmtEventDate(d.event.date);
     render();
     updateCenterCat();
