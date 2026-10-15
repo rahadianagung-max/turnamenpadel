@@ -3390,6 +3390,12 @@ async function tScheduleEvent(eventId, body) {
   // group order) so groups run in clean waves — A–D in batch 1, E–H in batch 2 —
   // instead of being split across courts to shave the finish time.
   const forceLock = b.lockGroups === true || b.lockGroups === "true";
+  // Per-category override of the batch-by-group-order layout: { tid: true|false }.
+  // A category present here uses its own value; categories absent fall back to the
+  // event-wide `lockGroups` default. Lets one category run in clean waves (A–D then
+  // E–H) while another in the same event splits its groups across courts in parallel.
+  const catLockIn = (b.categoryLock && typeof b.categoryLock === "object") ? b.categoryLock : null;
+  const lockFor = (tid) => (catLockIn && Object.prototype.hasOwnProperty.call(catLockIn, tid)) ? (catLockIn[tid] === true || catLockIn[tid] === "true") : forceLock;
   const startTime = normClock((b.startTime && String(b.startTime).trim()) || evRow[4]) || "09:00";
   const numCourtsRaw = parseInt(b.numCourts) || parseInt(evRow[5]) || 1;
   const courtNums = parseCourtNumbers(b.courtNumbers, numCourtsRaw);
@@ -3555,36 +3561,39 @@ async function tScheduleEvent(eventId, body) {
   let anyLocked = false, anyParallel = false;
   for (const pool of pools.values()) {
     const poolC = pool.allowed.length;
-    const sortedG = pool.groups.slice().sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }));
-    const sub = allMatches.filter((m) => pool.groups.includes(groups[m.gi]));
-    const setLock = (v) => sub.forEach((m) => { m.locked = v; });
-    if (forceLock) {
-      // TRUE batches, scoped PER CATEGORY: within each category, groups A,B,C,D run
-      // in wave 1 on the pool's courts, then E,F,G,H in wave 2, etc. Each wave only
-      // starts after the previous wave's longest group finishes (hard barrier), and
-      // waves are offset from THAT CATEGORY's own start slot — so a later category
-      // (e.g. Fixed Mixed at 12 PM) still opens with its own A-D, independent of the
-      // morning categories sharing the same courts.
-      const mcount = new Map(); sub.forEach((m) => mcount.set(m.gi, (mcount.get(m.gi) || 0) + 1));
-      const byTid = new Map();
-      sortedG.forEach((g) => { if (!byTid.has(g.tid)) byTid.set(g.tid, []); byTid.get(g.tid).push(g); });
-      for (const catGroups of byTid.values()) {
+    // Decide the layout PER CATEGORY inside the pool, so two categories sharing the
+    // same courts can each pick batch-by-group-order (clean A–D then E–H waves) or
+    // parallel (groups split across courts), independently of one another.
+    const byTid = new Map();
+    pool.groups.forEach((g) => { if (!byTid.has(g.tid)) byTid.set(g.tid, []); byTid.get(g.tid).push(g); });
+    for (const [tid, catGroupsRaw] of byTid) {
+      const catGroups = catGroupsRaw.slice().sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }));
+      const sub = allMatches.filter((m) => catGroups.includes(groups[m.gi]));
+      const setLock = (v) => sub.forEach((m) => { m.locked = v; });
+      if (lockFor(tid)) {
+        // TRUE batches: groups A,B,C,D run in wave 1 on the pool's courts, then
+        // E,F,G,H in wave 2, etc. Each wave only starts after the previous wave's
+        // longest group finishes (hard barrier), offset from THIS CATEGORY's own
+        // start slot — so a later category (e.g. Fixed Mixed at 12 PM) still opens
+        // with its own A-D, independent of the morning categories on the same courts.
+        const mcount = new Map(); sub.forEach((m) => mcount.set(m.gi, (mcount.get(m.gi) || 0) + 1));
         const waveSpan = [];
         catGroups.forEach((g, i) => { const w = Math.floor(i / poolC); waveSpan[w] = Math.max(waveSpan[w] || 0, mcount.get(g._gi) || 0); });
         const waveStart = []; { let acc = 0; for (let w = 0; w < waveSpan.length; w++) { waveStart[w] = acc; acc += waveSpan[w] || 0; } }
         catGroups.forEach((g, i) => { g.home = pool.allowed[i % poolC]; g._waveStart = waveStart[Math.floor(i / poolC)] || 0; });
+        for (const m of sub) { const g = groups[m.gi]; m.home = g.home; m.offset = (g.offset || 0) + (g._waveStart || 0); }
+        setLock(true); anyLocked = true;
+      } else {
+        // home court per group, cycling through the pool's courts; pick locked vs
+        // parallel for THIS category by whichever finishes sooner (ties -> locked).
+        catGroups.forEach((g, i) => { g.home = pool.allowed[i % poolC]; });
+        for (const m of sub) m.home = groups[m.gi].home;
+        setLock(true); const spanLock = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
+        setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
+        const useLock = spanLock <= spanFree;
+        setLock(useLock);
+        if (useLock) anyLocked = true; else anyParallel = true;
       }
-      for (const m of sub) { const g = groups[m.gi]; m.home = g.home; m.offset = (g.offset || 0) + (g._waveStart || 0); }
-      setLock(true); anyLocked = true;
-    } else {
-      // home court per pool-group, cycling through the pool's courts
-      sortedG.forEach((g, i) => { g.home = pool.allowed[i % poolC]; });
-      for (const m of sub) m.home = groups[m.gi].home;
-      setLock(true); const spanLock = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
-      setLock(false); const spanFree = spanOf(placeMatchesGrid(sub, numCourts, mode, { gapCap }));
-      const useLock = spanLock <= spanFree;
-      setLock(useLock);
-      if (useLock) anyLocked = true; else anyParallel = true;
     }
   }
   const placed = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
