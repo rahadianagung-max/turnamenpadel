@@ -586,6 +586,15 @@ function regCard(reg){
   if(reg.status!=="approved") acts.push(`<button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>`);
   if(reg.status!=="waitlist") acts.push(`<button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">↓ Pindah ke waiting list</button>`);
   acts.push(`<button class="btn ghost sm danger" onclick="deleteReg('${esc(reg.regId)}')">🗑 Delete</button>`);
+  // Pindah kategori: dropdown kategori lain di event ini + tombol pindahkan.
+  const moveOpts=Object.keys(CATMAP||{}).filter(tid=>tid!==reg.category).map(tid=>{
+    const c=CATMAP[tid]||{}; const lbl=[catLabel(c.label||""),levelLabel(c.level||"")].filter(Boolean).join(" · ")||c.label||tid;
+    return `<option value="${esc(tid)}">${esc(lbl)}</option>`; }).join("");
+  const moveBlock=moveOpts?`<div class="divider"></div><div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center">
+      <span class="note" style="margin:0">Pindah ke kategori:</span>
+      <select class="movesel" data-reg="${esc(reg.regId)}" style="max-width:230px">${moveOpts}</select>
+      <button class="btn ghost sm" onclick="moveReg('${esc(reg.regId)}',this)">↪ Pindahkan</button>
+    </div>`:"";
   // Info: kategori + jawaban form eligibility (Q1 lama bermain, Q2 prestasi).
   const ans=d.answers||{};
   const info=[`Kategori: <b>${esc(catText(d))}</b>`];
@@ -604,6 +613,7 @@ function regCard(reg){
       ${phoneRow}
       <div class="divider"></div>${proof}
       <div class="row" style="gap:8px;margin-top:12px;flex-wrap:wrap">${acts.join("")}</div>
+      ${moveBlock}
     </div>
   </details>`;
 }
@@ -766,6 +776,16 @@ async function deleteReg(regId){
   try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/delete-reg",{method:"POST",body:{token:TOKEN,regId}});
     await loadRegs(); if(typeof loadCategories==="function") loadCategories();
   }catch(e){ alert("Gagal hapus: "+((e&&e.message)||e)); }
+}
+async function moveReg(regId, btn){
+  const sel=btn&&btn.parentElement?btn.parentElement.querySelector('select.movesel[data-reg]'):null;
+  const toTournament=sel?sel.value:"";
+  if(!toTournament){ alert("Pilih kategori tujuan dulu."); return; }
+  const lbl=sel.options[sel.selectedIndex]?sel.options[sel.selectedIndex].textContent:toTournament;
+  if(!confirm("Pindahkan tim ini ke kategori: "+lbl+" ?\nStatus (approved/pending) tetap. Pastikan kuota kategori tujuan mencukupi.")) return;
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/move-reg",{method:"POST",body:{token:TOKEN,regId,toTournament}});
+    await loadRegs(); if(typeof loadCategories==="function") loadCategories();
+  }catch(e){ alert("Gagal memindahkan: "+((e&&e.message)||e)); }
 }
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Mixed Doubles",XD:"Mixed Doubles"}[k]||c||""; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"}[k]||l||""; }

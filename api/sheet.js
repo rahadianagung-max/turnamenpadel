@@ -939,6 +939,10 @@ const netlifyHandler = async (event) => {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/delete-reg", ""));
       return await regDeleteRegistration(eid, body, params);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/move-reg") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/move-reg", ""));
+      return await regMoveRegistration(eid, body, params);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
@@ -7381,6 +7385,39 @@ async function regDeleteRegistration(eventId, body, params) {
   const sh = (meta.data.sheets || []).find((s) => s.properties.title === TABS.registrations);
   if (sh) await sheets.spreadsheets.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { requests: [{ deleteDimension: { range: { sheetId: sh.properties.sheetId, dimension: "ROWS", startIndex: idx + 1, endIndex: idx + 2 } } }] } });
   return respond(200, { success: true, deleted: true });
+}
+// Admin: move a registration to another category (tournament) of the SAME event.
+// The category a registration belongs to is read as (dataJSON.category || col J
+// linkedTournament), so both are rewritten to the target tournamentId. The level
+// is realigned to the target category's level (used for the ELO seed on approval
+// and for display); the status is left untouched so an approved pair stays
+// approved in its new category. The target must be a real category of this event.
+async function regMoveRegistration(eventId, body, params) {
+  if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const frow = await regFindFormRow(sheets, formId);
+  if (!frow) return respond(404, { error: "Form tidak ditemukan." });
+  let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
+  const cats = config.categories || {};
+  const regId = String((body && body.regId) || "").trim();
+  const to = String((body && body.toTournament) || "").trim();
+  if (!regId || !to) return respond(400, { error: "regId & toTournament wajib." });
+  if (!Object.prototype.hasOwnProperty.call(cats, to)) return respond(400, { error: "Kategori tujuan tidak ada di event ini." });
+  const { ri, row } = await regFindRegRow(sheets, formId, regId);
+  if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  let data = {}; try { data = JSON.parse(row[8] || "{}"); } catch (e) {}
+  const from = data.category || row[9] || "";
+  if (from === to) return respond(200, { success: true, moved: false, category: to });
+  data.category = to;
+  if (cats[to].level) data.level = cats[to].level; // realign level to the new category
+  const sr = ri + 2;
+  await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: [
+    { range: `${TABS.registrations}!I${sr}`, values: [[JSON.stringify(data)]] },
+    { range: `${TABS.registrations}!J${sr}`, values: [[to]] },
+  ] } });
+  return respond(200, { success: true, moved: true, from, category: to,
+    label: (cats[to] && cats[to].label) || to, level: (cats[to] && cats[to].level) || "" });
 }
 // Shareable link with rich preview (Open Graph): WhatsApp/social crawlers read
 // these meta tags to show the event FLYER + a short description. Humans are
