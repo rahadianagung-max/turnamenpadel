@@ -139,6 +139,9 @@
 
 /* burger removed → keep the primary CTA reachable on small screens */
 @media(max-width:900px){ .tp-header-actions .btn--primary{display:inline-flex} }
+/* phones: Contact Us becomes an icon button so the header fits without sideways scroll */
+@media(max-width:480px){ .tp-header-actions .btn--primary>span:not(.material-symbols-outlined){display:none}
+  .tp-header-actions .btn--primary{padding-left:12px;padding-right:12px} .tp-logo{min-width:0} }
 
 /* contact CTA band */
 .contact-cta{background:var(--dark);color:#fff;border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh);
@@ -250,7 +253,7 @@
   </nav>
   <div class="tp-header-actions">
     <a class="btn btn--white btn--sm mono" href="#upcoming-tournaments">Register to Play</a>
-    <button class="btn btn--primary btn--sm btn--pop btn--upper" type="button" onclick="openContact()"><span class="material-symbols-outlined">mail</span><span>Contact Us</span></button>
+    <button class="btn btn--primary btn--sm btn--pop btn--upper" type="button" onclick="openContact()" aria-label="Contact Us"><span class="material-symbols-outlined">mail</span><span>Contact Us</span></button>
   </div>
 </div>
 </header>
