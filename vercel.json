@@ -2,6 +2,7 @@
   "regions": ["syd1"],
   "version": 2,
   "redirects": [
+    { "source": "/privacy", "destination": "https://trekkr.online/privacy", "permanent": false },
     { "source": "/calculator", "destination": "/simulasi", "permanent": false },
     { "source": "/calculator.html", "destination": "/simulasi", "permanent": false },
     { "source": "/contact", "destination": "/simulasi", "permanent": false },
