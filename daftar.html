@@ -727,6 +727,7 @@ function vWaiver(){
     <div class="card" style="max-height:180px;overflow:auto;background:var(--inset);margin-top:10px"><p class="muted" style="margin:0;font-size:13px;white-space:pre-line">${esc(w)}</p></div>
     <label style="display:flex;gap:11px;align-items:flex-start;margin-top:14px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverA?'checked':''} onchange="F.waiverA=this.checked;render()"><span>Kami setuju atas <b>waiver &amp; disclaimer</b>.</span></label>
     <label style="display:flex;gap:11px;align-items:flex-start;margin-top:10px;cursor:pointer"><input type="checkbox" style="width:auto;margin-top:3px" ${F.waiverB?'checked':''} onchange="F.waiverB=this.checked;render()"><span>Seluruh informasi yang kami berikan <b>benar</b>.</span></label>
+    <p class="muted" style="margin:12px 0 0;font-size:12px">Data pendaftaran diproses sesuai <a href="https://trekkr.online/privacy" target="_blank" rel="noopener">Kebijakan Privasi SportsActvd</a> (Trekkr, TurnamenPadel &amp; Stellar Squad Academy).</p>
     <div id="subErr"></div>
     <div class="nav"><button class="btn ghost" onclick="go('summary')">←</button>${nextBtn}</div></div>`;
 }
