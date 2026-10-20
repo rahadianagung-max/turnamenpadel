@@ -196,6 +196,10 @@
           <div id="jerseyBody"><p class="muted">Memuat…</p></div>
           <div class="row" style="gap:8px;margin-top:12px"><button class="btn ghost sm" onclick="copyJersey(this)">⧉ Salin ringkasan</button><button class="btn ghost sm" onclick="toggleJersey()">Tutup</button></div>
         </div>
+        <div class="row" style="gap:8px;margin-top:12px;align-items:center">
+          <label for="regCat" style="font-size:13px;font-weight:700;flex:0 0 auto">Lihat kategori</label>
+          <select id="regCat" onchange="onRegCat()" style="flex:1;min-width:0;max-width:420px;padding:8px 10px;border:var(--bd);border-radius:var(--r-lg);font-family:var(--body);font-size:13.5px;background:#fff"></select>
+        </div>
         <div id="regList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
       </div>
     </div>
@@ -739,6 +743,29 @@ async function loadRegs(){
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/registrations?token="+encodeURIComponent(TOKEN));
     const list=r.registrations||[];
     REGS=list; // simpan untuk export CSV
+    renderRegs();
+  }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
+}
+// Pemain terdaftar per kategori: dropdown memilih satu kategori (default: kategori
+// terakhir dipilih, atau kategori pertama) — "Semua kategori" tetap tersedia.
+function regCatKey(){ return "tp_regcat_"+((EVENT&&EVENT.eventId)||""); }
+function regCatOf(r){ return catText((r&&r.data)||{})||"Tanpa kategori"; }
+function fillRegCats(){
+  const sel=document.getElementById("regCat"); if(!sel) return "";
+  const counts={}; (REGS||[]).forEach(r=>{ const c=regCatOf(r); counts[c]=(counts[c]||0)+1; });
+  const cats=Object.keys(counts).sort((a,b)=>a.localeCompare(b));
+  let want=sel.value; if(!want){ try{ want=localStorage.getItem(regCatKey())||""; }catch(e){} }
+  if(want!=="__all" && !cats.includes(want)) want=cats[0]||"__all";
+  sel.innerHTML=cats.map(c=>`<option value="${esc(c)}">${esc(c)} (${counts[c]} tim)</option>`).join("")
+    +`<option value="__all">Semua kategori (${(REGS||[]).length} tim)</option>`;
+  sel.value=want; return want;
+}
+function onRegCat(){ const v=(document.getElementById("regCat")||{}).value||""; try{ localStorage.setItem(regCatKey(),v); }catch(e){} renderRegs(); }
+function renderRegs(){
+  const host=document.getElementById("regList"); if(!host) return;
+  const cat=fillRegCats();
+  const list=(REGS||[]).filter(r=>cat==="__all"||regCatOf(r)===cat);
+  {
     const approved=list.filter(x=>APPROVED_STATUS.has(x.status));
     const waiting=list.filter(x=>!APPROVED_STATUS.has(x.status) && x.status!=="rejected" && x.status!=="cancelled");
     // Pisahkan antrean: pending (sudah bayar, menunggu approval) vs waitlist (kuota
@@ -746,14 +773,15 @@ async function loadRegs(){
     const waitlistL=waiting.filter(x=>String(x.status).toLowerCase()==="waitlist");
     const pending=waiting.filter(x=>String(x.status).toLowerCase()!=="waitlist");
     const closed=list.filter(x=>x.status==="rejected"||x.status==="cancelled");
-    document.getElementById("regStats").innerHTML=`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Pending <b>${pending.length}</b> · Waitlist <b>${waitlistL.length}</b>`;
-    if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
+    document.getElementById("regStats").innerHTML=(cat==="__all"?"Semua kategori · ":`<b>${esc(cat)}</b> · `)+`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Pending <b>${pending.length}</b> · Waitlist <b>${waitlistL.length}</b>`;
+    if(!(REGS||[]).length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
+    if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar di kategori ini.</p>'; return; }
     host.innerHTML =
       regSection("⏳ Pending — sudah bayar, menunggu approval", pending, "Tidak ada yang menunggu approval.") +
       (waitlistL.length?regSection("📋 Waiting list — di luar roster (daftar saat penuh / dipindah)", waitlistL, ""):"") +
       regSection("✅ Approved players", approved, "Belum ada yang di-approve.") +
       (closed.length?regSection("✕ Ditolak / batal", closed, ""):"");
-  }catch(e){ if(e.status===401||e.status===403){ host.innerHTML='<p class="muted">Sesi berakhir / tak berhak. Silakan login lagi.</p>'; doLogout(); } else host.innerHTML='<p class="muted">Gagal memuat: '+esc(e.message)+'</p>'; }
+  }
 }
 /* ===== Rekap jersey per ukuran ===== */
 let JERSEY_TXT="";
