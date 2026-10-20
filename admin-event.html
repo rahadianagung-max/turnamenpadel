@@ -401,6 +401,8 @@ function renderAppealPanel(cats,cfg){
   const box=document.getElementById("appealDeadlineBox"); if(!box) return;
   if(!cats.length){ box.innerHTML=""; return; }
   const by=(cfg&&cfg.appealByCat)||{}, tl=(cfg&&cfg.timeline)||{};
+  AP_CTX={cats:{},eligibility:(cfg&&cfg.eligibility)||"",by};
+  cats.forEach(c=>{ AP_CTX.cats[c.tournamentId]=c; });
   const rows=cats.map(c=>{
     const id=c.tournamentId, a=by[id]||{};
     const own=a.deadlineISO!==undefined, iso=own?(a.deadlineISO||""):(tl.appealDeadlineISO||""), disp=own?(a.deadline||""):(tl.appealDeadline||"");
@@ -412,7 +414,7 @@ function renderAppealPanel(cats,cfg){
     return `<tr><td><b>${esc(catLabel(c.label||id))}</b>${c.level?' · '+esc(levelLabel(c.level)):''}<div class="note" style="margin:2px 0 0">${c.filled||0}${c.quota?'/'+c.quota:''} tim${full?' · penuh':(c.quota?' · <span style="color:#B45309">belum penuh</span>':'')}</div>${inv}</td>
       <td>${st}</td>
       <td><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="datetime-local" id="apDl_${k}" value="${esc(iso)}" style="max-width:200px"><button class="btn ghost sm" onclick="saveCatDeadline('${k}')">Simpan</button><button class="btn ghost sm" onclick="extendCatDeadline('${k}',1)">+1 hari</button></div><div class="note" id="apDlMsg_${k}" style="margin:2px 0 0"></div></td>
-      <td><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost sm" onclick="previewInvite('${k}')">👁 Contoh email</button><button class="btn ghost sm" onclick="testInvite('${k}')">✉ Kirim tes</button><button class="btn primary sm" onclick="sendInvite('${k}')">📣 Kirim undangan</button></div><div class="note" id="apInvMsg_${k}" style="margin:2px 0 0"></div></td></tr>`;
+      <td><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost sm" onclick="editRules('${k}')">📋 Rules${(a.rules&&String(a.rules).trim())?' ✓':''}</button><button class="btn ghost sm" onclick="previewInvite('${k}')">👁 Contoh email</button><button class="btn ghost sm" onclick="testInvite('${k}')">✉ Kirim tes</button><button class="btn primary sm" onclick="sendInvite('${k}')">📣 Kirim undangan</button></div><div class="note" id="apInvMsg_${k}" style="margin:2px 0 0"></div></td></tr>`;
   }).join("");
   box.innerHTML=`<div class="card" style="background:var(--inset);padding:12px">
     <div class="row" style="justify-content:space-between"><b style="font-size:13px">Appeal per kategori</b><span class="note" style="margin:0">Waktu WIB · tiap kategori berjalan sendiri</span></div>
@@ -431,6 +433,36 @@ function extendCatDeadline(cat,days){
   base=(cur&&!isNaN(cur.getTime())&&cur.getTime()>Date.now())?cur:new Date();
   base.setDate(base.getDate()+days); if(el) el.value=toLocalISO(base);
   saveCatDeadline(cat);
+}
+let AP_CTX={cats:{},eligibility:"",by:{}};
+// Default rules = category requirement + event eligibility (same as the server fallback).
+function defaultRules(cat){
+  const c=AP_CTX.cats[cat]||{};
+  return [c.req?"Syarat kategori: "+c.req:"", String(AP_CTX.eligibility||"").trim()].filter(Boolean).join("\n");
+}
+function editRules(cat){
+  const c=AP_CTX.cats[cat]||{}, a=AP_CTX.by[cat]||{};
+  const cur=(a.rules&&String(a.rules).trim())?a.rules:defaultRules(cat);
+  let m=document.getElementById("apRulesModal"); if(m) m.remove();
+  m=document.createElement("div"); m.id="apRulesModal"; m.style.cssText="position:fixed;inset:0;background:rgba(10,10,11,.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px";
+  m.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;padding:16px">
+    <b style="font-size:15px">Rules eligibility · ${esc(catLabel(c.label||cat))}</b>
+    <div class="note" style="margin:4px 0 10px">Tampil di email undangan appeal &amp; halaman roster kategori ini. Satu aturan per baris. ${(a.rules&&String(a.rules).trim())?'':'<b>Saat ini memakai default</b> (syarat kategori + eligibility event).'}</div>
+    <textarea id="apRulesTxt" rows="9" style="width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:10px" placeholder="cth.&#10;Maksimal level Bronze (ELO < 1800) untuk kedua pemain&#10;Belum pernah juara 1 turnamen kategori Silver&#10;Pasangan tidak boleh diganti setelah drawing">${esc(cur)}</textarea>
+    <div class="note" id="apRulesMsg"></div>
+    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:10px">
+      <button class="btn ghost sm" onclick="saveRules('${esc(cat)}',true)">Reset ke default</button>
+      <button class="btn ghost sm" onclick="document.getElementById('apRulesModal').remove()">Batal</button>
+      <button class="btn primary sm" onclick="saveRules('${esc(cat)}',false)">Simpan rules</button></div></div>`;
+  document.body.appendChild(m);
+  m.addEventListener("click",e=>{ if(e.target===m) m.remove(); });
+}
+async function saveRules(cat,reset){
+  const rules=reset?"":((document.getElementById("apRulesTxt")||{}).value||"").trim();
+  const msg=document.getElementById("apRulesMsg"); if(msg) msg.textContent="Menyimpan…";
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/appeal-deadline",{method:"POST",body:{token:TOKEN,category:cat,rules}});
+    const m=document.getElementById("apRulesModal"); if(m) m.remove(); loadCategories();
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">'+((e.status===401||e.status===403)?"Tak berhak.":("Gagal: "+esc(e.message)))+'</span>'; }
 }
 function blastUrl(){ return "reg/event/"+encodeURIComponent(EVENT.eventId)+"/roster-blast"; }
 async function previewInvite(cat){
