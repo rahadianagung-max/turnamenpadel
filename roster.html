@@ -116,7 +116,9 @@ const APPEAL_RULES=[
 ];
 function render(){
   const d=R.data, cat=(d.categories||[]).find(c=>c.tournamentId===R.cat)||{pairs:[]};
-  const open=d.appealOpen;
+  // Each category has its own appeal window (falls back to the event-wide one).
+  const open=(cat.appealOpen!==undefined)?cat.appealOpen:d.appealOpen;
+  const dl=(cat.appealDeadline!==undefined)?cat.appealDeadline:d.appealDeadline;
   // Pemain hanya melihat kategorinya sendiri (dari link email). Selektor kategori
   // hanya tampil bila tak ada kategori spesifik di link (mis. pratinjau admin).
   const locked = !!(R.c && (d.categories||[]).some(c=>c.tournamentId===R.c));
@@ -144,7 +146,7 @@ function render(){
       <div style="margin:12px 0 0"><b style="font-family:var(--display);font-size:14px">Aturan Appeal</b>
         <ol class="rules">${APPEAL_RULES.map(r=>`<li>${r}</li>`).join("")}</ol></div></div>
     <div class="card" style="border-color:${open?'var(--amber-bd)':'var(--danger)'}">
-      ${open?`<b class="mono" style="color:var(--warn)">⏳ Appeal dibuka${d.appealDeadline?' s/d '+esc(d.appealDeadline):''}</b>`
+      ${open?`<b class="mono" style="color:var(--warn)">⏳ Appeal dibuka${dl?' s/d '+esc(dl):''}</b>`
              :`<b class="mono" style="color:var(--danger)">🔒 Batas appeal berakhir — roster final</b>`}</div>
     ${selector}
     <div class="row" style="justify-content:space-between;align-items:center;margin-top:12px">

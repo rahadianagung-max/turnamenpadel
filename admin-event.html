@@ -205,14 +205,14 @@
       <div class="card">
         <div class="row" style="justify-content:space-between">
           <div><h3 style="font-size:16px">Appeal / Banding</h3><div class="note">Proses kurasi anti-sandbagging: peserta meninjau roster & mengajukan banding (dengan bukti), lalu panitia memutuskan di sini.</div></div>
-          <div class="row" style="gap:8px"><button class="btn primary sm" id="btnTrigger" onclick="triggerAppeals()">📣 Kirim undangan appeal</button><button class="btn ghost sm" onclick="loadAppeals()">↻ Refresh</button></div>
+          <div class="row" style="gap:8px"><button class="btn ghost sm" onclick="loadCategories();loadAppeals()">↻ Refresh</button></div>
         </div>
         <details class="help" open>
           <summary>ℹ️ Cara kerja appeal <span class="mk">▼</span></summary>
           <div class="imp"><b>⚠️ Penting:</b> Jalankan appeal <b>setelah seluruh jumlah peserta terpenuhi</b> (semua kategori penuh). Jika roster belum lengkap, hasil peninjauan bisa berubah saat peserta baru masuk.</div>
           <ol>
-            <li><b>Atur batas waktu appeal (opsional)</b> — di kotak "Batas waktu appeal" bawah. Dikosongkan = appeal selalu terbuka; setelah lewat, roster <b>terkunci</b> dan peserta tak bisa appeal lagi.</li>
-            <li><b>Kirim undangan appeal</b> — klik <b>📣 Kirim undangan appeal</b>. Semua peserta menerima email berisi tautan roster kategorinya beserta batas waktu (bila diatur).</li>
+            <li><b>Appeal berjalan per kategori.</b> Di tabel "Appeal per kategori" bawah, tiap kategori punya batas waktu &amp; undangannya sendiri — jalankan kategori yang sudah penuh dulu, kategori lain menyusul. Batas dikosongkan = appeal selalu terbuka; setelah lewat, roster kategori itu <b>terkunci</b>.</li>
+            <li><b>Cek email dulu</b> — klik <b>👁 Contoh email</b> untuk melihat isinya, atau <b>✉ Kirim tes</b> ke email panitia. Lalu klik <b>📣 Kirim undangan</b> pada kategori itu: hanya peserta kategori tersebut yang menerima email berisi tautan roster &amp; batas waktunya.</li>
             <li><b>Peserta meninjau roster & mengajukan banding</b> — memilih pasangan yang dianggap tidak sesuai level, mengisi alasan, dan <b>wajib mengunggah bukti (foto)</b>.</li>
             <li><b>Tinjau tiap appeal</b> di daftar bawah (ELO/tier tiap pemain + foto bukti tampil), lalu putuskan:
               <ul>
@@ -392,8 +392,78 @@ async function loadCategories(){
         const wl = waitlist?`<b style="color:#1E40AF">${waitlist}</b>`:'<span class="muted">0</span>';
         return `<tr><td><b>${esc(catLabel(c.label||c.category))}</b>${c.level?' · '+esc(levelLabel(c.level)):''}</td><td class="mono">${pend}</td><td class="mono"><b>${approved}</b></td><td class="mono">${quota||'—'}</td><td>${st}</td><td class="mono">${wl}</td></tr>`; }).join("")+
       `</tbody></table></div>`;
-    renderAppealDeadline((d&&d.config&&d.config.timeline)||{});
-  }catch(e){ host.innerHTML=e.status===404?'<p class="muted">Belum ada formulir pendaftaran untuk event ini.</p>':('<p class="muted">Gagal memuat kategori: '+esc(e.message)+'</p>'); renderAppealDeadline({}); }
+    renderAppealPanel(cats,(d&&d.config)||{});
+  }catch(e){ host.innerHTML=e.status===404?'<p class="muted">Belum ada formulir pendaftaran untuk event ini.</p>':('<p class="muted">Gagal memuat kategori: '+esc(e.message)+'</p>'); renderAppealPanel([],{}); }
+}
+// ── Appeal per kategori: tiap kategori punya batas waktu & undangan sendiri ──
+function apDlMs(iso){ if(!iso) return NaN; return Date.parse(iso.length<=16?iso+":00+07:00":iso); }
+function renderAppealPanel(cats,cfg){
+  const box=document.getElementById("appealDeadlineBox"); if(!box) return;
+  if(!cats.length){ box.innerHTML=""; return; }
+  const by=(cfg&&cfg.appealByCat)||{}, tl=(cfg&&cfg.timeline)||{};
+  const rows=cats.map(c=>{
+    const id=c.tournamentId, a=by[id]||{};
+    const own=a.deadlineISO!==undefined, iso=own?(a.deadlineISO||""):(tl.appealDeadlineISO||""), disp=own?(a.deadline||""):(tl.appealDeadline||"");
+    const ms=apDlMs(iso), open=isNaN(ms)?true:Date.now()<ms;
+    const st=!a.invitedAt?'<span class="chip">belum dimulai</span>':(!iso?'<span class="chip ok">terbuka · tanpa batas</span>':(open?'<span class="chip ok">dibuka s/d '+esc(disp)+'</span>':'<span class="chip bad">ditutup · roster final</span>'));
+    const inv=a.invitedAt?('<div class="note" style="margin:2px 0 0">📣 Undangan '+esc(new Date(a.invitedAt).toLocaleString("id-ID",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))+(a.invited?' · '+a.invited+' email':'')+'</div>'):'';
+    const full=c.quota>0&&(c.filled||0)>=c.quota;
+    const k=esc(id);
+    return `<tr><td><b>${esc(catLabel(c.label||id))}</b>${c.level?' · '+esc(levelLabel(c.level)):''}<div class="note" style="margin:2px 0 0">${c.filled||0}${c.quota?'/'+c.quota:''} tim${full?' · penuh':(c.quota?' · <span style="color:#B45309">belum penuh</span>':'')}</div>${inv}</td>
+      <td>${st}</td>
+      <td><div class="row" style="gap:6px;flex-wrap:nowrap"><input type="datetime-local" id="apDl_${k}" value="${esc(iso)}" style="max-width:200px"><button class="btn ghost sm" onclick="saveCatDeadline('${k}')">Simpan</button><button class="btn ghost sm" onclick="extendCatDeadline('${k}',1)">+1 hari</button></div><div class="note" id="apDlMsg_${k}" style="margin:2px 0 0"></div></td>
+      <td><div class="row" style="gap:6px;flex-wrap:wrap"><button class="btn ghost sm" onclick="previewInvite('${k}')">👁 Contoh email</button><button class="btn ghost sm" onclick="testInvite('${k}')">✉ Kirim tes</button><button class="btn primary sm" onclick="sendInvite('${k}')">📣 Kirim undangan</button></div><div class="note" id="apInvMsg_${k}" style="margin:2px 0 0"></div></td></tr>`;
+  }).join("");
+  box.innerHTML=`<div class="card" style="background:var(--inset);padding:12px">
+    <div class="row" style="justify-content:space-between"><b style="font-size:13px">Appeal per kategori</b><span class="note" style="margin:0">Waktu WIB · tiap kategori berjalan sendiri</span></div>
+    <div class="tbl-wrap" style="margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch"><table><thead><tr><th>Kategori</th><th>Status appeal</th><th>Batas waktu</th><th>Undangan</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+}
+async function saveCatDeadline(cat){
+  const iso=(document.getElementById("apDl_"+cat)||{}).value||"", msg=document.getElementById("apDlMsg_"+cat);
+  if(msg) msg.textContent="Menyimpan…";
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/appeal-deadline",{method:"POST",body:{token:TOKEN,iso,category:cat}});
+    loadCategories();
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">'+((e.status===401||e.status===403)?"Tak berhak.":("Gagal: "+esc(e.message)))+'</span>'; }
+}
+function extendCatDeadline(cat,days){
+  const el=document.getElementById("apDl_"+cat); let base;
+  const cur=el&&el.value?new Date((el.value.length<=16?el.value+":00":el.value)):null;
+  base=(cur&&!isNaN(cur.getTime())&&cur.getTime()>Date.now())?cur:new Date();
+  base.setDate(base.getDate()+days); if(el) el.value=toLocalISO(base);
+  saveCatDeadline(cat);
+}
+function blastUrl(){ return "reg/event/"+encodeURIComponent(EVENT.eventId)+"/roster-blast"; }
+async function previewInvite(cat){
+  const msg=document.getElementById("apInvMsg_"+cat); if(msg) msg.textContent="Memuat contoh…";
+  try{ const r=await api(blastUrl(),{method:"POST",body:{token:TOKEN,category:cat,preview:true}});
+    if(msg) msg.textContent="";
+    let m=document.getElementById("apPrevModal");
+    if(!m){ m=document.createElement("div"); m.id="apPrevModal"; m.style.cssText="position:fixed;inset:0;background:rgba(10,10,11,.6);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px"; document.body.appendChild(m);
+      m.addEventListener("click",e=>{ if(e.target===m) m.remove(); }); }
+    m.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="padding:12px 14px;border-bottom:1px solid #e5e5e5;font-size:13px"><div><b>Subjek:</b> ${esc(r.subject||"")}</div><div class="note" style="margin:4px 0 0">Akan dikirim ke <b>${r.recipients||0}</b> email peserta kategori ini · link di contoh ini asli</div></div>
+      <iframe sandbox="" style="border:0;width:100%;height:60vh;background:#fff" title="Contoh email"></iframe>
+      <div style="padding:10px 14px;border-top:1px solid #e5e5e5;text-align:right"><button class="btn ghost sm" onclick="document.getElementById('apPrevModal').remove()">Tutup</button></div></div>`;
+    m.querySelector("iframe").srcdoc='<!doctype html><meta charset="utf-8"><body style="margin:0;padding:16px;background:#f5f5f7">'+(r.html||"")+'</body>';
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc(e.message)+'</span>'; }
+}
+async function testInvite(cat){
+  let to=""; try{ to=localStorage.getItem("tp_test_email")||""; }catch(e){}
+  to=prompt("Kirim email tes ke alamat:",to); if(!to) return; to=to.trim();
+  try{ localStorage.setItem("tp_test_email",to); }catch(e){}
+  const msg=document.getElementById("apInvMsg_"+cat); if(msg) msg.textContent="Mengirim tes…";
+  try{ await api(blastUrl(),{method:"POST",body:{token:TOKEN,category:cat,testEmail:to}});
+    if(msg) msg.innerHTML='<span style="color:var(--ok)">✓ Email tes terkirim ke '+esc(to)+' (subjek diawali [TES]).</span>';
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc(e.message)+'</span>'; }
+}
+async function sendInvite(cat){
+  const name=(document.querySelector('#apDl_'+CSS.escape(cat))||{}).closest?(document.querySelector('#apDl_'+CSS.escape(cat)).closest('tr').querySelector('b')||{}).textContent:cat;
+  if(!confirm('Kirim undangan appeal ke peserta kategori "'+name+'" saja?\nEmail berisi link roster kategori ini + batas waktu appeal-nya. Kategori lain tidak menerima email.')) return;
+  const msg=document.getElementById("apInvMsg_"+cat); if(msg) msg.textContent="Mengirim…";
+  try{ const r=await api(blastUrl(),{method:"POST",body:{token:TOKEN,category:cat}});
+    if(msg) msg.innerHTML='<span style="color:var(--ok)">✓ Terkirim ke '+(r.sent||0)+' dari '+(r.recipients||0)+' email.</span>';
+    loadCategories(); loadAppeals();
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">'+((e.status===401||e.status===403)?"Sesi berakhir / tak berhak.":("Gagal: "+esc(e.message)))+'</span>'; }
 }
 function renderAppealDeadline(tl){
   const box=document.getElementById("appealDeadlineBox"); if(!box) return;

@@ -946,7 +946,7 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
-      return await regRosterBlast(eid);
+      return await regRosterBlast(eid, body);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/appeal-deadline") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/appeal-deadline", ""));
@@ -6408,6 +6408,7 @@ async function regPublic(eventId) {
   return respond(200, { eventId, status, event: ev, name: frow[1] || (ev && ev.name) || "",
     config: { address: config.address || "", maps: config.maps || "", region: config.region || "",
       rules: config.rules || "", waiver: config.waiver || "", timeline: config.timeline || {},
+      appealByCat: config.appealByCat || {},
       payment: config.payment || {}, fields: config.fields || {},
       flyer: config.flyer || "", description: config.description || "",
       eligibility: config.eligibility || "", contact: config.contact || "",
@@ -7102,44 +7103,93 @@ async function regSetAppealDeadline(eventId, body) {
   let config = {}; try { config = JSON.parse(forms[idx][4] || "{}"); } catch (e) {}
   config.timeline = config.timeline || {};
   const iso = String((body && body.iso) || "").trim();
-  config.timeline.appealDeadlineISO = iso;
-  config.timeline.appealDeadline = (body && body.text) ? String(body.text) : (iso ? formatDeadlineID(iso) : "");
+  const text = (body && body.text) ? String(body.text) : (iso ? formatDeadlineID(iso) : "");
+  const cat = String((body && body.category) || "").trim();
+  if (cat) {
+    // Per-category appeal window: each category runs its own appeal on its own schedule.
+    config.appealByCat = config.appealByCat || {};
+    config.appealByCat[cat] = Object.assign({}, config.appealByCat[cat], { deadlineISO: iso, deadline: text });
+  } else {
+    config.timeline.appealDeadlineISO = iso;
+    config.timeline.appealDeadline = text;
+  }
   if (!config.rosterToken) config.rosterToken = require("crypto").randomBytes(9).toString("hex");
   await regUpdateFormConfig(sheets, idx, config);
   const dms = regDeadlineMs(iso);
-  return respond(200, { success: true, appealDeadlineISO: iso, appealDeadline: config.timeline.appealDeadline, appealOpen: dms ? (Date.now() < dms) : true });
+  return respond(200, { success: true, category: cat || null, appealDeadlineISO: iso, appealDeadline: text, appealOpen: dms ? (Date.now() < dms) : true });
 }
-async function regRosterBlast(eventId) {
+// Appeal window for one category: its own deadline if set, else the event-wide one.
+function regAppealWindow(config, cat) {
+  const c = (cat && config.appealByCat && config.appealByCat[cat]) || null;
+  if (c && c.deadlineISO !== undefined) return { iso: c.deadlineISO || "", text: c.deadline || "" };
+  const tl = config.timeline || {};
+  return { iso: tl.appealDeadlineISO || "", text: tl.appealDeadline || "" };
+}
+function regRosterEmail(eventName, catLabel, link, deadline) {
+  const subject = `Roster peserta — ${eventName}${catLabel ? " · " + catLabel : ""}`;
+  const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
+      <h2 style="color:#FF6A00">Roster peserta — ${escHtml(eventName)}</h2>
+      ${catLabel ? `<p style="margin:0 0 8px"><b>Kategori: ${escHtml(catLabel)}</b></p>` : ""}
+      <p>Berikut roster sementara kategorimu. Periksa peserta lain; bila ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p>
+      <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lihat roster &amp; ajukan appeal →</a></p>
+      ${deadline ? `<p style="background:#fff4e8;border:1px solid #ffd7ad;border-radius:8px;padding:10px 12px;font-size:13px">⏳ Batas waktu appeal: <b>${escHtml(deadline)}</b>. Setelah itu roster dikunci final dan diundi ke grup.</p>` : ""}</div>`;
+  return { subject, html };
+}
+// Send the roster + appeal invitation. body.category = one category only (each category
+// runs its appeal separately); body.preview = return the email without sending;
+// body.testEmail = send the sample to that address only.
+async function regRosterBlast(eventId, body) {
+  const b = body || {};
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const res0 = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.reg_forms}!A2:G` });
   const forms = res0.data.values || [];
   const idx = forms.findIndex((x) => x[0] === regFormIdForEvent(eventId));
   if (idx < 0) return respond(404, { error: "Form tidak ditemukan." });
   let config = {}; try { config = JSON.parse(forms[idx][4] || "{}"); } catch (e) {}
-  if (!config.rosterToken) config.rosterToken = require("crypto").randomBytes(9).toString("hex");
-  await regUpdateFormConfig(sheets, idx, config);
+  const onlyCat = String(b.category || "").trim();
+  const cats = config.categories || {};
+  if (onlyCat && !cats[onlyCat]) return respond(400, { error: "Kategori tidak ditemukan." });
+  const catLabelOf = (c) => (cats[c] && cats[c].label) || "";
+  const isDry = !!b.preview || !!b.testEmail;
+  if (!config.rosterToken) { config.rosterToken = require("crypto").randomBytes(9).toString("hex"); if (!isDry) await regUpdateFormConfig(sheets, idx, config); }
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
   const regs = (rRes.data.values || []).filter((r) => r[1] === regFormIdForEvent(eventId)).map(regParseReg)
-    .filter((r) => r.status !== "rejected" && r.status !== "cancelled");
-  const deadline = (config.timeline && (config.timeline.appealDeadline || config.timeline.appealDeadlineISO)) || "";
+    .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && (!onlyCat || r.category === onlyCat));
   const recipients = []; // {email, category}
   for (const r of regs) {
     const e1 = r.data.player1 && r.data.player1.email, e2 = r.data.player2 && r.data.player2.email;
     if (e1) recipients.push({ email: e1, category: r.category });
     if (e2) recipients.push({ email: e2, category: r.category });
   }
-  let sent = 0;
   const cfgName = forms[idx][1] || "";
+  const build = (cat) => {
+    const link = `${REG_PUBLIC_BASE}/roster/${encodeURIComponent(eventId)}?t=${config.rosterToken}&c=${encodeURIComponent(cat)}`;
+    return regRosterEmail(cfgName, catLabelOf(cat), link, regAppealWindow(config, cat).text);
+  };
+  const sampleCat = onlyCat || (recipients[0] && recipients[0].category) || Object.keys(cats)[0] || "";
+  if (b.preview) {
+    const m = build(sampleCat);
+    return respond(200, { success: true, preview: true, subject: m.subject, html: m.html, recipients: recipients.length, category: sampleCat });
+  }
+  if (b.testEmail) {
+    const to = String(b.testEmail).trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return respond(400, { error: "Email tes tidak valid." });
+    const m = build(sampleCat);
+    await sendBrevoEmail(to, "[TES] " + m.subject, m.html);
+    return respond(200, { success: true, test: true, sentTo: to, category: sampleCat });
+  }
+  let sent = 0;
   await Promise.allSettled(recipients.slice(0, 400).map(async (rc) => {
-    const link = `${REG_PUBLIC_BASE}/roster/${encodeURIComponent(eventId)}?t=${config.rosterToken}&c=${encodeURIComponent(rc.category)}`;
-    const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-      <h2 style="color:#FF6A00">Roster peserta — ${escHtml(cfgName)}</h2>
-      <p>Berikut roster sementara kategorimu. Periksa peserta lain; bila ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p>
-      <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lihat roster &amp; ajukan appeal →</a></p>
-      ${deadline ? `<p style="background:#fff4e8;border:1px solid #ffd7ad;border-radius:8px;padding:10px 12px;font-size:13px">⏳ Batas waktu appeal: <b>${escHtml(deadline)}</b>. Setelah itu roster dikunci final dan diundi ke grup.</p>` : ""}</div>`;
-    try { await sendBrevoEmail(rc.email, `Roster peserta — ${cfgName}`, html); sent++; } catch (e) {}
+    const m = build(rc.category);
+    try { await sendBrevoEmail(rc.email, m.subject, m.html); sent++; } catch (e) {}
   }));
-  return respond(200, { success: true, rosterToken: config.rosterToken, recipients: recipients.length, sent });
+  // Remember when each category was invited (shown in the admin appeal panel).
+  const now = new Date().toISOString();
+  config.appealByCat = config.appealByCat || {};
+  const touched = onlyCat ? [onlyCat] : [...new Set(recipients.map((r) => r.category))];
+  touched.forEach((c) => { config.appealByCat[c] = Object.assign({}, config.appealByCat[c], { invitedAt: now, invited: recipients.filter((r) => r.category === c).length }); });
+  await regUpdateFormConfig(sheets, idx, config);
+  return respond(200, { success: true, rosterToken: config.rosterToken, category: onlyCat || null, recipients: recipients.length, sent });
 }
 async function regRoster(eventId, params) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
@@ -7157,12 +7207,17 @@ async function regRoster(eventId, params) {
     const pub = (p) => ({ name: p.name || "", alias: p.nick || "", region: p.region || "", ig: p.ig || "", photoUrl: p.photoUrl || "" });
     (byCat[r.category] = byCat[r.category] || []).push({ regId: r.regId, label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
   }
-  const categories = Object.entries(cats).map(([tid, c]) => ({ tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [] }));
-  const dISO = config.timeline && config.timeline.appealDeadlineISO;
-  const dms = regDeadlineMs(dISO);
+  const categories = Object.entries(cats).map(([tid, c]) => {
+    const w = regAppealWindow(config, tid), ms = regDeadlineMs(w.iso);
+    return { tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [],
+      appealDeadline: w.text, appealOpen: ms ? (Date.now() < ms) : true };
+  });
+  // Top-level fields follow the category in the link (?c=), else the event-wide window.
+  const wTop = regAppealWindow(config, (params && params.c) || "");
+  const dms = regDeadlineMs(wTop.iso);
   const appealOpen = dms ? (Date.now() < dms) : true;
   return respond(200, { eventId, name: frow[1] || "", categories,
-    appealDeadline: (config.timeline && config.timeline.appealDeadline) || "", appealOpen });
+    appealDeadline: wTop.text, appealOpen });
 }
 // Public roster: joined players per category (name + photo only, no contact
 // data). Powers the public "players who joined" page. No token required.
@@ -7469,8 +7524,8 @@ async function regAppealSubmit(body) {
   const frow = await regFindFormRow(sheets, regFormIdForEvent(eventId));
   if (!frow) return respond(404, { error: "Form tidak ditemukan." });
   let config = {}; try { config = JSON.parse(frow[4] || "{}"); } catch (e) {}
-  const dms = regDeadlineMs(config.timeline && config.timeline.appealDeadlineISO);
-  if (dms && Date.now() > dms) return respond(403, { error: "Batas waktu appeal sudah berakhir." });
+  const dms = regDeadlineMs(regAppealWindow(config, String((body && body.category) || "")).iso);
+  if (dms && Date.now() > dms) return respond(403, { error: "Batas waktu appeal untuk kategori ini sudah berakhir." });
   const name = String((body && body.appellantName) || "").trim();
   const email = String((body && body.appellantEmail) || "").trim();
   const reason = String((body && body.reason) || "").trim();
