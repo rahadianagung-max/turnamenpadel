@@ -230,6 +230,10 @@
         </details>
         <div id="triggerMsg" class="note"></div>
         <div id="appealDeadlineBox" style="margin-top:10px"></div>
+        <div class="row" style="gap:8px;margin-top:12px;align-items:center">
+          <label for="apCat" style="font-size:13px;font-weight:700;flex:0 0 auto">Lihat kategori</label>
+          <select id="apCat" onchange="onApCat()" style="flex:1;min-width:0;max-width:420px;padding:8px 10px;border:var(--bd);border-radius:var(--r-lg);font-family:var(--body);font-size:13.5px;background:#fff"></select>
+        </div>
         <div id="appealList" style="margin-top:12px"><p class="muted">Memuat…</p></div>
       </div>
     </div>
@@ -559,7 +563,7 @@ function appealCard(a){
   const dchip = a.status==="applied"?'<span class="chip ok">koreksi diterapkan</span>':decided?('<span class="chip '+(a.decision==="reject"?"bad":"ok")+'">'+esc({lolos:"diloloskan",reject:"ditolak",levelup:"koreksi level"}[a.decision]||a.decision)+'</span>'):'<span class="chip warn">menunggu</span>';
   const proofUrls=[a.proofUrl,a.proofUrl2].filter(Boolean);
   const proof=proofUrls.length?`<div class="proof" style="margin-top:8px"><div class="note" style="margin:0 0 4px">Bukti appeal (klik untuk perbesar):</div><div style="display:flex;gap:8px;flex-wrap:wrap">${proofUrls.map(u=>`<a href="${esc(u)}" target="_blank" rel="noopener"><img src="${esc(u)}" alt="bukti"></a>`).join("")}</div></div>`:'<div class="note" style="margin-top:8px">Bukti: <span class="chip">tidak ada</span></div>';
-  const players=(a.players||[]).map(p=>esc(p.name)+(p.elo!=null?` (${esc(p.tier)} ${p.elo})`:"")).join(", ");
+  const players=(a.players||[]).map(p=>ppLink(p.name,ppCanon(p))+(p.elo!=null?` (${esc(p.tier)} ${p.elo})`:"")).join(", ");
   // Nomor HP pihak yang terkena appeal (bisa disalin) untuk cross-check panitia.
   const phones=(a.players||[]).filter(p=>p.phone).map(p=>`${esc(p.name)}: <a href="#" onclick="copyText(event,'${esc(p.phone)}')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">${esc(p.phone)} ⧉</a>`).join("<br>");
   const actions = decided ? "" : `<div class="row" style="margin-top:8px;gap:8px">
@@ -568,7 +572,7 @@ function appealCard(a){
       <span class="row" style="gap:6px"><select id="lv_${esc(a.appealId)}" class="mono" style="width:auto;padding:6px 8px">${LEVELS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join("")}</select>
       <button class="btn primary sm" onclick="decideAppeal('${esc(a.appealId)}','levelup')">Koreksi level →</button></span>
     </div>`;
-  return `<div class="reg"><div class="reg-head"><div><b>${esc(a.appellantName||"—")}</b> <span class="note">banding thd</span> <b>${esc(a.againstLabel||a.againstRegId||"—")}</b>
+  return `<div class="reg"><div class="reg-head"><div><b>${a.appellantName?ppLink(a.appellantName):"—"}</b> <span class="note">banding thd</span> <b>${esc(a.againstLabel||a.againstRegId||"—")}</b>
       <div class="note" style="margin:2px 0 0">${esc(new Date(a.createdAt).toLocaleString('id-ID'))}</div></div>${dchip}</div>
     <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
     ${proof}
@@ -581,7 +585,31 @@ async function loadAppeals(){
     const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/appeals?token="+encodeURIComponent(TOKEN));
     const list=r.appeals||[];
     APPEALS_BY_ID={}; list.forEach(a=>{ APPEALS_BY_ID[a.appealId]=a; });
-    if(!list.length){ host.innerHTML='<p class="muted">Belum ada appeal.</p>'; return; }
+    APPEALS=list; renderAppeals();
+  }catch(e){ host.innerHTML=(e.status===401||e.status===403)?'<p class="muted">Sesi berakhir / tak berhak.</p>':('<p class="muted">Gagal memuat appeal: '+esc(e.message)+'</p>'); }
+}
+// Daftar appeal per kategori: dropdown memilih satu kategori (default: terakhir
+// dipilih, lalu kategori yang masih punya appeal menunggu), "Semua kategori" tetap ada.
+let APPEALS=[];
+function apCatKey(){ return "tp_apcat_"+((EVENT&&EVENT.eventId)||""); }
+function fillApCats(){
+  const sel=document.getElementById("apCat"); if(!sel) return "__all";
+  const cnt={}, pend={};
+  APPEALS.forEach(a=>{ const k=appealCatName(a); cnt[k]=(cnt[k]||0)+1; if(!(a.decision&&a.decision!=="")) pend[k]=(pend[k]||0)+1; });
+  const cats=Object.keys(cnt).sort((x,y)=>x.localeCompare(y));
+  let want=sel.value; if(!want){ try{ want=localStorage.getItem(apCatKey())||""; }catch(e){} }
+  if(want!=="__all" && !cats.includes(want)) want=cats.find(c=>pend[c])||cats[0]||"__all";
+  sel.innerHTML=cats.map(c=>`<option value="${esc(c)}">${esc(c)} (${cnt[c]} appeal${pend[c]?' · '+pend[c]+' menunggu':''})</option>`).join("")
+    +`<option value="__all">Semua kategori (${APPEALS.length} appeal)</option>`;
+  sel.value=want; return want;
+}
+function onApCat(){ const v=(document.getElementById("apCat")||{}).value||""; try{ localStorage.setItem(apCatKey(),v); }catch(e){} renderAppeals(); }
+function renderAppeals(){
+  const host=document.getElementById("appealList"); if(!host) return;
+  if(!APPEALS.length){ fillApCats(); host.innerHTML='<p class="muted">Belum ada appeal.</p>'; return; }
+  const cat=fillApCats();
+  const list=APPEALS.filter(a=>cat==="__all"||appealCatName(a)===cat);
+  {
     // Grup per kategori (collapsible) agar tidak terlalu panjang; grup dengan
     // appeal yang masih menunggu dibuka otomatis.
     const groups=new Map();
@@ -596,7 +624,7 @@ async function loadAppeals(){
         <div class="regbody">${items.map(appealCard).join("")}</div></details>`;
     }
     host.innerHTML=html;
-  }catch(e){ host.innerHTML=(e.status===401||e.status===403)?'<p class="muted">Sesi berakhir / tak berhak.</p>':('<p class="muted">Gagal memuat appeal: '+esc(e.message)+'</p>'); }
+  }
 }
 async function triggerAppeals(){
   if(!confirm("Kirim email ke SEMUA peserta event ini berisi link roster + form ajukan appeal (beserta bukti)? Ini memicu proses appeal.")) return;
@@ -644,9 +672,14 @@ function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.jersey) k.push(`Jersey: <b>${esc(p.jersey)}</b>`);
   if(p.dob) k.push(`Lahir: <b>${esc(p.dob)}</b>`);
   const photo=p.photoUrl?`<a href="${esc(p.photoUrl)}" target="_blank" rel="noopener"><img src="${esc(p.photoUrl)}" alt="" style="width:44px;height:44px;object-fit:cover;border:var(--bd);border-radius:8px"></a>`:"";
-  return `<div class="pcard"><div class="row" style="justify-content:space-between"><div class="who">Pemain ${idx}: ${esc(p.name||"—")} ${tierChip(p)} ${eligChip(p.eligibility)}</div>${photo}</div>
+  return `<div class="pcard"><div class="row" style="justify-content:space-between"><div class="who">Pemain ${idx}: ${ppLink(p.name,ppCanon(p))} ${tierChip(p)} ${eligChip(p.eligibility)}</div>${photo}</div>
     <div class="kvs">${k.join(" · ")||'<span class="muted">tak ada detail tambahan</span>'}</div></div>`;
 }
+// Nama pemain → passport Trekkr (tab baru). Pakai nama yang cocok di Trekkr bila ada.
+function ppUrl(name){ return "https://trekkr.online/player/"+String(name||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
+function ppLink(name,canon){ const nm=String(name||"").trim(); if(!nm) return "—";
+  return `<a href="${esc(ppUrl(canon||nm))}" target="_blank" rel="noopener" title="Buka passport Trekkr" style="color:inherit;text-decoration:underline;text-decoration-color:var(--orange);text-underline-offset:3px">${esc(nm)}</a>`; }
+function ppCanon(p){ return (p&&((p.match&&p.match.name)||p.trekkrName))||""; }
 // Level (tier) chip from Trekkr data.
 function tierChip(p){ const t=(p&&(p.tier||(p.match&&p.match.tier)))||""; return t?'<span class="chip" style="background:#F1F5F9">'+esc(t)+'</span>':''; }
 function initials(nm){ const a=String(nm||"").trim().split(/\s+/); return (((a[0]||"")[0]||"")+((a[1]||"")[0]||"")||"?").toUpperCase(); }
