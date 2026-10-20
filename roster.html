@@ -96,11 +96,20 @@ async function boot(){
   R.cat = R.c && (R.data.categories||[]).some(c=>c.tournamentId===R.c) ? R.c : ((R.data.categories[0]||{}).tournamentId||"");
   render();
 }
+// Handle Instagram dari isian bebas: "@nama", "nama", atau URL instagram.com/nama.
+function igHandle(v){
+  let x=String(v||"").trim(); if(!x||x==="-") return "";
+  const m=x.match(/instagram\.com\/([^\/?#\s]+)/i); if(m) x=m[1];
+  x=x.replace(/^@+/,"").trim();
+  return /^[A-Za-z0-9._]{1,30}$/.test(x)?x:"";
+}
 // Baris pemain ringkas: foto kotak kecil + nama + Instagram + region.
 function playerSquare(p){
   p=p||{};
   const sq='<div class="sq">'+(p.photoUrl?'<img src="'+esc(p.photoUrl)+'" alt="" referrerpolicy="no-referrer" onerror="this.parentNode.textContent=\''+esc((p.name||'?').charAt(0).toUpperCase())+'\'">':esc((p.name||'?').charAt(0).toUpperCase()))+'</div>';
-  const ig=p.ig?'<div class="meta">Instagram: @'+esc(String(p.ig).replace(/^@/,''))+'</div>':'';
+  const h=igHandle(p.ig);
+  const ig=h?'<div class="meta">Instagram: <a href="https://www.instagram.com/'+encodeURIComponent(h)+'/" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px">@'+esc(h)+'</a></div>'
+    :(p.ig?'<div class="meta">Instagram: '+esc(String(p.ig))+'</div>':'');
   const reg=String(p.region||'').trim();
   const region=(reg&&reg!=='-')?'<div class="meta">📍 '+esc(reg)+'</div>':'';
   return '<div class="pp">'+sq+'<div class="info"><div class="nm">'+esc(p.name||'—')+'</div>'+ig+region+'</div></div>';
