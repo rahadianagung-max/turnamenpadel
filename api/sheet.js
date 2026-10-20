@@ -6867,12 +6867,12 @@ async function regVerifyStart(body) {
   // kedaluwarsa saat dibaca kembali). Simpan apa adanya sebagai teks.
   await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.reg_claims}!A:H`, valueInputOption: "RAW",
     requestBody: { values: [[code, hit.name, email, eventId, "otp", new Date(now).toISOString(), expires, ""]] } });
-  const html = regEmailShell("Kode verifikasi", `
-    <p>Halo <b>${escHtml(hit.name)}</b>, gunakan kode berikut untuk membuka data profilmu saat pendaftaran turnamen:</p>
+  const html = regEmailShell("Verification code", `
+    <p>Hi <b>${escHtml(hit.name)}</b>, use this code to unlock your profile details for the tournament registration:</p>
     <p style="font-size:30px;font-weight:800;letter-spacing:6px;color:#0F172A;background:#F1F5F9;border:2px solid #0F172A;border-radius:10px;padding:14px 18px;text-align:center;margin:14px 0">${code}</p>
-    <p style="color:#64748b;font-size:13px">Kode berlaku 24 jam. Abaikan email ini jika kamu tidak sedang mendaftar.</p>`);
+    <p style="color:#64748b;font-size:13px">The code is valid for 24 hours. If you are not registering for a tournament, you can ignore this email.</p>`);
   try {
-    await sendBrevoEmail(email, "Kode verifikasi — TurnamenPadel", html);
+    await sendBrevoEmail(email, "Your verification code — TurnamenPadel", html);
     return respond(200, { available: true, sent: true, emailMask: maskEmail(email) });
   } catch (e) {
     return respond(200, { available: true, sent: false, emailMask: maskEmail(email), message: e.message });
@@ -6998,13 +6998,13 @@ async function regClaimStart(body) {
     requestBody: { values: [[token, playerName, email, eventId, "pending", new Date(now).toISOString(), expires, ""]] } });
   const link = `${REG_PUBLIC_BASE}/klaim?token=${token}`;
   const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-    <h2 style="color:#FF6A00">Konfirmasi klaim profil</h2>
-    <p>Halo <b>${escHtml(playerName)}</b>, ada permintaan untuk mengklaim profil Trekkr atas namamu saat pendaftaran turnamen.</p>
-    <p>Jika ini kamu, klik untuk mengonfirmasi:</p>
-    <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Konfirmasi klaim →</a></p>
-    <p style="color:#888;font-size:12px">Link berlaku 24 jam. Abaikan email ini jika bukan kamu.</p></div>`;
+    <h2 style="color:#FF6A00">Confirm your profile claim</h2>
+    <p>Hi <b>${escHtml(playerName)}</b>, someone asked to claim the Trekkr profile in your name during a tournament registration.</p>
+    <p>If this was you, click to confirm:</p>
+    <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Confirm claim →</a></p>
+    <p style="color:#888;font-size:12px">This link is valid for 24 hours. If this wasn't you, you can ignore this email.</p></div>`;
   try {
-    await sendBrevoEmail(email, "Konfirmasi klaim profil — TurnamenPadel", html);
+    await sendBrevoEmail(email, "Confirm your profile claim — TurnamenPadel", html);
     return respond(200, { sent: true });
   } catch (e) {
     // Token tetap tersimpan; sampaikan bahwa email belum terkirim.
@@ -7086,6 +7086,13 @@ async function regEventRegistrations(eventId) {
 }
 // Kirim roster ke semua peserta (email) + buat/roster token. Best-effort email.
 // Format ISO datetime-local → teks Indonesia ringkas ("4 Okt 2026 · 23:59").
+function formatDeadlineEN(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || "").trim());
+  if (!m) return String(iso || "");
+  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dow = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()];
+  return `${dow}, ${parseInt(m[3], 10)} ${mon[+m[2] - 1]} ${m[1]} · ${m[4]}:${m[5]} WIB`;
+}
 function formatDeadlineID(iso) {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || "").trim());
   if (!m) return String(iso || "");
@@ -7137,25 +7144,25 @@ function regAppealRules(config, cat) {
   const a = (cat && config.appealByCat && config.appealByCat[cat]) || {};
   if (a.rules !== undefined && String(a.rules).trim()) return String(a.rules).trim();
   const c = (config.categories || {})[cat] || {};
-  return [c.req ? "Syarat kategori: " + c.req : "", String(config.eligibility || "").trim()].filter(Boolean).join("\n");
+  return [c.req ? "Category requirement: " + c.req : "", String(config.eligibility || "").trim()].filter(Boolean).join("\n");
 }
 function regRulesHtml(rules) {
   const lines = String(rules || "").split(/\n+/).map((l) => l.replace(/^[-•*\s]+/, "").trim()).filter(Boolean);
   if (!lines.length) return "";
   return `<div style="background:#f6f7f9;border:1px solid #e3e5e8;border-radius:8px;padding:10px 12px;margin:12px 0">
-        <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-bottom:6px">Rules eligibility kategori ini</div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-bottom:6px">Eligibility rules for this category</div>
         <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:#222">${lines.map((l) => `<li>${escHtml(l)}</li>`).join("")}</ul>
-        <div style="font-size:12px;color:#666;margin-top:6px">Ajukan appeal hanya bila ada pasangan yang melanggar rules di atas, sertakan bukti.</div></div>`;
+        <div style="font-size:12px;color:#666;margin-top:6px">Only file an appeal if a team breaks the rules above, and include proof.</div></div>`;
 }
 function regRosterEmail(eventName, catLabel, link, deadline, rules) {
-  const subject = `Roster peserta — ${eventName}${catLabel ? " · " + catLabel : ""}`;
+  const subject = `Player roster — ${eventName}${catLabel ? " · " + catLabel : ""}`;
   const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
-      <h2 style="color:#FF6A00">Roster peserta — ${escHtml(eventName)}</h2>
-      ${catLabel ? `<p style="margin:0 0 8px"><b>Kategori: ${escHtml(catLabel)}</b></p>` : ""}
-      <p>Berikut roster sementara kategorimu. Periksa peserta lain; bila ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p>
+      <h2 style="color:#FF6A00">Player roster — ${escHtml(eventName)}</h2>
+      ${catLabel ? `<p style="margin:0 0 8px"><b>Category: ${escHtml(catLabel)}</b></p>` : ""}
+      <p>Here is the provisional roster for your category. Please review the other teams; if you believe a team does not fit this level, you can file an <b>appeal</b> with proof.</p>
       ${regRulesHtml(rules)}
-      <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lihat roster &amp; ajukan appeal →</a></p>
-      ${deadline ? `<p style="background:#fff4e8;border:1px solid #ffd7ad;border-radius:8px;padding:10px 12px;font-size:13px">⏳ Batas waktu appeal: <b>${escHtml(deadline)}</b>. Setelah itu roster dikunci final dan diundi ke grup.</p>` : ""}</div>`;
+      <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">View roster &amp; file an appeal →</a></p>
+      ${deadline ? `<p style="background:#fff4e8;border:1px solid #ffd7ad;border-radius:8px;padding:10px 12px;font-size:13px">⏳ Appeal deadline: <b>${escHtml(deadline)}</b>. After that the roster is locked as final and drawn into groups.</p>` : ""}</div>`;
   return { subject, html };
 }
 // Send the roster + appeal invitation. body.category = one category only (each category
@@ -7187,7 +7194,8 @@ async function regRosterBlast(eventId, body) {
   const cfgName = forms[idx][1] || "";
   const build = (cat) => {
     const link = `${REG_PUBLIC_BASE}/roster/${encodeURIComponent(eventId)}?t=${config.rosterToken}&c=${encodeURIComponent(cat)}`;
-    return regRosterEmail(cfgName, catLabelOf(cat), link, regAppealWindow(config, cat).text, regAppealRules(config, cat));
+    const w = regAppealWindow(config, cat);
+    return regRosterEmail(cfgName, catLabelOf(cat), link, w.iso ? formatDeadlineEN(w.iso) : w.text, regAppealRules(config, cat));
   };
   const sampleCat = onlyCat || (recipients[0] && recipients[0].category) || Object.keys(cats)[0] || "";
   if (b.preview) {
@@ -7665,10 +7673,10 @@ async function regAppealDecision(appealId, body, params) {
       try {
         const emails = [d.player1 && d.player1.email, d.player2 && d.player2.email];
         const body2 = decision === "levelup"
-          ? `<p>Setelah peninjauan, pasangan <b>${escHtml(rp.team)}</b> dinilai berada di level yang lebih tinggi dari kategori ini, sehingga <b>tidak dapat mengikuti kategori ini</b>. Level/riwayat akan disesuaikan di profil Trekkr.</p>`
-          : `<p>Mohon maaf, setelah peninjauan pendaftaran <b>${escHtml(rp.team)}</b> pada kategori ini <b>tidak dapat dilanjutkan</b>.</p>`;
-        const refundLine = rp.paymentProofUrl ? `<p>Karena pembayaran sudah masuk, <b>refund akan diproses</b> oleh panitia. Kami akan menghubungimu.</p>` : "";
-        await regNotify(emails, `Hasil kurasi — ${a[1] || ""}`, regEmailShell("Hasil kurasi", body2 + refundLine));
+          ? `<p>After review, the team <b>${escHtml(rp.team)}</b> was assessed to be above this category's level, so it <b>cannot play in this category</b>. The level/history will be updated on the Trekkr profile.</p>`
+          : `<p>We're sorry — after review, the registration of <b>${escHtml(rp.team)}</b> in this category <b>cannot proceed</b>.</p>`;
+        const refundLine = rp.paymentProofUrl ? `<p>Since your payment has been received, the committee <b>will process a refund</b>. We will contact you.</p>` : "";
+        await regNotify(emails, `Curation result — ${a[1] || ""}`, regEmailShell("Curation result", body2 + refundLine));
       } catch (e) {}
     }
   }
@@ -7723,11 +7731,11 @@ async function regInvitePay(eventId, body) {
   await regUpdateRegStatus(sheets, ri, "invited", d);
   const cat = (config.categories || {})[rp.category] || {};
   const link = `${REG_PUBLIC_BASE}/bayar/${encodeURIComponent(eventId)}?r=${encodeURIComponent(regId)}&t=${token}`;
-  const html = regEmailShell("Slot tersedia — silakan lanjut pembayaran", `
-    <p>Kabar baik! Ada slot kosong di <b>${escHtml(cat.label || rp.category)}</b> (${escHtml(frow[1] || "")}), dan pendaftaran <b>${escHtml(rp.team)}</b> kini bisa dilanjutkan.</p>
+  const html = regEmailShell("A slot is available — please complete your payment", `
+    <p>Good news! A slot has opened in <b>${escHtml(cat.label || rp.category)}</b> (${escHtml(frow[1] || "")}), and the registration of <b>${escHtml(rp.team)}</b> can now continue.</p>
     <p>Total: <b>${cat.fee ? "Rp" + (parseInt(String(cat.fee).replace(/\D/g, "")) || 0).toLocaleString("id-ID") : "-"}</b></p>
-    <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lanjut ke pembayaran →</a></p>`);
-  const sent = await regNotify([d.player1 && d.player1.email, d.player2 && d.player2.email], `Slot tersedia — ${frow[1] || ""}`, html);
+    <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Continue to payment →</a></p>`);
+  const sent = await regNotify([d.player1 && d.player1.email, d.player2 && d.player2.email], `Slot available — ${frow[1] || ""}`, html);
   return respond(200, { success: true, sent, regId });
 }
 // Peserta waitlist yang diundang mengunggah bukti transfer → status received.
