@@ -7105,10 +7105,16 @@ async function regSetAppealDeadline(eventId, body) {
   const iso = String((body && body.iso) || "").trim();
   const text = (body && body.text) ? String(body.text) : (iso ? formatDeadlineID(iso) : "");
   const cat = String((body && body.category) || "").trim();
+  const rulesOnly = body && body.rules !== undefined && body.iso === undefined;
   if (cat) {
     // Per-category appeal window: each category runs its own appeal on its own schedule.
     config.appealByCat = config.appealByCat || {};
-    config.appealByCat[cat] = Object.assign({}, config.appealByCat[cat], { deadlineISO: iso, deadline: text });
+    const patch = rulesOnly ? {} : { deadlineISO: iso, deadline: text };
+    // Eligibility rules shown in the appeal email & roster page (differ per event and category).
+    if (body && body.rules !== undefined) patch.rules = String(body.rules || "").slice(0, 3000);
+    config.appealByCat[cat] = Object.assign({}, config.appealByCat[cat], patch);
+  } else if (rulesOnly) {
+    return respond(400, { error: "Pilih kategori untuk rules." });
   } else {
     config.timeline.appealDeadlineISO = iso;
     config.timeline.appealDeadline = text;
@@ -7125,12 +7131,29 @@ function regAppealWindow(config, cat) {
   const tl = config.timeline || {};
   return { iso: tl.appealDeadlineISO || "", text: tl.appealDeadline || "" };
 }
-function regRosterEmail(eventName, catLabel, link, deadline) {
+// Eligibility rules for a category's appeal: the admin's own text if set, else built
+// from the category requirement + the event's eligibility text.
+function regAppealRules(config, cat) {
+  const a = (cat && config.appealByCat && config.appealByCat[cat]) || {};
+  if (a.rules !== undefined && String(a.rules).trim()) return String(a.rules).trim();
+  const c = (config.categories || {})[cat] || {};
+  return [c.req ? "Syarat kategori: " + c.req : "", String(config.eligibility || "").trim()].filter(Boolean).join("\n");
+}
+function regRulesHtml(rules) {
+  const lines = String(rules || "").split(/\n+/).map((l) => l.replace(/^[-•*\s]+/, "").trim()).filter(Boolean);
+  if (!lines.length) return "";
+  return `<div style="background:#f6f7f9;border:1px solid #e3e5e8;border-radius:8px;padding:10px 12px;margin:12px 0">
+        <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-bottom:6px">Rules eligibility kategori ini</div>
+        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:#222">${lines.map((l) => `<li>${escHtml(l)}</li>`).join("")}</ul>
+        <div style="font-size:12px;color:#666;margin-top:6px">Ajukan appeal hanya bila ada pasangan yang melanggar rules di atas, sertakan bukti.</div></div>`;
+}
+function regRosterEmail(eventName, catLabel, link, deadline, rules) {
   const subject = `Roster peserta — ${eventName}${catLabel ? " · " + catLabel : ""}`;
   const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
       <h2 style="color:#FF6A00">Roster peserta — ${escHtml(eventName)}</h2>
       ${catLabel ? `<p style="margin:0 0 8px"><b>Kategori: ${escHtml(catLabel)}</b></p>` : ""}
       <p>Berikut roster sementara kategorimu. Periksa peserta lain; bila ada yang kamu rasa tidak sesuai level, ajukan <b>appeal</b> beserta bukti.</p>
+      ${regRulesHtml(rules)}
       <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Lihat roster &amp; ajukan appeal →</a></p>
       ${deadline ? `<p style="background:#fff4e8;border:1px solid #ffd7ad;border-radius:8px;padding:10px 12px;font-size:13px">⏳ Batas waktu appeal: <b>${escHtml(deadline)}</b>. Setelah itu roster dikunci final dan diundi ke grup.</p>` : ""}</div>`;
   return { subject, html };
@@ -7164,7 +7187,7 @@ async function regRosterBlast(eventId, body) {
   const cfgName = forms[idx][1] || "";
   const build = (cat) => {
     const link = `${REG_PUBLIC_BASE}/roster/${encodeURIComponent(eventId)}?t=${config.rosterToken}&c=${encodeURIComponent(cat)}`;
-    return regRosterEmail(cfgName, catLabelOf(cat), link, regAppealWindow(config, cat).text);
+    return regRosterEmail(cfgName, catLabelOf(cat), link, regAppealWindow(config, cat).text, regAppealRules(config, cat));
   };
   const sampleCat = onlyCat || (recipients[0] && recipients[0].category) || Object.keys(cats)[0] || "";
   if (b.preview) {
@@ -7210,7 +7233,7 @@ async function regRoster(eventId, params) {
   const categories = Object.entries(cats).map(([tid, c]) => {
     const w = regAppealWindow(config, tid), ms = regDeadlineMs(w.iso);
     return { tournamentId: tid, label: c.label || "", level: c.level || "", pairs: byCat[tid] || [],
-      appealDeadline: w.text, appealOpen: ms ? (Date.now() < ms) : true };
+      appealDeadline: w.text, appealOpen: ms ? (Date.now() < ms) : true, appealRules: regAppealRules(config, tid) };
   });
   // Top-level fields follow the category in the link (?c=), else the event-wide window.
   const wTop = regAppealWindow(config, (params && params.c) || "");
