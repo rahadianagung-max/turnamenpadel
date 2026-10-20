@@ -474,9 +474,10 @@ async function previewInvite(cat){
       m.addEventListener("click",e=>{ if(e.target===m) m.remove(); }); }
     m.innerHTML=`<div style="background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden">
       <div style="padding:12px 14px;border-bottom:1px solid #e5e5e5;font-size:13px"><div><b>Subjek:</b> ${esc(r.subject||"")}</div><div class="note" style="margin:4px 0 0">Akan dikirim ke <b>${r.recipients||0}</b> email peserta kategori ini · link di contoh ini asli</div></div>
-      <iframe sandbox="" style="border:0;width:100%;height:60vh;background:#fff" title="Contoh email"></iframe>
+      <iframe sandbox="allow-popups allow-popups-to-escape-sandbox" style="border:0;width:100%;height:60vh;background:#fff" title="Contoh email"></iframe>
       <div style="padding:10px 14px;border-top:1px solid #e5e5e5;text-align:right"><button class="btn ghost sm" onclick="document.getElementById('apPrevModal').remove()">Tutup</button></div></div>`;
-    m.querySelector("iframe").srcdoc='<!doctype html><meta charset="utf-8"><body style="margin:0;padding:16px;background:#f5f5f7">'+(r.html||"")+'</body>';
+    // Links in the preview open in a new tab (the roster link here is the real one).
+    m.querySelector("iframe").srcdoc='<!doctype html><meta charset="utf-8"><base target="_blank"><body style="margin:0;padding:16px;background:#f5f5f7">'+(r.html||"")+'</body>';
   }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc(e.message)+'</span>'; }
 }
 async function testInvite(cat){

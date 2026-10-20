@@ -7146,13 +7146,15 @@ function regAppealRules(config, cat) {
   const c = (config.categories || {})[cat] || {};
   return [c.req ? "Category requirement: " + c.req : "", String(config.eligibility || "").trim()].filter(Boolean).join("\n");
 }
+// Rules are shown exactly as the committee typed them (their own bullets, numbering,
+// headings and blank lines) — no automatic list formatting.
 function regRulesHtml(rules) {
-  const lines = String(rules || "").split(/\n+/).map((l) => l.replace(/^[-•*\s]+/, "").trim()).filter(Boolean);
-  if (!lines.length) return "";
+  const text = String(rules || "").replace(/\r/g, "").trim();
+  if (!text) return "";
   return `<div style="background:#f6f7f9;border:1px solid #e3e5e8;border-radius:8px;padding:10px 12px;margin:12px 0">
         <div style="font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#555;margin-bottom:6px">Eligibility rules for this category</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.55;color:#222">${lines.map((l) => `<li>${escHtml(l)}</li>`).join("")}</ul>
-        <div style="font-size:12px;color:#666;margin-top:6px">Only file an appeal if a team breaks the rules above, and include proof.</div></div>`;
+        <div style="font-size:13px;line-height:1.55;color:#222;white-space:pre-line">${escHtml(text)}</div>
+        <div style="font-size:12px;color:#666;margin-top:8px">Only file an appeal if a team breaks the rules above, and include proof.</div></div>`;
 }
 function regRosterEmail(eventName, catLabel, link, deadline, rules) {
   const subject = `Player roster — ${eventName}${catLabel ? " · " + catLabel : ""}`;
@@ -7181,7 +7183,7 @@ async function regRosterBlast(eventId, body) {
   if (onlyCat && !cats[onlyCat]) return respond(400, { error: "Kategori tidak ditemukan." });
   const catLabelOf = (c) => (cats[c] && cats[c].label) || "";
   const isDry = !!b.preview || !!b.testEmail;
-  if (!config.rosterToken) { config.rosterToken = require("crypto").randomBytes(9).toString("hex"); if (!isDry) await regUpdateFormConfig(sheets, idx, config); }
+  if (!config.rosterToken) { config.rosterToken = require("crypto").randomBytes(9).toString("hex"); await regUpdateFormConfig(sheets, idx, config); }
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
   const regs = (rRes.data.values || []).filter((r) => r[1] === regFormIdForEvent(eventId)).map(regParseReg)
     .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && (!onlyCat || r.category === onlyCat));
