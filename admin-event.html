@@ -438,7 +438,7 @@ let AP_CTX={cats:{},eligibility:"",by:{}};
 // Default rules = category requirement + event eligibility (same as the server fallback).
 function defaultRules(cat){
   const c=AP_CTX.cats[cat]||{};
-  return [c.req?"Syarat kategori: "+c.req:"", String(AP_CTX.eligibility||"").trim()].filter(Boolean).join("\n");
+  return [c.req?"Category requirement: "+c.req:"", String(AP_CTX.eligibility||"").trim()].filter(Boolean).join("\n");
 }
 function editRules(cat){
   const c=AP_CTX.cats[cat]||{}, a=AP_CTX.by[cat]||{};
