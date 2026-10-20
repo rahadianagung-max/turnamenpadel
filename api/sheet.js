@@ -7082,6 +7082,21 @@ async function regEventRegistrations(eventId) {
   };
   const list = (res.data.values || []).filter((r) => r[1] === formId).map(regParseReg);
   for (const reg of list) { if (reg.data) { enrich(reg.data.player1); enrich(reg.data.player2); } }
+  // Yellow flag: a player whose CURRENT Trekkr ELO is outside the chosen category's
+  // level band (above the ceiling or below the floor). Additive field `fit`.
+  let cats = {};
+  try { const frow = await regFindFormRow(sheets, formId); cats = (JSON.parse((frow && frow[4]) || "{}").categories) || {}; } catch (e) {}
+  for (const reg of list) {
+    const lvl = (cats[reg.category] && cats[reg.category].level) || (reg.data && reg.data.level) || "";
+    const b = levelBounds(lvl);
+    const reasons = [];
+    [reg.data && reg.data.player1, reg.data && reg.data.player2].forEach((p) => {
+      if (!p || !p.name || p.elo == null) return;
+      if (b.ceiling != null && p.elo > b.ceiling) reasons.push(`${p.name}: ${p.tier || ""} ${p.elo} — di atas level kategori (maks ${b.ceiling})`);
+      else if (b.floor != null && p.elo < b.floor) reasons.push(`${p.name}: ${p.tier || ""} ${p.elo} — di bawah level kategori (min ${b.floor})`);
+    });
+    reg.fit = { flag: reasons.length > 0, reasons };
+  }
   return respond(200, { registrations: list, count: list.length });
 }
 // Kirim roster ke semua peserta (email) + buat/roster token. Best-effort email.

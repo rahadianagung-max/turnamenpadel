@@ -743,12 +743,13 @@ function regCard(reg){
   const infoBlock=`<div class="pcard" style="margin-bottom:12px"><div class="kvs">${info.join("<br>")}</div></div>`;
   return `<details class="regd">
     <summary class="regsum">
-      <span class="sumtxt"><b>${team}</b> ${regStatusBadge(reg)}</span>
+      <span class="sumtxt"><b>${team}</b> ${regStatusBadge(reg)}${fitFlag(reg)}</span>
       <span class="chev" aria-hidden="true">▼</span>
     </summary>
     <div class="regbody">
       <div class="note" style="margin:0 0 10px">${esc(new Date(reg.timestamp).toLocaleString('id-ID'))}</div>
       ${infoBlock}
+      ${(reg.fit&&reg.fit.flag)?`<div style="background:#FEF9C3;border:2px solid #CA8A04;border-radius:var(--r-lg);padding:10px 12px;margin-bottom:12px;font-size:13px"><b>🟨 Tidak sesuai kategori</b> <span class="note" style="margin:0">(level Trekkr saat ini)</span><ul style="margin:6px 0 0;padding-left:18px">${reg.fit.reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul></div>`:""}
       <div class="pgrid">${playerCard(p1,1)}${playerCard(p2,2)}</div>
       ${phoneRow}
       <div class="divider"></div>${proof}
@@ -758,6 +759,9 @@ function regCard(reg){
   </details>`;
 }
 // Grup baris per kategori di dalam tiap section, agar rapi saat ratusan peserta.
+// Yellow flag: pemain dengan ELO Trekkr di luar rentang level kategori yang dipilih.
+function fitFlag(reg){ const f=reg&&reg.fit; if(!f||!f.flag) return "";
+  return ` <span class="chip" title="${esc(f.reasons.join(" · "))}" style="background:#FEF9C3;border-color:#CA8A04;color:#854D0E">🟨 tidak sesuai kategori</span>`; }
 function regSection(title,items,empty){
   let html=`<div style="margin-top:8px"><h4 style="font-size:14px;margin:16px 0 8px">${title} <span class="muted">(${items.length})</span></h4>`;
   if(!items.length) return html+'<p class="muted" style="font-size:13px">'+empty+'</p></div>';
@@ -806,7 +810,8 @@ function renderRegs(){
     const waitlistL=waiting.filter(x=>String(x.status).toLowerCase()==="waitlist");
     const pending=waiting.filter(x=>String(x.status).toLowerCase()!=="waitlist");
     const closed=list.filter(x=>x.status==="rejected"||x.status==="cancelled");
-    document.getElementById("regStats").innerHTML=(cat==="__all"?"Semua kategori · ":`<b>${esc(cat)}</b> · `)+`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Pending <b>${pending.length}</b> · Waitlist <b>${waitlistL.length}</b>`;
+    document.getElementById("regStats").innerHTML=(cat==="__all"?"Semua kategori · ":`<b>${esc(cat)}</b> · `)+`Total <b>${list.length}</b> tim · Approved <b>${approved.length}</b> · Pending <b>${pending.length}</b> · Waitlist <b>${waitlistL.length}</b>`
+      +(()=>{ const n=list.filter(x=>x.fit&&x.fit.flag&&x.status!=="rejected"&&x.status!=="cancelled").length; return n?` · <span style="background:#FEF9C3;border:1px solid #CA8A04;border-radius:6px;padding:1px 6px;color:#854D0E">🟨 <b>${n}</b> tidak sesuai kategori</span>`:""; })();
     if(!(REGS||[]).length){ host.innerHTML='<p class="muted">Belum ada pendaftar.</p>'; return; }
     if(!list.length){ host.innerHTML='<p class="muted">Belum ada pendaftar di kategori ini.</p>'; return; }
     host.innerHTML =
