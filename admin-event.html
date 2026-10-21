@@ -1076,36 +1076,75 @@ function openEditPlayers(regId){
   const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
   let host=document.getElementById("editPlHost");
   if(!host){ host=document.createElement("div"); host.id="editPlHost"; document.body.appendChild(host); }
-  const slotForm=(p,slot)=>`<div class="pcard" style="margin-bottom:10px">
-      <div style="font-weight:700;font-size:13px;margin-bottom:6px">Pemain ${slot}</div>
+  const g=v=>String(v||"").toUpperCase();
+  const slotForm=(p,slot)=>{
+    const photo=p.photoUrl?`<img id="epPhotoImg${slot}" src="${esc(p.photoUrl)}" alt="" style="width:56px;height:56px;object-fit:cover;border:var(--bd);border-radius:8px">`:`<span id="epPhotoImg${slot}" style="width:56px;height:56px;border:var(--bd);border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--inset);color:var(--muted);font-size:11px">no foto</span>`;
+    return `<div class="pcard" style="margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:8px">Pemain ${slot}</div>
       <div style="display:grid;gap:8px">
+        <div class="row" style="gap:10px;align-items:center">
+          ${photo}
+          <div style="flex:1;display:grid;gap:6px">
+            <input type="file" accept="image/*" id="epPhotoFile${slot}" onchange="epPickPhoto(${slot})" style="font-size:12px">
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;margin:0"><input type="checkbox" id="epPhotoClear${slot}" style="width:auto">Kosongkan foto</label>
+          </div>
+        </div>
         <label class="f"><span>Nama <span class="req">*</span></span><input id="epName${slot}" value="${esc(p.name||"")}" placeholder="nama pemain"></label>
         <div class="row" style="gap:8px">
-          <label class="f" style="flex:1"><span>HP</span><input id="epPhone${slot}" value="${esc(p.phone||"")}" placeholder="08…"></label>
-          <label class="f" style="flex:1"><span>Gender</span><select id="epGender${slot}"><option value="">—</option><option value="L" ${String(p.gender||"").toUpperCase()==="L"||String(p.gender||"").toUpperCase()==="M"?"selected":""}>Laki-laki</option><option value="P" ${String(p.gender||"").toUpperCase()==="P"||String(p.gender||"").toUpperCase()==="F"?"selected":""}>Perempuan</option></select></label>
+          <label class="f" style="flex:1"><span>Alias / nick</span><input id="epNick${slot}" value="${esc(p.nick||"")}" placeholder="opsional"></label>
+          <label class="f" style="flex:1"><span>Gender</span><select id="epGender${slot}"><option value="">—</option><option value="L" ${g(p.gender)==="L"||g(p.gender)==="M"?"selected":""}>Laki-laki</option><option value="P" ${g(p.gender)==="P"||g(p.gender)==="F"?"selected":""}>Perempuan</option></select></label>
         </div>
-        <label class="f"><span>Email</span><input id="epEmail${slot}" value="${esc(p.email||"")}" placeholder="email (opsional)"></label>
-        <div class="row" style="gap:8px"><button class="btn primary sm" onclick="submitEditPlayer('${esc(regId)}',${slot})">💾 Simpan Pemain ${slot}</button><span class="note" id="epMsg${slot}"></span></div>
+        <div class="row" style="gap:8px">
+          <label class="f" style="flex:1"><span>HP</span><input id="epPhone${slot}" value="${esc(p.phone||"")}" placeholder="08…"></label>
+          <label class="f" style="flex:1"><span>Email</span><input id="epEmail${slot}" value="${esc(p.email||"")}" placeholder="email (untuk klaim profil)"></label>
+        </div>
+        <div class="row" style="gap:8px">
+          <label class="f" style="flex:1"><span>Instagram</span><input id="epIg${slot}" value="${esc(p.ig||"")}" placeholder="@ig"></label>
+          <label class="f" style="flex:1"><span>Region / kota</span><input id="epRegion${slot}" value="${esc(p.region||"")}" placeholder="opsional"></label>
+        </div>
+        <div class="row" style="gap:8px">
+          <label class="f" style="flex:1"><span>Jersey</span><input id="epJersey${slot}" value="${esc(p.jersey||"")}" placeholder="mis. L"></label>
+          <label class="f" style="flex:1"><span>Lahir (DOB)</span><input id="epDob${slot}" value="${esc(p.dob||"")}" placeholder="opsional"></label>
+        </div>
+        <label class="f"><span>ReClub (URL)</span><input id="epReclub${slot}" value="${esc(p.reclub||"")}" placeholder="opsional"></label>
+        <label class="f"><span>KTP / ID (URL)</span><input id="epKtp${slot}" value="${esc(p.ktpUrl||"")}" placeholder="opsional"></label>
+        <label style="display:flex;align-items:center;gap:7px;font-size:12.5px;cursor:pointer;margin:2px 0"><input type="checkbox" id="epSendClaim${slot}" style="width:auto">Kirim link klaim ke email pemain (biar klaim profil pakai email sendiri)</label>
+        <div class="row" style="gap:8px;align-items:center"><button class="btn primary sm" onclick="submitEditPlayer('${esc(regId)}',${slot})">💾 Simpan Pemain ${slot}</button><span class="note" id="epMsg${slot}"></span></div>
+        <div class="note" id="epClaim${slot}"></div>
       </div></div>`;
+  };
   host.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto" onclick="if(event.target===this)closeEditPl()">
-    <div style="background:#fff;border:var(--bd);border-radius:var(--r-lg);max-width:480px;width:100%;padding:18px">
+    <div style="background:#fff;border:var(--bd);border-radius:var(--r-lg);max-width:520px;width:100%;padding:18px">
       <div class="row" style="justify-content:space-between;align-items:center"><div style="font-weight:800;font-family:var(--display);font-size:16px">✏️ Ganti / edit pemain</div><button class="btn ghost sm" onclick="closeEditPl()">Tutup</button></div>
-      <div class="note" style="margin:4px 0 12px">Tim: <b>${esc(teamName(reg))}</b>. Ganti pemain yang sakit atau terkena appeal <b>sebelum undian (spin the wheel)</b>. Perubahan nama akan menautkan ulang ke profil Trekkr pemain baru saat di-approve.</div>
+      <div class="note" style="margin:4px 0 12px">Tim: <b>${esc(teamName(reg))}</b>. Semua data bisa diganti atau <b>dikosongkan</b>. Ganti pemain (sakit / kena appeal) <b>sebelum undian</b>. Mengganti nama/email akan menautkan ulang ke profil Trekkr pemain baru dan pemain bisa <b>mengklaim profil dengan email sendiri</b>.</div>
       ${slotForm(p1,1)}${slotForm(p2,2)}
     </div></div>`;
 }
 function closeEditPl(){ const h=document.getElementById("editPlHost"); if(h) h.innerHTML=""; }
+let EP_PHOTO={};
+function epPickPhoto(slot){
+  const inp=document.getElementById("epPhotoFile"+slot); const f=inp&&inp.files&&inp.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ EP_PHOTO[slot]=rd.result; const img=document.getElementById("epPhotoImg"+slot); if(img&&img.tagName==="IMG") img.src=rd.result; const cl=document.getElementById("epPhotoClear"+slot); if(cl) cl.checked=false; }; rd.readAsDataURL(f);
+}
 async function submitEditPlayer(regId, slot){
   const msg=document.getElementById("epMsg"+slot);
-  const name=(document.getElementById("epName"+slot)||{}).value||"";
+  const v=id=>{ const el=document.getElementById(id+slot); return el?(el.value||""):""; };
+  const name=v("epName");
   if(!name.trim()){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Nama wajib."; } return; }
   if(msg){ msg.style.color="var(--muted)"; msg.textContent="Menyimpan…"; }
+  const clearPhoto=(document.getElementById("epPhotoClear"+slot)||{}).checked;
+  const sendClaim=(document.getElementById("epSendClaim"+slot)||{}).checked;
   const body={token:TOKEN,regId,slot,name:name.trim(),
-    phone:(document.getElementById("epPhone"+slot)||{}).value||"",
-    email:(document.getElementById("epEmail"+slot)||{}).value||"",
-    gender:(document.getElementById("epGender"+slot)||{}).value||""};
-  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/edit-player",{method:"POST",body});
-    if(msg){ msg.style.color="var(--ok)"; msg.textContent="✓ Tersimpan."; }
+    nick:v("epNick"),phone:v("epPhone"),email:v("epEmail"),ig:v("epIg"),region:v("epRegion"),
+    gender:v("epGender"),jersey:v("epJersey"),dob:v("epDob"),reclub:v("epReclub"),ktpUrl:v("epKtp"),
+    sendClaim:!!sendClaim};
+  if(EP_PHOTO[slot]) body.photo=EP_PHOTO[slot];      // foto baru
+  else if(clearPhoto) body.photoUrl="";               // kosongkan foto
+  try{ const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/edit-player",{method:"POST",body});
+    if(msg){ msg.style.color="var(--ok)"; msg.textContent="✓ Tersimpan."+(r.claimEmailed?" Link klaim dikirim ke email pemain.":""); }
+    delete EP_PHOTO[slot];
+    const cl=document.getElementById("epClaim"+slot);
+    if(cl&&r.claimLink){ cl.innerHTML='Link klaim profil (bisa dibagikan ke pemain): <a href="#" onclick="copyText(event,\''+esc(r.claimLink)+'\')" style="color:var(--orange);font-weight:700;text-decoration:none;word-break:break-all">'+esc(r.claimLink)+' ⧉</a>'; }
     await loadRegs();
   }catch(e){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Gagal: "+((e&&e.message)||e); } }
 }
