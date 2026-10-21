@@ -7594,20 +7594,52 @@ async function regEditPlayer(eventId, body, params) {
   const nameChanged = normName(prev.name || "") !== normName(name);
   const np = Object.assign({}, prev);
   np.name = name;
-  // Optional contact/profile fields — only overwrite when provided in the request.
-  ["phone", "email", "ig", "gender", "nick", "region"].forEach((f) => {
-    if (body && body[f] != null && String(body[f]).trim() !== "") np[f] = String(body[f]).trim();
+  // Full edit: every editable profile field can be changed OR cleared. A field is
+  // written exactly as sent (empty string clears it); a field omitted from the
+  // request is left untouched.
+  ["nick", "phone", "email", "ig", "region", "gender", "reclub", "ktpUrl", "jersey", "dob"].forEach((f) => {
+    if (body && Object.prototype.hasOwnProperty.call(body, f)) np[f] = String(body[f] == null ? "" : body[f]).trim();
   });
-  if (nameChanged) {
-    // New person in this slot: drop the previous Trekkr match + passport links so a
-    // later approval resolves/creates the right player.
-    delete np.match; delete np.trekkrName;
-    delete np.passportResolved; delete np.passportClaimed; delete np.passportToken;
+  const emailChanged = String(prev.email || "").trim().toLowerCase() !== String(np.email || "").trim().toLowerCase();
+  // Photo: a new data-URL in `photo` is uploaded; otherwise `photoUrl` is written
+  // verbatim (empty clears). Omitting both leaves the photo as-is.
+  if (body && typeof body.photo === "string" && body.photo.indexOf("data:") === 0) {
+    const frow = await regFindFormRow(sheets, formId);
+    let config = {}; try { config = JSON.parse((frow && frow[4]) || "{}"); } catch (e) {}
+    const folderId = config.driveFolderId || process.env.REG_DRIVE_FOLDER_ID || "";
+    try { np.photoUrl = await uploadImageSmart(body.photo, `player_${regId}_${slot}_${Date.now()}.jpg`, folderId); }
+    catch (e) { return respond(502, { error: "Gagal mengunggah foto: " + (e && e.message) }); }
+  } else if (body && Object.prototype.hasOwnProperty.call(body, "photoUrl")) {
+    np.photoUrl = String(body.photoUrl == null ? "" : body.photoUrl).trim();
+  }
+  if (nameChanged || emailChanged) {
+    // A new person (or new email) in this slot: drop the previous Trekkr match so a
+    // later approval resolves/creates the right player, and reset the claim so the
+    // substitute claims the profile with THEIR OWN email.
+    if (nameChanged) { delete np.match; delete np.trekkrName; delete np.passportResolved; }
+    np.passportClaimed = false;
     if (body && body.match && body.match.name) np.match = { name: String(body.match.name).trim() };
   }
+  // Ensure a passport/claim token exists so the substitute can claim their profile
+  // with their own email (via the approval email, or the claim link below).
+  if (!np.passportToken) np.passportToken = require("crypto").randomBytes(12).toString("hex");
   data[key] = np;
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!I${ri + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(data)]] } });
-  return respond(200, { success: true, slot, name, nameChanged });
+  const claimLink = `${REG_PUBLIC_BASE}/api/reg/passport?reg=${encodeURIComponent(regId)}&p=${slot}&t=${encodeURIComponent(np.passportToken)}`;
+  // Optionally email the claim link to the (new) player so they claim with their own email.
+  let claimEmailed = false;
+  if (body && body.sendClaim && np.email) {
+    try {
+      const frow = await regFindFormRow(sheets, formId);
+      const evName = (frow && frow[1]) || "";
+      const inner = `<p>Hi <b>${escHtml(np.name)}</b>,</p>
+        <p>You've been added to <b>${escHtml(evName)}</b>. Open your <b>Trekkr passport</b> below — the first time you open it we link it to your Trekkr profile (or create one) and claim it to <b>your email</b>:</p>
+        <p><a href="${claimLink}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:11px 18px;border-radius:8px">Open my passport →</a></p>`;
+      await regNotify([np.email], `Your Trekkr passport — ${evName}`, regEmailShell("Your passport", inner));
+      claimEmailed = true;
+    } catch (e) { console.error("edit-player claim email:", e && e.message); }
+  }
+  return respond(200, { success: true, slot, name, nameChanged, emailChanged, photoUrl: np.photoUrl || "", claimLink, claimEmailed });
 }
 // Shareable link with rich preview (Open Graph): WhatsApp/social crawlers read
 // these meta tags to show the event FLYER + a short description. Humans are
