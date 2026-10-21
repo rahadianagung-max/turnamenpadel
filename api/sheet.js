@@ -7171,6 +7171,12 @@ function regRulesHtml(rules) {
         <div style="font-size:13px;line-height:1.55;color:#222;white-space:pre-line">${escHtml(text)}</div>
         <div style="font-size:12px;color:#666;margin-top:8px">Only file an appeal if a team breaks the rules above, and include proof.</div></div>`;
 }
+// Human-readable category for participant-facing emails: expand the stored code
+// + level into e.g. "Men's Doubles · Upper Beginner" (not the raw "MD").
+function regCatDisplay(catObj) {
+  if (!catObj) return "";
+  return [achCatLabel(catObj.label || ""), achLevelLabel(catObj.level || "")].filter(Boolean).join(" · ") || String(catObj.label || "");
+}
 function regRosterEmail(eventName, catLabel, link, deadline, rules) {
   const subject = `Player roster — ${eventName}${catLabel ? " · " + catLabel : ""}`;
   const html = `<div style="font-family:sans-serif;max-width:480px;margin:auto">
@@ -7196,7 +7202,7 @@ async function regRosterBlast(eventId, body) {
   const onlyCat = String(b.category || "").trim();
   const cats = config.categories || {};
   if (onlyCat && !cats[onlyCat]) return respond(400, { error: "Kategori tidak ditemukan." });
-  const catLabelOf = (c) => (cats[c] && cats[c].label) || "";
+  const catLabelOf = (c) => regCatDisplay(cats[c]);
   const isDry = !!b.preview || !!b.testEmail;
   if (!config.rosterToken) { config.rosterToken = require("crypto").randomBytes(9).toString("hex"); await regUpdateFormConfig(sheets, idx, config); }
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
@@ -7345,7 +7351,7 @@ async function regApproveRegistration(eventId, body, params) {
   // Congratulations email (English) — best-effort.
   try {
     const evName = frow[1] || "";
-    const catName = (config.categories && config.categories[rp.category] && config.categories[rp.category].label) || rp.category || "";
+    const catName = regCatDisplay(config.categories && config.categories[rp.category]) || rp.category || "";
     const tl = config.timeline || {};
     const drow = (lbl, v) => v ? `<tr><td style="padding:4px 14px 4px 0;color:#64748b;white-space:nowrap">${lbl}</td><td style="padding:4px 0;font-weight:700">${escHtml(v)}</td></tr>` : "";
     const dates = [["Registration opens", tl.openStart], ["Registration closes", tl.openEnd], ["Curation starts", tl.curationStart], ["Appeal deadline", tl.appealDeadline], ["Technical Meeting", tl.tmDate], ["Order of play released", tl.oopDate]].map(([l, v]) => drow(l, v)).join("");
@@ -7749,7 +7755,7 @@ async function regInvitePay(eventId, body) {
   const cat = (config.categories || {})[rp.category] || {};
   const link = `${REG_PUBLIC_BASE}/bayar/${encodeURIComponent(eventId)}?r=${encodeURIComponent(regId)}&t=${token}`;
   const html = regEmailShell("A slot is available — please complete your payment", `
-    <p>Good news! A slot has opened in <b>${escHtml(cat.label || rp.category)}</b> (${escHtml(frow[1] || "")}), and the registration of <b>${escHtml(rp.team)}</b> can now continue.</p>
+    <p>Good news! A slot has opened in <b>${escHtml(regCatDisplay(cat) || rp.category)}</b> (${escHtml(frow[1] || "")}), and the registration of <b>${escHtml(rp.team)}</b> can now continue.</p>
     <p>Total: <b>${cat.fee ? "Rp" + (parseInt(String(cat.fee).replace(/\D/g, "")) || 0).toLocaleString("id-ID") : "-"}</b></p>
     <p><a href="${link}" style="display:inline-block;background:#FF6A00;color:#0A0A0B;font-weight:700;text-decoration:none;padding:12px 20px;border-radius:8px">Continue to payment →</a></p>`);
   const sent = await regNotify([d.player1 && d.player1.email, d.player2 && d.player2.email], `Slot available — ${frow[1] || ""}`, html);
