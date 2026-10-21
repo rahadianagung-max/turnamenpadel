@@ -250,6 +250,11 @@
           <div><h3 style="font-size:16px">Spin the Wheel — Undian Grup</h3><div class="note">Pembagian grup dengan roda putar berbasis pot peringkat Trekkr — adil, transparan, dan bisa ditonton di venue.</div></div>
           <a class="btn primary sm" id="goDraw" href="/draw" target="_blank" rel="noopener">🎡 Buka halaman undian →</a>
         </div>
+        <div style="margin-top:12px;border:var(--bd);border-radius:var(--r-lg);padding:14px;background:var(--inset)">
+          <div style="font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:4px">1) Finalisasi kategori → entrants</div>
+          <div class="note" style="margin:0 0 8px">Dorong pasangan terkonfirmasi (approved/received) jadi daftar peserta (entrants) agar bisa diundi. <b>Waiting list tidak ikut.</b> Boleh dijalankan walau appeal belum selesai — tinggal finalisasi ulang bila roster berubah.</div>
+          <div id="finalizeList"><p class="muted" style="font-size:13px">Buka langkah ini untuk memuat kategori…</p></div>
+        </div>
         <details class="help" open>
           <summary>ℹ️ Cara kerja undian grup <span class="mk">▼</span></summary>
           <div class="imp"><b>ℹ️ Catatan:</b> Idealnya undian dilakukan setelah roster final (pendaftaran penuh & appeal selesai). Tapi <b>kamu tetap bisa melakukan undian walau kurasi/appeal belum selesai</b> — appeal yang masih berjalan <b>tidak memblokir</b> Spin the Wheel. Jika nanti ada keputusan appeal yang mengubah roster (tim keluar / pemain diganti), cukup <b>finalisasi ulang &amp; undi ulang</b> kategori itu.</div>
@@ -386,7 +391,37 @@ function showStep(which){
     if(v) v.classList.toggle("hidden", s!==which);
     if(b) b.classList.toggle("active", s===which);
   });
+  if(which==="spin") loadFinalize();
   try{ window.scrollTo({top:0, behavior:"smooth"}); }catch(e){}
+}
+// Finalisasi kategori → entrants (langkah sebelum undian). Daftar kategori event ini
+// dari tournament/list (selalu ada), fallback ke reg/public.
+async function loadFinalize(){
+  const host=document.getElementById("finalizeList"); if(!host||!EVENT) return;
+  host.innerHTML='<p class="muted" style="font-size:13px">Memuat kategori…</p>';
+  let cats=[];
+  try{ const d=await api("tournament/list?eventId="+encodeURIComponent(EVENT.eventId)+"&token="+encodeURIComponent(TOKEN));
+    cats=(d&&d.tournaments||[]).map(c=>({tournamentId:c.tournamentId,label:c.category,level:c.level}));
+  }catch(e){}
+  if(!cats.length){ try{ const r=await api("reg/public/"+encodeURIComponent(EVENT.eventId)); cats=(r&&r.categories||[]).map(c=>({tournamentId:c.tournamentId,label:c.label,level:c.level})); }catch(e){} }
+  cats=cats.filter(c=>c&&c.tournamentId);
+  if(!cats.length){ host.innerHTML='<p class="muted" style="font-size:13px">Belum ada kategori pada event ini.</p>'; return; }
+  host.innerHTML=cats.map(c=>{
+    const nm=[catLabel(c.label),levelLabel(c.level)].filter(Boolean).join(" · ")||c.label||c.tournamentId;
+    return `<div class="row" style="justify-content:space-between;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid var(--line)">
+      <span style="font-size:13px"><b>${esc(nm)}</b></span>
+      <button class="btn primary sm" onclick="finalizeCat('${esc(c.tournamentId)}',this)">✅ Finalisasi → entrants</button></div>`;
+  }).join("")+'<div class="note" id="finalizeMsg" style="margin-top:8px"></div>';
+}
+async function finalizeCat(tid, btn){
+  const msg=document.getElementById("finalizeMsg");
+  if(!confirm("Finalisasi kategori ini → dorong semua pasangan Terkonfirmasi (approved/received) ke daftar peserta (entrants) untuk diundi?\nWaiting list TIDAK ikut. Boleh dijalankan walau appeal belum selesai; finalisasi ulang bila roster berubah.")) return;
+  if(btn) btn.disabled=true;
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Memproses…"; }
+  try{ const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/finalize",{method:"POST",body:{token:TOKEN,category:tid}});
+    if(msg){ msg.style.color="var(--ok)"; msg.textContent="✓ Finalisasi OK · "+(r.finalized||0)+" pasangan masuk ke entrants. Lanjut ke undian."; }
+  }catch(e){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Gagal: "+((e&&e.message)||e); } }
+  if(btn) btn.disabled=false;
 }
 async function loadCategories(){
   const host=document.getElementById("catList"); host.innerHTML='<p class="muted">Memuat…</p>';

@@ -966,8 +966,9 @@ const netlifyHandler = async (event) => {
       return await regEventAppeals(eid);
     }
     if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST") {
-      if (!regGateOk(body, params)) return REG_UNAUTH;
-      return await regFinalizeCategory(decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", "")), body);
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
+      return await regFinalizeCategory(eid, body);
     }
     if (path === "reg/passport" && method === "GET")
       return await regPassportResolve(params);
