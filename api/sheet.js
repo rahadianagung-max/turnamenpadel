@@ -798,6 +798,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/achievements") && method === "POST") {
       return await tRecordAchievements(decodeURIComponent(path.replace("tournament/event/", "").replace("/achievements", "")));
     }
+    // Manual passport achievement (superadmin): add / delete a hand-entered honour.
+    if (path === "achievements/manual" && method === "POST") return await achAddManual(body, params);
+    if (path === "achievements/manual/delete" && method === "POST") return await achDeleteManual(body, params);
     if (path === "tournament/achievements/backfill" && method === "POST") {
       return await tBackfillAchievements(body || {});
     }
@@ -5877,13 +5880,49 @@ async function recordAchievements(sheets, eventId, rows){
   if (all.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: all } });
   return rows ? rows.length : 0;
 }
+// Manual passport achievement (superadmin only). Stored in the same Achievements
+// tab but with eventId = "MANUAL" and a unique id in the tournamentId column, so
+// the per-event recompute (recordAchievements, keyed by real eventId) never wipes
+// it. Additive only — never touches ELO or any existing contract.
+async function achAddManual(body, params){
+  if (!isSuperadmin(body, params)) return respond(403, { error: "Hanya superadmin yang bisa menambah prestasi manual." });
+  const name = String((body && body.player) || "").trim();
+  const placement = String((body && body.placement) || "").trim();
+  if (!name || !placement) return respond(400, { error: "Nama pemain & peringkat wajib." });
+  const eventName = String((body && body.eventName) || "").trim();
+  const category = String((body && body.category) || "").trim(); // bebas (mis. "MD") atau kosong
+  const level = String((body && body.level) || "").trim();
+  const date = String((body && body.date) || "").trim();
+  const sheets = getSheets();
+  const manId = genId("MAN");
+  const now = new Date().toISOString();
+  // A:K = player, normName, eventId, eventName, category, level, tournamentId(=manId),
+  //       placement, stage, date, createdAt
+  const row = [name, normName(name), "MANUAL", eventName, category, level, manId, placement, achStageOf(placement), date, now];
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A:K`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
+  return respond(200, { success: true, manualId: manId, manual: true });
+}
+async function achDeleteManual(body, params){
+  if (!isSuperadmin(body, params)) return respond(403, { error: "Hanya superadmin yang bisa menghapus prestasi manual." });
+  const manId = String((body && body.manualId) || "").trim();
+  if (!manId) return respond(400, { error: "manualId wajib." });
+  const sheets = getSheets();
+  const cur = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
+  const rows = cur.data.values || [];
+  const keep = rows.filter((r) => !(r[2] === "MANUAL" && r[6] === manId));
+  if (keep.length === rows.length) return respond(404, { error: "Prestasi manual tidak ditemukan." });
+  await sheets.spreadsheets.values.clear({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
+  if (keep.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2`, valueInputOption: "USER_ENTERED", requestBody: { values: keep } });
+  return respond(200, { success: true, deleted: true });
+}
 // Public read for the player passport (trekkr) / testing.
 async function achievementsForPlayer(name){
   const sheets = getSheets();
   const cur = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.achievements}!A2:K` });
   const key = normName(name);
   const items = (cur.data.values || []).filter(r => normName(r[0]) === key || r[1] === key).map(r => ({
-    player: r[0], eventId: r[2], eventName: r[3], category: r[4], level: r[5], tournamentId: r[6], placement: r[7], stage: r[8], date: r[9] }));
+    player: r[0], eventId: r[2], eventName: r[3], category: r[4], level: r[5], tournamentId: r[6], placement: r[7], stage: r[8], date: r[9],
+    manual: r[2] === "MANUAL", manualId: r[2] === "MANUAL" ? r[6] : "" }));
   return respond(200, { player: name, count: items.length, achievements: items });
 }
 // Recompute + record achievements for ONE event (live or already archived).

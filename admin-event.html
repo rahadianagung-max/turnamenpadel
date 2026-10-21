@@ -292,6 +292,7 @@
 const API="/api";
 let TOKEN=""; try{ TOKEN=localStorage.getItem("tp_admin_token")||""; }catch(e){}
 let EVENTS=[], EVENT=null, ALLOWED=null; // ALLOWED=null → superadmin (semua event)
+let IS_SUPER=false; // hanya superadmin yang boleh menambah prestasi manual ke passport
 function eventListOf(v){ return String(v||"").split(/[,;]+/).map(s=>s.trim()).filter(Boolean); }
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 async function api(path,opts){
@@ -324,6 +325,7 @@ async function afterAuth(){
   document.getElementById("authedBar").classList.remove("hidden");
   let u="admin",role="",evStr=""; try{ u=localStorage.getItem("tp_admin_user")||"admin"; role=localStorage.getItem("tp_admin_role")||""; evStr=localStorage.getItem("tp_admin_events")||""; }catch(e){}
   document.getElementById("whoami").textContent=u; document.getElementById("roleChip").textContent=role;
+  IS_SUPER = (String(role||"").toLowerCase().trim()==="superadmin");
   ALLOWED = role==="event_admin" ? eventListOf(evStr) : null; // superadmin → semua
   // load events for the picker + slug resolution
   try{ const d=await api("tournament/events"); EVENTS=d.events||[]; }catch(e){ EVENTS=[]; }
@@ -581,6 +583,7 @@ function appealCard(a){
       <div class="note" style="margin:2px 0 0">${esc(new Date(a.createdAt).toLocaleString('id-ID'))}</div></div>${dchip}</div>
     <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
     ${proof}
+    ${IS_SUPER&&(a.players||[]).length?`<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">${(a.players||[]).map(p=>achBtn(p.name)).join("")}</div>`:""}
     ${actions}<div class="note" id="apMsg_${esc(a.appealId)}"></div></div>`;
 }
 async function loadAppeals(){
@@ -677,8 +680,76 @@ function playerCard(p,idx){ if(!p) return ""; const k=[];
   if(p.jersey) k.push(`Jersey: <b>${esc(p.jersey)}</b>`);
   if(p.dob) k.push(`Lahir: <b>${esc(p.dob)}</b>`);
   const photo=p.photoUrl?`<a href="${esc(p.photoUrl)}" target="_blank" rel="noopener"><img src="${esc(p.photoUrl)}" alt="" style="width:44px;height:44px;object-fit:cover;border:var(--bd);border-radius:8px"></a>`:"";
+  const achRow=IS_SUPER?`<div style="margin-top:8px">${achBtn(ppCanon(p)||p.name)}</div>`:"";
   return `<div class="pcard"><div class="row" style="justify-content:space-between"><div class="who">Pemain ${idx}: ${ppLink(p.name,ppCanon(p))} ${tierChip(p)} ${eligChip(p.eligibility)}</div>${photo}</div>
-    <div class="kvs">${k.join(" · ")||'<span class="muted">tak ada detail tambahan</span>'}</div></div>`;
+    <div class="kvs">${k.join(" · ")||'<span class="muted">tak ada detail tambahan</span>'}</div>${achRow}</div>`;
+}
+// ===== Prestasi manual ke passport pemain (superadmin saja) =====
+const ACH_PLACEMENTS=[["Juara 1","Juara 1 (Champion)"],["Juara 2","Juara 2 (Runner-up)"],["Juara 3","Juara 3"],["Peringkat 4","Peringkat 4"],["Semifinalis","Semifinalis"],["Perempatfinalis","Perempatfinalis"]];
+const ACH_CATS=[["","(tanpa kategori)"],["MD","Men's Doubles"],["WD","Women's Doubles"],["MIXED","Mixed Doubles"]];
+// Tombol kecil per pemain (hanya tampil untuk superadmin).
+function achBtn(name){ if(!IS_SUPER||!name) return ""; return `<button class="btn ghost sm" onclick="openAch(decodeURIComponent('${encodeURIComponent(name)}'))">🏆 Prestasi passport</button>`; }
+let ACH_PLAYER="";
+function openAch(name){
+  if(!IS_SUPER) return;
+  ACH_PLAYER=String(name||"").trim(); if(!ACH_PLAYER) return;
+  let host=document.getElementById("achModalHost");
+  if(!host){ host=document.createElement("div"); host.id="achModalHost"; document.body.appendChild(host); }
+  host.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto" onclick="if(event.target===this)closeAch()">
+    <div style="background:#fff;border:var(--bd);border-radius:var(--r-lg);max-width:480px;width:100%;padding:18px">
+      <div class="row" style="justify-content:space-between;align-items:center"><div style="font-weight:800;font-family:var(--display);font-size:16px">🏆 Prestasi passport</div><button class="btn ghost sm" onclick="closeAch()">Tutup</button></div>
+      <div class="note" style="margin:4px 0 12px">Pemain: <b>${esc(ACH_PLAYER)}</b> — ditambahkan ke passport Trekkr pemain ini.</div>
+      <div style="display:grid;gap:8px">
+        <label class="f"><span>Nama turnamen / event</span><input id="achEv" placeholder="mis. Turnamen Blibli 2026"></label>
+        <div class="row" style="gap:8px">
+          <label class="f" style="flex:1"><span>Peringkat</span><select id="achPl">${ACH_PLACEMENTS.map(p=>`<option value="${p[0]}">${p[1]}</option>`).join("")}</select></label>
+          <label class="f" style="flex:1"><span>Tahun / tanggal</span><input id="achDate" placeholder="mis. 2026"></label>
+        </div>
+        <div class="row" style="gap:8px">
+          <label class="f" style="flex:1"><span>Kategori</span><select id="achCat">${ACH_CATS.map(c=>`<option value="${c[0]}">${c[1]}</option>`).join("")}</select></label>
+          <label class="f" style="flex:1"><span>Level</span><select id="achLv"><option value="">(tanpa level)</option>${LEVELS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join("")}</select></label>
+        </div>
+        <div class="row" style="gap:8px;margin-top:4px"><button class="btn primary sm" onclick="submitAch()">➕ Tambahkan</button></div>
+        <div class="note" id="achMsg"></div>
+      </div>
+      <div class="divider" style="margin:14px 0"></div>
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px">Prestasi manual saat ini</div>
+      <div id="achList"><p class="muted" style="font-size:13px">Memuat…</p></div>
+    </div></div>`;
+  loadAchList();
+}
+function closeAch(){ const h=document.getElementById("achModalHost"); if(h) h.innerHTML=""; }
+async function loadAchList(){
+  const host=document.getElementById("achList"); if(!host) return;
+  try{
+    const r=await api("achievements/player/"+encodeURIComponent(ACH_PLAYER));
+    const manual=(r.achievements||[]).filter(a=>a.manual);
+    if(!manual.length){ host.innerHTML='<p class="muted" style="font-size:13px">Belum ada prestasi manual.</p>'; return; }
+    host.innerHTML=manual.map(a=>{
+      const txt=[a.placement,a.eventName,[catLabel(a.category),levelLabel(a.level)].filter(Boolean).join(" "),a.date].filter(Boolean).join(" · ");
+      return `<div class="row" style="justify-content:space-between;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)"><span style="font-size:13px">${esc(txt)}</span><button class="btn ghost sm danger" onclick="deleteAch('${esc(a.manualId)}')">Hapus</button></div>`;
+    }).join("");
+  }catch(e){ host.innerHTML='<p class="muted" style="font-size:13px">Gagal memuat: '+esc(e.message)+'</p>'; }
+}
+async function submitAch(){
+  const msg=document.getElementById("achMsg"); if(msg){ msg.style.color="var(--muted)"; msg.textContent="Menyimpan…"; }
+  const body={token:TOKEN,player:ACH_PLAYER,
+    eventName:(document.getElementById("achEv")||{}).value||"",
+    placement:(document.getElementById("achPl")||{}).value||"",
+    date:(document.getElementById("achDate")||{}).value||"",
+    category:(document.getElementById("achCat")||{}).value||"",
+    level:(document.getElementById("achLv")||{}).value||""};
+  if(!body.placement){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Pilih peringkat."; } return; }
+  try{ await api("achievements/manual",{method:"POST",body});
+    if(msg){ msg.style.color="var(--ok)"; msg.textContent="✓ Prestasi ditambahkan."; }
+    const ev=document.getElementById("achEv"); if(ev) ev.value=""; const dt=document.getElementById("achDate"); if(dt) dt.value="";
+    loadAchList();
+  }catch(e){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Gagal: "+((e&&e.message)||e); } }
+}
+async function deleteAch(manualId){
+  if(!confirm("Hapus prestasi manual ini dari passport?")) return;
+  try{ await api("achievements/manual/delete",{method:"POST",body:{token:TOKEN,manualId}}); loadAchList(); }
+  catch(e){ alert("Gagal menghapus: "+((e&&e.message)||e)); }
 }
 // Nama pemain → passport Trekkr (tab baru). Pakai nama yang cocok di Trekkr bila ada.
 function ppUrl(name){ return "https://trekkr.online/player/"+String(name||"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
