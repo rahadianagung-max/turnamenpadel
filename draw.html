@@ -772,15 +772,31 @@
     var wrap=document.getElementById("evCatWrap"), sel=document.getElementById("evCatSelect");
     if(wrap) wrap.style.display="";
     prepErr("Memuat kategori…");
-    api("reg/public/"+encodeURIComponent(eventId)).then(function(d){
-      var cats=(d&&d.categories||[]).filter(function(c){ return c && c.tournamentId; });
-      if(!cats.length){ prepErr("Event ini belum punya kategori."); return; }
+    var fill=function(cats){
+      if(!cats.length){ prepErr("Event ini belum punya kategori."); return false; }
       prepErr("");
       sel.innerHTML=cats.map(function(c){ return '<option value="'+c.tournamentId+'">'+catTextDraw(c.label,c.level)+'</option>'; }).join("");
       var load=function(){ var tid=sel.value; if(tid){ document.getElementById("inTid").value=tid; loadFromTournament(tid); } };
       document.getElementById("btnLoadCat").onclick=load;
       if(cats.length===1){ load(); } // satu kategori → langsung muat
-    }).catch(function(e){ prepErr("Gagal memuat kategori: "+e.message); });
+      return true;
+    };
+    // Sumber kategori: daftar turnamen event (selalu ada untuk event yang dibuat di
+    // engine, walau belum ada formulir pendaftaran publik). Fallback ke reg/public
+    // (label kategori dari form) bila daftar turnamen kosong.
+    api("tournament/list?eventId="+encodeURIComponent(eventId)).then(function(d){
+      var cats=(d&&d.tournaments||[]).filter(function(c){ return c && c.tournamentId; })
+        .map(function(c){ return { tournamentId:c.tournamentId, label:c.category, level:c.level }; });
+      if(fill(cats)) return;
+      // kosong → coba formulir pendaftaran publik
+      api("reg/public/"+encodeURIComponent(eventId)).then(function(r){
+        fill((r&&r.categories||[]).filter(function(c){ return c && c.tournamentId; }));
+      }).catch(function(e){ prepErr("Event ini belum punya kategori."); });
+    }).catch(function(e){
+      api("reg/public/"+encodeURIComponent(eventId)).then(function(r){
+        fill((r&&r.categories||[]).filter(function(c){ return c && c.tournamentId; }));
+      }).catch(function(e2){ prepErr("Gagal memuat kategori: "+e.message); });
+    });
   }
   el.spin.addEventListener("click",spin);
   el.undo.addEventListener("click",undo);
