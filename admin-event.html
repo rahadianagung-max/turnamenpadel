@@ -801,6 +801,7 @@ function regCard(reg){
   const acts=[];
   if(reg.status!=="approved") acts.push(`<button class="btn primary sm" onclick="approveReg('${esc(reg.regId)}')">✔ Approve</button>`);
   if(reg.status!=="waitlist") acts.push(`<button class="btn ghost sm" onclick="rejectReg('${esc(reg.regId)}')">↓ Pindah ke waiting list</button>`);
+  acts.push(`<button class="btn ghost sm" onclick="openEditPlayers('${esc(reg.regId)}')">✏️ Ganti pemain</button>`);
   acts.push(`<button class="btn ghost sm danger" onclick="deleteReg('${esc(reg.regId)}')">🗑 Delete</button>`);
   // Pindah kategori: dropdown kategori lain di event ini + tombol pindahkan.
   const moveOpts=Object.keys(CATMAP||{}).filter(tid=>tid!==reg.category).map(tid=>{
@@ -1033,6 +1034,45 @@ async function deleteReg(regId){
   try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/delete-reg",{method:"POST",body:{token:TOKEN,regId}});
     await loadRegs(); if(typeof loadCategories==="function") loadCategories();
   }catch(e){ alert("Gagal hapus: "+((e&&e.message)||e)); }
+}
+// Ganti/edit satu pemain dalam tim (pemain sakit / terkena appeal) — sebelum undian.
+function openEditPlayers(regId){
+  const reg=(REGS||[]).find(r=>r.regId===regId); if(!reg){ alert("Data peserta tidak ditemukan, coba Refresh."); return; }
+  const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
+  let host=document.getElementById("editPlHost");
+  if(!host){ host=document.createElement("div"); host.id="editPlHost"; document.body.appendChild(host); }
+  const slotForm=(p,slot)=>`<div class="pcard" style="margin-bottom:10px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:6px">Pemain ${slot}</div>
+      <div style="display:grid;gap:8px">
+        <label class="f"><span>Nama <span class="req">*</span></span><input id="epName${slot}" value="${esc(p.name||"")}" placeholder="nama pemain"></label>
+        <div class="row" style="gap:8px">
+          <label class="f" style="flex:1"><span>HP</span><input id="epPhone${slot}" value="${esc(p.phone||"")}" placeholder="08…"></label>
+          <label class="f" style="flex:1"><span>Gender</span><select id="epGender${slot}"><option value="">—</option><option value="L" ${String(p.gender||"").toUpperCase()==="L"||String(p.gender||"").toUpperCase()==="M"?"selected":""}>Laki-laki</option><option value="P" ${String(p.gender||"").toUpperCase()==="P"||String(p.gender||"").toUpperCase()==="F"?"selected":""}>Perempuan</option></select></label>
+        </div>
+        <label class="f"><span>Email</span><input id="epEmail${slot}" value="${esc(p.email||"")}" placeholder="email (opsional)"></label>
+        <div class="row" style="gap:8px"><button class="btn primary sm" onclick="submitEditPlayer('${esc(regId)}',${slot})">💾 Simpan Pemain ${slot}</button><span class="note" id="epMsg${slot}"></span></div>
+      </div></div>`;
+  host.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto" onclick="if(event.target===this)closeEditPl()">
+    <div style="background:#fff;border:var(--bd);border-radius:var(--r-lg);max-width:480px;width:100%;padding:18px">
+      <div class="row" style="justify-content:space-between;align-items:center"><div style="font-weight:800;font-family:var(--display);font-size:16px">✏️ Ganti / edit pemain</div><button class="btn ghost sm" onclick="closeEditPl()">Tutup</button></div>
+      <div class="note" style="margin:4px 0 12px">Tim: <b>${esc(teamName(reg))}</b>. Ganti pemain yang sakit atau terkena appeal <b>sebelum undian (spin the wheel)</b>. Perubahan nama akan menautkan ulang ke profil Trekkr pemain baru saat di-approve.</div>
+      ${slotForm(p1,1)}${slotForm(p2,2)}
+    </div></div>`;
+}
+function closeEditPl(){ const h=document.getElementById("editPlHost"); if(h) h.innerHTML=""; }
+async function submitEditPlayer(regId, slot){
+  const msg=document.getElementById("epMsg"+slot);
+  const name=(document.getElementById("epName"+slot)||{}).value||"";
+  if(!name.trim()){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Nama wajib."; } return; }
+  if(msg){ msg.style.color="var(--muted)"; msg.textContent="Menyimpan…"; }
+  const body={token:TOKEN,regId,slot,name:name.trim(),
+    phone:(document.getElementById("epPhone"+slot)||{}).value||"",
+    email:(document.getElementById("epEmail"+slot)||{}).value||"",
+    gender:(document.getElementById("epGender"+slot)||{}).value||""};
+  try{ await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/edit-player",{method:"POST",body});
+    if(msg){ msg.style.color="var(--ok)"; msg.textContent="✓ Tersimpan."; }
+    await loadRegs();
+  }catch(e){ if(msg){ msg.style.color="var(--danger)"; msg.textContent="Gagal: "+((e&&e.message)||e); } }
 }
 async function moveReg(regId, btn){
   const sel=btn&&btn.parentElement?btn.parentElement.querySelector('select.movesel[data-reg]'):null;
