@@ -946,6 +946,10 @@ const netlifyHandler = async (event) => {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/move-reg", ""));
       return await regMoveRegistration(eid, body, params);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/edit-player") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/edit-player", ""));
+      return await regEditPlayer(eid, body, params);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/roster-blast") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/roster-blast", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
@@ -7566,6 +7570,43 @@ async function regMoveRegistration(eventId, body, params) {
   ] } });
   return respond(200, { success: true, moved: true, from, category: to,
     label: (cats[to] && cats[to].label) || to, level: (cats[to] && cats[to].level) || "" });
+}
+// Admin: replace/edit one player in a registered team (e.g. a player who fell ill
+// or was removed by an appeal) BEFORE the group draw. Updates player1 or player2 in
+// the registration's dataJSON. When the name actually changes we reset that slot's
+// passport link flags so approval re-resolves to the correct Trekkr player. Does not
+// touch ELO or any contract. Event-scoped (event_admin of this event OR superadmin).
+async function regEditPlayer(eventId, body, params) {
+  if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const regId = String((body && body.regId) || "").trim();
+  const slot = parseInt(body && body.slot);
+  if (slot !== 1 && slot !== 2) return respond(400, { error: "slot harus 1 atau 2." });
+  const name = String((body && body.name) || "").trim();
+  if (!name) return respond(400, { error: "Nama pemain pengganti wajib." });
+  const { ri, row } = await regFindRegRow(sheets, formId, regId);
+  if (ri < 0) return respond(404, { error: "Pendaftaran tidak ditemukan." });
+  let data = {}; try { data = JSON.parse(row[8] || "{}"); } catch (e) {}
+  const key = slot === 1 ? "player1" : "player2";
+  const prev = data[key] || {};
+  const nameChanged = normName(prev.name || "") !== normName(name);
+  const np = Object.assign({}, prev);
+  np.name = name;
+  // Optional contact/profile fields — only overwrite when provided in the request.
+  ["phone", "email", "ig", "gender", "nick", "region"].forEach((f) => {
+    if (body && body[f] != null && String(body[f]).trim() !== "") np[f] = String(body[f]).trim();
+  });
+  if (nameChanged) {
+    // New person in this slot: drop the previous Trekkr match + passport links so a
+    // later approval resolves/creates the right player.
+    delete np.match; delete np.trekkrName;
+    delete np.passportResolved; delete np.passportClaimed; delete np.passportToken;
+    if (body && body.match && body.match.name) np.match = { name: String(body.match.name).trim() };
+  }
+  data[key] = np;
+  await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!I${ri + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(data)]] } });
+  return respond(200, { success: true, slot, name, nameChanged });
 }
 // Shareable link with rich preview (Open Graph): WhatsApp/social crawlers read
 // these meta tags to show the event FLYER + a short description. Humans are
