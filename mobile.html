@@ -427,9 +427,15 @@ function renderBody(){
 }
 
 // ---- Live projection helpers (WIB / Asia-Jakarta, UTC+7, no DST) ----
-function nowWibMin(){ const d=new Date(); return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; }
-function wibMinOfISO(iso){ if(!iso) return null; const d=new Date(iso); if(isNaN(d.getTime())) return null; return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; }
-function proj2str(min){ min=((Math.round(min)%1440)+1440)%1440; const h=Math.floor(min/60), m=min%60; return (h<10?"0":"")+h+":"+(m<10?"0":"")+m; }
+// Semua perbandingan "sekarang" pakai INSTANT ABSOLUT (epoch ms) agar tanggal ikut
+// diperhitungkan — match di tanggal mendatang tidak boleh dianggap sedang main.
+function wibEpoch(dateStr, min){ // tanggal "YYYY-MM-DD" + menit-dalam-hari WIB -> epoch ms
+  if(!dateStr || min==null) return null;
+  const hh=String(Math.floor(min/60)).padStart(2,"0"), mm=String(min%60).padStart(2,"0");
+  const t = Date.parse(dateStr+"T"+hh+":"+mm+":00+07:00");
+  return isNaN(t) ? null : t;
+}
+function epochToWibStr(ms){ const d=new Date(ms); const min=(d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; const h=Math.floor(min/60), m=min%60; return (h<10?"0":"")+h+":"+(m<10?"0":"")+m; }
 function renderSchedule(cat){
   const anySchedule = (state.data.categories||[]).some(c=>c.schedule && c.schedule.length);
   if(!anySchedule) return '<p class="empty">Group stage schedule not available yet.</p>';
@@ -438,7 +444,7 @@ function renderSchedule(cat){
   // Trust the stored time when set (per-category batch times / manual edits — the
   // same value admin & sheet show); only fall back to the predicted slot time when
   // there is no stored time. A pinned match (explicit date) always uses its time.
-  const ptime = (m)=>{ if(m.status!=="DONE" && live && live.proj[m.matchId]!=null) return esc(proj2str(live.proj[m.matchId])); return esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || "")); };
+  const ptime = (m)=>{ if(m.status!=="DONE" && live && live.proj[m.matchId]!=null) return esc(epochToWibStr(live.proj[m.matchId])); return esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || "")); };
 
   // Chronological order: earliest date first, then the displayed time (pinned or
   // predicted), then court. The SAME order drives both the list and the LIVE badge.
@@ -452,18 +458,20 @@ function renderSchedule(cat){
   // menyala saat jam WIB ≥ waktu-proyeksi match belum-DONE paling awal di tiap court.
   live = (function(){
     const est = (state.data.event && parseInt(state.data.event.matchMinutes)) || 15;
+    const evDate = (state.data.event && state.data.event.date) || "";
+    const schedEpoch = m => wibEpoch(String(m.date || evDate || ""), tmin(m));
     const byCourt = {};
     (state.data.categories||[]).forEach(mc=>(mc.schedule||[]).forEach(m=>{ const c=String(m.court||""); (byCourt[c]=byCourt[c]||[]).push(m); }));
     const proj = {};
     Object.keys(byCourt).forEach(c=>{
       const arr = byCourt[c].slice().sort(cmp);
-      let cursor = null; // menit-dalam-hari (WIB) saat court bebas berikutnya
+      let cursor = null; // instant absolut (epoch ms) saat court bebas berikutnya
       arr.forEach(m=>{
-        if(m.status==="DONE"){ const fin = wibMinOfISO(m.updatedAt); if(fin!=null) cursor = (cursor==null)?fin:Math.max(cursor,fin); }
-        else { const start = (cursor!=null) ? cursor : tmin(m); proj[m.matchId] = start; cursor = start + est; }
+        if(m.status==="DONE"){ const fin = m.updatedAt ? Date.parse(m.updatedAt) : NaN; if(!isNaN(fin)) cursor = (cursor==null)?fin:Math.max(cursor,fin); }
+        else { const s = (cursor!=null) ? cursor : schedEpoch(m); if(s!=null){ proj[m.matchId] = s; cursor = s + est*60000; } }
       });
     });
-    const now = nowWibMin();
+    const now = Date.now();
     const playing = new Set();
     Object.keys(byCourt).forEach(c=>{
       const first = byCourt[c].slice().sort(cmp).find(m=>m.status!=="DONE");
