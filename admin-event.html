@@ -619,6 +619,11 @@ function appealCard(a){
     <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
     ${proof}
     ${IS_SUPER&&(a.players||[]).length?`<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">${(a.players||[]).map(p=>achBtn(p.name)).join("")}</div>`:""}
+    ${(decided && a.status!=="applied" && (a.decision==="reject"||a.decision==="levelup"))?`<div class="row" style="gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
+      <span class="note" style="margin:0">Koreksi level${a.decision==="reject"?" (menyusul setelah Tolak)":""}:</span>
+      <select id="lv2_${esc(a.appealId)}" class="mono" style="width:auto;padding:6px 8px">${LEVELS.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join("")}</select>
+      <button class="btn ghost sm" onclick="applyLevelOnly('${esc(a.appealId)}')">⬆ Koreksi level</button>
+    </div>`:""}
     ${actions}<div class="note" id="apMsg_${esc(a.appealId)}"></div></div>`;
 }
 async function loadAppeals(){
@@ -678,6 +683,22 @@ async function triggerAppeals(){
     loadAppeals();
   }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">'+((e.status===401||e.status===403)?"Sesi berakhir / tak berhak.":("Gagal: "+esc(e.message)))+'</span>'; }
   btn.disabled=false; btn.textContent=old;
+}
+// Koreksi level untuk appeal yang SUDAH diputuskan (Tolak/levelup) tapi belum diterapkan.
+// Hanya menaikkan ELO pemain yang di-appeal; registrasi tidak diubah (pasangan tetap
+// keluar dari kategori bila sebelumnya Tolak).
+async function applyLevelOnly(appealId){
+  const a=APPEALS_BY_ID[appealId];
+  const lv=(document.getElementById("lv2_"+appealId)||{}).value||"";
+  if(!lv){ alert("Pilih level dulu."); return; }
+  const targets=a?appealTargets(a):null;
+  const who=targets?targets.join(" & "):"kedua pemain (target tak terdeteksi)";
+  if(!confirm("Koreksi level (naikkan ELO) untuk "+who+" ke level terpilih?\nHanya MENAIKKAN — memilih level lebih rendah dari ELO sekarang tidak menurunkan.")) return;
+  const msg=document.getElementById("apMsg_"+appealId); if(msg){ msg.style.color="var(--muted)"; msg.textContent="Menyimpan…"; }
+  try{ const body={token:TOKEN,targetLevel:lv}; if(targets&&targets.length) body.players=targets;
+    await api("reg/appeal/"+encodeURIComponent(appealId)+"/apply-level",{method:"POST",body});
+    loadAppeals();
+  }catch(e){ if(msg) msg.innerHTML='<span style="color:var(--danger)">Gagal: '+esc((e&&e.message)||e)+'</span>'; }
 }
 async function decideAppeal(appealId, decision){
   const msg=document.getElementById("apMsg_"+appealId);

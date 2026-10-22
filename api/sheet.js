@@ -7751,7 +7751,9 @@ async function regApplyLevel(appealId, body, params) {
   if (ai < 0) return respond(404, { error: "Appeal tidak ditemukan." });
   const a = aRows[ai], asr = ai + 2;
   if (!regEventScopeOk(body, params, a[1])) return REG_UNAUTH; // scope ke event appeal ini
-  if ((a[12] || "") !== "levelup") return respond(400, { error: "Hanya untuk appeal berkeputusan 'Koreksi level'." });
+  // Allowed after "Koreksi level" (levelup) OR "Tolak" (reject) — both already removed
+  // the pair from the category, so a level correction can still be applied afterward.
+  if (!["levelup", "reject"].includes(a[12] || "")) return respond(400, { error: "Hanya untuk appeal berkeputusan 'Koreksi level' atau 'Tolak'." });
   if ((a[11] || "") === "applied") return respond(400, { error: "Koreksi level sudah pernah diterapkan." });
   // Nama pemain target dari registrasi yang di-appeal.
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
