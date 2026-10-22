@@ -4177,6 +4177,31 @@ function playoffProjectionRankLabel(rank, label) {
   const word = rank === 1 ? "Winner" : rank === 2 ? "Runner-up" : `Peringkat ${rank}`;
   return `${word} Grup ${label}`;
 }
+// Overall-mode ("N besar") entrant labels for the nameless bracket projection.
+// Direct qualifiers (top `adv` of their group) keep their group-position label
+// ("Winner / Runner-up / Peringkat n Grup X"). Teams that got in on record across
+// groups (wildcards) are shown by their OVERALL seed — "Wildcard · Unggulan 13" —
+// mirroring buildOverallTiers' tiered seeding (winners → runners-up → wildcards),
+// instead of a misleading within-group rank like "Peringkat 5 Grup A".
+function overallEntrantLabels(groups, topN, adv, mode) {
+  const out = {};
+  for (const g of groups) for (const s of g.standings) out[s.entrantId] = playoffProjectionRankLabel(s.rank, g.label);
+  const a = (adv | 0) >= 1 ? (adv | 0) : 2;
+  const N = topN | 0;
+  if (N < 2) return out;
+  const pointsMode = normRankMode(mode) === "points";
+  const mk = (s) => pointsMode ? (s.points != null ? s.points : pointsOf(s)) : s.wins;
+  const byRec = (x, y) => (mk(y) - mk(x)) || (y.gd - x.gd) || (y.gf - x.gf) || (x.ga - y.ga);
+  const direct = [], rest = [];
+  for (const g of groups) for (const s of g.standings) ((s.rank || 99) <= a ? direct : rest).push(s);
+  rest.sort(byRec);
+  const quals = N <= direct.length ? direct.slice().sort(byRec).slice(0, N) : direct.concat(rest.slice(0, N - direct.length));
+  const byTierRec = (x, y) => (((x.rank | 0) || 9) - ((y.rank | 0) || 9)) || byRec(x, y);
+  quals.slice().sort(byTierRec).forEach((s, i) => {
+    if ((s.rank || 99) > a) out[s.entrantId] = `Wildcard · Unggulan ${i + 1}`;
+  });
+  return out;
+}
 // Group-based seed placeholder labels for an n-slot bracket:
 // "Winner Grup A", "Runner-up Grup A", "Winner Grup B", … (group-major).
 // Falls back to "Unggulan i" only when no group labels are available.
@@ -4225,8 +4250,9 @@ function buildPlayoffProjection(groupsInfo, format, N) {
 // "Top N overall" projection: a single seeded MAIN bracket with placeholder
 // seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
 // generator. totalTeams caps N so we never project more slots than exist.
-function buildOverallProjection(totalTeams, topN, groupLabels) {
+function buildOverallProjection(totalTeams, topN, groupLabels, adv) {
   const n = Math.min(Math.max(0, topN | 0), Math.max(0, totalTeams | 0));
+  const a = (adv | 0) >= 1 ? (adv | 0) : 2;
   if (n < 2) return [];
   const labels = (groupLabels || []).filter((x) => x != null && x !== "");
   // No group labels → generic unggulan seeds, standard bracket (no separation possible).
@@ -4244,7 +4270,9 @@ function buildOverallProjection(totalTeams, topN, groupLabels) {
   while (seeded.length < n) {
     for (let gi = 0; gi < G && seeded.length < n; gi++) {
       const g = labels[gi], id = `S${seeded.length + 1}`;
-      seeded.push(id); labelOf[id] = playoffProjectionRankLabel(rank, g); groupOf[id] = g; tierOf[id] = rank;
+      // Wildcards (beyond `adv` per group) read as an overall seed, not a within-group rank.
+      labelOf[id] = rank > a ? `Wildcard · Unggulan ${seeded.length + 1}` : playoffProjectionRankLabel(rank, g);
+      seeded.push(id); groupOf[id] = g; tierOf[id] = rank;
     }
     rank++;
   }
@@ -4386,7 +4414,7 @@ function buildQualifyPanelPerGroup(groupList, groupMatches, N, nameFn) {
 function playoffProjectionFor(groupsInfo, format, N, topOverall) {
   if ((topOverall | 0) >= 2) {
     const total = groupsInfo.reduce((s, g) => s + (g.size || 0), 0);
-    return buildOverallProjection(total, topOverall, groupsInfo.map((g) => g.label));
+    return buildOverallProjection(total, topOverall, groupsInfo.map((g) => g.label), N);
   }
   return buildPlayoffProjection(groupsInfo, format, N);
 }
@@ -5331,13 +5359,18 @@ async function tPublicEvent(eventId, opts) {
     // Label each entrant by its current group position ("Winner Grup A", "Runner-up
     // Grup E", …) so the nameless projection of a real bracket shows the ACTUAL
     // cross-seeded pairings instead of a re-derived standard seed.
-    const entrantLabelMap = {};
-    for (const g of groups) for (const s of g.standings) entrantLabelMap[s.entrantId] = playoffProjectionRankLabel(s.rank, g.label);
+    // In overall ("N besar") mode, wildcard qualifiers are labelled by their overall
+    // seed ("Wildcard · Unggulan 13") rather than a within-group rank like
+    // "Peringkat 5 Grup A"; per-group playoffs keep the plain group-position labels.
+    const advPerGroup = parseInt(t[6]) || 2;
+    const topOverall = parseInt(t[10]) || 0;
+    const entrantLabelMap = topOverall >= 2
+      ? overallEntrantLabels(groups, topOverall, advPerGroup, rankMode)
+      : (() => { const m = {}; for (const g of groups) for (const s of g.standings) m[s.entrantId] = playoffProjectionRankLabel(s.rank, g.label); return m; })();
     const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, entrantLabelMap) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     // Provisional qualification panel while groups run: "N besar" overall when a
     // top-N plan is set, otherwise per-group (top advancersPerGroup of each group).
-    const topOverall = parseInt(t[10]) || 0;
     let qualifyPanel = null;
     if (!groupComplete) {
       if (topOverall >= 2) {
