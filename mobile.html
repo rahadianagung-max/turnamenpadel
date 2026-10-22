@@ -360,9 +360,11 @@ function shortName(full){
   if(parts.length<=1) return parts[0]||String(full||"");
   return parts[0].length<=3 ? (parts[0]+" "+parts[1]) : parts[0];
 }
-// Prioritas: panggilan/alias (Display_Name dari check-in) bila ada; jika tidak,
-// nama depan ringkas (shortName). Nama lengkap tetap dipakai untuk URL passport.
-function dispName(n){ const p=state.data&&state.data.players&&state.data.players[norm(n)]; const d=p&&p.display?String(p.display).trim():""; return d || shortName(n); }
+// Prioritas: panggilan/alias (Display_Name) bila ada; jika tidak, nama lengkap.
+// Lalu diringkas (shortName): kata pertama saja, +kata kedua bila kata pertama
+// ≤ 3 huruf. Display_Name sering = nama lengkap, jadi tetap perlu diringkas.
+// Nama lengkap asli tetap dipakai untuk URL passport.
+function dispName(n){ const p=state.data&&state.data.players&&state.data.players[norm(n)]; const d=p&&p.display?String(p.display).trim():""; return shortName(d||String(n||"")); }
 // Convert a combined "A + B" team string to display nicknames.
 function dispPair(team){ return String(team||"").split(/\s*\+\s*/).filter(Boolean).map(dispName).join(" + "); }
 function plink(name){ if(!name) return ""; return `<a class="pl" href="${PASSPORT}${slug(name)}" target="_blank" rel="noopener noreferrer">${esc(dispName(name))}</a>`; }
