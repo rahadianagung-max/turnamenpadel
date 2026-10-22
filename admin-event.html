@@ -835,6 +835,9 @@ const APPROVED_STATUS=new Set(["approved","received","imported","final","accepte
 // Nama tim untuk baris ringkas (fallback: gabungan nama pemain).
 function teamName(reg){ const d=reg.data||{}, p1=d.player1||{}, p2=d.player2||{};
   return String(d.teamName || reg.team || [p1.name,p2.name].filter(Boolean).join(" & ") || "—"); }
+function firstName(n){ return String(n||"").trim().split(/\s+/)[0]||""; }
+// Nama depan kedua pemain (ditampilkan di bawah nama tim).
+function playerFirsts(reg){ const d=reg.data||{}; return [d.player1&&d.player1.name,d.player2&&d.player2.name].map(firstName).filter(Boolean).join(" & "); }
 // Badge status + pembayaran, agar admin bisa membedakan:
 //  - pending  = daftar saat masih ada slot → SUDAH bayar (ada bukti transfer), tinggal di-approve
 //  - waitlist = daftar saat kuota penuh   → BELUM bayar, diundang bayar via email bila ada slot
@@ -876,7 +879,7 @@ function regCard(reg){
   const infoBlock=`<div class="pcard" style="margin-bottom:12px"><div class="kvs">${info.join("<br>")}</div></div>`;
   return `<details class="regd">
     <summary class="regsum">
-      <span class="sumtxt"><b>${team}</b> ${regStatusBadge(reg)}${fitFlag(reg)}</span>
+      <span class="sumtxt"><b>${team}</b> ${regStatusBadge(reg)}${fitFlag(reg)}${(()=>{const f=playerFirsts(reg);return f?`<span class="note" style="display:block;margin-top:2px">${esc(f)}</span>`:"";})()}</span>
       <span class="chev" aria-hidden="true">▼</span>
     </summary>
     <div class="regbody">
