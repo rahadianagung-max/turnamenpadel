@@ -616,7 +616,7 @@ function appealCard(a){
     </div>`;
   return `<div class="reg"><div class="reg-head"><div><b>${a.appellantName?ppLink(a.appellantName):"—"}</b> <span class="note">banding thd</span> <b>${esc(a.againstLabel||a.againstRegId||"—")}</b>
       <div class="note" style="margin:2px 0 0">${esc(new Date(a.createdAt).toLocaleString('id-ID'))}</div></div>${dchip}</div>
-    <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
+    <div class="kvs" style="margin-top:8px">${a.reason?('Alasan: <b>'+esc(a.reason)+'</b><br>'):''}${(a.appellantPhone||a.appellantEmail)?('Pelapor: '+(a.appellantPhone?'📱 <a href="#" onclick="copyText(event,\''+esc(a.appellantPhone)+'\')" title="Klik untuk menyalin" style="color:var(--orange);font-weight:700;text-decoration:none">'+esc(a.appellantPhone)+' ⧉</a>':'')+(a.appellantEmail?(a.appellantPhone?' · ':'')+esc(a.appellantEmail):'')+'<br>'):''}${players?('Pemain dibanding: <b>'+players+'</b>'):''}${phones?('<br>HP terkena appeal: '+phones):''}${a.note?('<br>Catatan: '+esc(a.note)):''}</div>
     ${proof}
     ${IS_SUPER&&(a.players||[]).length?`<div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">${(a.players||[]).map(p=>achBtn(p.name)).join("")}</div>`:""}
     ${(decided && a.status!=="applied" && (a.decision==="reject"||a.decision==="levelup"))?`<div class="row" style="gap:6px;margin-top:8px;align-items:center;flex-wrap:wrap">
