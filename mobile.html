@@ -683,10 +683,11 @@ function renderBracket(cat){
   const rules = bracketRulesBox(cat);
   const panel = qualifyPanelHtml(cat);
   if(!cat.playoff.length){
-    // Before the playoff starts: provisional qualification + rules only. The old
-    // "projected bracket" (Winner Grup A vs …) is intentionally not shown — it was
-    // ambiguous for group counts that aren't a power of two.
-    const pre = rules + panel;
+    // Before the playoff starts: rules + provisional qualification, then the PROJECTED
+    // bracket (mis. "Winner Grup A × Runner-up Grup B" / seed labels). Proyeksi memakai
+    // pasangan bracket yang sebenarnya dari backend (bukan tebakan), jadi tidak ambigu.
+    const proj = (cat.playoffProjection && cat.playoffProjection.length) ? renderBracketProjection(cat.playoffProjection) : "";
+    const pre = rules + panel + proj;
     return pre.trim() ? pre : '<p class="empty">Playoff bracket not available yet.</p>';
   }
   return rules + panel + cat.playoff.map(b=>{
