@@ -2140,7 +2140,23 @@ async function tRenameEvent(id, body) {
     spreadsheetId: SHEET_ID, range: `${TABS.t_events}!W${idx + 2}`,
     valueInputOption: "USER_ENTERED", requestBody: { values: [[slug]] },
   });
-  return respond(200, { success: true, name: newName, slug });
+  // Optional: update the event date (col D) and/or venue (col C) when provided.
+  // Date is written RAW as "YYYY-MM-DD" so the boards parse it verbatim.
+  let date = rows[idx][3] || "";
+  if (body && body.date != null) {
+    date = String(body.date).trim();
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_events}!D${idx + 2}`,
+      valueInputOption: "RAW", requestBody: { values: [[date]] },
+    });
+  }
+  if (body && body.venue != null) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.t_events}!C${idx + 2}`,
+      valueInputOption: "USER_ENTERED", requestBody: { values: [[String(body.venue).trim()]] },
+    });
+  }
+  return respond(200, { success: true, name: newName, slug, date });
 }
 // ==============================================================
 // TOURNAMENT HANDLERS (Phase 1: events, tournaments, import, entrants)
