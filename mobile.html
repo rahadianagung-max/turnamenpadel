@@ -426,20 +426,51 @@ function renderBody(){
   else el.innerHTML = renderBracket(cat);
 }
 
+// ---- Live projection helpers (WIB / Asia-Jakarta, UTC+7, no DST) ----
+function nowWibMin(){ const d=new Date(); return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; }
+function wibMinOfISO(iso){ if(!iso) return null; const d=new Date(iso); if(isNaN(d.getTime())) return null; return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; }
+function proj2str(min){ min=((Math.round(min)%1440)+1440)%1440; const h=Math.floor(min/60), m=min%60; return (h<10?"0":"")+h+":"+(m<10?"0":"")+m; }
 function renderSchedule(cat){
   const anySchedule = (state.data.categories||[]).some(c=>c.schedule && c.schedule.length);
   if(!anySchedule) return '<p class="empty">Group stage schedule not available yet.</p>';
   const pred = predictTimes();
+  let live = null; // {proj: matchId->startMin, playing:Set} — diisi setelah cmp didefinisikan
   // Trust the stored time when set (per-category batch times / manual edits — the
   // same value admin & sheet show); only fall back to the predicted slot time when
   // there is no stored time. A pinned match (explicit date) always uses its time.
-  const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || ""));
+  const ptime = (m)=>{ if(m.status!=="DONE" && live && live.proj[m.matchId]!=null) return esc(proj2str(live.proj[m.matchId])); return esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || "")); };
 
   // Chronological order: earliest date first, then the displayed time (pinned or
   // predicted), then court. The SAME order drives both the list and the LIVE badge.
   const dkey = m => String(m.date || (state.data.event && state.data.event.date) || "");
   const tmin = m => { const s = m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId]); if(!s) return (m.slot||0)*1; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
   const cmp = (a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0));
+
+  // LIVE PROJECTION (babak grup, lintas kategori, per court). Setelah sebuah match
+  // di-skor (DONE), waktu match berikutnya di court itu dihitung dari waktu selesai
+  // aktual (updatedAt, WIB) + estimasi (matchMinutes) — "boleh maju". NOW PLAYING
+  // menyala saat jam WIB ≥ waktu-proyeksi match belum-DONE paling awal di tiap court.
+  live = (function(){
+    const est = (state.data.event && parseInt(state.data.event.matchMinutes)) || 15;
+    const byCourt = {};
+    (state.data.categories||[]).forEach(mc=>(mc.schedule||[]).forEach(m=>{ const c=String(m.court||""); (byCourt[c]=byCourt[c]||[]).push(m); }));
+    const proj = {};
+    Object.keys(byCourt).forEach(c=>{
+      const arr = byCourt[c].slice().sort(cmp);
+      let cursor = null; // menit-dalam-hari (WIB) saat court bebas berikutnya
+      arr.forEach(m=>{
+        if(m.status==="DONE"){ const fin = wibMinOfISO(m.updatedAt); if(fin!=null) cursor = (cursor==null)?fin:Math.max(cursor,fin); }
+        else { const start = (cursor!=null) ? cursor : tmin(m); proj[m.matchId] = start; cursor = start + est; }
+      });
+    });
+    const now = nowWibMin();
+    const playing = new Set();
+    Object.keys(byCourt).forEach(c=>{
+      const first = byCourt[c].slice().sort(cmp).find(m=>m.status!=="DONE");
+      if(first && proj[first.matchId]!=null && now >= proj[first.matchId]) playing.add(first.matchId);
+    });
+    return { proj, playing, est };
+  })();
 
   // Player picker — lets a player see only their own matches (within this
   // category). Hidden on the team-only board so no player names are shown at all.
@@ -490,31 +521,17 @@ function renderSchedule(cat){
     (state.data.categories||[]).forEach(mc=>(mc.schedule||[]).forEach(m=>{ if(String(m.court)===String(courtVal)) items.push({mc,m}); }));
     if(!items.length) return ctl + `<div class="schedempty">No matches on Court ${esc(String(courtVal))} yet.</div>`;
     items.sort((x,y)=>cmp(x.m,y.m));
-    // "currently playing" on this court = its earliest non-DONE match, in order.
-    const firstNonDone = items.find(x=>x.m.status!=="DONE");
-    const playing = new Set(firstNonDone ? [firstNonDone.m.matchId] : []);
+    // NOW PLAYING berbasis jam realtime (lihat live projection di atas).
+    const playing = live.playing;
     const rows = items.map(x=>rowOf(x.mc, x.m, playing, "", true)).join("");
     return ctl + rows;
   }
 
   // DEFAULT MODE (this category). Player filter narrows to the selected player.
   if(!cat.schedule.length) return ctl + `<div class="schedempty">No group-stage schedule for this category yet.</div>`;
-  // "Currently playing" is keyed by TIME (urutan jam), not each court in isolation.
-  // The live wave = the latest time slot any court has reached; every court's non-DONE
-  // match on that wave is marked NOW PLAYING together, so a court lagging on an unscored
-  // earlier match still shows its current-wave match as live (not a stale earlier one).
-  // A court that is genuinely ahead falls back to its own earliest non-DONE match.
-  const sorted = cat.schedule.slice().sort(cmp);
-  const curByCourt = {};
-  sorted.forEach(m=>{ if(m.status!=="DONE" && curByCourt[m.court]===undefined) curByCourt[m.court]=m; });
-  let lead = null;
-  Object.values(curByCourt).forEach(m=>{ if(!lead || dkey(m)>dkey(lead) || (dkey(m)===dkey(lead) && tmin(m)>tmin(lead))) lead=m; });
-  const sameWave = (a,b)=> !!a && !!b && dkey(a)===dkey(b) && tmin(a)===tmin(b);
-  const playing = new Set();
-  Object.keys(curByCourt).forEach(ct=>{
-    const onLead = lead ? sorted.find(m=> String(m.court)===String(ct) && m.status!=="DONE" && sameWave(m,lead)) : null;
-    playing.add((onLead||curByCourt[ct]).matchId);
-  });
+  // NOW PLAYING berbasis jam realtime WIB + proyeksi waktu (lihat live di atas):
+  // per court, match belum-DONE paling awal menyala saat jam ≥ waktu-proyeksinya.
+  const playing = live.playing;
 
   let list = cat.schedule.slice().sort(cmp);
   let nextCard = "";

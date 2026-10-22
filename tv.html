@@ -822,6 +822,10 @@ function updateRotCountdown(){
   const nxt=ROT_LABELS[(CAT_ROT+1)%ROT_LABELS.length]||"";
   el.innerHTML="Next: "+esc(nxt)+" · in <b>"+Math.floor(rem/60)+":"+String(rem%60).padStart(2,"0")+"</b>";
 }
+// ---- Live projection helpers (WIB / Asia-Jakarta, UTC+7, no DST) ----
+function nowWibMin(){ const d=new Date(); return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; }
+function wibMinOfISO(iso){ if(!iso) return null; const d=new Date(iso); if(isNaN(d.getTime())) return null; return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; }
+function proj2str(min){ min=((Math.round(min)%1440)+1440)%1440; const h=Math.floor(min/60), m=min%60; return (h<10?"0":"")+h+":"+(m<10?"0":"")+m; }
 function render(){
   if(!state.data) return;
   const feed=buildFeed();
@@ -838,17 +842,23 @@ function render(){
   const fTimeMin=f=>{ const s=fmtTime(f.time); if(!s) return (f.sortKey||0); const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
   const fCmp=(a,b)=> fDateKey(a).localeCompare(fDateKey(b)) || (fTimeMin(a)-fTimeMin(b)) || (a.sortKey-b.sortKey) || ((a.court||0)-(b.court||0));
   feed.sort(fCmp);
+  // LIVE PROJECTION (babak grup, per court): setelah match di-skor (DONE), waktu match
+  // berikutnya di court itu dihitung dari waktu selesai aktual (updatedAt WIB) + estimasi
+  // (matchMinutes) — "boleh maju". Dihitung dari waktu jadwal ASLI (sebelum di-overwrite).
+  const est=(state.data.event&&parseInt(state.data.event.matchMinutes))||15;
+  const gByCourt={};
+  feed.forEach(f=>{ if(f.stage==="GROUP" && f.court){ (gByCourt[f.court]=gByCourt[f.court]||[]).push(f); } });
+  const proj={};
+  Object.keys(gByCourt).forEach(c=>{ const arr=gByCourt[c].slice().sort(fCmp); let cur=null; arr.forEach(f=>{ if(f.status==="DONE"){ const fin=wibMinOfISO(f.updatedAt); if(fin!=null) cur=(cur==null)?fin:Math.max(cur,fin); } else { const s=(cur!=null)?cur:fTimeMin(f); proj[f.key]=s; cur=s+est; } }); });
+  // Tampilkan waktu proyeksi untuk match grup yang belum-DONE.
+  feed.forEach(f=>{ if(f.stage==="GROUP" && f.status!=="DONE" && proj[f.key]!=null) f.time=proj2str(proj[f.key]); });
   const perCourt={};
   feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
   const courts=Object.keys(perCourt).sort((a,b)=>a-b);
-  // "Now playing" is keyed by TIME, not each court in isolation: the live wave = the
-  // latest time slot any court has reached; every court's non-DONE match on that wave is
-  // shown together, so a court lagging on an unscored earlier match still shows its
-  // current-wave match (not a stale earlier one). A court genuinely ahead keeps its own.
-  let lead=null;
-  courts.forEach(ct=>{ const m=perCourt[ct][0]; if(!m) return; if(!lead || fDateKey(m)>fDateKey(lead) || (fDateKey(m)===fDateKey(lead) && fTimeMin(m)>fTimeMin(lead))) lead=m; });
-  const sameWave=(a,b)=> !!a && !!b && fDateKey(a)===fDateKey(b) && fTimeMin(a)===fTimeMin(b);
-  const playing=courts.map(ct=>{ const onLead=lead?perCourt[ct].find(m=>sameWave(m,lead)):null; return onLead||perCourt[ct][0]; }).filter(Boolean);
+  // NOW PLAYING berbasis jam realtime WIB: match belum-DONE paling awal di tiap court
+  // menyala saat jam ≥ waktu-proyeksinya.
+  const nowMin=nowWibMin();
+  const playing=courts.map(ct=>{ const first=perCourt[ct][0]; return (first && proj[first.key]!=null && nowMin>=proj[first.key]) ? first : null; }).filter(Boolean);
   // Upcoming: flat queue ordered chronologically. Cap must exceed one slot's worth of
   // matches (≈ number of courts) so the NEXT time slot shows too, not just the immediate one.
   const UP_MAX=8;
