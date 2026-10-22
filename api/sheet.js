@@ -3959,15 +3959,63 @@ function separateRound1(round1, groupOf) {
   if (matched === n) { for (let a = 0; a < n; a++) round1[real[a]][1] = opps[slotOpp[a]]; return round1; }
   return avoidSameGroup(round1, groupOf); // not fully separable — do the best we can
 }
-function buildBracket(seeded, tier, groupOf) {
+// UEFA/World-Cup-style tiered placement + group separation. `entries` are in seed
+// order (seed 1 = best), each { id, tier (1=group winner, 2=runner-up, 3+=wildcard),
+// group }. Teams are first placed into the standard bracket seed slots (so winners are
+// the top seeds and meet lower tiers, never each other, in round 1), then SWAPPED ONLY
+// WITHIN THE SAME TIER to push same-group teams to meet as late as possible (opposite
+// halves/quarters). Within-tier swaps keep the crossing/seeding fairness intact.
+function seedLeavesSeparated(entries, size) {
+  const order = seedOrder(size);                 // seed number (1..size) per bracket leaf
+  const n = entries.length;
+  const leaves = order.map((sn) => (sn <= n ? entries[sn - 1] : null));
+  const rounds = Math.round(Math.log2(size));
+  const meetR = (i, j) => { let r = 0; while ((i >> r) !== (j >> r)) r++; return r; }; // 1=R1 … rounds=final (opposite halves)
+  const penalty = () => {
+    const byG = {};
+    leaves.forEach((e, i) => { if (e && e.group) (byG[e.group] = byG[e.group] || []).push(i); });
+    let p = 0;
+    for (const idxs of Object.values(byG)) {
+      for (let a = 0; a < idxs.length; a++) for (let b = a + 1; b < idxs.length; b++) {
+        p += (1 << (rounds - meetR(idxs[a], idxs[b]))); // earlier meeting ⇒ bigger penalty
+      }
+    }
+    return p;
+  };
+  let cur = penalty(), improved = true, guard = 0;
+  while (improved && guard++ < 300) {
+    improved = false;
+    for (let i = 0; i < size && !improved; i++) {
+      const ei = leaves[i]; if (!ei) continue;
+      for (let j = i + 1; j < size; j++) {
+        const ej = leaves[j]; if (!ej || ej.tier !== ei.tier) continue; // swap within same tier only
+        const t = leaves[i]; leaves[i] = leaves[j]; leaves[j] = t;
+        const np = penalty();
+        if (np < cur) { cur = np; improved = true; break; }
+        leaves[i] = t; leaves[j] = ej; // revert
+      }
+    }
+  }
+  return leaves.map((e) => (e ? e.id : null));
+}
+function buildBracket(seeded, tier, groupOf, tierOf) {
   const nQual = seeded.length;
   if (nQual < 2) return { matches: [], numRounds: 0, bronze: false, nQual, soleWinner: nQual === 1 ? seeded[0] : null };
   const size = nextPow2(nQual);
-  const order = seedOrder(size);
-  const pos = order.map((sn) => (sn <= nQual ? seeded[sn - 1] : null));
-  const round1 = [];
-  for (let i = 0; i < size / 2; i++) round1.push([pos[2 * i] || null, pos[2 * i + 1] || null]);
-  separateRound1(round1, groupOf);
+  let round1;
+  if (groupOf && tierOf) {
+    // Tiered crossing + half/quarter group separation (overall-mode / wildcard brackets).
+    const entries = seeded.map((id) => ({ id, tier: (tierOf[id] | 0) || 9, group: groupOf[id] || "" }));
+    const leaves = seedLeavesSeparated(entries, size);
+    round1 = [];
+    for (let i = 0; i < size / 2; i++) round1.push([leaves[2 * i] || null, leaves[2 * i + 1] || null]);
+  } else {
+    const order = seedOrder(size);
+    const pos = order.map((sn) => (sn <= nQual ? seeded[sn - 1] : null));
+    round1 = [];
+    for (let i = 0; i < size / 2; i++) round1.push([pos[2 * i] || null, pos[2 * i + 1] || null]);
+    separateRound1(round1, groupOf);
+  }
   return bracketFromRound1(round1, tier);
 }
 // World Cup style fixed cross seeding. groupsQual = per-group entrantIds in rank
@@ -4110,8 +4158,13 @@ function buildOverallTiers(groups, topN, mode, adv) {
   let quals;
   if ((topN | 0) <= direct.length) quals = direct.slice().sort(byRec).slice(0, topN | 0);
   else quals = direct.concat(rest.slice(0, (topN | 0) - direct.length));
-  const seeded = quals.slice().sort(byRec);  // performance seeding among the qualifiers
-  const b = buildBracket(seeded.map((s) => s.entrantId), "MAIN", groupOf);
+  // Tiered seeding (UEFA/World-Cup style): group winners first (seeded among themselves
+  // by record), then runners-up, then wildcards (best 3rd+). This makes winners the top
+  // seeds who face a lower tier — never another winner — in the first knockout round.
+  const tierOf = {}; quals.forEach((s) => { tierOf[s.entrantId] = (s.rank | 0) || 9; });
+  const byTierRec = (x, y) => (((x.rank | 0) || 9) - ((y.rank | 0) || 9)) || byRec(x, y);
+  const seeded = quals.slice().sort(byTierRec);
+  const b = buildBracket(seeded.map((s) => s.entrantId), "MAIN", groupOf, tierOf);
   const built = b.nQual >= 2 ? [{ tier: "MAIN", b }] : [];
   const summary = built.map(({ tier, b }) => ({ tier, method: "overall", entrants: b.nQual, rounds: b.numRounds, bronze: b.bronze, matches: b.matches.length }));
   return { built, summary, qualified: b.nQual };
@@ -4175,12 +4228,28 @@ function buildPlayoffProjection(groupsInfo, format, N) {
 function buildOverallProjection(totalTeams, topN, groupLabels) {
   const n = Math.min(Math.max(0, topN | 0), Math.max(0, totalTeams | 0));
   if (n < 2) return [];
-  const labelOf = {}, seeded = [];
-  const names = seedGroupLabels(n, groupLabels);
-  for (let i = 1; i <= n; i++) { const id = `S${i}`; labelOf[id] = names[i - 1]; seeded.push(id); }
-  const b = buildBracket(seeded, "MAIN", null);
-  const lab = (id) => (id ? (labelOf[id] || "") : "");
-  return [projectionTierView("MAIN", b, lab)];
+  const labels = (groupLabels || []).filter((x) => x != null && x !== "");
+  // No group labels → generic unggulan seeds, standard bracket (no separation possible).
+  if (!labels.length) {
+    const labelOf = {}, seeded = [];
+    for (let i = 1; i <= n; i++) { const id = `S${i}`; labelOf[id] = `Unggulan ${i}`; seeded.push(id); }
+    const b = buildBracket(seeded, "MAIN", null);
+    return [projectionTierView("MAIN", b, (id) => (id ? labelOf[id] || "" : ""))];
+  }
+  // Tiered placeholders mirroring the real generator: winners (rank 1, every group),
+  // then runners-up (rank 2), then 3rd-place wildcards, capped at n — with group info so
+  // the preview gets the same crossing + half/quarter separation.
+  const G = labels.length, labelOf = {}, groupOf = {}, tierOf = {}, seeded = [];
+  let rank = 1;
+  while (seeded.length < n) {
+    for (let gi = 0; gi < G && seeded.length < n; gi++) {
+      const g = labels[gi], id = `S${seeded.length + 1}`;
+      seeded.push(id); labelOf[id] = playoffProjectionRankLabel(rank, g); groupOf[id] = g; tierOf[id] = rank;
+    }
+    rank++;
+  }
+  const b = buildBracket(seeded, "MAIN", groupOf, tierOf);
+  return [projectionTierView("MAIN", b, (id) => (id ? labelOf[id] || "" : ""))];
 }
 // Nameless mirror of an already-generated real bracket: keeps the bracket's EXACT
 // structure and pairings, only replacing each entrant with its group-position label
