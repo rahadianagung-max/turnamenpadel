@@ -432,6 +432,7 @@
       <div class="grid">
         <div class="f"><label>Display name</label><input id="renameInput" placeholder="Event display name" /></div>
         <div class="f"><label>URL slug <small style="color:var(--muted);font-weight:400">— leave as-is to keep the current URL</small></label><input id="renameSlugInput" placeholder="padel-on-vol-2-d1" /></div>
+        <div class="f"><label>Event date <small style="color:var(--muted);font-weight:400">— shows on TV / mobile boards</small></label><input id="renameDateInput" type="date" /></div>
       </div>
       <div style="font-size:12px;color:var(--muted);margin:6px 2px 10px">Public URL: <b>/tv/<span id="renameSlugEcho">—</span></b> · <b>/mobile/<span id="renameSlugEcho2">—</span></b></div>
       <div class="actions"><button type="button" class="btn btn-primary" onclick="renameEvent()">Save</button></div>
@@ -939,6 +940,7 @@ function fillRenameEvent(){
   document.getElementById('renameInput').value = state.event.name || '';
   const slug = String(state.event.slug||'').trim() || shareSlug();
   const si=document.getElementById('renameSlugInput'); si.value = slug;
+  const di=document.getElementById('renameDateInput'); if(di) di.value = /^\d{4}-\d{2}-\d{2}$/.test(String(state.event.date||'')) ? state.event.date : '';
   const echo=()=>{ const v=renameSlugify(si.value)||slug; document.getElementById('renameSlugEcho').textContent=v; document.getElementById('renameSlugEcho2').textContent=v; };
   si.oninput=echo; echo();
 }
@@ -946,12 +948,13 @@ async function renameEvent(){
   if(!state.event) return;
   const name = (document.getElementById('renameInput').value||'').trim();
   const slug = renameSlugify(document.getElementById('renameSlugInput').value);
+  const date = (document.getElementById('renameDateInput')||{}).value||'';
   if(!name) return toast('Event name is required', true);
   if(!slug) return toast('URL slug is required', true);
   try{
-    const r = await api('tournament/event/'+encodeURIComponent(state.event.eventId)+'/rename',{method:'POST',body:{name, slug}});
-    state.event.name = r.name; state.event.slug = r.slug;
-    const e = state.events.find(x=>x.eventId===state.event.eventId); if(e){ e.name=r.name; e.slug=r.slug; }
+    const r = await api('tournament/event/'+encodeURIComponent(state.event.eventId)+'/rename',{method:'POST',body:{name, slug, date}});
+    state.event.name = r.name; state.event.slug = r.slug; state.event.date = r.date!=null?r.date:state.event.date;
+    const e = state.events.find(x=>x.eventId===state.event.eventId); if(e){ e.name=r.name; e.slug=r.slug; e.date=state.event.date; }
     const opt = Array.from(document.getElementById('eventSelect').options).find(o=>o.value===state.event.eventId);
     if(opt) opt.textContent = r.name + (state.event.date ? ' · '+state.event.date : '');
     renderContext(); fillTvTheme(); fillRenameEvent();
