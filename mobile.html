@@ -118,6 +118,9 @@
   .mrow{background:var(--card); border:var(--bd); border-radius:var(--r-2xl); box-shadow:var(--sh);
     padding:10px 14px; margin-bottom:10px;}
   .mrow:first-child{margin-top:16px;}
+  .schedgrouphdr{font-family:var(--mono); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); margin:18px 2px 6px; padding-bottom:4px; border-bottom:2px solid var(--line,rgba(0,0,0,.08));}
+  .schedgrouphdr:first-child{margin-top:16px;}
   .mrow.live-now{box-shadow:4px 4px 0 0 var(--accent);}
   .mrow.done{background:var(--tile); box-shadow:var(--sh-sm);}
   .mrow.mine{box-shadow:4px 4px 0 0 var(--amber-bd);}
@@ -313,7 +316,7 @@ const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const state = { data:null, cat:0, view:"schedule", player:"", court:"" };
+const state = { data:null, cat:0, view:"schedule", player:"", group:"" };
 
 // ---- Day / Night mode (per-viewer, persisted) --------------------------------
 const THEME_KEY = "tp_mobile_theme";
@@ -490,19 +493,18 @@ function renderSchedule(cat){
       ${players.map(p=>`<option value="${esc(p)}" ${norm(p)===norm(sel)?'selected':''}>${esc(p)}</option>`).join("")}
     </select></div>`;
 
-  // Court picker — lets anyone follow the order of play on one physical court.
-  // Courts are shared across categories, so this is EVENT-WIDE: selecting a court
-  // shows every category's matches on it, in time order. Listed courts are the
-  // union across all categories.
-  const courts = courtsInEvent();
-  const courtVal = (state.court && courts.some(c=>String(c)===String(state.court))) ? state.court : "";
-  const courtCtl = courts.length ? `<div class="schedctl"><label>Court</label>
-    <select onchange="setCourt(this.value)">
-      <option value="">All courts</option>
-      ${courts.map(c=>`<option value="${esc(String(c))}" ${String(c)===String(courtVal)?'selected':''}>Court ${esc(String(c))}</option>`).join("")}
+  // Group picker — lets anyone follow one group's matches. Groups belong to this
+  // category, so the list is sorted by group (A, B, C …) and this filter narrows
+  // to a single group's order of play.
+  const groups = groupsInCat(cat);
+  const groupVal = (state.group && groups.indexOf(state.group)>=0) ? state.group : "";
+  const groupCtl = groups.length ? `<div class="schedctl"><label>Group</label>
+    <select onchange="setGroup(this.value)">
+      <option value="">All groups</option>
+      ${groups.map(g=>`<option value="${esc(String(g))}" ${String(g)===String(groupVal)?'selected':''}>Group ${esc(String(g))}</option>`).join("")}
     </select></div>` : "";
-  const hint = TEAMS_ONLY ? "" : `<p class="sched-hint">Select your name to see only your matches, or pick a court to see its full order of play.</p>`;
-  const ctl = hint + playerCtl + courtCtl;
+  const hint = TEAMS_ONLY ? "" : `<p class="sched-hint">Select your name to see only your matches, or pick a group to see its order of play.</p>`;
+  const ctl = hint + playerCtl + groupCtl;
 
   // Render one schedule row for match m (belonging to category mc). Optionally tag
   // it with its category (used in the cross-category court view).
@@ -523,30 +525,23 @@ function renderSchedule(cat){
     </div>`;
   };
 
-  // COURT MODE (event-wide): gather every category's matches on the chosen court.
-  if(courtVal){
-    const items = [];
-    (state.data.categories||[]).forEach(mc=>(mc.schedule||[]).forEach(m=>{ if(String(m.court)===String(courtVal)) items.push({mc,m}); }));
-    if(!items.length) return ctl + `<div class="schedempty">No matches on Court ${esc(String(courtVal))} yet.</div>`;
-    items.sort((x,y)=>cmp(x.m,y.m));
-    // NOW PLAYING berbasis jam realtime (lihat live projection di atas).
-    const playing = live.playing;
-    const rows = items.map(x=>rowOf(x.mc, x.m, playing, "", true)).join("");
-    return ctl + rows;
-  }
-
-  // DEFAULT MODE (this category). Player filter narrows to the selected player.
+  // DEFAULT MODE (this category), sorted BY GROUP. Rows are grouped under a
+  // "Group A / Group B …" header; within a group they stay in chronological order.
+  // The Group picker narrows to one group, the Player picker to one player.
   if(!cat.schedule.length) return ctl + `<div class="schedempty">No group-stage schedule for this category yet.</div>`;
   // NOW PLAYING berbasis jam realtime WIB + proyeksi waktu (lihat live di atas):
   // per court, match belum-DONE paling awal menyala saat jam ≥ waktu-proyeksinya.
   const playing = live.playing;
 
-  let list = cat.schedule.slice().sort(cmp);
+  // Sort by group label first (A, B, C …), then chronologically inside the group.
+  const byGroup = (a,b)=> String(a.groupLabel||"").localeCompare(String(b.groupLabel||""), undefined, {numeric:true}) || cmp(a,b);
+  let list = cat.schedule.slice().sort(byGroup);
+  if(groupVal) list = list.filter(m=>String(m.groupLabel)===String(groupVal));
   let nextCard = "";
   if(sel){
     list = list.filter(m=>matchHasPlayer(cat,m,sel));
     if(!list.length) return ctl + `<div class="schedempty">No matches for ${esc(sel)} in this category.</div>`;
-    const next = list.find(m=>m.status!=="DONE");
+    const next = list.slice().sort(cmp).find(m=>m.status!=="DONE");
     if(next){
       const oppId = entrantHasPlayer(cat,next.entrantA,sel) ? next.entrantB : next.entrantA;
       const isLive = playing.has(next.matchId);
@@ -555,8 +550,16 @@ function renderSchedule(cat){
         <div class="opp">vs <b>${teamNames(cat,oppId,false)}</b></div></div>`;
     }
   }
+  if(!list.length) return ctl + nextCard + `<div class="schedempty">No matches for Group ${esc(String(groupVal))} yet.</div>`;
 
-  const rows = list.map(m=>rowOf(cat, m, playing, sel, false)).join("");
+  // Render with a group header before each new group (skip headers when a single
+  // group is already selected — the picker label makes it clear).
+  let rows = "", curG = null;
+  list.forEach(m=>{
+    const g = String(m.groupLabel||"");
+    if(!groupVal && g!==curG){ curG=g; rows += `<div class="schedgrouphdr">Group ${esc(g)}</div>`; }
+    rows += rowOf(cat, m, playing, sel, false);
+  });
   return ctl + nextCard + rows;
 }
 
@@ -779,13 +782,18 @@ function predictTimes(){
 function entrantHasPlayer(cat,eid,p){ const e=cat.entrants[eid]; return !!(e && (norm(e.player1)===norm(p)||norm(e.player2)===norm(p))); }
 function matchHasPlayer(cat,m,p){ return entrantHasPlayer(cat,m.entrantA,p)||entrantHasPlayer(cat,m.entrantB,p); }
 function playersInCat(cat){ const seen=new Map(); Object.values(cat.entrants||{}).forEach(e=>{ [e&&e.player1,e&&e.player2].forEach(p=>{ if(p&&!seen.has(norm(p))) seen.set(norm(p),p); }); }); return [...seen.values()].sort((a,b)=>a.localeCompare(b)); }
-function setPlayer(name){ state.player=name||""; if(state.player) state.court=""; try{ if(state.player) localStorage.setItem("trekkr_player_"+EVENT_ID,state.player); else localStorage.removeItem("trekkr_player_"+EVENT_ID); }catch(e){} renderBody(); }
-// Distinct courts used anywhere in the event (across every category's schedule),
-// numeric-sorted when possible. Courts are shared, so the picker is event-wide.
-function courtsInEvent(){ const seen=new Map(); (state.data&&state.data.categories||[]).forEach(c=>(c.schedule||[]).forEach(m=>{ const ct=m.court; if(ct!=null && String(ct).trim()!=="" && !seen.has(String(ct))) seen.set(String(ct),ct); })); return [...seen.values()].sort((a,b)=>{ const na=parseFloat(a), nb=parseFloat(b); if(!isNaN(na)&&!isNaN(nb)) return na-nb; return String(a).localeCompare(String(b)); }); }
-// Court and player are mutually exclusive filters: choosing a court clears the
-// per-player filter so the court's full order of play is shown.
-function setCourt(v){ state.court=v||""; if(state.court) state.player=""; renderBody(); }
+function setPlayer(name){ state.player=name||""; if(state.player) state.group=""; try{ if(state.player) localStorage.setItem("trekkr_player_"+EVENT_ID,state.player); else localStorage.removeItem("trekkr_player_"+EVENT_ID); }catch(e){} renderBody(); }
+// Distinct group labels in a category (from its drawn groups, falling back to the
+// labels seen in its schedule), naturally sorted (A, B, C …).
+function groupsInCat(cat){
+  const seen=new Map();
+  ((cat&&cat.groups)||[]).forEach(g=>{ const l=g&&g.label; if(l!=null && String(l).trim()!=="" && !seen.has(String(l))) seen.set(String(l),String(l)); });
+  ((cat&&cat.schedule)||[]).forEach(m=>{ const l=m.groupLabel; if(l!=null && String(l).trim()!=="" && !seen.has(String(l))) seen.set(String(l),String(l)); });
+  return [...seen.values()].sort((a,b)=>String(a).localeCompare(String(b), undefined, {numeric:true}));
+}
+// Group and player are mutually exclusive filters: choosing a group clears the
+// per-player filter so the group's full order of play is shown.
+function setGroup(v){ state.group=v||""; if(state.group) state.player=""; renderBody(); }
 
 // Sponsor banner: one static image at the bottom of every tab, full width edge-to-edge,
 // from the "Sponsors" tab column B (separate from the TV reel). Set up once, no rotation.
