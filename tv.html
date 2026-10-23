@@ -858,8 +858,9 @@ function render(){
   feed.forEach(f=>{ if(f.stage==="GROUP" && f.court){ (gByCourt[f.court]=gByCourt[f.court]||[]).push(f); } });
   const proj={};
   Object.keys(gByCourt).forEach(c=>{ const arr=gByCourt[c].slice().sort(fCmp); let cur=null; arr.forEach(f=>{ if(f.status==="DONE"){ const fin=f.updatedAt?Date.parse(f.updatedAt):NaN; if(!isNaN(fin)) cur=(cur==null)?fin:Math.max(cur,fin); } else { const s=skipBreaks((cur!=null)?cur:schedEpoch(f)); if(s!=null){ proj[f.key]=s; cur=s+est*60000; } } }); });
-  // Tampilkan waktu proyeksi untuk match grup yang belum-DONE.
-  feed.forEach(f=>{ if(f.stage==="GROUP" && f.status!=="DONE" && proj[f.key]!=null) f.time=epochToWibStr(proj[f.key]); });
+  // Tampilkan waktu jadwal TERSIMPAN dari /engine (termasuk edit manual & break) apa
+  // adanya — proyeksi (proj) dipakai HANYA untuk deteksi NOW PLAYING realtime di bawah,
+  // bukan untuk menimpa jam jadwal. Jadi perubahan manual di /engine selalu tampil.
   const perCourt={};
   feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
   const courts=Object.keys(perCourt).sort((a,b)=>a-b);

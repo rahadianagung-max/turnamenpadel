@@ -449,10 +449,12 @@ function renderSchedule(cat){
   if(!anySchedule) return '<p class="empty">Group stage schedule not available yet.</p>';
   const pred = predictTimes();
   let live = null; // {proj: matchId->startMin, playing:Set} — diisi setelah cmp didefinisikan
-  // Trust the stored time when set (per-category batch times / manual edits — the
-  // same value admin & sheet show); only fall back to the predicted slot time when
-  // there is no stored time. A pinned match (explicit date) always uses its time.
-  const ptime = (m)=>{ if(m.status!=="DONE" && live && live.proj[m.matchId]!=null) return esc(epochToWibStr(live.proj[m.matchId])); return esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || "")); };
+  // DISPLAY the stored /engine schedule time (manual edits, per-category batch times,
+  // breaks — exactly what admin & the sheet show); fall back to the predicted slot time
+  // only when there is no stored time. The live projection is used ONLY for the NOW
+  // PLAYING badge (realtime), never to overwrite the shown schedule — so a manual edit
+  // in /engine always appears here.
+  const ptime = (m)=> esc(m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId] || ""));
 
   // Chronological order: earliest date first, then the displayed time (pinned or
   // predicted), then court. The SAME order drives both the list and the LIVE badge.
