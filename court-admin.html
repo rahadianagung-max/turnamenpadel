@@ -225,6 +225,7 @@
       <select id="catSelect" onchange="onPickCat(this.value)"><option value="">—</option></select>
     </div>
     <button type="button" class="btn btn-primary" onclick="reload()">↻ Refresh</button>
+    <button type="button" class="btn btn-ghost" onclick="backfillTeamNames()" title="Isi nama tim entrant dari data pendaftaran (untuk kategori yang difinalisasi sebelum nama tim otomatis terbawa). Hanya mengisi yang masih kosong.">⤵ Backfill nama tim</button>
   </div>
 
   <div class="subtitle" id="subtitle" style="display:none;"></div>
@@ -424,6 +425,18 @@ async function load(){
   }catch(e){ $("tabCourts").innerHTML=`<p class="empty err">Failed to load: ${esc(e.message)}</p>`; }
 }
 function reload(){ if(state.eventId) load(); }
+// Isi nama tim entrant kategori terpilih dari data pendaftaran (untuk kategori yang
+// difinalisasi sebelum nama tim otomatis terbawa). Hanya mengisi yang masih kosong.
+async function backfillTeamNames(){
+  const tid=state.catId;
+  if(!tid) return toast("Pilih kategori dulu.",true);
+  if(!confirm("Isi nama tim dari data pendaftaran untuk kategori ini?\nHanya mengisi entrant yang nama timnya masih kosong — tidak menimpa yang sudah ada.")) return;
+  try{
+    const r=await api("tournament/"+encodeURIComponent(tid)+"/backfill-team-names",{method:"POST",body:{token:(SESSION&&SESSION.token)||""}});
+    toast(r&&r.note ? r.note : ((r&&r.updated||0)+" nama tim diisi."));
+    reload();
+  }catch(e){ toast("Gagal backfill: "+e.message,true); }
+}
 
 function renderSubtitle(){
   const st=$("subtitle"); const cat=currentCat();

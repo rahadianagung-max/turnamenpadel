@@ -869,6 +869,11 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/") && path.endsWith("/import") && method === "POST") {
       return await tImport(decodeURIComponent(path.replace("tournament/", "").replace("/import", "")), { overrides: (body && body.overrides) || {} });
     }
+    // Backfill entrant team names from registrations (for categories finalized before
+    // team names were carried through). Only fills blanks; never overwrites.
+    if (path.startsWith("tournament/") && path.endsWith("/backfill-team-names") && method === "POST") {
+      return await tBackfillTeamNames(decodeURIComponent(path.replace("tournament/", "").replace("/backfill-team-names", "")), body, params);
+    }
     if (path.startsWith("tournament/") && path.endsWith("/draw") && method === "POST") {
       return await tDrawGroups(decodeURIComponent(path.replace("tournament/", "").replace("/draw", "")));
     }
@@ -7980,6 +7985,47 @@ async function regFinalizeCategory(eventId, body) {
   if (imp.statusCode !== 200) return respond(imp.statusCode, { error: (impData && impData.error) || "Import gagal.", finalized: formRows.length });
   for (const i of toMark) { try { await regUpdateRegStatus(sheets, i, "imported"); } catch (e) {} }
   return respond(200, { success: true, finalized: formRows.length, import: impData });
+}
+// Admin: backfill entrant team names from registrations, for categories finalized
+// BEFORE the custom team name was carried into the entrant. For each entrant of this
+// category whose team name is blank, find the matching registration (same pair of
+// players) and copy its custom team name. Idempotent — only fills blanks, never
+// overwrites — so it is safe to run repeatedly.
+async function tBackfillTeamNames(tid, body, params) {
+  const sheets = getSheets(); await ensureTabs(sheets); await ensureRegTabs(sheets);
+  const t = await tGetTournamentRow(sheets, tid);
+  if (!t) return respond(404, { error: "Kategori tidak ditemukan." });
+  const eventId = t.tournament.eventId;
+  if (!regEventScopeOk(body, params, eventId)) return respond(403, { error: "Tidak berhak." });
+  const pairKey = (a, b) => [normName(a), normName(b)].sort().join("|");
+  // Map of pasangan (ternormalisasi) -> nama tim kustom, dari pendaftaran kategori ini.
+  const formId = regFormIdForEvent(eventId);
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const nmOf = (p) => (p && p.match && p.match.name) || (p && p.name) || "";
+  const tnByPair = new Map();
+  (rRes.data.values || []).forEach((r) => {
+    if (r[1] !== formId) return;
+    const rp = regParseReg(r);
+    if (rp.category !== tid) return;
+    const tn = String((rp.data && rp.data.teamName) || "").trim();
+    if (!tn) return;
+    const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
+    // Index by both the registered and the canonical (DB-matched) spelling so entrants
+    // whose names were canonicalised at import still match.
+    tnByPair.set(pairKey(p1.name, p2.name), tn);
+    tnByPair.set(pairKey(nmOf(p1), nmOf(p2)), tn);
+  });
+  if (!tnByPair.size) return respond(200, { success: true, updated: 0, note: "Tidak ada nama tim kustom pada pendaftaran kategori ini." });
+  const eRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
+  const updates = [];
+  (eRes.data.values || []).forEach((x, i) => {
+    if (x[0] !== tid) return;                 // kategori ini saja
+    if (String(x[10] || "").trim()) return;   // sudah ada nama tim → jangan timpa
+    const tn = tnByPair.get(pairKey(x[2], x[4]));
+    if (tn) updates.push({ range: `${TABS.t_entrants}!K${i + 2}`, values: [[tn]] });
+  });
+  if (updates.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "USER_ENTERED", data: updates } });
+  return respond(200, { success: true, updated: updates.length });
 }
 // Undang peserta waitlist untuk membayar (saat ada slot kosong).
 async function regInvitePay(eventId, body) {
