@@ -3357,7 +3357,8 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
       const ra = contigRun(ta, slot), rb = contigRun(tb, slot);
       const ga = gapOf(ta, slot), gb = gapOf(tb, slot);
       const rem = remainInGroup.get(m.gi) || 0;
-      if (mode === "intense") {
+      const mmode = m.mode || mode; // per-category override, falling back to the grid default
+      if (mmode === "intense") {
         let s = 0;
         s += (ra === 1 ? 90 : ra === 2 ? 140 : 0) + (rb === 1 ? 90 : rb === 2 ? 140 : 0);
         const startedA = last.has(ta), startedB = last.has(tb);
@@ -3542,6 +3543,14 @@ async function tScheduleEvent(eventId, body) {
 
   // Play-pattern mode: "intense" (blocks of 3) or "normal" (spread, default).
   const mode = (String(b.mode || "").toLowerCase() === "intense") ? "intense" : "normal";
+  // Per-category override of the play-pattern: { tid: "intense"|"normal" }. A category
+  // present here uses its own value; absent categories fall back to the event-wide
+  // `mode`. Lets one category (e.g. Men) run intense while another (Women) stays normal.
+  const catModeIn = (b.categoryMode && typeof b.categoryMode === "object") ? b.categoryMode : null;
+  const modeFor = (tid) => {
+    const v = catModeIn && Object.prototype.hasOwnProperty.call(catModeIn, tid) ? String(catModeIn[tid] || "").toLowerCase() : "";
+    return v === "intense" ? "intense" : v === "normal" ? "normal" : mode;
+  };
   const gapCap = Math.max(2, Math.round(60 / matchMinutes)); // ~1 hour, in slots
 
   // ----- Optional per-category court assignment. body.categoryCourts { tid: "1,2,3,4" }
@@ -3567,7 +3576,7 @@ async function tScheduleEvent(eventId, body) {
   groups.forEach((g) => {
     g.rounds.forEach((r, ri) => {
       for (const [a, bId] of r) {
-        const m = { gi: g._gi, a, b: bId, round: ri + 1, offset: g.offset, courts: g.allowed };
+        const m = { gi: g._gi, a, b: bId, round: ri + 1, offset: g.offset, courts: g.allowed, mode: modeFor(g.tid) };
         m.tokens = schedTokens(m, namesMap);
         allMatches.push(m);
       }
