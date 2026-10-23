@@ -7965,11 +7965,15 @@ async function regFinalizeCategory(eventId, body) {
     if (!["received", "approved"].includes(rp.status)) return; // lewati waitlist/rejected/imported
     const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
     const nm = (p) => (p.match && p.match.name) || p.name || ""; // pakai nama kanonik bila cocok DB
-    formRows.push([now, category, nm(p1), p1.ig || "", nm(p2), p2.ig || "", p1.phone || "", tid]);
+    // Carry the custom team name (col I / f[8]) so it reaches the entrant (t_entrants col K)
+    // and shows on the public boards. Use the RAW data.teamName — not rp.team, which falls
+    // back to "p1 + p2" — so only genuine custom names are stored.
+    const teamName = String((rp.data && rp.data.teamName) || "").trim();
+    formRows.push([now, category, nm(p1), p1.ig || "", nm(p2), p2.ig || "", p1.phone || "", tid, teamName]);
     toMark.push(i);
   });
   if (!formRows.length) return respond(400, { error: "Tidak ada pasangan Terkonfirmasi untuk difinalisasi." });
-  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:H`, valueInputOption: "USER_ENTERED", requestBody: { values: formRows } });
+  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:I`, valueInputOption: "USER_ENTERED", requestBody: { values: formRows } });
   // Jalankan import (buat entrants + pemain baru pada level kategori, link yang cocok).
   const imp = await tImport(tid, { overrides: {} });
   let impData = {}; try { impData = JSON.parse(imp.body); } catch (e) {}
