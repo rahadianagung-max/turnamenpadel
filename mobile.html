@@ -118,19 +118,9 @@
   .mrow{background:var(--card); border:var(--bd); border-radius:var(--r-2xl); box-shadow:var(--sh);
     padding:10px 14px; margin-bottom:10px;}
   .mrow:first-child{margin-top:16px;}
-  .hourblk{margin-top:12px;}
-  .hourblk:first-of-type{margin-top:16px;}
-  .hourblk .hourbody .mrow:first-child{margin-top:10px;}
-  .hourhdr{list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:10px;
-    background:var(--tile); border:var(--bd); border-radius:var(--r-2xl); box-shadow:var(--sh-sm);
-    padding:11px 14px; -webkit-user-select:none; user-select:none;}
-  .hourhdr::-webkit-details-marker{display:none;}
-  .hourhdr .hh{font-family:var(--mono); font-size:16px; font-weight:800; color:var(--dark); letter-spacing:.01em;}
-  .hourhdr .hm{font-family:var(--mono); font-size:12px; font-weight:600; color:var(--slate-600); margin-left:auto; margin-right:4px;}
-  .hourhdr::after{content:"⌄"; font-size:16px; line-height:1; color:var(--slate-500); transition:transform .15s ease; transform:translateY(-2px);}
-  .hourblk[open] > .hourhdr::after{transform:translateY(0) rotate(180deg);}
-  .hourblk.has-live > .hourhdr{box-shadow:4px 4px 0 0 var(--accent); border-color:var(--accent);}
-  .hourblk.has-live > .hourhdr .hm{color:var(--accent);}
+  .roundhdr{font-family:var(--mono); font-size:12px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--accent); margin:20px 2px 6px; padding-bottom:5px; border-bottom:2px solid var(--line,rgba(0,0,0,.08));}
+  .roundhdr + .mrow{margin-top:0;}
   .mrow.live-now{box-shadow:4px 4px 0 0 var(--accent);}
   .mrow.done{background:var(--tile); box-shadow:var(--sh-sm);}
   .mrow.mine{box-shadow:4px 4px 0 0 var(--amber-bd);}
@@ -326,7 +316,7 @@ const slugify = s => String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-
 function slugFromPath(){ const m = /^\/(?:mobile|tv)\/([^\/?#]+)/.exec(location.pathname); return m ? decodeURIComponent(m[1]) : ""; }
 const norm = s => String(s||"").trim().toLowerCase().replace(/\s+/g," ");
 const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const state = { data:null, cat:0, view:"schedule", player:"", group:"", openHours:{} };
+const state = { data:null, cat:0, view:"schedule", player:"", group:"" };
 
 // ---- Day / Night mode (per-viewer, persisted) --------------------------------
 const THEME_KEY = "tp_mobile_theme";
@@ -562,29 +552,15 @@ function renderSchedule(cat){
   }
   if(!list.length) return ctl + nextCard + `<div class="schedempty">No matches for Group ${esc(String(groupVal))} yet.</div>`;
 
-  // Group the time-sorted rows into collapsible per-hour blocks so the board stays
-  // short. Default-open: the active hour (earliest not-DONE match) and any hour with a
-  // live match; all others collapse. When a player/group filter narrows the list we
-  // expand everything. The open/closed choice is remembered across the 30s refresh.
-  const hourOf = (m)=>{ const t=ptime(m); const mm=/^(\d{1,2}):/.exec(t); return mm ? (mm[1].padStart(2,"0")+":00") : ""; };
-  const expandAll = !!(sel || groupVal);
-  const liveHours = new Set(); list.forEach(m=>{ if(playing.has(m.matchId) && m.status!=="DONE") liveHours.add(hourOf(m)); });
-  const firstPending = list.find(m=>m.status!=="DONE");
-  const activeHour = firstPending ? hourOf(firstPending) : "";
-  const isOpen = (hk)=>{ if(expandAll) return true; const u=state.openHours[hk]; if(u===true) return true; if(u===false) return false; return hk===activeHour || liveHours.has(hk); };
-  const order=[], byHour={};
-  list.forEach(m=>{ const hk=hourOf(m); if(!(hk in byHour)){ byHour[hk]=[]; order.push(hk); } byHour[hk].push(m); });
-  let rows="";
-  order.forEach(hk=>{
-    const items=byHour[hk];
-    const liveN=items.filter(m=>playing.has(m.matchId)&&m.status!=="DONE").length;
-    const allDone=items.length && items.every(m=>m.status==="DONE");
-    const label = hk || "Jadwal menyusul";
-    const meta = `${items.length} match${liveN?` · ${liveN} main`:""}${allDone?" · selesai":""}`;
-    const inner = items.map(m=>rowOf(cat, m, playing, sel, false)).join("");
-    rows += `<details class="hourblk${liveN?' has-live':''}" data-hk="${esc(hk)}" ${isOpen(hk)?"open":""} ontoggle="onHourToggle(this)">`
-      + `<summary class="hourhdr"><span class="hh">${esc(label)}</span><span class="hm">${esc(meta)}</span></summary>`
-      + `<div class="hourbody">${inner}</div></details>`;
+  // Divide the schedule into per-round sections ("Round 1", "Round 2", …) so the board
+  // reads a round at a time. Sort by round, then chronologically inside each round.
+  const byRound = (a,b)=> ((parseInt(a.round)||0)-(parseInt(b.round)||0)) || cmp(a,b);
+  list.sort(byRound);
+  let rows="", curR=null;
+  list.forEach(m=>{
+    const r = parseInt(m.round)||0;
+    if(r!==curR){ curR=r; rows += `<div class="roundhdr">Round ${r||"?"}</div>`; }
+    rows += rowOf(cat, m, playing, sel, false);
   });
   return ctl + nextCard + rows;
 }
@@ -820,9 +796,6 @@ function groupsInCat(cat){
 // Group and player are mutually exclusive filters: choosing a group clears the
 // per-player filter so the group's full order of play is shown.
 function setGroup(v){ state.group=v||""; if(state.group) state.player=""; renderBody(); }
-// Remember which hour blocks the viewer opened/closed so the 30s auto-refresh
-// (which re-renders the list) doesn't reset their folds.
-function onHourToggle(el){ try{ state.openHours[el.getAttribute("data-hk")||""] = el.open; }catch(e){} }
 
 // Sponsor banner: one static image at the bottom of every tab, full width edge-to-edge,
 // from the "Sponsors" tab column B (separate from the TV reel). Set up once, no rotation.
