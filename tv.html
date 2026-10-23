@@ -848,10 +848,16 @@ function render(){
   // (matchMinutes) — "boleh maju". Dihitung dari waktu jadwal ASLI (sebelum di-overwrite).
   const est=(state.data.event&&parseInt(state.data.event.matchMinutes))||15;
   const schedEpoch=f=>wibEpoch(String(f.date||evDate||""), fTimeMin(f));
+  // Break windows (WIB minutes-of-day) from the event rules — the chained projection
+  // must not place a match inside a break (e.g. 12:00–12:30); bump it to the break end.
+  const _ev=state.data.event||{};
+  const bwins=(function(){ const raw=(Array.isArray(_ev.breaks)&&_ev.breaks.length)?_ev.breaks:((_ev.breakStart||_ev.breakEnd)?[{start:_ev.breakStart,end:_ev.breakEnd}]:[]); return raw.map(b=>({s:timeToMin(b.start),e:timeToMin(b.end)})).filter(b=>b.s!=null&&b.e!=null&&b.e>b.s).sort((a,b)=>a.s-b.s); })();
+  const wibMinOf=ms=>{ const d=new Date(ms); return (d.getUTCHours()*60+d.getUTCMinutes()+7*60)%1440; };
+  const skipBreaks=ms=>{ if(ms==null||!bwins.length) return ms; let out=ms; for(const b of bwins){ const mn=wibMinOf(out); if(mn>=b.s&&mn<b.e) out+=(b.e-mn)*60000; } return out; };
   const gByCourt={};
   feed.forEach(f=>{ if(f.stage==="GROUP" && f.court){ (gByCourt[f.court]=gByCourt[f.court]||[]).push(f); } });
   const proj={};
-  Object.keys(gByCourt).forEach(c=>{ const arr=gByCourt[c].slice().sort(fCmp); let cur=null; arr.forEach(f=>{ if(f.status==="DONE"){ const fin=f.updatedAt?Date.parse(f.updatedAt):NaN; if(!isNaN(fin)) cur=(cur==null)?fin:Math.max(cur,fin); } else { const s=(cur!=null)?cur:schedEpoch(f); if(s!=null){ proj[f.key]=s; cur=s+est*60000; } } }); });
+  Object.keys(gByCourt).forEach(c=>{ const arr=gByCourt[c].slice().sort(fCmp); let cur=null; arr.forEach(f=>{ if(f.status==="DONE"){ const fin=f.updatedAt?Date.parse(f.updatedAt):NaN; if(!isNaN(fin)) cur=(cur==null)?fin:Math.max(cur,fin); } else { const s=skipBreaks((cur!=null)?cur:schedEpoch(f)); if(s!=null){ proj[f.key]=s; cur=s+est*60000; } } }); });
   // Tampilkan waktu proyeksi untuk match grup yang belum-DONE.
   feed.forEach(f=>{ if(f.stage==="GROUP" && f.status!=="DONE" && proj[f.key]!=null) f.time=epochToWibStr(proj[f.key]); });
   const perCourt={};
