@@ -231,7 +231,7 @@
   <div class="subtitle" id="subtitle" style="display:none;"></div>
 
   <div class="links" id="linksPanel" style="display:none;">
-    <h4>Links <span id="liveFlag"></span></h4>
+    <h4>Links</h4>
     <div class="linkblock">
       <div class="linklabel">Scorer — per court (share with each court's marshal, no login)</div>
       <div class="linkgrid" id="scorerGrid"></div>
@@ -244,7 +244,6 @@
       <div class="linklabel">Player — participant board (schedule, standings, bracket)</div>
       <div class="linkgrid" id="playerGrid"></div>
     </div>
-    <div style="margin-top:12px;"><button type="button" class="btn btn-ghost btn-sm" id="setLiveBtn" onclick="setLive()">Set this event as Live</button></div>
   </div>
 
   <div class="tabbar" id="tabbar" style="display:none;">
@@ -282,7 +281,7 @@ function stageFromLabel(lbl){ lbl=String(lbl||"");
   if(/round of 32|32 besar/i.test(lbl))return"r32";
   return"group"; }
 
-const state={ session:SESSION, events:[], eventId:"", event:null, payload:null, categories:[], catId:"", matches:[], allMatches:[], durations:{...DUR_DEFAULT}, openRounds:{}, settings:{}, entrantsById:{}, liveEventId:"", numCourts:1, tab:"courts" };
+const state={ session:SESSION, events:[], eventId:"", event:null, payload:null, categories:[], catId:"", matches:[], allMatches:[], durations:{...DUR_DEFAULT}, openRounds:{}, settings:{}, entrantsById:{}, numCourts:1, tab:"courts" };
 
 const $=id=>document.getElementById(id);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -322,12 +321,11 @@ async function loadEvents(){
     api("settings").catch(()=>({settings:{}})),
   ]);
   state.events=events||[];
-  state.liveEventId=(settingsRes.settings&&settingsRes.settings.liveEventId)||"";
   state.settings=(settingsRes&&settingsRes.settings)||{};
   const sel=$("eventSelect");
   sel.innerHTML='<option value="">— select event —</option>'+state.events.map(e=>`<option value="${esc(e.eventId)}">${esc(e.name)}${e.date?" · "+esc(e.date):""}</option>`).join("");
   let def=localStorage.getItem("tp_court_admin_event")||"";
-  if(!(def && state.events.some(e=>e.eventId===def))) def=(state.liveEventId && state.events.some(e=>e.eventId===state.liveEventId))?state.liveEventId:(state.events[0]&&state.events[0].eventId)||"";
+  if(!(def && state.events.some(e=>e.eventId===def))) def=(state.events[0]&&state.events[0].eventId)||"";
   // Admin ter-assign satu event → sembunyikan pemilih event (auto-buka event-nya).
   // Pemilih hanya tampil untuk superadmin, atau admin dengan >1 event.
   const role=String((s.role)||"").toLowerCase();
@@ -458,14 +456,12 @@ function courtNumbers(){
 // ---- links: scorer / LED / player ----
 function renderLinks(){
   const nums=courtNumbers();
-  const isLive=state.liveEventId===state.eventId;
-  $("liveFlag").innerHTML=isLive?'<span class="liveflag"><i>●</i> LIVE</span>':'';
-  $("setLiveBtn").textContent=isLive?"This event is Live ✓":"Set this event as Live";
-  $("setLiveBtn").disabled=isLive;
-  const suffix=isLive?"":("?e="+encodeURIComponent(state.eventId));
+  // Court links selalu menyertakan ?e=<eventId> agar menunjuk ke event ini secara
+  // eksplisit — mendukung dua event berjalan bersamaan (tak ada konsep "satu event live").
+  const suffix="?e="+encodeURIComponent(state.eventId);
   $("scorerGrid").innerHTML=nums.map(n=>{
     const url=ORIGIN+"/court"+n+suffix;
-    return `<span class="linkchip" title="Click to copy" onclick="copyLink('${esc(url)}')"><span class="cn">/court${n}</span> ${isLive?"":'<span style="color:var(--faint)">'+esc(suffix)+'</span>'}</span>`;
+    return `<span class="linkchip" title="Click to copy" onclick="copyLink('${esc(url)}')"><span class="cn">/court${n}</span> <span style="color:var(--faint)">${esc(suffix)}</span></span>`;
   }).join("");
   // Use the event's frozen slug (rename-safe); fall back to the name-derived slug.
   const slug=String(state.event&&state.event.slug||"").trim()||slugify(state.event&&state.event.name);
@@ -492,10 +488,6 @@ function renderLinks(){
   $("linksPanel").style.display="";
 }
 function copyLink(url){ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(url):Promise.reject()).then(()=>toast("Link copied: "+url)).catch(()=>toast(url)); }
-async function setLive(){
-  try{ await api("settings",{method:"POST",body:{key:"liveEventId",value:state.eventId}}); state.liveEventId=state.eventId; renderLinks(); toast("This event is now Live — /court1 etc. point here ✓"); }
-  catch(e){ toast("Failed: "+e.message,true); }
-}
 
 // ---- tabs ----
 function switchTab(tab){
