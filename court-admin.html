@@ -154,6 +154,9 @@
   .prow .pteams .ln .ps{font-family:'Space Grotesk',monospace; color:var(--muted); font-weight:700; flex:none;}
   .prow .pteams .ln.win{color:var(--accent); font-weight:700;} .prow .pteams .ln.win .ps{color:var(--accent);}
   .prow .pteams .tbd{color:var(--faint); font-style:italic;}
+  /* Team-name label: team name as title, players as a smaller line under it. */
+  .tn{display:block; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tp{display:block; font-size:11px; color:var(--muted); font-weight:400; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .prow .byebadge{font-family:'Space Grotesk',monospace; font-size:10px; letter-spacing:.06em; color:var(--faint);}
 
   /* Bracket */
@@ -693,6 +696,15 @@ async function saveTeam(cid,side){
 }
 
 // ---- standings tab ----
+// Label for a team: if the entrant has a custom team name, show it as the title with
+// the player names on a smaller second line; otherwise show the players alone.
+// `fallback` is the player-name display string ("p1 + p2"). Returns safe HTML.
+function teamLabel(entrantId, fallback){
+  const cat=currentCat(); const e=cat&&cat.entrants&&cat.entrants[entrantId];
+  const tn=e&&String(e.teamName||"").trim();
+  if(tn) return `<span class="tn">${esc(tn)}</span><span class="tp">${esc(fallback||"")}</span>`;
+  return esc(fallback||"");
+}
 function renderStandings(){
   const wrap=$("tabStandings"); const cat=currentCat();
   if(!cat){ wrap.innerHTML='<p class="empty">Select a category.</p>'; return; }
@@ -709,7 +721,7 @@ function renderStandings(){
       const pa=(s.ga!=null)?s.ga:(Number(s.gf||0)-Number(s.gd||0));
       return `<tr class="${cls}">
         <td class="rk">${s.rank}</td>
-        <td class="tteam">${esc(s.team)}</td>
+        <td class="tteam">${teamLabel(s.entrantId, s.team)}</td>
         <td>${s.played}/${denom}</td><td>${s.wins}</td><td>${s.losses}</td>
         <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf!=null?s.gf:"–"}</td><td>${pa}</td></tr>`;
     }).join("");
@@ -757,8 +769,8 @@ function prowDesk(m,numRounds){
   const bye=m.status==="BYE", done=m.status==="DONE";
   const aw=done&&String(m.winner)===String(m.entrantA), bw=done&&String(m.winner)===String(m.entrantB);
   const has=v=>v!==""&&v!=null;
-  const nA=m.teamA?esc(m.teamA):(m.entrantA?"…":'<span class="tbd">TBD</span>');
-  const nB=m.teamB?esc(m.teamB):(m.entrantB?"…":'<span class="tbd">TBD</span>');
+  const nA=m.teamA?teamLabel(m.entrantA,m.teamA):(m.entrantA?"…":'<span class="tbd">TBD</span>');
+  const nB=m.teamB?teamLabel(m.entrantB,m.teamB):(m.entrantB?"…":'<span class="tbd">TBD</span>');
   const sA=bye?'':(has(m.scoreA)?esc(String(m.scoreA)):'–'), sB=bye?'':(has(m.scoreB)?esc(String(m.scoreB)):'–');
   const teams=`<div class="pteams"><span class="ln ${aw?'win':''}"><span class="nm">${nA}</span><span class="ps">${sA}</span></span><span class="ln ${bw?'win':''}"><span class="nm">${nB}</span><span class="ps">${sB}</span></span></div>`;
   if(bye) return `<div class="prow card bye">${teams}<span class="byebadge">BYE</span></div>`;
