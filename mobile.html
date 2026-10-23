@@ -118,9 +118,6 @@
   .mrow{background:var(--card); border:var(--bd); border-radius:var(--r-2xl); box-shadow:var(--sh);
     padding:10px 14px; margin-bottom:10px;}
   .mrow:first-child{margin-top:16px;}
-  .schedgrouphdr{font-family:var(--mono); font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-    color:var(--accent); margin:18px 2px 6px; padding-bottom:4px; border-bottom:2px solid var(--line,rgba(0,0,0,.08));}
-  .schedgrouphdr:first-child{margin-top:16px;}
   .mrow.live-now{box-shadow:4px 4px 0 0 var(--accent);}
   .mrow.done{background:var(--tile); box-shadow:var(--sh-sm);}
   .mrow.mine{box-shadow:4px 4px 0 0 var(--amber-bd);}
@@ -533,15 +530,15 @@ function renderSchedule(cat){
   // per court, match belum-DONE paling awal menyala saat jam ≥ waktu-proyeksinya.
   const playing = live.playing;
 
-  // Sort by group label first (A, B, C …), then chronologically inside the group.
-  const byGroup = (a,b)=> String(a.groupLabel||"").localeCompare(String(b.groupLabel||""), undefined, {numeric:true}) || cmp(a,b);
-  let list = cat.schedule.slice().sort(byGroup);
+  // Chronological order (by time), across all groups. The Group picker narrows to
+  // one group, the Player picker to one player; each row still shows its group.
+  let list = cat.schedule.slice().sort(cmp);
   if(groupVal) list = list.filter(m=>String(m.groupLabel)===String(groupVal));
   let nextCard = "";
   if(sel){
     list = list.filter(m=>matchHasPlayer(cat,m,sel));
     if(!list.length) return ctl + `<div class="schedempty">No matches for ${esc(sel)} in this category.</div>`;
-    const next = list.slice().sort(cmp).find(m=>m.status!=="DONE");
+    const next = list.find(m=>m.status!=="DONE");
     if(next){
       const oppId = entrantHasPlayer(cat,next.entrantA,sel) ? next.entrantB : next.entrantA;
       const isLive = playing.has(next.matchId);
@@ -552,14 +549,7 @@ function renderSchedule(cat){
   }
   if(!list.length) return ctl + nextCard + `<div class="schedempty">No matches for Group ${esc(String(groupVal))} yet.</div>`;
 
-  // Render with a group header before each new group (skip headers when a single
-  // group is already selected — the picker label makes it clear).
-  let rows = "", curG = null;
-  list.forEach(m=>{
-    const g = String(m.groupLabel||"");
-    if(!groupVal && g!==curG){ curG=g; rows += `<div class="schedgrouphdr">Group ${esc(g)}</div>`; }
-    rows += rowOf(cat, m, playing, sel, false);
-  });
+  const rows = list.map(m=>rowOf(cat, m, playing, sel, false)).join("");
   return ctl + nextCard + rows;
 }
 
