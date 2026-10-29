@@ -734,6 +734,7 @@ const netlifyHandler = async (event) => {
     if (path === "landing-stats" && method === "GET") return await getLandingStats();
     if (path === "players" && method === "POST") { if (!regGateOk(body, params)) return REG_UNAUTH; return await addPlayer(body); }
     if (path === "players/update" && method === "PUT") { if (!regGateOk(body, params)) return REG_UNAUTH; return await updatePlayer(body); }
+    if (path === "players/normalize-names" && method === "POST") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await normalizePlayerNames(body); }
     if (path === "players/claim" && method === "POST") return await claimProfile(body);
     if (path === "players/checkin" && method === "POST") return await playerCheckin(body);
     if (path === "players/sync-clubs" && method === "POST") return await syncPlayerClubs();
@@ -1316,6 +1317,44 @@ async function addPlayer(body) {
   return respond(200, { success: true });
 }
 
+// Superadmin: one-time normalisation of EXISTING names to Title Case (case-only).
+// Rewrites Players Name (col A) + Display_Name (col D) and Tournament_Entrants
+// player1/player2 (cols C/E). Safe because all matching uses normName (case-insensitive),
+// so only the displayed casing changes. Default is a DRY RUN (preview); pass {apply:true}
+// to write. Idempotent — only cells that actually differ are touched.
+async function normalizePlayerNames(body) {
+  const sheets = getSheets(); await ensureTabs(sheets);
+  const apply = body && body.apply === true;
+  const [pRes, enRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:D` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
+  ]);
+  const data = []; const samples = []; let playersChanged = 0, entrantCellsChanged = 0;
+  (pRes.data.values || []).forEach((r, i) => {
+    const row = i + 2;
+    const curName = String((r && r[0]) || "");
+    if (curName) {
+      const nn = titleCaseName(curName);
+      if (nn && nn !== curName) { data.push({ range: `${TABS.players}!A${row}`, values: [[nn]] }); playersChanged++; if (samples.length < 20) samples.push(curName + " → " + nn); }
+    }
+    const curDisp = String((r && r[3]) || "");
+    if (curDisp) { const dn = titleCaseName(curDisp); if (dn && dn !== curDisp) data.push({ range: `${TABS.players}!D${row}`, values: [[dn]] }); }
+  });
+  (enRes.data.values || []).forEach((x, i) => {
+    const row = i + 2;
+    if (!x || !x[1]) return; // lewati baris kosong (entrant yang sudah dibuang)
+    const p1 = String(x[2] || ""), p2 = String(x[4] || "");
+    const n1 = titleCaseName(p1), n2 = titleCaseName(p2);
+    if (n1 && n1 !== p1) { data.push({ range: `${TABS.t_entrants}!C${row}`, values: [[n1]] }); entrantCellsChanged++; }
+    if (n2 && n2 !== p2) { data.push({ range: `${TABS.t_entrants}!E${row}`, values: [[n2]] }); entrantCellsChanged++; }
+  });
+  if (apply && data.length) {
+    for (let i = 0; i < data.length; i += 400) {
+      await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "RAW", data: data.slice(i, i + 400) } });
+    }
+  }
+  return respond(200, { success: true, applied: apply, playersChanged, entrantCellsChanged, totalCells: data.length, samples });
+}
 async function updatePlayer(body) {
   const { name, updates } = body;
   if (!name || !updates) return respond(400, { error: "name and updates required" });

@@ -215,6 +215,7 @@
     <div class="brand"><span class="logo">Turnamen<span class="dot">Padel</span></span><span class="tag">Scorer Desk</span></div>
     <div class="hactions">
       <span class="who">Admin: <b id="who">—</b></span>
+      <a href="#" id="normNamesBtn" onclick="normalizeNames();return false;" style="display:none" title="Rapikan kapitalisasi semua nama pemain (Title Case)">Rapikan nama</a>
       <a href="/engine">Engine</a>
       <a href="#" onclick="logout();return false;">Log out</a>
     </div>
@@ -428,6 +429,19 @@ async function load(){
   }catch(e){ $("tabCourts").innerHTML=`<p class="empty err">Failed to load: ${esc(e.message)}</p>`; }
 }
 function reload(){ if(state.eventId) load(); }
+// Superadmin: normalisasi kapitalisasi SEMUA nama pemain lama (Title Case). Pratinjau
+// dulu (dry run) → tampilkan jumlah + contoh → konfirmasi → terapkan.
+async function normalizeNames(){
+  try{
+    const pv=await api("players/normalize-names",{method:"POST",body:{token:(SESSION&&SESSION.token)||""}});
+    if(!pv.totalCells){ toast("Semua nama sudah rapi — tidak ada yang perlu diubah."); return; }
+    const sample=(pv.samples||[]).slice(0,10).join("\n");
+    if(!confirm("Rapikan kapitalisasi nama (Title Case)?\n\n"+pv.playersChanged+" nama pemain + "+pv.entrantCellsChanged+" sel entrant akan diubah ("+pv.totalCells+" sel total).\n\nContoh:\n"+sample+"\n\nHanya mengubah huruf besar/kecil; pencocokan pemain tidak terpengaruh.")) return;
+    const r=await api("players/normalize-names",{method:"POST",body:{token:(SESSION&&SESSION.token)||"",apply:true}});
+    toast("✓ Selesai · "+r.playersChanged+" nama pemain & "+r.entrantCellsChanged+" sel entrant dirapikan.");
+    reload();
+  }catch(e){ toast("Gagal: "+((e&&e.message)||e),true); }
+}
 // Isi nama tim entrant kategori terpilih dari data pendaftaran (untuk kategori yang
 // difinalisasi sebelum nama tim otomatis terbawa). Hanya mengisi yang masih kosong.
 async function backfillTeamNames(){
@@ -794,6 +808,8 @@ function tierHtmlDesk(b){
 }
 
 $("who").textContent=(state.session&&state.session.username)||"—";
+// "Rapikan nama" hanya untuk superadmin (normalisasi global, bukan per-event).
+if(String((state.session&&state.session.role)||"").toLowerCase()==="superadmin"){ const b=$("normNamesBtn"); if(b) b.style.display=""; }
 loadEvents().catch(e=>toast(e.message,true));
 // MANUAL refresh only — the ↻ Refresh button. (No auto-refresh.)
 </script>
