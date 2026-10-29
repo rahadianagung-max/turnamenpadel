@@ -7952,7 +7952,11 @@ async function regAppealDecision(appealId, body, params) {
   }
   return respond(200, { success: true, decision, targetUpdated });
 }
-// Finalisasi 1 kategori → tulis ke Form_Responses (tagged) lalu jalankan import.
+// Finalisasi / sinkronisasi 1 kategori. Idempotent & bisa dijalankan ulang:
+//  • impor pasangan baru (received/approved) ke entrants, dan
+//  • BUANG entrant usang — pasangan yang pendaftarannya tak lagi terkonfirmasi
+//    (ditolak/dihapus/pindah kategori), mis. tim yang dicabut setelah finalisasi.
+// Hanya menolak bila BENAR-BENAR tak ada pasangan terkonfirmasi untuk kategori ini.
 async function regFinalizeCategory(eventId, body) {
   const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
   const tid = String((body && body.category) || "").trim();
@@ -7962,29 +7966,50 @@ async function regFinalizeCategory(eventId, body) {
   const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
   const rows = rRes.data.values || [];
   const now = new Date().toISOString();
+  const pairKey = (a, b) => [normName(a), normName(b)].sort().join("|");
+  const nm = (p) => (p && p.match && p.match.name) || (p && p.name) || ""; // nama kanonik bila cocok DB
+  // DESIRED: setiap pasangan yang masih TERKONFIRMASI (received/approved/imported) —
+  // kunci pakai ejaan terdaftar maupun kanonik agar tak salah buang entrant valid.
+  const confirmed = new Set();
   const formRows = []; const toMark = [];
   rows.forEach((r, i) => {
     if (r[1] !== regFormIdForEvent(eventId)) return;
     const rp = regParseReg(r);
     if (rp.category !== tid) return;
-    if (!["received", "approved"].includes(rp.status)) return; // lewati waitlist/rejected/imported
+    if (!["received", "approved", "imported"].includes(rp.status)) return; // lewati waitlist/rejected
     const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
-    const nm = (p) => (p.match && p.match.name) || p.name || ""; // pakai nama kanonik bila cocok DB
-    // Carry the custom team name (col I / f[8]) so it reaches the entrant (t_entrants col K)
-    // and shows on the public boards. Use the RAW data.teamName — not rp.team, which falls
-    // back to "p1 + p2" — so only genuine custom names are stored.
+    confirmed.add(pairKey(p1.name, p2.name));
+    confirmed.add(pairKey(nm(p1), nm(p2)));
+    if (rp.status === "imported") return; // sudah jadi entrant — tak perlu diimpor lagi
+    // Carry the custom team name (col I / f[8]) so it reaches the entrant (t_entrants col K).
     const teamName = String((rp.data && rp.data.teamName) || "").trim();
     formRows.push([now, category, nm(p1), p1.ig || "", nm(p2), p2.ig || "", p1.phone || "", tid, teamName]);
     toMark.push(i);
   });
-  if (!formRows.length) return respond(400, { error: "Tidak ada pasangan Terkonfirmasi untuk difinalisasi." });
-  await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:I`, valueInputOption: "USER_ENTERED", requestBody: { values: formRows } });
-  // Jalankan import (buat entrants + pemain baru pada level kategori, link yang cocok).
-  const imp = await tImport(tid, { overrides: {} });
-  let impData = {}; try { impData = JSON.parse(imp.body); } catch (e) {}
-  if (imp.statusCode !== 200) return respond(imp.statusCode, { error: (impData && impData.error) || "Import gagal.", finalized: formRows.length });
-  for (const i of toMark) { try { await regUpdateRegStatus(sheets, i, "imported"); } catch (e) {} }
-  return respond(200, { success: true, finalized: formRows.length, import: impData });
+  if (!confirmed.size) return respond(400, { error: "Tidak ada pasangan Terkonfirmasi untuk difinalisasi." });
+  // 1) Impor pasangan baru (bila ada).
+  let imported = 0;
+  if (formRows.length) {
+    await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.t_form}!A:I`, valueInputOption: "USER_ENTERED", requestBody: { values: formRows } });
+    const imp = await tImport(tid, { overrides: {} });
+    let impData = {}; try { impData = JSON.parse(imp.body); } catch (e) {}
+    if (imp.statusCode !== 200) return respond(imp.statusCode, { error: (impData && impData.error) || "Import gagal." });
+    imported = (impData && impData.imported) || 0;
+    for (const i of toMark) { try { await regUpdateRegStatus(sheets, i, "imported"); } catch (e) {} }
+  }
+  // 2) Buang entrant usang: pasangan yang tak ada di set terkonfirmasi (dibaca SETELAH impor
+  //    agar entrant baru ikut terhitung). Baris dikosongkan (bukan dihapus) supaya indeks
+  //    baris lain tak bergeser; pembaca memfilter baris ber-tournamentId kosong.
+  const eRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
+  const clearRanges = []; const removed = [];
+  (eRes.data.values || []).forEach((x, i) => {
+    if (x[0] !== tid) return;
+    if (confirmed.has(pairKey(x[2], x[4]))) return; // masih terkonfirmasi → simpan
+    clearRanges.push(`${TABS.t_entrants}!A${i + 2}:K${i + 2}`);
+    removed.push(`${x[2]} / ${x[4]}`);
+  });
+  if (clearRanges.length) await sheets.spreadsheets.values.batchClear({ spreadsheetId: SHEET_ID, requestBody: { ranges: clearRanges } });
+  return respond(200, { success: true, finalized: imported, imported, removed: removed.length, removedPairs: removed, confirmed: confirmed.size });
 }
 // Admin: backfill entrant team names from registrations, for categories finalized
 // BEFORE the custom team name was carried into the entrant. For each entrant of this
