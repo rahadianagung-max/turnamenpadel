@@ -554,6 +554,14 @@ function levelToElo(level) {
 function normName(s) {
   return String(s || "").trim().toLowerCase().replace(/\s+/g, " ");
 }
+// Standardise a player name for storage: collapse spaces and capitalise only the first
+// letter of each word ("jeffrey susanto" / "REINNAL DHO GULLA" -> "Jeffrey Susanto" /
+// "Reinnal Dho Gulla"). Capitalises after space, hyphen, apostrophe and dot so
+// "anne-marie" -> "Anne-Marie". Used only on WRITE to the DB; matching still uses normName.
+function titleCaseName(s) {
+  return String(s || "").trim().replace(/\s+/g, " ").toLowerCase()
+    .replace(/(^|[\s\-'’.])([a-z])/g, (m, sep, ch) => sep + ch.toUpperCase());
+}
 // Platform-wide display rule: every tournament VIEW shows a player's Display_Name
 // (Players col D), not the raw registered name. Editable entrant fields keep the
 // raw name (needed for matching/ELO); only display labels are resolved here.
@@ -1288,6 +1296,8 @@ async function addPlayer(body) {
   // Tahap 5: pemain baru WAJIB email (email = identitas unik).
   const email = String(body.email || "").trim(), phone = String(body.phone || "").trim();
   if (!/.+@.+\..+/.test(email)) return respond(400, { error: "Email wajib untuk pemain baru (email = identitas pemain)." });
+  const stdName = titleCaseName(name);                                   // standardise on write
+  const stdDisplay = displayName ? titleCaseName(displayName) : stdName;
   const startElo = parseInt(body.elo) || 1350;
   const sheets = getSheets();
   // Keunikan email.
@@ -1297,11 +1307,11 @@ async function addPlayer(body) {
   const now = new Date().toISOString();
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.players}!A:M`, valueInputOption: "USER_ENTERED",
-    requestBody: { values: [[ name, ig || "", ig ? "TRUE" : "FALSE", displayName || name, (gender || "M").toUpperCase(), region || "", photoUrl || "", clubs || "", now, "", "", email, phone ]] },
+    requestBody: { values: [[ stdName, ig || "", ig ? "TRUE" : "FALSE", stdDisplay, (gender || "M").toUpperCase(), region || "", photoUrl || "", clubs || "", now, "", "", email, phone ]] },
   });
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID, range: `${TABS.elo_log}!A:G`, valueInputOption: "USER_ENTERED",
-    requestBody: { values: [["INITIAL", name, startElo, 0, 0, 0, now]] },
+    requestBody: { values: [["INITIAL", stdName, startElo, 0, 0, 0, now]] },
   });
   return respond(200, { success: true });
 }
@@ -2673,7 +2683,7 @@ async function tImport(id, opts) {
       matched++;
       return { name: playerByName.get(nm).name, elo: eloOf(nm), isNew: false };
     }
-    const cleanName = String(rawName).trim();
+    const cleanName = titleCaseName(rawName); // standardise new player names on write
     created++;
     createdThisRun.add(nm);
     newPlayerRows.push([cleanName, ig || "", ig ? "TRUE" : "FALSE", cleanName, "", "", "", "", now]);
