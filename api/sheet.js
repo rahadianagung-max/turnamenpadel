@@ -8001,14 +8001,15 @@ async function regFinalizeCategory(eventId, body) {
   //    agar entrant baru ikut terhitung). Baris dikosongkan (bukan dihapus) supaya indeks
   //    baris lain tak bergeser; pembaca memfilter baris ber-tournamentId kosong.
   const eRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` });
-  const clearRanges = []; const removed = [];
+  const blankRow = ["", "", "", "", "", "", "", "", "", "", ""]; // kosongkan A..K (11 kolom)
+  const clearData = []; const removed = [];
   (eRes.data.values || []).forEach((x, i) => {
     if (x[0] !== tid) return;
     if (confirmed.has(pairKey(x[2], x[4]))) return; // masih terkonfirmasi → simpan
-    clearRanges.push(`${TABS.t_entrants}!A${i + 2}:K${i + 2}`);
+    clearData.push({ range: `${TABS.t_entrants}!A${i + 2}:K${i + 2}`, values: [blankRow] });
     removed.push(`${x[2]} / ${x[4]}`);
   });
-  if (clearRanges.length) await sheets.spreadsheets.values.batchClear({ spreadsheetId: SHEET_ID, requestBody: { ranges: clearRanges } });
+  if (clearData.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "RAW", data: clearData } });
   return respond(200, { success: true, finalized: imported, imported, removed: removed.length, removedPairs: removed, confirmed: confirmed.size });
 }
 // Admin: backfill entrant team names from registrations, for categories finalized
