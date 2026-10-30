@@ -152,6 +152,10 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const isInt = v => /^\d+$/.test(String(v).trim());
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+// Custom display name for this physical court, if the event set one (else "").
+function courtNameOf(){ const nm=(state.courtNames&&state.courtNames[String(state.court)])||""; return String(nm).trim(); }
+// Heading label: "Lapangan N" or the custom court name.
+function courtHeading(){ const n=courtNameOf(); return n?esc(n):("Lapangan "+esc(String(state.court))); }
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const p=x.split(/[:.]/); let h=parseInt(p[0],10), m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
 function tkey(t){ const s=fmtTime(t); if(!s) return 1e9; const [h,m]=s.split(":"); return (parseInt(h)||0)*60+(parseInt(m)||0); }
 function toast(msg, isErr){ const t=$("toast"); t.textContent=msg; t.className=isErr?"err show":"show"; clearTimeout(t._t); t._t=setTimeout(()=>{ t.className=t.className.replace("show","").trim(); },3400); }
@@ -301,13 +305,17 @@ async function load(){
   state.eventName = (payload.event && payload.event.name) || "";
   const d = (payload.event && payload.event.date) || "";
   $("evtLine").innerHTML = `<b>${esc(state.eventName)}</b>${d?" · "+esc(d):""}`;
+  // Optional custom court name for this physical court (display-only; URL stays numeric).
+  state.courtNames = (payload.event && payload.event.courtNames) || {};
+  const cname = courtNameOf();
+  if(cname){ $("courtNum").textContent = cname; $("courtNum").style.fontSize = "26px"; document.title = cname+" — Skor"; }
   state.matches = flatten(payload, state.court);
   render();
 }
 function render(){
   const wrap=$("matchesWrap");
-  if(!state.matches.length){ wrap.innerHTML=`<p class="empty">Belum ada pertandingan terjadwal di Lapangan ${esc(String(state.court))} untuk event ini.</p>`; return; }
-  wrap.innerHTML = `<h3 class="sect">Jadwal Lapangan ${esc(String(state.court))} <span class="cnt">${state.matches.length} match</span></h3>` +
+  if(!state.matches.length){ wrap.innerHTML=`<p class="empty">Belum ada pertandingan terjadwal di ${courtHeading()} untuk event ini.</p>`; return; }
+  wrap.innerHTML = `<h3 class="sect">Jadwal ${courtHeading()} <span class="cnt">${state.matches.length} match</span></h3>` +
     state.matches.map(scoreCard).join("");
   state.matches.forEach(initStatus);
   applyFilter();

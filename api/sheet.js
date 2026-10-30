@@ -5372,6 +5372,15 @@ async function tPublicEvent(eventId, opts) {
     theme: parseTvTheme(evRow[8]),   // per-event TV LED color theme
     breaks: [0, 1, 2, 3].map((i) => ({ start: evRow[14 + i * 2] || "", end: evRow[15 + i * 2] || "" })).filter((b) => b.start || b.end),
     breakStart: evRow[14] || "", breakEnd: evRow[15] || "" };
+  // Optional per-event court display names { "1":"Linea Court", ... } from Settings
+  // (key courtNames_<eventId>). Display-only; court numbers stay the source of truth.
+  // Read separately & guarded so a missing Settings tab never breaks the public board.
+  event.courtNames = {};
+  try {
+    const sres = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Settings!A2:B" });
+    const srow = (sres.data.values || []).find((r) => r[0] === ("courtNames_" + eventId));
+    if (srow && srow[1]) { const m = JSON.parse(srow[1]); if (m && typeof m === "object") event.courtNames = m; }
+  } catch (e) {}
 
   const players = {};
   for (const r of plRows) {

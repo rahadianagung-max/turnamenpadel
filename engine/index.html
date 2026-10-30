@@ -615,6 +615,14 @@
       </div>
     </details>
     <div id="catStartsWrap" style="margin-top:8px"></div>
+    <details class="adv" style="margin-top:8px">
+      <summary><b>Nama court</b> — tampilkan nama (mis. Linea Court) di player/TV/scorer, bukan nomor</summary>
+      <div class="adv-body">
+        <p style="font-size:12px; color:var(--muted); margin:0 0 8px">Nomor court tetap dipakai untuk sistem; ini hanya <b>label tampilan</b>. Kosongkan untuk pakai "Court N".</p>
+        <div id="courtNamesWrap"><p class="empty" style="font-size:12.5px">Pilih event & isi jumlah court dulu.</p></div>
+        <div class="actions" style="margin-top:8px"><button type="button" class="btn btn-primary btn-sm" onclick="saveCourtNames()">Simpan nama court</button> <button type="button" class="btn btn-ghost btn-sm" onclick="renderCourtNames()">↻ Muat ulang</button></div>
+      </div>
+    </details>
     <div style="margin-top:12px" class="pick" id="schModeRow"><label>Play mode (all courts used · group matches run in parallel)</label>
       <div class="seg" id="schMode">
         <button type="button" class="active" data-v="normal" onclick="pickSchedMode(this)">Normal · spread out (no gaps ≥1 hour)</button>
@@ -994,7 +1002,7 @@ function selectEvent(id){
   document.getElementById("groupActions").style.display = "";
   document.getElementById("groupEditActions").style.display = "none";
   document.getElementById("groupEditHint").style.display = "none";
-  if(state.event) loadTournaments();
+  if(state.event){ loadTournaments(); loadCourtNamesData().then(renderCourtNames); }
 }
 
 /* ---- TOURNAMENTS ---- */
@@ -1989,6 +1997,30 @@ function fillScheduleParams(){
   fillBreaks(e.breaks || (e.breakStart||e.breakEnd ? [{start:e.breakStart,end:e.breakEnd}] : []));
   renderCatStarts();
   refreshAmpm();
+}
+// ---- Court names (display-only; disimpan di Settings per event) ----
+async function loadCourtNamesData(){
+  state.courtNames = {};
+  if(!state.event) return;
+  try{ const s = await api("settings"); const raw = (s.settings||{})["courtNames_"+state.event.eventId]; if(raw){ const m = JSON.parse(raw); if(m && typeof m==="object") state.courtNames = m; } }catch(e){}
+}
+function renderCourtNames(){
+  const wrap = document.getElementById("courtNamesWrap"); if(!wrap) return;
+  if(!state.event){ wrap.innerHTML = '<p class="empty" style="font-size:12.5px">Pilih event dulu.</p>'; return; }
+  const courts = eventCourtList();
+  if(!courts.length){ wrap.innerHTML = '<p class="empty" style="font-size:12.5px">Isi jumlah/nomor court dulu (langkah di atas).</p>'; return; }
+  const names = state.courtNames || {};
+  wrap.innerHTML = '<div class="grid">' + courts.map(c=>`<div class="f"><label>Court ${esc(String(c))}</label><input type="text" data-courtname="${esc(String(c))}" value="${esc(names[String(c)]||"")}" placeholder="mis. Linea Court"></div>`).join("") + '</div>';
+}
+async function saveCourtNames(){
+  if(!state.event){ toast("Pilih event dulu.", true); return; }
+  const map = {};
+  document.querySelectorAll('#courtNamesWrap input[data-courtname]').forEach(i=>{ const v=(i.value||"").trim(); if(v) map[i.getAttribute("data-courtname")] = v; });
+  try{
+    await api("settings", { method:"POST", body:{ key:"courtNames_"+state.event.eventId, value: JSON.stringify(map) } });
+    state.courtNames = map;
+    toast("Nama court disimpan — tampil di player/TV/scorer.");
+  }catch(e){ toast("Gagal menyimpan nama court: "+e.message, true); }
 }
 // Prefill the 4 break input pairs from a breaks array.
 function fillBreaks(breaks){
