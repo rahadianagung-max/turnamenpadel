@@ -2002,7 +2002,7 @@ function fillScheduleParams(){
 async function loadCourtNamesData(){
   state.courtNames = {};
   if(!state.event) return;
-  try{ const s = await api("settings"); const raw = (s.settings||{})["courtNames_"+state.event.eventId]; if(raw){ const m = JSON.parse(raw); if(m && typeof m==="object") state.courtNames = m; } }catch(e){}
+  try{ const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/court-names"); if(r && r.courtNames && typeof r.courtNames==="object") state.courtNames = r.courtNames; }catch(e){}
 }
 function renderCourtNames(){
   const wrap = document.getElementById("courtNamesWrap"); if(!wrap) return;
@@ -2017,8 +2017,8 @@ async function saveCourtNames(){
   const map = {};
   document.querySelectorAll('#courtNamesWrap input[data-courtname]').forEach(i=>{ const v=(i.value||"").trim(); if(v) map[i.getAttribute("data-courtname")] = v; });
   try{
-    await api("settings", { method:"POST", body:{ key:"courtNames_"+state.event.eventId, value: JSON.stringify(map) } });
-    state.courtNames = map;
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/court-names", { method:"POST", body:{ courtNames: map } });
+    state.courtNames = (r && r.courtNames) || map;
     toast("Nama court disimpan — tampil di player/TV/scorer.");
   }catch(e){ toast("Gagal menyimpan nama court: "+e.message, true); }
 }

@@ -779,6 +779,12 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/tv-theme") && method === "POST") {
       return await tSetTvTheme(decodeURIComponent(path.replace("tournament/event/", "").replace("/tv-theme", "")), body);
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/court-names") && method === "POST") {
+      return await tSetCourtNames(decodeURIComponent(path.replace("tournament/event/", "").replace("/court-names", "")), body);
+    }
+    if (path.startsWith("tournament/event/") && path.endsWith("/court-names") && method === "GET") {
+      return await tGetCourtNames(decodeURIComponent(path.replace("tournament/event/", "").replace("/court-names", "")));
+    }
     if (path.startsWith("tournament/event/") && path.endsWith("/rename") && method === "POST") {
       return await tRenameEvent(decodeURIComponent(path.replace("tournament/event/", "").replace("/rename", "")), body || {});
     }
@@ -2341,6 +2347,33 @@ async function tSetTvTheme(id, body) {
     valueInputOption: "USER_ENTERED", requestBody: { values: [[json]] },
   });
   return respond(200, { success: true, theme: Object.keys(clean).length ? clean : null });
+}
+// Per-event court display names { "1":"Linea Court", ... } stored on the event row
+// (Tournament_Events col X). Display-only; court numbers stay the source of truth.
+async function tSetCourtNames(id, body) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:A` });
+  const idx = (r.data.values || []).findIndex((x) => x[0] === id);
+  if (idx === -1) return respond(404, { error: "Event not found" });
+  const m = (body && body.courtNames && typeof body.courtNames === "object") ? body.courtNames : {};
+  const clean = {};
+  for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
+  const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!X${idx + 2}`,
+    valueInputOption: "RAW", requestBody: { values: [[json]] },
+  });
+  return respond(200, { success: true, courtNames: clean });
+}
+async function tGetCourtNames(id) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:X` });
+  const row = (r.data.values || []).find((x) => x[0] === id);
+  let names = {};
+  if (row && row[23]) { try { const m = JSON.parse(row[23]); if (m && typeof m === "object") names = m; } catch (e) {} }
+  return respond(200, { courtNames: names });
 }
 async function tListEvents(params = {}) {
   const sheets = getSheets();
@@ -5345,7 +5378,7 @@ async function tPublicEvent(eventId, opts) {
   const br = await sheets.spreadsheets.values.batchGet({
     spreadsheetId: SHEET_ID,
     ranges: [
-      `${TABS.t_events}!A2:V`,
+      `${TABS.t_events}!A2:X`,
       `${TABS.t_tournaments}!A2:K`,
       `${TABS.t_groups}!A2:G`,
       `${TABS.t_matches}!A2:Q`,
@@ -5372,15 +5405,11 @@ async function tPublicEvent(eventId, opts) {
     theme: parseTvTheme(evRow[8]),   // per-event TV LED color theme
     breaks: [0, 1, 2, 3].map((i) => ({ start: evRow[14 + i * 2] || "", end: evRow[15 + i * 2] || "" })).filter((b) => b.start || b.end),
     breakStart: evRow[14] || "", breakEnd: evRow[15] || "" };
-  // Optional per-event court display names { "1":"Linea Court", ... } from Settings
-  // (key courtNames_<eventId>). Display-only; court numbers stay the source of truth.
-  // Read separately & guarded so a missing Settings tab never breaks the public board.
+  // Optional per-event court display names { "1":"Linea Court", ... } stored on the
+  // event row (Tournament_Events col X). Display-only; court numbers stay the source
+  // of truth. Already in evRow (batchGet A2:X) — no extra read.
   event.courtNames = {};
-  try {
-    const sres = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: "Settings!A2:B" });
-    const srow = (sres.data.values || []).find((r) => r[0] === ("courtNames_" + eventId));
-    if (srow && srow[1]) { const m = JSON.parse(srow[1]); if (m && typeof m === "object") event.courtNames = m; }
-  } catch (e) {}
+  try { if (evRow[23]) { const m = JSON.parse(evRow[23]); if (m && typeof m === "object") event.courtNames = m; } } catch (e) {}
 
   const players = {};
   for (const r of plRows) {
