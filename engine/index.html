@@ -565,7 +565,8 @@
   <!-- 4. PLAYERS -->
   <section id="sec4" class="locked">
     <div class="sec-head"><div class="num">4</div><h2>Players</h2>
-      <span class="sub"><button type="button" class="btn btn-ghost btn-sm" onclick="loadEntrants()">↻ Reload</button></span></div>
+      <span class="sub"><button type="button" class="btn btn-ghost btn-sm" onclick="loadEntrants()">↻ Reload</button> <button type="button" class="btn btn-ghost btn-sm" onclick="loadEntrantAudit()">🔍 Audit vs approved</button></span></div>
+    <div id="entrantAudit"></div>
     <div id="entrantsWrap"><p class="empty">No players yet.</p></div>
   </section>
 
@@ -1767,14 +1768,46 @@ async function loadEntrants(){
       entrants.map((e,i)=>rowHtml(e,i)).join("")}</tbody></table>`;
   }catch(e){ toast(e.message, true); }
 }
+// Audit entrants kategori ini vs pendaftaran approved — tampilkan pasangan yang
+// BELUM ada di entrants (approved) dan entrant yang TIDAK approved (ditandai ⚠ di
+// tabel), supaya nama bisa diedit di tempat tanpa undi ulang.
+async function loadEntrantAudit(){
+  if(!state.event || !state.tournament){ toast("Pilih event & kategori dulu.", true); return; }
+  const box = document.getElementById("entrantAudit");
+  if(box) box.innerHTML = '<p class="empty">Memeriksa approved vs entrants…</p>';
+  try{
+    const tok = (state.session && state.session.token) || "";
+    const r = await api("reg/event/"+encodeURIComponent(state.event.eventId)+"/audit-entrants?token="+encodeURIComponent(tok));
+    const cat = (r.categories||[]).find(c=>c.tournamentId===state.tournament.tournamentId);
+    if(!cat){ state.extraEntrantSet = new Set(); state.auditActive = false; if(box) box.innerHTML = '<p class="empty">Tidak ada data audit untuk kategori ini.</p>'; loadEntrants(); return; }
+    const miss = cat.missingFromEntrants||[], extra = cat.extraInEntrants||[];
+    state.extraEntrantSet = new Set(extra.map(normPairDisp));
+    state.auditActive = true;
+    const wrapS = 'margin:0 0 10px;border-radius:10px;padding:10px 12px;font-size:12.5px;line-height:1.5';
+    if(!miss.length && !extra.length){
+      if(box) box.innerHTML = `<div style="${wrapS};border:1px solid #badbcc;background:#d1e7dd;color:#0f5132">✓ Entrants sudah cocok dengan approved (${cat.approvedCount} pasangan).</div>`;
+    } else {
+      let h = `<div style="${wrapS};border:1px solid #ffecb5;background:#fff3cd;color:#664d03"><b>Perlu perhatian</b> — approved <b>${cat.approvedCount}</b> vs entrants <b>${cat.entrantCount}</b>.`;
+      if(miss.length) h += `<div style="margin-top:6px"><b style="color:#842029">Approved tapi BELUM ada di entrants (${miss.length}):</b><br>${miss.map(esc).join("<br>")}<div style="opacity:.8;margin-top:2px">→ Edit salah satu baris yang salah di bawah agar pasangan ini masuk.</div></div>`;
+      if(extra.length) h += `<div style="margin-top:6px"><b style="color:#842029">Di entrants tapi TIDAK approved (${extra.length}) — ditandai ⚠ di tabel:</b><br>${extra.map(esc).join("<br>")}<div style="opacity:.8;margin-top:2px">→ Klik Edit pada baris ⚠ untuk menggantinya dengan pasangan yang benar (tanpa undi ulang).</div></div>`;
+      h += `</div>`;
+      if(box) box.innerHTML = h;
+    }
+    loadEntrants(); // render ulang baris dengan tanda ⚠
+  }catch(e){ if(box) box.innerHTML = `<p class="empty" style="color:#b02a37">Gagal audit: ${esc((e&&e.message)||String(e))}</p>`; }
+}
+function normPairDisp(s){ return String(s||"").trim().toLowerCase().replace(/\s+/g," "); }
 function rowHtml(e,i){
   const nb1 = e.isNewP1 ? '<span class="badge">new</span>' : '';
   const nb2 = e.isNewP2 ? '<span class="badge">new</span>' : '';
   const tn = (e.teamName||"").trim();
   const tnHtml = tn ? `<div class="teamname">${esc(tn)}</div>` : "";
-  return `<tr id="row-${e.entrantId}">
+  // Audit flag: entrant whose pair is NOT in the approved list (usang/salah/diganti).
+  const isExtra = state.extraEntrantSet && state.extraEntrantSet.has(normPairDisp(e.player1Name+" / "+e.player2Name));
+  const warn = isExtra ? '<span class="badge" style="background:#f8d7da;color:#842029;border-color:#f5c2c7">⚠ tidak approved</span> ' : '';
+  return `<tr id="row-${e.entrantId}"${isExtra?' style="background:rgba(220,53,69,.07)"':''}>
     <td class="seed">${i+1}</td>
-    <td class="pair">${tnHtml}<span class="pairline">${esc(e.player1Name)}${nb1}<span class="vs">+</span>${esc(e.player2Name)}${nb2}</span></td>
+    <td class="pair">${tnHtml}${warn}<span class="pairline">${esc(e.player1Name)}${nb1}<span class="vs">+</span>${esc(e.player2Name)}${nb2}</span></td>
     <td class="seed">${e.seedElo}</td>
     <td><button type="button" class="btn btn-ghost btn-sm" onclick='editRow(${JSON.stringify(e)})'>Edit</button></td>
   </tr>`;
@@ -1801,7 +1834,9 @@ async function saveRow(id){
       teamName: val("edt-"+id),
     }}});
     toast("Peserta diperbarui");
-    loadEntrants();
+    // Re-run the audit if it's active (so the ⚠ marks & panel refresh after this edit);
+    // otherwise just reload the rows.
+    if(state.auditActive) loadEntrantAudit(); else loadEntrants();
     // Names are resolved live by entrantId, so refresh the drawn groups too — this
     // updates state.entrantNames (schedule step) and the group view without a re-draw.
     loadGroups().catch(()=>{});
