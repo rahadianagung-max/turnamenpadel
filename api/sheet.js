@@ -4346,25 +4346,19 @@ function projectionTierView(tier, b, lab) {
 function buildPlayoffProjection(groupsInfo, format, N) {
   // groupsInfo: [{ label, size }] — one entry per group, size = teams in it.
   if (!groupsInfo.length) return [];
-  const labelOf = {};
   const groups = groupsInfo.map((g) => ({
     label: g.label,
     standings: Array.from({ length: Math.max(0, g.size) }, (_, i) => {
       const rank = i + 1, id = `${g.label}#${rank}`;
-      labelOf[id] = playoffProjectionRankLabel(rank, g.label);
       return { entrantId: id, rank, wins: 0, gd: 0, gf: 0 };
     }),
   }));
-  const { built, summary } = buildPlayoffTiers(groups, format, N);
-  const methodByTier = {}; summary.forEach((s) => { methodByTier[s.tier] = s.method; });
-  // When the bracket is built by deterministic cross-seeding (Winner-vs-Runner-up,
-  // only for 2/4/8 groups) the slot → group mapping is fixed, so "Winner Grup A vs
-  // Runner-up Grup C" is accurate. With plain seeding (any other group count) the
-  // seat positions — including which seed takes a BYE — are decided by the FINAL
-  // standings, not the group letter, so naming a group there ("Winner Grup A · BYE")
-  // is misleading. For those tiers, label seats by neutral seed number instead.
+  const { built } = buildPlayoffTiers(groups, format, N);
+  // The projection runs before any score, so real teams aren't known and the exact
+  // seat/BYE positions depend on the final standings. Label every seat by a neutral
+  // seed number ("Unggulan 1" …, "Unggulan 1 · BYE") instead of a group position so the
+  // preview never implies a specific group gets a particular slot or a BYE.
   const genericLab = (tier) => {
-    if (methodByTier[tier] === "cross") return null;
     const pred = tier === "PROSPECT" ? (s) => s.rank > N : (s) => s.rank <= N;
     const flat = [];
     groups.forEach((g) => g.standings.filter(pred).forEach((s) => flat.push(s)));
@@ -4372,15 +4366,13 @@ function buildPlayoffProjection(groupsInfo, format, N) {
     const gmap = {}; flat.forEach((s, i) => { gmap[s.entrantId] = `Unggulan ${i + 1}`; });
     return (id) => (id ? (gmap[id] || "") : "");
   };
-  const baseLab = (id) => (id ? (labelOf[id] || "") : "");
-  return built.map(({ tier, b }) => projectionTierView(tier, b, genericLab(tier) || baseLab));
+  return built.map(({ tier, b }) => projectionTierView(tier, b, genericLab(tier)));
 }
 // "Top N overall" projection: a single seeded MAIN bracket with placeholder
 // seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
 // generator. totalTeams caps N so we never project more slots than exist.
 function buildOverallProjection(totalTeams, topN, groupLabels, adv) {
   const n = Math.min(Math.max(0, topN | 0), Math.max(0, totalTeams | 0));
-  const a = (adv | 0) >= 1 ? (adv | 0) : 2;
   if (n < 2) return [];
   const labels = (groupLabels || []).filter((x) => x != null && x !== "");
   // No group labels → generic unggulan seeds, standard bracket (no separation possible).
@@ -4398,22 +4390,15 @@ function buildOverallProjection(totalTeams, topN, groupLabels, adv) {
   while (seeded.length < n) {
     for (let gi = 0; gi < G && seeded.length < n; gi++) {
       const g = labels[gi], id = `S${seeded.length + 1}`;
-      // Wildcards (beyond `adv` per group) read as an overall seed, not a within-group rank.
-      labelOf[id] = rank > a ? `Wildcard · Unggulan ${seeded.length + 1}` : playoffProjectionRankLabel(rank, g);
+      labelOf[id] = `Unggulan ${seeded.length + 1}`;
       seeded.push(id); groupOf[id] = g; tierOf[id] = rank;
     }
     rank++;
   }
   const b = buildBracket(seeded, "MAIN", groupOf, tierOf);
-  // If the bracket has empty slots (topN not a power of 2), which seeds take a BYE is
-  // decided by the final overall standings, not the group letter — so don't pin a BYE
-  // to "Winner Grup A". Fall back to neutral seed numbers for the whole bracket.
-  let lab = (id) => (id ? labelOf[id] || "" : "");
-  if (b.nQual < nextPow2(b.nQual)) {
-    const gmap = {}; seeded.forEach((id, i) => { gmap[id] = `Unggulan ${i + 1}`; });
-    lab = (id) => (id ? (gmap[id] || "") : "");
-  }
-  return [projectionTierView("MAIN", b, lab)];
+  // Neutral seed labels only — real teams and exact seat/BYE positions depend on the
+  // final overall standings, so the projection never names a group.
+  return [projectionTierView("MAIN", b, (id) => (id ? labelOf[id] || "" : ""))];
 }
 // Nameless mirror of an already-generated real bracket: keeps the bracket's EXACT
 // structure and pairings, only replacing each entrant with its group-position label
