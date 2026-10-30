@@ -2348,6 +2348,25 @@ async function tSetTvTheme(id, body) {
   });
   return respond(200, { success: true, theme: Object.keys(clean).length ? clean : null });
 }
+// Ensure a tab's grid has at least `minCols` columns. A values.update to a column
+// beyond the grid (e.g. col X) fails with "exceeds grid limits", so sheets that were
+// trimmed narrow would silently drop the write. Widen the grid first; no-op if already
+// wide enough. Returns true on success, false if the tab is missing.
+async function ensureColumns(sheets, tabTitle, minCols) {
+  const meta = await sheets.spreadsheets.get({
+    spreadsheetId: SHEET_ID,
+    fields: "sheets(properties(sheetId,title,gridProperties(columnCount)))",
+  });
+  const sh = (meta.data.sheets || []).find((s) => s.properties.title === tabTitle);
+  if (!sh) return false;
+  const cur = (sh.properties.gridProperties && sh.properties.gridProperties.columnCount) || 0;
+  if (cur >= minCols) return true;
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SHEET_ID,
+    requestBody: { requests: [{ appendDimension: { sheetId: sh.properties.sheetId, dimension: "COLUMNS", length: minCols - cur } }] },
+  });
+  return true;
+}
 // Per-event court display names { "1":"Linea Court", ... } stored on the event row
 // (Tournament_Events col X). Display-only; court numbers stay the source of truth.
 async function tSetCourtNames(id, body) {
@@ -2360,6 +2379,8 @@ async function tSetCourtNames(id, body) {
   const clean = {};
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
+  // Col X (24) is past the default-trimmed width of some event tabs — widen first.
+  await ensureColumns(sheets, TABS.t_events, 24);
   await sheets.spreadsheets.values.update({
     spreadsheetId: SHEET_ID, range: `${TABS.t_events}!X${idx + 2}`,
     valueInputOption: "RAW", requestBody: { values: [[json]] },
