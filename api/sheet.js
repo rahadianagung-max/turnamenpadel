@@ -2381,14 +2381,23 @@ async function tSetCourtNames(id, body) {
   const clean = {};
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
+  const dbg = {};
   const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A2:A` });
   const idx = (r.data.values || []).findIndex((x) => x[0] === id);
   const rowNum = idx === -1 ? (r.data.values || []).length + 2 : idx + 2;
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A${rowNum}:B${rowNum}`,
-    valueInputOption: "RAW", requestBody: { values: [[id, json]] },
-  });
-  return respond(200, { success: true, courtNames: clean });
+  dbg.rowNum = rowNum; dbg.existingRows = (r.data.values || []).length;
+  try {
+    const upd = await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A${rowNum}:B${rowNum}`,
+      valueInputOption: "RAW", requestBody: { values: [[id, json]] },
+    });
+    dbg.upd = upd && upd.data ? upd.data : null;
+  } catch (e) { dbg.updErr = String(e && e.message || e); }
+  try {
+    const rb = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A1:C10` });
+    dbg.rb = rb.data.values || null;
+  } catch (e) { dbg.rbErr = String(e && e.message || e); }
+  return respond(200, { success: true, courtNames: clean, _debug: dbg });
 }
 async function tGetCourtNames(id) {
   const sheets = getSheets();
