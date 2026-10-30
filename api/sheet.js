@@ -2375,25 +2375,36 @@ async function tSetCourtNames(id, body) {
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
   const packed = id + CN_DELIM + json;
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
-  const rows = r.data.values || [];
-  const idx = rows.findIndex((x) => cnPackedEventId(x) === id);
-  if (idx === -1) {
-    // New tabs here are created 1 row tall; append auto-expands the row grid (a plain
-    // update to a not-yet-existing row would silently write 0 cells).
-    await sheets.spreadsheets.values.append({
-      spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2`,
-      valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
-      requestBody: { values: [[packed]] },
-    });
-  } else {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A${idx + 2}`,
-      valueInputOption: "RAW", requestBody: { values: [[packed]] },
-    });
-  }
-  let rb = null; try { const g = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1:A6` }); rb = g.data.values || []; } catch (e) { rb = "ERR:" + (e && e.message || e); }
-  return respond(200, { success: true, courtNames: clean, _debug: { rb } });
+  const dbg = {};
+  try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
+    const sh = (meta.data.sheets || []).find((s) => s.properties.title === TABS.court_labels);
+    dbg.tabExists = !!sh;
+    dbg.grid = sh ? sh.properties.gridProperties : null;
+    dbg.sheetTitles = (meta.data.sheets || []).map((s) => s.properties.title);
+  } catch (e) { dbg.metaErr = String(e && e.message || e); }
+  try {
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
+    const rows = r.data.values || [];
+    const idx = rows.findIndex((x) => cnPackedEventId(x) === id);
+    dbg.existingRows = rows.length; dbg.idx = idx;
+    if (idx === -1) {
+      const ap = await sheets.spreadsheets.values.append({
+        spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1`,
+        valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
+        requestBody: { values: [[packed]] },
+      });
+      dbg.appendUpdates = ap && ap.data ? ap.data.updates : null;
+    } else {
+      const up = await sheets.spreadsheets.values.update({
+        spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A${idx + 2}`,
+        valueInputOption: "RAW", requestBody: { values: [[packed]] },
+      });
+      dbg.updatedCells = up && up.data ? up.data.updatedCells : null;
+    }
+  } catch (e) { dbg.writeErr = String(e && e.message || e); }
+  try { const g = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1:A6` }); dbg.rb = g.data.values || []; } catch (e) { dbg.rbErr = String(e && e.message || e); }
+  return respond(200, { success: true, courtNames: clean, _debug: dbg });
 }
 async function tGetCourtNames(id) {
   const sheets = getSheets();
