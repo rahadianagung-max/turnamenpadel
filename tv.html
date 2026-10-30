@@ -400,7 +400,7 @@ function nowTeamInline(c, eid){
 }
 function nowCard(f){
   return `<div class="np-card">
-    <span class="np-court">COURT ${esc(f.court)}</span>
+    <span class="np-court">${courtLabel(f.court,"COURT")}</span>
     <div class="np-teams">
       <b class="npt">${nowTeamInline(f.c,f.eA)}</b>
       <span class="np-x">VS</span>
@@ -415,7 +415,7 @@ function upRow(f){
   const lbl=(eid,x,y)=>{ const t=teamNameOf(f.c,eid); return t?esc(t):nm(x,y); };
   return `<div class="up-row">
     <span class="up-time">${f.time?fmtTime(f.time):"—"}</span>
-    <span class="up-court">Court ${esc(f.court||"?")}</span>
+    <span class="up-court">${courtLabel(f.court)}</span>
     <span class="up-teams"><b>${lbl(f.eA,a1,a2)}</b><span class="up-x">vs</span><b>${lbl(f.eB,b1,b2)}</b></span>
   </div>`;
 }
@@ -439,6 +439,8 @@ function buildFeed(){
 // Match 0 = start (e.g. 11:00), match 1 = +15min (11:15), and so on. No server-time or
 // actual-pace adjustment — the times are fixed and predictable for participants.
 function timeToMin(t){ const s=fmtTime(t); if(!s) return null; const p=s.split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
+// Court display label: custom per-event name ("Linea Court") if set, else "<prefix> N".
+function courtLabel(c, prefix){ const names=(state.data&&state.data.event&&state.data.event.courtNames)||{}; const nm=names[String(c==null?"":c)]; if(nm&&String(nm).trim()) return esc(String(nm).trim()); return (prefix||"Court")+" "+esc(String(c||"?")); }
 function minToTime(x){ x=((Math.round(x)%1440)+1440)%1440; return String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0"); }
 // Build a natural-time -> wall-clock shifter for up to 4 optional breaks.
 function makeBreakShift(ev){
@@ -520,7 +522,7 @@ function bcell(c,m){
   const bw=done&&String(m.winner)===String(m.entrantB);
   // Meta line (Court · time), same as the mobile playoff card.
   const parts=[];
-  if(!bye){ if(m.date) parts.push(esc(String(m.date))); if(m.time) parts.push(esc(fmtTime(m.time))); if(m.court) parts.push("Court "+esc(String(m.court))); }
+  if(!bye){ if(m.date) parts.push(esc(String(m.date))); if(m.time) parts.push(esc(fmtTime(m.time))); if(m.court) parts.push(courtLabel(m.court)); }
   const meta = parts.length ? `<div class="bmeta">${parts.join(" · ")}</div>` : "";
   return `<div class="bmatch ${bye?'bye':''} ${done?'done':''}">${meta}
     ${bteam(c,m.entrantA, bye?'BYE':(done?m.scoreA:''), aw)}

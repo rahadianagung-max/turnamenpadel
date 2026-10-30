@@ -293,6 +293,8 @@ const $=id=>document.getElementById(id);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const isInt=v=>/^\d+$/.test(String(v).trim());
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+// Court display label: custom per-event name ("Linea Court") if set, else "<prefix> N".
+function courtLabel(c, prefix){ const names=(state.event&&state.event.courtNames)||{}; const nm=names[String(c==null?"":c)]; if(nm&&String(nm).trim()) return esc(String(nm).trim()); return (prefix||"Court")+" "+esc(String(c==null||c===""?"—":c)); }
 function cssid(s){ return String(s).replace(/[^a-zA-Z0-9_-]/g,"_"); }
 function slugify(s){ return String(s||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,80)||"event"; }
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const p=s.split(/[:.]/); let h=parseInt(p[0],10),m=parseInt(p[1],10); if(isNaN(h)) return s; if(isNaN(m))m=0; return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`; }
@@ -626,7 +628,7 @@ function mcard(m,nums){
   const done=m.status==="DONE";
   const opts=nums.map(n=>`<option value="${n}" ${n===m.court?"selected":""}>${n}</option>`).join("")+(m.court?"":`<option value="0" selected>—</option>`);
   return `<div class="mcard ${done?'st-done':''}" id="card-${cid}">
-    <div class="mtop"><span class="cbig">COURT ${m.court||"—"}</span><span class="gbig">${esc(m.label)}</span>${m.catLabel?`<span class="mcat">${esc(m.catLabel)}</span>`:""}<span class="badge" id="badge-${cid}"></span></div>
+    <div class="mtop"><span class="cbig">${courtLabel(m.court,"COURT")}</span><span class="gbig">${esc(m.label)}</span>${m.catLabel?`<span class="mcat">${esc(m.catLabel)}</span>`:""}<span class="badge" id="badge-${cid}"></span></div>
     ${teamRow(cid,"a",m)}
     <div class="sep"></div>
     ${teamRow(cid,"b",m)}
@@ -790,7 +792,7 @@ function prowDesk(m,numRounds){
   const sA=bye?'':(has(m.scoreA)?esc(String(m.scoreA)):'–'), sB=bye?'':(has(m.scoreB)?esc(String(m.scoreB)):'–');
   const teams=`<div class="pteams"><span class="ln ${aw?'win':''}"><span class="nm">${nA}</span><span class="ps">${sA}</span></span><span class="ln ${bw?'win':''}"><span class="nm">${nB}</span><span class="ps">${sB}</span></span></div>`;
   if(bye) return `<div class="prow card bye">${teams}<span class="byebadge">BYE</span></div>`;
-  const meta=[m.court?("Lap "+m.court):"", fmtTime(m.time)].filter(Boolean).join(" · ");
+  const meta=[m.court?courtLabel(m.court,"Lap"):"", fmtTime(m.time)].filter(Boolean).join(" · ");
   return `<div class="prow card ${done?'done':''}">${meta?`<div class="pmeta">${esc(meta)}</div>`:""}${teams}</div>`;
 }
 function tierHtmlDesk(b){

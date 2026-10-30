@@ -536,7 +536,7 @@ function renderSchedule(cat){
     const liveNow = playing.has(m.matchId) && !done;
     const mine = mineSel && matchHasPlayer(mc,m,mineSel);
     const tag = tagCat ? ` · ${esc(catTabLabel(mc))}` : "";
-    const meta = `<span class="gl">Court ${esc(m.court)} · Group ${esc(m.groupLabel)}${tag}</span>`;
+    const meta = `<span class="gl">${courtLabel(m.court)} · Group ${esc(m.groupLabel)}${tag}</span>`;
     const teams = `<div class="team ${aw?'w':''}"><span class="nm">${teamNames(mc,m.entrantA,true)}</span><span class="sc">${done?esc(String(m.scoreA)):"–"}</span></div>`
       + `<div class="vs">vs</div>`
       + `<div class="team ${bw?'w':''}"><span class="nm">${teamNames(mc,m.entrantB,true)}</span><span class="sc">${done?esc(String(m.scoreB)):"–"}</span></div>`;
@@ -575,7 +575,7 @@ function renderSchedule(cat){
       const oppId = entrantHasPlayer(cat,next.entrantA,sel) ? next.entrantB : next.entrantA;
       const isLive = playing.has(next.matchId);
       nextCard = `<div class="nextcard"><div class="lab">${isLive?"You're up now":"Your next match"}</div>
-        <div class="big"><span class="t">${isLive?"LIVE":ptime(next)}</span><span class="c">Court ${esc(next.court)} · Group ${esc(next.groupLabel)}</span></div>
+        <div class="big"><span class="t">${isLive?"LIVE":ptime(next)}</span><span class="c">${courtLabel(next.court)} · Group ${esc(next.groupLabel)}</span></div>
         <div class="opp">vs <b>${teamNames(cat,oppId,false)}</b></div></div>`;
     }
   }
@@ -757,7 +757,7 @@ function pmatch(cat,m){
   if(!bye){
     if(m.date) parts.push(matchDateLabel(m));
     if(m.time) parts.push(esc(fmtTime(m.time)));
-    if(m.court) parts.push("Court "+esc(String(m.court)));
+    if(m.court) parts.push(courtLabel(m.court));
   }
   const meta = parts.length ? `<div class="pmmeta">${parts.join(" · ")}</div>` : "";
   return `<div class="pmatch ${bye?'bye':''}">${meta}
@@ -765,6 +765,9 @@ function pmatch(cat,m){
     <div class="pline ${bw?'w':''}"><span class="pnm">${nameB}</span><span class="sc">${scB}</span></div></div>`;
 }
 
+// Court display label: custom per-event name ("Linea Court") if set, else "<prefix> N".
+// Court numbers stay the source of truth; names are display-only (from event.courtNames).
+function courtLabel(c, prefix){ const names=(state.data&&state.data.event&&state.data.event.courtNames)||{}; const nm=names[String(c)]; if(nm&&String(nm).trim()) return esc(String(nm).trim()); return (prefix||"Court")+" "+esc(String(c)); }
 function fmtTime(t){ const s=String(t==null?"":t).trim(); if(!s) return ""; const ap=/(am|pm)/i.exec(s); const x=s.replace(/\s*(am|pm)/i,"").trim(); const pp=x.split(/[:.]/); let h=parseInt(pp[0],10), m=parseInt(pp[1],10); if(isNaN(h)) return s; if(isNaN(m)) m=0; if(ap){const pm=/pm/i.test(ap[0]); if(pm&&h<12)h+=12; if(!pm&&h===12)h=0;} h=((h%24)+24)%24; m=((m%60)+60)%60; return String(h).padStart(2,"0")+":"+String(m).padStart(2,"0"); }
 
 // Static schedule times (same as the TV board): each group match = event start time +
