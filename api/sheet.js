@@ -4355,9 +4355,25 @@ function buildPlayoffProjection(groupsInfo, format, N) {
       return { entrantId: id, rank, wins: 0, gd: 0, gf: 0 };
     }),
   }));
-  const { built } = buildPlayoffTiers(groups, format, N);
-  const lab = (id) => (id ? (labelOf[id] || "") : "");
-  return built.map(({ tier, b }) => projectionTierView(tier, b, lab));
+  const { built, summary } = buildPlayoffTiers(groups, format, N);
+  const methodByTier = {}; summary.forEach((s) => { methodByTier[s.tier] = s.method; });
+  // When the bracket is built by deterministic cross-seeding (Winner-vs-Runner-up,
+  // only for 2/4/8 groups) the slot → group mapping is fixed, so "Winner Grup A vs
+  // Runner-up Grup C" is accurate. With plain seeding (any other group count) the
+  // seat positions — including which seed takes a BYE — are decided by the FINAL
+  // standings, not the group letter, so naming a group there ("Winner Grup A · BYE")
+  // is misleading. For those tiers, label seats by neutral seed number instead.
+  const genericLab = (tier) => {
+    if (methodByTier[tier] === "cross") return null;
+    const pred = tier === "PROSPECT" ? (s) => s.rank > N : (s) => s.rank <= N;
+    const flat = [];
+    groups.forEach((g) => g.standings.filter(pred).forEach((s) => flat.push(s)));
+    flat.sort(seedSort);
+    const gmap = {}; flat.forEach((s, i) => { gmap[s.entrantId] = `Unggulan ${i + 1}`; });
+    return (id) => (id ? (gmap[id] || "") : "");
+  };
+  const baseLab = (id) => (id ? (labelOf[id] || "") : "");
+  return built.map(({ tier, b }) => projectionTierView(tier, b, genericLab(tier) || baseLab));
 }
 // "Top N overall" projection: a single seeded MAIN bracket with placeholder
 // seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
@@ -4389,7 +4405,15 @@ function buildOverallProjection(totalTeams, topN, groupLabels, adv) {
     rank++;
   }
   const b = buildBracket(seeded, "MAIN", groupOf, tierOf);
-  return [projectionTierView("MAIN", b, (id) => (id ? labelOf[id] || "" : ""))];
+  // If the bracket has empty slots (topN not a power of 2), which seeds take a BYE is
+  // decided by the final overall standings, not the group letter — so don't pin a BYE
+  // to "Winner Grup A". Fall back to neutral seed numbers for the whole bracket.
+  let lab = (id) => (id ? labelOf[id] || "" : "");
+  if (b.nQual < nextPow2(b.nQual)) {
+    const gmap = {}; seeded.forEach((id, i) => { gmap[id] = `Unggulan ${i + 1}`; });
+    lab = (id) => (id ? (gmap[id] || "") : "");
+  }
+  return [projectionTierView("MAIN", b, lab)];
 }
 // Nameless mirror of an already-generated real bracket: keeps the bracket's EXACT
 // structure and pairings, only replacing each entrant with its group-position label
