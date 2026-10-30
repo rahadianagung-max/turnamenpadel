@@ -2374,15 +2374,26 @@ async function tSetCourtNames(id, body) {
   const clean = {};
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
+  const packed = id + CN_DELIM + json;
   const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
   const rows = r.data.values || [];
   const idx = rows.findIndex((x) => cnPackedEventId(x) === id);
-  const rowNum = idx === -1 ? rows.length + 2 : idx + 2;
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A${rowNum}`,
-    valueInputOption: "RAW", requestBody: { values: [[id + CN_DELIM + json]] },
-  });
-  return respond(200, { success: true, courtNames: clean });
+  if (idx === -1) {
+    // New tabs here are created 1 row tall; append auto-expands the row grid (a plain
+    // update to a not-yet-existing row would silently write 0 cells).
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2`,
+      valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
+      requestBody: { values: [[packed]] },
+    });
+  } else {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A${idx + 2}`,
+      valueInputOption: "RAW", requestBody: { values: [[packed]] },
+    });
+  }
+  let rb = null; try { const g = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1:A6` }); rb = g.data.values || []; } catch (e) { rb = "ERR:" + (e && e.message || e); }
+  return respond(200, { success: true, courtNames: clean, _debug: { rb } });
 }
 async function tGetCourtNames(id) {
   const sheets = getSheets();
