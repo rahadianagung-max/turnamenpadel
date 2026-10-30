@@ -2380,21 +2380,32 @@ async function tSetCourtNames(id, body) {
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
   // Col X (24) is past the default-trimmed width of some event tabs — widen first.
-  const dbg = {};
+  const dbg = { rowIdx: idx + 2 };
   try {
-    const meta0 = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID, fields: "sheets(properties(sheetId,title,gridProperties(columnCount)))" });
+    const meta0 = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
     const sh0 = (meta0.data.sheets || []).find((s) => s.properties.title === TABS.t_events);
-    dbg.tabFound = !!sh0;
+    dbg.sheetId = sh0 ? sh0.properties.sheetId : null;
     dbg.colsBefore = sh0 && sh0.properties.gridProperties ? sh0.properties.gridProperties.columnCount : null;
+    if (sh0 && dbg.colsBefore != null && dbg.colsBefore < 24) {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId: SHEET_ID,
+        requestBody: { requests: [{ appendDimension: { sheetId: sh0.properties.sheetId, dimension: "COLUMNS", length: 24 - dbg.colsBefore } }] },
+      });
+      dbg.expanded = true;
+    }
   } catch (e) { dbg.metaErr = String(e && e.message || e); }
-  try { dbg.ensured = await ensureColumns(sheets, TABS.t_events, 24); } catch (e) { dbg.ensureErr = String(e && e.message || e); }
   try {
     const upd = await sheets.spreadsheets.values.update({
       spreadsheetId: SHEET_ID, range: `${TABS.t_events}!X${idx + 2}`,
       valueInputOption: "RAW", requestBody: { values: [[json]] },
     });
-    dbg.updatedCells = upd.data.updatedCells; dbg.updatedRange = upd.data.updatedRange; dbg.rowIdx = idx + 2;
+    dbg.upd = upd && upd.data ? upd.data : null;
   } catch (e) { dbg.updateErr = String(e && e.message || e); }
+  try {
+    const rb = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A${idx + 2}:X${idx + 2}` });
+    const rbRow = (rb.data.values && rb.data.values[0]) || [];
+    dbg.rbLen = rbRow.length; dbg.rbX = rbRow[23] != null ? rbRow[23] : null; dbg.rbA = rbRow[0] || null;
+  } catch (e) { dbg.rbErr = String(e && e.message || e); }
   return respond(200, { success: true, courtNames: clean, _debug: dbg });
 }
 async function tGetCourtNames(id) {
