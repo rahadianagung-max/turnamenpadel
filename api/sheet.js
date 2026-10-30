@@ -499,6 +499,7 @@ const TABS = {
   t_groups: "Tournament_Groups",
   t_matches: "Tournament_Matches",
   t_form: "Form_Responses",
+  court_labels: "Court_Labels",
   reg_forms: "RegForms",
   registrations: "Registrations",
   reg_claims: "RegClaims",
@@ -664,6 +665,8 @@ const T_HEADERS = {
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO", "Team_Name"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
+  // Per-event court display names: col A = Event_ID, col B = JSON { "1":"Linea Court", ... }.
+  [TABS.court_labels]: ["Event_ID", "Court_Names_JSON"],
   [TABS.tracked_events]: ["Month_Year", "Name", "Location", "Logo_URL", "URL"], // sama dengan Trekkr
   [TABS.upcoming]: ["Name", "Subtitle", "Location", "MonthYear", "LogoUrl", "Url", "Enabled"],
 };
@@ -2349,60 +2352,33 @@ async function tSetTvTheme(id, body) {
   return respond(200, { success: true, theme: Object.keys(clean).length ? clean : null });
 }
 // Per-event court display names { "1":"Linea Court", ... } are stored in a dedicated
-// Court_Names tab (col A = Event_ID, col B = JSON), NOT on a far column of the event
-// row. The event tabs on this sheet are only 23 columns wide (A–W) and the pinned
-// googleapis cannot read gridProperties or widen a grid reliably, so a write to any
-// column past the grid (e.g. col X) is a silent no-op. A dedicated 2-column tab
-// sidesteps that entirely. Display-only; court numbers stay the source of truth.
-const COURT_NAMES_TAB = "Court_Names";
-let _courtNamesTabReady = false;
-async function ensureCourtNamesTab(sheets) {
-  if (_courtNamesTabReady) return;
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-  const exists = (meta.data.sheets || []).some((s) => s.properties.title === COURT_NAMES_TAB);
-  if (!exists) {
-    // Create with an explicit width so cols A/B always exist (some tabs on this sheet
-    // were trimmed to 1 column, which breaks a 2-column write).
-    await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SHEET_ID,
-      requestBody: { requests: [{ addSheet: { properties: { title: COURT_NAMES_TAB, gridProperties: { rowCount: 2000, columnCount: 4 } } } }] },
-    });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A1:B1`, valueInputOption: "RAW",
-      requestBody: { values: [["Event_ID", "Court_Names_JSON"]] },
-    });
-  }
-  _courtNamesTabReady = true;
-}
+// Court_Labels tab (col A = Event_ID, col B = JSON), created through the normal
+// ensureTabs path (addSheet + header) — the same path that builds Tournament_Entrants
+// etc., whose multi-column writes work. NOT on a far column of the event row: those
+// tabs are 23 columns wide (A–W) and the pinned googleapis can't widen a grid, so a
+// write past the grid is a silent no-op. Display-only; court numbers stay the source
+// of truth.
 async function tSetCourtNames(id, body) {
   const sheets = getSheets();
-  await ensureCourtNamesTab(sheets);
+  await ensureTabs(sheets);
   const m = (body && body.courtNames && typeof body.courtNames === "object") ? body.courtNames : {};
   const clean = {};
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
-  const dbg = {};
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A2:A` });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
   const idx = (r.data.values || []).findIndex((x) => x[0] === id);
   const rowNum = idx === -1 ? (r.data.values || []).length + 2 : idx + 2;
-  dbg.rowNum = rowNum; dbg.existingRows = (r.data.values || []).length;
-  try {
-    const upd = await sheets.spreadsheets.values.update({
-      spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A${rowNum}:B${rowNum}`,
-      valueInputOption: "RAW", requestBody: { values: [[id, json]] },
-    });
-    dbg.upd = upd && upd.data ? upd.data : null;
-  } catch (e) { dbg.updErr = String(e && e.message || e); }
-  try {
-    const rb = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A1:C10` });
-    dbg.rb = rb.data.values || null;
-  } catch (e) { dbg.rbErr = String(e && e.message || e); }
-  return respond(200, { success: true, courtNames: clean, _debug: dbg });
+  const upd = await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A${rowNum}:B${rowNum}`,
+    valueInputOption: "RAW", requestBody: { values: [[id, json]] },
+  });
+  let rb = null; try { const g = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1:C6` }); rb = g.data.values || null; } catch (e) { rb = "ERR:" + (e && e.message || e); }
+  return respond(200, { success: true, courtNames: clean, _debug: { updatedCells: upd && upd.data ? upd.data.updatedCells : null, rowNum, rb } });
 }
 async function tGetCourtNames(id) {
   const sheets = getSheets();
-  await ensureCourtNamesTab(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COURT_NAMES_TAB}!A2:B` });
+  await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:B` });
   const row = (r.data.values || []).find((x) => x[0] === id);
   let names = {};
   if (row && row[1]) { try { const m = JSON.parse(row[1]); if (m && typeof m === "object") names = m; } catch (e) {} }
@@ -5444,7 +5420,7 @@ async function tPublicEvent(eventId, opts) {
   // name ever saved), the get throws and we keep the empty default — never break the feed.
   event.courtNames = {};
   try {
-    const cn = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `Court_Names!A2:B` });
+    const cn = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:B` });
     const cnRow = (cn.data.values || []).find((x) => x[0] === eventId);
     if (cnRow && cnRow[1]) { const m = JSON.parse(cnRow[1]); if (m && typeof m === "object") event.courtNames = m; }
   } catch (e) {}
