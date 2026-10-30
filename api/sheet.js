@@ -944,6 +944,11 @@ const netlifyHandler = async (event) => {
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
       return await regEventRegistrations(eid);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/audit-entrants") && method === "GET") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/audit-entrants", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH;
+      return await regAuditEntrants(eid);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/approve") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/approve", ""));
       return await regApproveRegistration(eid, body, params);
@@ -8060,6 +8065,60 @@ async function regFinalizeCategory(eventId, body) {
   });
   if (clearData.length) await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: SHEET_ID, requestBody: { valueInputOption: "RAW", data: clearData } });
   return respond(200, { success: true, finalized: imported, imported, removed: removed.length, removedPairs: removed, confirmed: confirmed.size });
+}
+// Admin AUDIT: per category, compare the CONFIRMED registrations (received/approved/
+// imported) against the current entrants by PAIR, and report name differences:
+//  • missingFromEntrants — pasangan approved yang BELUM ada di entrants (perlu finalisasi),
+//  • extraInEntrants — entrant yang pasangannya TAK ada di pendaftaran terkonfirmasi
+//    (usang / salah / diganti). Pencocokan pakai pasangan ternormalisasi (ejaan terdaftar
+//    maupun kanonik), jadi beda kapital/alias tidak dihitung sebagai beda.
+async function regAuditEntrants(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
+  const formId = regFormIdForEvent(eventId);
+  const pairKey = (a, b) => [normName(a), normName(b)].sort().join("|");
+  const nm = (p) => (p && p.match && p.match.name) || (p && p.name) || "";
+  const [rRes, eRes, tRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_entrants}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }),
+  ]);
+  const meta = {}; const order = [];
+  (tRes.data.values || []).forEach((x) => { if (x[1] === eventId && x[0]) { meta[x[0]] = { category: x[2] || "", level: x[3] || "" }; order.push(x[0]); } });
+  // Confirmed registrations per tid: one entry per pair, with both key spellings.
+  const conf = {}; const confKeys = {};
+  (rRes.data.values || []).forEach((r) => {
+    if (r[1] !== formId) return;
+    const rp = regParseReg(r);
+    if (!["received", "approved", "imported"].includes(rp.status)) return;
+    const tid = rp.category; if (!tid) return;
+    const p1 = rp.data.player1 || {}, p2 = rp.data.player2 || {};
+    const keys = [pairKey(p1.name, p2.name), pairKey(nm(p1), nm(p2))];
+    const disp = `${nm(p1) || p1.name || "?"} / ${nm(p2) || p2.name || "?"}`;
+    (conf[tid] = conf[tid] || []).push({ keys, disp });
+    (confKeys[tid] = confKeys[tid] || new Set()); keys.forEach((k) => confKeys[tid].add(k));
+    if (!meta[tid]) { meta[tid] = { category: "", level: "" }; if (!order.includes(tid)) order.push(tid); }
+  });
+  // Entrants per tid.
+  const ent = {}; const entKeys = {};
+  (eRes.data.values || []).forEach((x) => {
+    const tid = x[0]; if (!tid) return;
+    const k = pairKey(x[2], x[4]); const disp = `${x[2] || "?"} / ${x[4] || "?"}`;
+    (ent[tid] = ent[tid] || []).push({ key: k, disp });
+    (entKeys[tid] = entKeys[tid] || new Set()).add(k);
+    if (!meta[tid]) { meta[tid] = { category: "", level: "" }; if (!order.includes(tid)) order.push(tid); }
+  });
+  const categories = order.map((tid) => {
+    const ek = entKeys[tid] || new Set(); const ck = confKeys[tid] || new Set();
+    const missingFromEntrants = (conf[tid] || []).filter((c) => !c.keys.some((k) => ek.has(k))).map((c) => c.disp);
+    const extraInEntrants = (ent[tid] || []).filter((e) => !ck.has(e.key)).map((e) => e.disp);
+    return {
+      tournamentId: tid, category: meta[tid].category, level: meta[tid].level,
+      approvedCount: (conf[tid] || []).length, entrantCount: (ent[tid] || []).length,
+      missingFromEntrants, extraInEntrants,
+      inSync: missingFromEntrants.length === 0 && extraInEntrants.length === 0,
+    };
+  });
+  return respond(200, { success: true, eventId, categories });
 }
 // Admin: backfill entrant team names from registrations, for categories finalized
 // BEFORE the custom team name was carried into the entrant. For each entrant of this
