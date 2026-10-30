@@ -254,6 +254,11 @@
           <div style="font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:4px">1) Finalisasi kategori → entrants</div>
           <div class="note" style="margin:0 0 8px">Dorong pasangan terkonfirmasi (approved/received) jadi daftar peserta (entrants) agar bisa diundi. <b>Waiting list tidak ikut.</b> Boleh dijalankan walau appeal belum selesai — tinggal finalisasi ulang bila roster berubah.</div>
           <div id="finalizeList"><p class="muted" style="font-size:13px">Buka langkah ini untuk memuat kategori…</p></div>
+          <div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">
+            <button class="btn ghost sm" onclick="auditEntrants(this)">🔍 Audit: bandingkan approved vs entrants</button>
+            <div class="note" style="margin:6px 0 0">Cek apakah nama peserta di entrants sudah sama persis dengan pendaftaran approved (bukan cuma jumlahnya).</div>
+            <div id="auditResult" style="margin-top:8px"></div>
+          </div>
         </div>
         <details class="help" open>
           <summary>ℹ️ Cara kerja undian grup <span class="mk">▼</span></summary>
@@ -412,6 +417,26 @@ async function loadFinalize(){
       <span style="font-size:13px"><b>${esc(nm)}</b></span>
       <button class="btn primary sm" onclick="finalizeCat('${esc(c.tournamentId)}',this)">✅ Finalisasi → entrants</button></div>`;
   }).join("")+'<div class="note" id="finalizeMsg" style="margin-top:8px"></div>';
+}
+// Audit: bandingkan pasangan approved vs entrants per kategori (nama, bukan cuma jumlah).
+async function auditEntrants(btn){
+  const box=document.getElementById("auditResult");
+  if(box){ box.innerHTML='<p class="muted" style="font-size:13px">Memeriksa…</p>'; }
+  if(btn) btn.disabled=true;
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/audit-entrants?token="+encodeURIComponent(TOKEN));
+    const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+    const catName={MD:"Men's Doubles",WD:"Women's Doubles",MIXED:"Fixed Mixed"};
+    const html=(r.categories||[]).map(c=>{
+      const title=esc((catName[c.category]||c.category)+" "+(c.level||"").replace(/_/g," "));
+      if(c.inSync) return '<div style="margin:6px 0"><b>'+title+'</b> — <span style="color:var(--ok)">✓ cocok</span> ('+c.approvedCount+' approved = '+c.entrantCount+' entrants)</div>';
+      const miss=c.missingFromEntrants.length?'<div style="color:var(--danger);font-size:12.5px;margin-top:3px"><b>Approved tapi TIDAK ada di entrants ('+c.missingFromEntrants.length+'):</b><br>'+c.missingFromEntrants.map(esc).join("<br>")+'</div>':'';
+      const extra=c.extraInEntrants.length?'<div style="color:#b26a00;font-size:12.5px;margin-top:3px"><b>Di entrants tapi TIDAK approved ('+c.extraInEntrants.length+'):</b><br>'+c.extraInEntrants.map(esc).join("<br>")+'</div>':'';
+      return '<div style="margin:10px 0;padding:8px 10px;border:1px solid var(--line);border-radius:8px"><b>'+title+'</b> — '+c.approvedCount+' approved vs '+c.entrantCount+' entrants'+miss+extra+'<div class="note" style="margin-top:4px">→ klik <b>Finalisasi</b> kategori ini untuk menyamakan (impor yang kurang &amp; buang yang usang).</div></div>';
+    }).join("");
+    if(box) box.innerHTML=html||'<p class="muted" style="font-size:13px">Tidak ada data.</p>';
+  }catch(e){ if(box) box.innerHTML='<p style="color:var(--danger);font-size:13px">Gagal audit: '+((e&&e.message)||e)+'</p>'; }
+  if(btn) btn.disabled=false;
 }
 async function finalizeCat(tid, btn){
   const msg=document.getElementById("finalizeMsg");
