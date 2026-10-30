@@ -499,7 +499,6 @@ const TABS = {
   t_groups: "Tournament_Groups",
   t_matches: "Tournament_Matches",
   t_form: "Form_Responses",
-  court_labels: "Court_Labels",
   reg_forms: "RegForms",
   registrations: "Registrations",
   reg_claims: "RegClaims",
@@ -665,10 +664,6 @@ const T_HEADERS = {
   [TABS.t_groups]: ["Tournament_ID", "Category", "Group_Label", "Entrant_ID", "Player1_Name", "Player2_Name", "Seed_ELO", "Team_Name"],
   [TABS.t_matches]: ["Tournament_ID", "Match_ID", "Stage", "Group_Label", "Bracket", "Round", "Court", "Slot_Index", "Scheduled_Time", "Entrant_A", "Entrant_B", "Score_A", "Score_B", "Winner", "Status", "Updated_At", "Scheduled_Date"],
   [TABS.t_form]: ["Timestamp", "Category", "Player1_Name", "Player1_IG", "Player2_Name", "Player2_IG", "Contact_WA", "Tournament"],
-  // Per-event court display names. Packed into a SINGLE column (col A) as
-  // "<eventId>\u0001<json>" because new tabs on this sheet are created 1 column wide
-  // and the pinned googleapis can't widen a grid, so a 2nd-column write would no-op.
-  [TABS.court_labels]: ["Court_Label_Rows"],
   [TABS.tracked_events]: ["Month_Year", "Name", "Location", "Logo_URL", "URL"], // sama dengan Trekkr
   [TABS.upcoming]: ["Name", "Subtitle", "Location", "MonthYear", "LogoUrl", "Url", "Enabled"],
 };
@@ -2279,7 +2274,9 @@ async function getPublicFeed() {
     .map((r) => ({
       id: r[0] || "", name: r[1] || "", venue: r[2] || "", date: r[3] || "",
       startTime: r[4] || "", status: (r[8] || "").toString().toLowerCase(),
-      format: r[9] || "", category: r[10] || "", url: r[11] || "", highlight: feedTrue(r[12]),
+      // col K (index 10) now holds per-event court display names (JSON), not a feed
+      // category, so it is intentionally not surfaced here.
+      format: r[9] || "", category: "", url: r[11] || "", highlight: feedTrue(r[12]),
     }));
   const norm = []
     .concat(activePlayrank.map((p) => ({
@@ -2353,65 +2350,41 @@ async function tSetTvTheme(id, body) {
   });
   return respond(200, { success: true, theme: Object.keys(clean).length ? clean : null });
 }
-// Per-event court display names { "1":"Linea Court", ... } are stored in the Court_Labels
-// tab, packed into a SINGLE cell per event in column A as "<eventId>\u0001<json>".
-// New tabs on this sheet are created only 1 column wide and the pinned googleapis can't
-// widen a grid (a write to any non-existent column silently writes 0 cells), so a 2nd
-// column can't be relied on — but a single-column write always lands. Display-only;
-// court numbers stay the source of truth.
-const CN_DELIM = "\u0001";
-function cnPackedEventId(cell) { return String((cell && cell[0]) || "").split(CN_DELIM)[0]; }
-function cnParse(cell) {
-  const s = String((cell && cell[0]) || "");
-  const i = s.indexOf(CN_DELIM);
-  if (i === -1) return {};
-  try { const m = JSON.parse(s.slice(i + 1)); return (m && typeof m === "object") ? m : {}; } catch (e) { return {}; }
+// Per-event court display names { "1":"Linea Court", ... } are stored on the event's own
+// row in Tournament_Events column K (index 10) as a JSON string — the same proven write
+// pattern as the TV theme (col I). This sheet cannot create new tabs (addSheet silently
+// no-ops on the pinned googleapis) and cannot widen a grid, so a dedicated tab or a far
+// column is unreliable; col K is an existing in-grid column that is written nowhere else
+// (it was reserved as an unused public-feed "category" slot). Display-only; court numbers
+// stay the source of truth.
+const CN_COL = "K";          // Tournament_Events column K
+const CN_IDX = 10;           // ...its 0-based index
+function cnParse(raw) {
+  if (!raw) return {};
+  try { const m = JSON.parse(raw); return (m && typeof m === "object") ? m : {}; } catch (e) { return {}; }
 }
 async function tSetCourtNames(id, body) {
   const sheets = getSheets();
   await ensureTabs(sheets);
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:A` });
+  const idx = (r.data.values || []).findIndex((x) => x[0] === id);
+  if (idx === -1) return respond(404, { error: "Event not found" });
   const m = (body && body.courtNames && typeof body.courtNames === "object") ? body.courtNames : {};
   const clean = {};
   for (const k of Object.keys(m)) { const key = String(k).trim(); const name = String(m[k] || "").trim().slice(0, 60); if (key && name) clean[key] = name; }
   const json = Object.keys(clean).length ? JSON.stringify(clean) : "";
-  const packed = id + CN_DELIM + json;
-  const dbg = {};
-  try {
-    const meta = await sheets.spreadsheets.get({ spreadsheetId: SHEET_ID });
-    const sh = (meta.data.sheets || []).find((s) => s.properties.title === TABS.court_labels);
-    dbg.tabExists = !!sh;
-    dbg.grid = sh ? sh.properties.gridProperties : null;
-    dbg.sheetTitles = (meta.data.sheets || []).map((s) => s.properties.title);
-  } catch (e) { dbg.metaErr = String(e && e.message || e); }
-  try {
-    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
-    const rows = r.data.values || [];
-    const idx = rows.findIndex((x) => cnPackedEventId(x) === id);
-    dbg.existingRows = rows.length; dbg.idx = idx;
-    if (idx === -1) {
-      const ap = await sheets.spreadsheets.values.append({
-        spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1`,
-        valueInputOption: "RAW", insertDataOption: "INSERT_ROWS",
-        requestBody: { values: [[packed]] },
-      });
-      dbg.appendUpdates = ap && ap.data ? ap.data.updates : null;
-    } else {
-      const up = await sheets.spreadsheets.values.update({
-        spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A${idx + 2}`,
-        valueInputOption: "RAW", requestBody: { values: [[packed]] },
-      });
-      dbg.updatedCells = up && up.data ? up.data.updatedCells : null;
-    }
-  } catch (e) { dbg.writeErr = String(e && e.message || e); }
-  try { const g = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A1:A6` }); dbg.rb = g.data.values || []; } catch (e) { dbg.rbErr = String(e && e.message || e); }
-  return respond(200, { success: true, courtNames: clean, _debug: dbg });
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SHEET_ID, range: `${TABS.t_events}!${CN_COL}${idx + 2}`,
+    valueInputOption: "RAW", requestBody: { values: [[json]] },
+  });
+  return respond(200, { success: true, courtNames: clean });
 }
 async function tGetCourtNames(id) {
   const sheets = getSheets();
   await ensureTabs(sheets);
-  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
-  const row = (r.data.values || []).find((x) => cnPackedEventId(x) === id);
-  return respond(200, { courtNames: row ? cnParse(row) : {} });
+  const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:${CN_COL}` });
+  const row = (r.data.values || []).find((x) => x[0] === id);
+  return respond(200, { courtNames: row ? cnParse(row[CN_IDX]) : {} });
 }
 async function tListEvents(params = {}) {
   const sheets = getSheets();
@@ -5447,12 +5420,8 @@ async function tPublicEvent(eventId, opts) {
   // Court_Names tab (col A = Event_ID, col B = JSON). Display-only; court numbers stay
   // the source of truth. Separate tolerant read: if the tab doesn't exist yet (no court
   // name ever saved), the get throws and we keep the empty default — never break the feed.
-  event.courtNames = {};
-  try {
-    const cn = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.court_labels}!A2:A` });
-    const cnRow = (cn.data.values || []).find((x) => cnPackedEventId(x) === eventId);
-    if (cnRow) event.courtNames = cnParse(cnRow);
-  } catch (e) {}
+  // Court display names live on the event row (col K). evRow came from the batchGet A2:X.
+  event.courtNames = cnParse(evRow[CN_IDX]);
 
   const players = {};
   for (const r of plRows) {
