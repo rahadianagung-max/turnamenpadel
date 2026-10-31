@@ -326,7 +326,7 @@ const state = { data:null };
 let RIGHT_ALT = false;
 // Category rotation for the right panel when the event has 2+ categories.
 let CAT_ROT = 0;
-const ROT_MS = 60000;      // 60s per category
+const ROT_MS = 15000;      // 15s per category
 let nextRotAt = 0;         // timestamp of the next category switch (for the countdown)
 let ROT_N = 0;             // categories in the currently shown rotating view (>1 => rotating)
 let STAND_PAGES = 1;       // group-standings pages (>1 => split per category & rotating)
@@ -1068,7 +1068,7 @@ async function showPicker(){
     // Group stage shows Group Standings only; the simulated playoff bracket is no
     // longer rotated in. The real bracket appears once the playoff actually starts.
     // Rotate the right panel (bracket / simulation / standings) between
-    // categories every 60s when the event has 2+ categories, so each gets
+    // categories every 15s (ROT_MS) when the event has 2+ categories, so each gets
     // full-screen airtime. A countdown under the title shows the time left.
     nextRotAt = Date.now() + ROT_MS;
     setInterval(()=>{
@@ -1080,7 +1080,7 @@ async function showPicker(){
       // categories, OR group standings were split into per-category pages because
       // they didn't all fit legibly on one screen (STAND_PAGES>1).
       if(Math.max(nBracket,nProj)>1 || STAND_PAGES>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
-    }, 60000);
+    }, ROT_MS);
     setInterval(updateRotCountdown, 1000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
   } else {
