@@ -5483,17 +5483,24 @@ async function tPublicEvent(eventId, opts) {
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
-    // Label each entrant by its current group position ("Winner Grup A", "Runner-up
-    // Grup E", …) so the nameless projection of a real bracket shows the ACTUAL
-    // cross-seeded pairings instead of a re-derived standard seed.
-    // In overall ("N besar") mode, wildcard qualifiers are labelled by their overall
-    // seed ("Wildcard · Unggulan 13") rather than a within-group rank like
-    // "Peringkat 5 Grup A"; per-group playoffs keep the plain group-position labels.
-    const advPerGroup = parseInt(t[6]) || 2;
+    // Nameless projection of a real (already-generated) bracket: label each seat with a
+    // neutral seed number ("Unggulan N") rather than a group position. The exact seat a
+    // team ends up in — and any BYE — depends on the final standings, so showing
+    // "Winner Grup A" here would imply a specific group/team prematurely. Real
+    // group-position/player names return once the group stage finishes (playoffPublic).
     const topOverall = parseInt(t[10]) || 0;
-    const entrantLabelMap = topOverall >= 2
-      ? overallEntrantLabels(groups, topOverall, advPerGroup, rankMode)
-      : (() => { const m = {}; for (const g of groups) for (const s of g.standings) m[s.entrantId] = playoffProjectionRankLabel(s.rank, g.label); return m; })();
+    const entrantLabelMap = (() => {
+      const inBracket = new Set();
+      (playoff || []).forEach((tr) => (tr.rounds || []).forEach((r) => (r.matches || []).forEach((m) => {
+        if (m.entrantA) inBracket.add(m.entrantA);
+        if (m.entrantB) inBracket.add(m.entrantB);
+      })));
+      const flat = [];
+      for (const g of groups) for (const s of g.standings) if (inBracket.has(s.entrantId)) flat.push(s);
+      flat.sort(seedSort);
+      const m = {}; flat.forEach((s, i) => { m[s.entrantId] = `Unggulan ${i + 1}`; });
+      return m;
+    })();
     const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, entrantLabelMap) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     // Provisional qualification panel while groups run: "N besar" overall when a
