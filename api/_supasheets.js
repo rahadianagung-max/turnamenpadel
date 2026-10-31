@@ -49,6 +49,10 @@ const SHEET_MAP = {
   Draw_Results:       { table: "draw_results",        cols: ["timestamp","draw_id","tournament_id","tournament_name","mode","groups","pairs_per_group","random_key","random_key_hash","group_label","pot","pair_id","player1","player2","rating","team_name","status"] },
   Draw_Log:           { table: "draw_log",            cols: ["timestamp","draw_id","tournament_id","n","pot","group_label","pair_id","at_time"] },
   Tournament_Archive: { table: "tournament_archive",  cols: ["archived_at","event_id","source_tab","row_json"] },
+  // Shared with trekkr.online: "Show on Venue" writes one row here so the venue
+  // site (venue.trekkr.online/tournament/<slug>) can resolve the competition.
+  // Column order MUST match trekkr's Competitions layout exactly.
+  Competitions:       { table: "competitions",        cols: ["slug","type","source_venue","name","location","logo_url","status","event_date"] },
   Mexicano:           { table: "mexicano",            cols: ["mexicano_id","slug","data_json","updated_at"] },
   Achievements:       { table: "achievements",        cols: ["player","player_norm","event_id","event_name","category","level","tournament_id","placement","stage","event_date","created_at"] },
 };
