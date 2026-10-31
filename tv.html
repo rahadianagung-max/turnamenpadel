@@ -226,6 +226,20 @@
   .wstat{font-family:var(--mono); font-weight:800; font-size:clamp(13px,1.3vw,28px); letter-spacing:.04em;}
   .wstat .w{color:var(--accent);} .wstat .l{color:var(--faint);} .wstat .sep{color:var(--soft);}
 
+  /* ---- Champions celebration ---- */
+  #confetti{position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:60; display:none;}
+  #confetti.on{display:block;}
+  @keyframes wCardIn{from{opacity:0; transform:translateY(5vh) scale(.92);} to{opacity:1; transform:none;}}
+  @keyframes champGlow{0%,100%{box-shadow:7px 7px 0 0 var(--accent);} 50%{box-shadow:0 0 5.5vh .7vh var(--accent),7px 7px 0 0 var(--accent);}}
+  @keyframes trophyPop{0%,100%{transform:scale(1) rotate(0);} 25%{transform:scale(1.2) rotate(-8deg);} 60%{transform:scale(1.2) rotate(8deg);}}
+  @keyframes goldShine{to{background-position:-220% 0;}}
+  .winners3 .wcard{animation:wCardIn .6s cubic-bezier(.2,.8,.2,1.1) both;}
+  .winners3 .wcard.ru{animation-delay:.14s;}
+  .winners3 .wcard.third{animation-delay:.28s;}
+  .winners3 .wcard.champ{animation:wCardIn .6s cubic-bezier(.2,.8,.2,1.1) both, champGlow 1.9s ease-in-out .7s infinite;}
+  .winners3 .wcard.champ .wrank{animation:trophyPop 1.5s ease-in-out .7s infinite; transform-origin:center;}
+  .winners3 .wcard.champ .wteam{background:linear-gradient(100deg,var(--accent) 25%,#fff 50%,var(--accent) 75%); background-size:220% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:goldShine 2.8s linear infinite;}
+
   /* event picker (remote) */
   .tvpick-ov{position:fixed; inset:0; z-index:100; background:var(--bg); padding:5vh 6vw; overflow:auto; display:flex; flex-direction:column;}
   .tvpick-brand{font-family:var(--disp); font-weight:900; font-size:clamp(22px,3vw,44px); background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:.6vh;}
@@ -251,6 +265,7 @@
 </style>
 </head>
 <body>
+<canvas id="confetti"></canvas>
 <div id="sponsorOverlay"><img id="spImg" alt="sponsor"></div>
 <div id="spCountdown"></div>
 <div class="screen">
@@ -754,6 +769,44 @@ function fitStandings(){
   while(!fits() && g>8){ g-=0.5; fit.style.setProperty("--sfz", g+"px"); }
   return g;   // the font size it settled on (px) — used to decide if paging is needed
 }
+// ---- Champions confetti (vanilla, canvas) ----
+let _cfRAF=0, _cfParts=[], _cfCv=null, _cfCtx=null, _cfOn=false;
+const CF_COLORS=["#FF5900","#D2F802","#ffffff","#ffd24a","#19c37d"];
+function _cfResize(){ if(_cfCv){ _cfCv.width=window.innerWidth; _cfCv.height=window.innerHeight; } }
+function _cfSpawn(initial){
+  return { x:Math.random()*window.innerWidth,
+    y: initial ? Math.random()*-window.innerHeight : -20,
+    vx:(Math.random()-0.5)*1.6, vy:2+Math.random()*3.6, s:6+Math.random()*10,
+    rot:Math.random()*6.28, vr:(Math.random()-0.5)*0.3, phase:Math.random()*100,
+    a:0.85+Math.random()*0.15, color:CF_COLORS[Math.floor(Math.random()*CF_COLORS.length)] };
+}
+function startConfetti(){
+  if(_cfOn) return;
+  _cfCv=document.getElementById("confetti"); if(!_cfCv) return;
+  _cfCtx=_cfCv.getContext("2d"); _cfResize(); _cfCv.classList.add("on"); _cfOn=true;
+  const N=Math.min(240, Math.round(window.innerWidth/8));
+  _cfParts=Array.from({length:N},()=>_cfSpawn(true));
+  const tick=()=>{
+    const w=_cfCv.width,h=_cfCv.height; _cfCtx.clearRect(0,0,w,h);
+    for(const p of _cfParts){
+      p.y+=p.vy; p.x+=p.vx+Math.sin((p.y+p.phase)/40)*0.8; p.rot+=p.vr;
+      if(p.y>h+20){ const n=_cfSpawn(false); n.color=p.color; Object.assign(p,n); }
+      _cfCtx.save(); _cfCtx.translate(p.x,p.y); _cfCtx.rotate(p.rot);
+      _cfCtx.globalAlpha=p.a; _cfCtx.fillStyle=p.color;
+      _cfCtx.fillRect(-p.s/2,-p.s/2,p.s,p.s*0.6); _cfCtx.restore();
+    }
+    _cfRAF=requestAnimationFrame(tick);
+  };
+  _cfRAF=requestAnimationFrame(tick);
+}
+function stopConfetti(){
+  if(!_cfOn) return; _cfOn=false;
+  cancelAnimationFrame(_cfRAF); _cfRAF=0;
+  if(_cfCtx&&_cfCv) _cfCtx.clearRect(0,0,_cfCv.width,_cfCv.height);
+  if(_cfCv) _cfCv.classList.remove("on");
+}
+window.addEventListener("resize", _cfResize);
+
 function renderRight(){
   const hasPlayoff=(state.data.categories||[]).some(c=>(c.playoff||[]).length);
   const titleEl=document.getElementById("rightTitle");
@@ -766,13 +819,14 @@ function renderRight(){
     if(legendEl) legendEl.hidden=true;
     const cur=bcats.length?bcats[CAT_ROT % bcats.length]:null;
     const fin=cur?catFinishedPodium(cur):null;
-    if(fin){ titleEl.textContent="Champions"+catSuffix(bcats); wrap.innerHTML=winnersHtml(fin); }
-    else { titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); }
+    if(fin){ titleEl.textContent="Champions"+catSuffix(bcats); wrap.innerHTML=winnersHtml(fin); startConfetti(); }
+    else { titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); stopConfetti(); }
     updateRotCountdown(); updateCenterCat(); return;
   }
   // Group stage: rotate Group Standings with a Provisional Qualification screen
   // for categories that use the wildcard seed system (top-N with best-3rd spots).
   // The old projected bracket ("Winner Grup A vs …") is never shown.
+  stopConfetti();   // no champions on the group-stage screens
   const cats=(state.data.categories||[]).filter(c=>c.groups && c.groups.some(g=>g.standings.length));
   const qualCats = tvQualCats();
   STAND_PAGES=1; ROT_N=1; ROT_LABELS=[]; titleEl.textContent="Group Standings";
