@@ -4346,19 +4346,23 @@ function projectionTierView(tier, b, lab) {
 function buildPlayoffProjection(groupsInfo, format, N) {
   // groupsInfo: [{ label, size }] — one entry per group, size = teams in it.
   if (!groupsInfo.length) return [];
+  const labelOf = {};
   const groups = groupsInfo.map((g) => ({
     label: g.label,
     standings: Array.from({ length: Math.max(0, g.size) }, (_, i) => {
       const rank = i + 1, id = `${g.label}#${rank}`;
+      labelOf[id] = playoffProjectionRankLabel(rank, g.label);
       return { entrantId: id, rank, wins: 0, gd: 0, gf: 0 };
     }),
   }));
-  const { built } = buildPlayoffTiers(groups, format, N);
-  // The projection runs before any score, so real teams aren't known and the exact
-  // seat/BYE positions depend on the final standings. Label every seat by a neutral
-  // seed number ("Unggulan 1" …, "Unggulan 1 · BYE") instead of a group position so the
-  // preview never implies a specific group gets a particular slot or a BYE.
-  const genericLab = (tier) => {
+  const { built, summary } = buildPlayoffTiers(groups, format, N);
+  const methodByTier = {}; summary.forEach((s) => { methodByTier[s.tier] = s.method; });
+  // Cross-seeded tiers (group count 2/4/8) are deterministic and always full — no BYE —
+  // so show the real crossing with group-position labels ("Juara Grup A vs Runner-up
+  // Grup C"). Plain-seeded tiers (any other group count) decide seats — and any BYE — by
+  // the final standings, so there we use neutral seed numbers ("Unggulan N") to avoid
+  // implying a specific group gets a slot or a BYE.
+  const seedLab = (tier) => {
     const pred = tier === "PROSPECT" ? (s) => s.rank > N : (s) => s.rank <= N;
     const flat = [];
     groups.forEach((g) => g.standings.filter(pred).forEach((s) => flat.push(s)));
@@ -4366,7 +4370,8 @@ function buildPlayoffProjection(groupsInfo, format, N) {
     const gmap = {}; flat.forEach((s, i) => { gmap[s.entrantId] = `Unggulan ${i + 1}`; });
     return (id) => (id ? (gmap[id] || "") : "");
   };
-  return built.map(({ tier, b }) => projectionTierView(tier, b, genericLab(tier)));
+  const baseLab = (id) => (id ? (labelOf[id] || "") : "");
+  return built.map(({ tier, b }) => projectionTierView(tier, b, methodByTier[tier] === "cross" ? baseLab : seedLab(tier)));
 }
 // "Top N overall" projection: a single seeded MAIN bracket with placeholder
 // seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
@@ -5483,24 +5488,32 @@ async function tPublicEvent(eventId, opts) {
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
-    // Nameless projection of a real (already-generated) bracket: label each seat with a
-    // neutral seed number ("Unggulan N") rather than a group position. The exact seat a
-    // team ends up in — and any BYE — depends on the final standings, so showing
-    // "Winner Grup A" here would imply a specific group/team prematurely. Real
-    // group-position/player names return once the group stage finishes (playoffPublic).
+    // Nameless projection of a real (already-generated) bracket. A FULL bracket (no BYE)
+    // is shown with real group-position labels so the crossing is visible and accurate
+    // ("Juara Grup A vs Runner-up Grup C"). A bracket WITH BYEs uses neutral seed numbers
+    // ("Unggulan N"), since naming the group that sits out can mislead. Real player names
+    // return once the group stage finishes (playoffPublic).
     const topOverall = parseInt(t[10]) || 0;
-    const entrantLabelMap = (() => {
-      const inBracket = new Set();
-      (playoff || []).forEach((tr) => (tr.rounds || []).forEach((r) => (r.matches || []).forEach((m) => {
-        if (m.entrantA) inBracket.add(m.entrantA);
-        if (m.entrantB) inBracket.add(m.entrantB);
-      })));
-      const flat = [];
-      for (const g of groups) for (const s of g.standings) if (inBracket.has(s.entrantId)) flat.push(s);
-      flat.sort(seedSort);
-      const m = {}; flat.forEach((s, i) => { m[s.entrantId] = `Unggulan ${i + 1}`; });
-      return m;
-    })();
+    const posOf = {};
+    for (const g of groups) for (const s of g.standings) posOf[s.entrantId] = { rank: s.rank, group: g.label };
+    const entrantLabelMap = {};
+    (playoff || []).forEach((tr) => {
+      const ents = [];
+      (tr.rounds || []).forEach((r) => (r.matches || []).forEach((m) => {
+        if (m.entrantA) ents.push(m.entrantA);
+        if (m.entrantB) ents.push(m.entrantB);
+      }));
+      const nq = tr.nQual || ents.length;
+      if (nq >= nextPow2(nq)) {
+        // Full bracket → real group-position labels (shows the crossing).
+        ents.forEach((id) => { const p = posOf[id]; entrantLabelMap[id] = p ? playoffProjectionRankLabel(p.rank, p.group) : ""; });
+      } else {
+        // Bracket has BYEs → neutral seed numbers, by seed order.
+        const flat = ents.map((id) => ({ id, s: posOf[id] })).filter((x) => x.s);
+        flat.sort((a, b) => seedSort(a.s, b.s));
+        flat.forEach((x, i) => { entrantLabelMap[x.id] = `Unggulan ${i + 1}`; });
+      }
+    });
     const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, entrantLabelMap) : planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     // Provisional qualification panel while groups run: "N besar" overall when a
