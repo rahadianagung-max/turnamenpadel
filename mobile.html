@@ -208,12 +208,6 @@
   .deciderow{font-family:var(--mono); font-size:10px; color:var(--slate-600); margin-top:10px; line-height:1.5;}
   .deciderow b{color:var(--accent); font-weight:800;}
 
-  /* wildcard race (Fixed Mixed) */
-  .stable .wc-grp{display:inline-block; font-family:var(--mono); font-weight:700; font-size:10px; color:var(--accent); background:var(--orange-10); border:1px solid var(--accent); border-radius:5px; padding:0 5px; margin-left:6px; vertical-align:middle;}
-  .stable .wc-tag{display:inline-block; font-family:var(--mono); font-weight:800; font-size:9px; letter-spacing:.06em; color:#fff; background:var(--accent); border-radius:4px; padding:1px 5px; margin-left:6px; vertical-align:middle;}
-  .stable tr.wc-cut td{padding:0; border:0;}
-  .stable tr.wc-cut span{display:block; font-family:var(--mono); font-weight:800; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); background:var(--orange-10); border-top:2px dashed var(--accent); border-bottom:2px dashed var(--accent); padding:4px 8px;}
-
   /* bracket */
   .tier{margin:18px 0 6px;}
   .tier > h3{display:flex; align-items:center; gap:9px; font-family:var(--display); font-weight:900; font-size:17px;
@@ -601,7 +595,7 @@ function renderStandings(cat){
     ? "Ranked by: points (win 3 · draw 1 · loss 0) → head-to-head → point difference → points for → points against"
     : "Ranked by: most wins → head-to-head → point difference → points for → points against";
   const decLabel = { h2h:"head-to-head", pd:"point difference (PD)", pf:"points for (PF)", pa:"points against (PA)" };
-  const groupsHtml = cat.groups.map(g=>{
+  return cat.groups.map(g=>{
     const denom = Math.max(1,(g.standings.length||1)-1);
     // Which stat columns acted as a tie-breaker anywhere in this group (so we can
     // flag the column header too).
@@ -651,41 +645,6 @@ function renderStandings(cat){
       <thead><tr><th>#</th><th class="l">Pair</th><th>Played</th><th>Win</th>${pts?'<th>Draw</th>':''}<th>Lose</th>${thPD}${thPF}${thPA}${pts?'<th>Pts</th>':''}</tr></thead>
       <tbody>${rows}</tbody></table></div>${note?`<div class="deciderow">${note}</div>`:''}</div>`;
   }).join("");
-  return groupsHtml + renderWildcardRace(cat);
-}
-// Wildcard race — Fixed Mixed only. Teams that finished below each group's auto-
-// advance cut (rank > advancersPerGroup) ranked ACROSS all groups for the remaining
-// "top N overall" slots. Head-to-head can't apply between groups, so the order is
-// wins (or points) → point difference → points for → fewer points against. This
-// explains why a group's 4th can qualify over another group's 3rd.
-function renderWildcardRace(cat){
-  if(String(cat.category||"").toUpperCase()!=="MIXED") return "";
-  const N = cat.advancersPerGroup||0;
-  const slots = (parseInt(cat.topOverall)||0) - ((cat.groups||[]).length * N);
-  if(slots<=0) return "";
-  const pts = String(cat.rankMode||"wins")==="points";
-  const scoreOf = s => pts ? ((s.points!=null)?s.points:(Number(s.wins||0)*3+Number(s.draws||0))) : Number(s.wins||0);
-  const paOf = s => (s.ga!=null)?Number(s.ga):(Number(s.gf||0)-Number(s.gd||0));
-  const pool=[];
-  (cat.groups||[]).forEach(g=>(g.standings||[]).forEach(s=>{ if(Number(s.rank)>N) pool.push({s,grp:g.label}); }));
-  if(!pool.length) return "";
-  pool.sort((x,y)=> (scoreOf(y.s)-scoreOf(x.s)) || ((y.s.gd||0)-(x.s.gd||0)) || ((y.s.gf||0)-(x.s.gf||0)) || (paOf(x.s)-paOf(y.s)) );
-  const rows = pool.map((o,i)=>{
-    const s=o.s, rank=i+1, inq=rank<=slots;
-    const sc=scoreOf(s), pa=paOf(s);
-    const badge=`<span class="wc-grp">${esc(String(o.grp))}&middot;${esc(String(s.rank))}</span>`;
-    const tag=inq?'<span class="wc-tag">LOLOS</span>':'';
-    const tr=`<tr class="${inq?'top':''}"><td class="rk">${rank}</td>
-      <td><span class="nmcell">${teamNames(cat,s.entrantId,false)}${badge}${tag}</span></td>
-      <td class="num-c">${sc}</td><td class="num-c">${s.gd>0?'+':''}${s.gd}</td><td class="num-c">${s.gf}</td><td class="num-c">${pa}</td></tr>`;
-    const cut=(rank===slots)?`<tr class="wc-cut"><td colspan="6"><span>Garis potong &middot; ${slots} slot wildcard &darr; tidak lolos</span></td></tr>`:'';
-    return tr+cut;
-  }).join("");
-  const scHead = pts ? "Pts" : "Win";
-  return `<div class="tcardwrap"><div class="tscroll"><table class="stable">
-    <caption>Wildcard Race &middot; perebutan ${slots} slot terakhir — semua tim selain juara &amp; runner-up grup, diurut keseluruhan (${pts?'poin':'menang'} &rarr; PD &rarr; PF &rarr; PA; head-to-head tidak berlaku antar grup)</caption>
-    <thead><tr><th>#</th><th class="l">Pair</th><th>${scHead}</th><th>PD</th><th>PF</th><th>PA</th></tr></thead>
-    <tbody>${rows}</tbody></table></div></div>`;
 }
 
 const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
