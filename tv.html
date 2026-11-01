@@ -935,10 +935,22 @@ function render(){
   const perCourt={};
   feed.forEach(f=>{ if(f.status!=="DONE" && f.court){ (perCourt[f.court]=perCourt[f.court]||[]).push(f); } });
   const courts=Object.keys(perCourt).sort((a,b)=>a-b);
-  // NOW PLAYING berbasis instant realtime (tanggal + jam WIB): match belum-DONE paling
-  // awal di tiap court menyala saat sekarang ≥ waktu-proyeksinya.
+  // NOW PLAYING mengikuti PROGRES NYATA, bukan jam: sebuah court yang SUDAH MULAI
+  // (minimal 1 match grup di court itu sudah DONE) langsung menampilkan match
+  // belum-DONE paling awal sebagai "now playing" — tanpa menunggu jam jadwal atau
+  // jam istirahat (jadi jadwal yang digeser / window break tidak mengosongkan board).
+  // Court yang BELUM mulai tetap menunggu jam-proyeksinya, supaya kategori yang
+  // dijadwalkan nanti (mis. sore) tidak muncul prematur.
   const nowAbs=Date.now();
-  const playing=courts.map(ct=>{ const first=perCourt[ct][0]; return (first && proj[first.key]!=null && nowAbs>=proj[first.key]) ? first : null; }).filter(Boolean);
+  const startedCourt={};
+  feed.forEach(f=>{ if(f.status==="DONE" && f.court && f.stage==="GROUP") startedCourt[f.court]=true; });
+  const playing=courts.map(ct=>{
+    const first=perCourt[ct][0];
+    if(!first) return null;
+    const timeOk = proj[first.key]!=null && nowAbs>=proj[first.key];
+    const started = !!startedCourt[ct] && first.stage==="GROUP";
+    return (started||timeOk) ? first : null;
+  }).filter(Boolean);
   // Upcoming: flat queue ordered chronologically. Cap must exceed one slot's worth of
   // matches (≈ number of courts) so the NEXT time slot shows too, not just the immediate one.
   const UP_MAX=8;
