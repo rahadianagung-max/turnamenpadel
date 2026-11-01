@@ -127,7 +127,12 @@
   .grp-grid{display:grid; gap:calc(var(--sfz)*.6) calc(var(--sfz)*.6); align-content:start;}
   .grp{overflow:hidden; border:2px solid var(--line); border-radius:calc(var(--sfz)*.7); background:var(--panel);
     box-shadow:3px 3px 0 0 var(--shadow); padding:calc(var(--sfz)*.55) calc(var(--sfz)*.65); display:flex; flex-direction:column;}
-  .grp-h{flex:0 0 auto; font-family:var(--disp); font-weight:900; color:var(--text); font-size:calc(var(--sfz)*1.08); letter-spacing:-.01em; margin-bottom:calc(var(--sfz)*.35);}
+  .grp-h{flex:0 0 auto; display:flex; align-items:baseline; gap:calc(var(--sfz)*.5); flex-wrap:wrap; margin-bottom:calc(var(--sfz)*.35);}
+  .grp-h .gn{font-family:var(--disp); font-weight:900; color:var(--text); font-size:calc(var(--sfz)*1.08); letter-spacing:-.01em; line-height:1;}
+  .grp-h .gc{display:inline-flex; align-items:baseline; gap:.35em; font-family:var(--mono); font-weight:700; font-size:calc(var(--sfz)*.72);
+    color:var(--accent2); background:var(--accent-10); border:1.5px solid var(--accent); border-radius:calc(var(--sfz)*.4);
+    padding:calc(var(--sfz)*.12) calc(var(--sfz)*.45); letter-spacing:.01em; line-height:1.15; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .grp-h .gc .k{font-size:.72em; color:var(--accent); letter-spacing:.1em; flex:0 0 auto;}
   table.st{width:100%; border-collapse:collapse; table-layout:auto; font-variant-numeric:tabular-nums;}
   table.st th{font-family:var(--mono); font-weight:700; color:var(--faint); text-transform:uppercase; letter-spacing:.03em;
     font-size:calc(var(--sfz)*.64); text-align:center; padding:calc(var(--sfz)*.2) calc(var(--sfz)*.28); border-bottom:2px solid var(--line); white-space:nowrap;}
@@ -722,6 +727,16 @@ function capFor(c){
   const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
   return `${advText?advText+" · ":""}${rankNote}`;
 }
+// Court(s) a group plays on, derived from its scheduled group matches. Applies
+// the event's custom courtNames (via courtLabel). Returns "" when unknown so the
+// header degrades to just the group label.
+function groupCourtTag(c, label){
+  const seen=[];
+  (c.schedule||[]).forEach(m=>{ if(String(m.groupLabel)===String(label)){ const v=(m.court==null?"":String(m.court)).trim(); if(v && !seen.includes(v)) seen.push(v); } });
+  if(!seen.length) return "";
+  const names=seen.map(v=>courtLabel(v)).join(" / ");  // courtLabel already escapes
+  return `<span class="gc"><span class="k">COURT</span>${names}</span>`;
+}
 function cardHtml(c, g){
   const N=c.advancersPerGroup||0, split=String(c.format||"").toUpperCase()==="SPLIT";
   const pts = String(c.rankMode||"wins")==="points";
@@ -740,7 +755,7 @@ function cardHtml(c, g){
       <td>${s.played}/${denom}</td><td>${s.wins}</td>${pts?`<td>${dr}</td>`:""}<td>${s.losses}</td>
       <td>${s.gd>0?"+":""}${s.gd}</td><td>${s.gf}</td><td>${pa}</td>${pts?`<td class="pts"><b>${p}</b></td>`:""}</tr>`;
   }).join("");
-  return `<div class="grp"><div class="grp-h">Group ${esc(g.label)} · ${g.standings.length} teams</div>
+  return `<div class="grp"><div class="grp-h"><span class="gn">Group ${esc(g.label)}</span>${groupCourtTag(c,g.label)}</div>
     <table class="st"><thead><tr><th>#</th><th class="nm">Pair</th><th>Pld</th><th>W</th>${pts?"<th>D</th>":""}<th>L</th><th>PD</th><th>PF</th><th>PA</th>${pts?"<th>Pts</th>":""}</tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
