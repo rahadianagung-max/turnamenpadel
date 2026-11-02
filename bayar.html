@@ -63,6 +63,26 @@ let PROOF="";
 async function api(path,opts){const res=await fetch(API+"/"+path,{method:(opts&&opts.method)||"GET",headers:{"Content-Type":"application/json"},body:opts&&opts.body?JSON.stringify(opts.body):undefined});
   let d={};try{d=await res.json();}catch(e){} if(!res.ok){const err=new Error(d.error||("HTTP "+res.status));err.status=res.status;throw err;} return d;}
 function fileToDataUrl(input){return new Promise(r=>{const f=input.files&&input.files[0];if(!f)return r("");const rd=new FileReader();rd.onload=()=>r(rd.result);rd.onerror=()=>r("");rd.readAsDataURL(f);});}
+// Shrink + re-encode the payment-proof photo client-side before upload, so it
+// doesn't bloat Supabase storage/egress. Falls back to the raw file on error.
+function compressImageFile(f, maxDim, quality){
+  return new Promise(resolve=>{
+    if(!f) return resolve("");
+    if(!/^image\//.test(f.type||"")){ const rd=new FileReader(); rd.onload=()=>resolve(rd.result); rd.onerror=()=>resolve(""); rd.readAsDataURL(f); return; }
+    const url=URL.createObjectURL(f); const img=new Image();
+    img.onload=()=>{ try{
+        let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        const s=Math.min(1,(maxDim||1600)/Math.max(w,h||1)); w=Math.max(1,Math.round(w*s)); h=Math.max(1,Math.round(h*s));
+        const cv=document.createElement("canvas"); cv.width=w; cv.height=h;
+        cv.getContext("2d").drawImage(img,0,0,w,h);
+        URL.revokeObjectURL(url);
+        resolve(cv.toDataURL("image/jpeg",quality||0.82));
+      }catch(e){ URL.revokeObjectURL(url); const rd=new FileReader(); rd.onload=()=>resolve(rd.result); rd.onerror=()=>resolve(""); rd.readAsDataURL(f); }
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); const rd=new FileReader(); rd.onload=()=>resolve(rd.result); rd.onerror=()=>resolve(""); rd.readAsDataURL(f); };
+    img.src=url;
+  });
+}
 async function boot(){
   const host=document.getElementById("host");
   if(!P.eventId||!P.r||!P.t){ host.innerHTML='<p class="muted">Link pembayaran tidak valid.</p>'; return; }
@@ -81,7 +101,7 @@ async function boot(){
     <button class="btn" id="btn" disabled onclick="submitPay()">Kirim bukti</button>
     <p class="note">Setelah dikirim, status menjadi menunggu kurasi.</p>`;
 }
-async function pick(input){ PROOF=await fileToDataUrl(input);
+async function pick(input){ PROOF=await compressImageFile(input.files&&input.files[0],1600,0.82);
   document.getElementById("proofChip").innerHTML = PROOF?'<span class="chip ok">bukti terpilih ✔</span>':'';
   document.getElementById("btn").disabled=!PROOF; }
 async function submitPay(){
