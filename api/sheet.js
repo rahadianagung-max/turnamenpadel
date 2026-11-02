@@ -5843,7 +5843,7 @@ async function tDeleteEvent(eventId, body) {
 // builds the podium from the engine — and, after archiving, from Tournament_Archive.
 // Tab name + column order MUST match trekkr's COMPETITIONS_HEADER exactly.
 const COMPETITIONS_TAB = "Competitions";
-const COMPETITIONS_HEADER = ["Slug", "Type", "Source_Venue", "Name", "Location", "Logo_URL", "Status"];
+const COMPETITIONS_HEADER = ["Slug", "Type", "Source_Venue", "Name", "Location", "Logo_URL", "Status", "Event_Date"];
 function compSlug(name) { return String(name || "").toLowerCase().replace(/[^a-z0-9]+/g, ""); }
 
 // Recover an event's Tournament_Events row from the Tournament_Archive backup
@@ -5896,19 +5896,22 @@ async function tPublishVenue(eventId, body) {
   const location = (b.location != null ? String(b.location) : (evRow[2] || "")).trim();
   const status = String(b.status || "").trim();
   const logoUrl = String(b.logoUrl || "").trim();
+  // Event play date (Tournament_Events col D). Stored so trekkr can order
+  // competitions by when they actually happened, not by record-insertion order.
+  const eventDate = (b.date != null ? String(b.date) : (evRow[3] || "")).trim();
   const slug = (b.slug ? compSlug(b.slug) : compSlug(name)) || compSlug(eventId);
   if (!slug) return respond(400, { error: "Tidak bisa membuat slug dari nama event." });
 
   await ensureTabWithHeader(sheets, COMPETITIONS_TAB, COMPETITIONS_HEADER);
-  const cr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A2:G` }).catch(() => ({ data: { values: [] } }));
+  const cr = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A2:H` }).catch(() => ({ data: { values: [] } }));
   const rows = cr.data.values || [];
   const idx = rows.findIndex((x) => String(x[0] || "").trim().toLowerCase() === slug.toLowerCase());
-  const row = [slug, "tournament", eventId, name, location, logoUrl, status];
+  const row = [slug, "tournament", eventId, name, location, logoUrl, status, eventDate];
   if (idx >= 0) {
     // Idempotent: refresh the existing competition row (keep the same slug/URL).
-    await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A${idx + 2}:G${idx + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
+    await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A${idx + 2}:H${idx + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
   } else {
-    await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A:G`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
+    await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${COMPETITIONS_TAB}!A:H`, valueInputOption: "USER_ENTERED", requestBody: { values: [row] } });
   }
   return respond(200, { success: true, slug, name, updated: idx >= 0, url: "https://venue.trekkr.online/tournament/" + slug });
 }
