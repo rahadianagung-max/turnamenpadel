@@ -729,7 +729,7 @@
       <button type="button" class="btn btn-ghost" style="color:var(--danger);border-color:rgba(220,38,38,.4)" onclick="deleteEventPermanent()" title="HAPUS PERMANEN event ini: baris event, semua kategori (+peserta/grup/jadwal/bracket/achievements), form pendaftaran &amp; semua registrasi. Tidak bisa di-undo (ada salinan cadangan di Tournament_Archive).">🗑 Delete event (permanen)</button>
     </div>
     <p style="font-size:12px;color:var(--danger);margin:8px 2px 0;"><b>Delete event (permanen)</b> untuk event yang <b>tidak jadi</b>: menghapus event + kategori + form pendaftaran + semua data registrasi sekaligus. Perlu ketik nama event untuk konfirmasi. ELO_Log/Players tidak disentuh.</p>
-    <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Show on Venue</b> registers this tournament on the public <code>venue.trekkr.online</code> page (podium &amp; standings). Safe to click anytime — before or after archiving.</p>
+    <p style="font-size:12px;color:var(--muted);margin:8px 2px 0;"><b>Show on Venue</b> registers this tournament on the public <code>venue.trekkr.online</code> page (podium &amp; standings). Safe to click anytime — before or after archiving. Sebelum publish, sistem mengecek setiap kategori: bila ada <b>seri</b> yang menentukan lolos/podium (mis. dua tim sama persis di batas lolos), akan muncul peringatan dulu — pastikan seri/sengketa sudah diputuskan sebelum tampil di website.</p>
     <div class="pick" style="margin-top:12px">
       <label>…or show an already-<b>archived</b> event on the venue</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px">
@@ -2570,16 +2570,97 @@ async function runFinalizeElo(){
 }
 async function publishVenue(){
   if(!state.event) return toast("Pilih event dulu", true);
-  return doPublish(state.event.eventId);
+  // Live event: scan standings for ties (seri) that decide who advances / the
+  // podium, and warn before anything goes public.
+  return doPublish(state.event.eventId, { scan:true });
 }
 async function publishArchived(){
   const sel = document.getElementById("archEventSelect");
   const eventId = sel && sel.value;
   if(!eventId) return toast("Pilih event terarsip dulu", true);
-  return doPublish(eventId);
+  // Archived events have no live group/standings data left to check — the
+  // operational tabs were cleared on archive — so publish without the scan.
+  return doPublish(eventId, { scan:false });
 }
-async function doPublish(eventId){
+// Translate the backend's tie-break annotation into Indonesian for the warning.
+function tieBreakLabel(tb){
+  return ({ h2h:"head-to-head", pd:"selisih poin (PD)", pf:"poin masuk (PF)",
+    pa:"poin kemasukan (PA)", same:"tidak ada pemisah" })[tb] || tb || "—";
+}
+// Scan every category in the (live) event for standings ties that decide an
+// outcome: a tie straddling the advance cut-off, a tie for the top of a group,
+// or an *undecided* tie (identical on every tie-break — needs a draw/decision).
+// Returns a list of human-readable warning lines. Reuses the standings API's own
+// tie annotation (tieSize / tieBreak), so it never re-derives ranking logic.
+async function scanEventTies(eventId){
+  if(!state.event || state.event.eventId!==eventId) return [];
+  let tours = state.tournaments;
+  if(!tours || !tours.length){
+    try{
+      const s = state.session || {};
+      const auth = "&admin=" + encodeURIComponent(s.username||"") + "&role=" + encodeURIComponent(s.role||"");
+      const r = await api("tournament/list?eventId="+encodeURIComponent(eventId)+auth);
+      tours = r.tournaments || [];
+    }catch(e){ return []; }
+  }
+  const out = [];
+  for(const t of tours){
+    let data;
+    try{ data = await api("tournament/"+encodeURIComponent(t.tournamentId)+"/standings"); }
+    catch(e){ continue; }
+    const pts = String(data.rankMode||"wins")==="points";
+    const N = parseInt(t.advancersPerGroup)||0;   // advance cut-off per group
+    const podiumN = N>0 ? N : 3;                   // group-only event → top 3 = podium
+    const keyOf = s => pts
+      ? (s.points!=null ? Number(s.points) : (Number(s.wins||0)*3+Number(s.draws||0)))
+      : Number(s.wins||0);
+    (data.groups||[]).forEach(g=>{
+      const st = (g.standings||[]).slice().sort((a,b)=>a.rank-b.rank);
+      let i=0;
+      while(i<st.length){
+        let j=i; while(j+1<st.length && keyOf(st[j+1])===keyOf(st[i])) j++;
+        if(j>i){ // a cluster of 2+ teams level on the primary key (wins/points)
+          const cl = st.slice(i,j+1);
+          const minR = cl[0].rank, maxR = cl[cl.length-1].rank;
+          const straddles = N>0 && minR<=N && maxR>N;       // decides who advances
+          const undecided = cl.some(s=>s.tieBreak==="same"); // no tie-break separates them
+          const relevant = straddles || minR===1 || (undecided && minR<=podiumN);
+          if(relevant){
+            // Plain text for a confirm() dialog — do NOT HTML-escape here.
+            const names = cl.map(s=>String(s.team||"")).join(" & ");
+            const keyLabel = pts ? (keyOf(cl[0])+" poin") : (keyOf(cl[0])+" menang");
+            const where = straddles ? ("batas lolos (rank "+N+" vs "+(N+1)+")")
+              : (minR===1 ? "puncak grup" : "podium");
+            const decided = undecided
+              ? "⚠ belum ada pemisah — perlu undian/keputusan"
+              : ("otomatis dipisah "+tieBreakLabel(cl[0].tieBreak));
+            out.push(`${t.category}${t.level?" · "+levelLabel(t.level):""} — Grup ${g.label}: ${names} seri (${keyLabel}) di ${where} · ${decided}`);
+          }
+        }
+        i=j+1;
+      }
+    });
+  }
+  return out;
+}
+async function doPublish(eventId, opts){
+  opts = opts || {};
   const wrap = document.getElementById("eloWrap");
+  if(opts.scan){
+    wrap.innerHTML = '<p class="muted">Mengecek seri sebelum publish…</p>';
+    let warnings = [];
+    try{ warnings = await scanEventTies(eventId); }
+    catch(e){ warnings = []; } // can't check (no data / error) → don't block publish
+    if(warnings.length){
+      const msg = "⚠ Terdeteksi SERI yang menentukan lolos/podium di event ini:\n\n"
+        + warnings.map(w=>"• "+w).join("\n")
+        + "\n\nPastikan tiap seri sudah diputuskan (head-to-head / undian sesuai kesepakatan) dan tidak ada skor yang masih dalam sengketa sebelum hasil tampil di website.\n\nTetap publish ke venue sekarang?";
+      if(!confirm(msg)){
+        wrap.innerHTML = '<p class="muted">Publish dibatalkan — selesaikan seri/sengketa dulu, lalu klik “Show on Venue” lagi.</p>';
+        return;
+      }
+    }
+  }
   wrap.innerHTML = '<p class="muted">Mendaftarkan ke venue…</p>';
   try{
     const r = await api("tournament/event/"+encodeURIComponent(eventId)+"/publish-venue", { method:"POST", body:{} });
