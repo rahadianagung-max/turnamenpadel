@@ -995,6 +995,11 @@ const netlifyHandler = async (event) => {
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
       return await regFinalizeCategory(eid, body);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/import-sheet") && method === "POST") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/import-sheet", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
+      return await regImportFromSheet(eid, body);
+    }
     if (path === "reg/passport" && method === "GET")
       return await regPassportResolve(params);
     if (path.startsWith("reg/share/") && method === "GET")
@@ -8093,6 +8098,103 @@ async function regAppealDecision(appealId, body, params) {
 //  • BUANG entrant usang — pasangan yang pendaftarannya tak lagi terkonfirmasi
 //    (ditolak/dihapus/pindah kategori), mis. tim yang dicabut setelah finalisasi.
 // Hanya menolak bila BENAR-BENAR tak ada pasangan terkonfirmasi untuk kategori ini.
+// ---- Import registrations from a Google Form responses sheet ----------------
+// Admin pastes the responses-sheet URL; we read it with the service account and
+// append one Registrations row per valid pair (status "received"), keyed to the
+// event's form. Idempotent: existing pairs are skipped, so it can be re-run to
+// pull new responses. Photos / payment proofs are stored as their raw Drive
+// links (no re-upload). The responses sheet must be shared (Viewer) with the
+// service account email, which the access error reports.
+function gsheetIdFrom(s) {
+  const t = String(s || "").trim();
+  const m = t.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return m[1];
+  return /^[a-zA-Z0-9_-]{20,}$/.test(t) ? t : "";
+}
+// Map a Google-Form category label to this event's category CODE (MD/WD/MIXED).
+// "" = skip (BATAL / refund / unrecognised).
+function regFormCatCode(s) {
+  const t = String(s || "").toLowerCase().replace(/[’'`]/g, "").replace(/\s+/g, " ").trim();
+  if (!t || /batal|refund|cancel|withdraw/.test(t)) return "";
+  if (/\bmix/.test(t)) return "MIXED";
+  if (/women|ladies|putri|female|\bwd\b/.test(t)) return "WD";
+  if (/\bmen|putra|male|\bmd\b/.test(t)) return "MD";
+  return "";
+}
+async function regImportFromSheet(eventId, body) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const ssId = gsheetIdFrom(body && (body.sheetUrl || body.sheetId));
+  if (!ssId) return respond(400, { error: "URL / ID Google Sheet tidak valid." });
+  // Event must exist (live or not yet archived).
+  const evR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:D` }).catch(() => ({ data: { values: [] } }));
+  if (!(evR.data.values || []).some((x) => x[0] === eventId)) return respond(404, { error: "Event tidak ditemukan." });
+  // Build category CODE -> { tid, level } from the event's tournaments.
+  const tR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }).catch(() => ({ data: { values: [] } }));
+  const catMap = {};
+  (tR.data.values || []).forEach((x) => { if (x[1] === eventId && x[0]) { const code = String(x[2] || "").toUpperCase().trim(); if (code && !catMap[code]) catMap[code] = { tid: x[0], level: x[3] || "" }; } });
+  if (!Object.keys(catMap).length) return respond(400, { error: "Event ini belum punya kategori. Buat kategori (MD/WD/MIXED) dulu di engine." });
+
+  // Read the external responses sheet (first tab). Needs service-account access.
+  let ext;
+  try { ext = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: "A1:AD" }); }
+  catch (e) {
+    const sa = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "(service account email)";
+    return respond(400, { error: "Tidak bisa membaca Google Sheet itu. Buka tombol Share di sheet, beri akses Viewer ke " + sa + ", lalu coba lagi.", needShareWith: sa });
+  }
+  const grid = ext.data.values || [];
+  if (grid.length < 2) return respond(400, { error: "Sheet kosong / tanpa baris data." });
+  const header = (grid[0] || []).map((h) => String(h || "").toLowerCase());
+  const findCol = (pred) => header.findIndex(pred);
+  const pcol = (n, kws) => findCol((h) => h.includes("player " + n) && kws.some((k) => h.includes(k)));
+  const C = {
+    cat: findCol((h) => h.includes("category")),
+    pay: findCol((h) => h.includes("proof of payment") || (h.includes("payment") && h.includes("proof"))),
+    p1name: pcol("1", ["full name", "name"]), p1phone: pcol("1", ["phone", "whatsapp"]), p1email: pcol("1", ["email"]),
+    p1ig: pcol("1", ["instagram"]), p1reclub: pcol("1", ["reclub"]), p1photo: pcol("1", ["photo"]), p1jersey: pcol("1", ["jersey", "size"]),
+    p2name: pcol("2", ["full name", "name"]), p2phone: pcol("2", ["phone", "whatsapp"]), p2email: pcol("2", ["email"]),
+    p2ig: pcol("2", ["instagram"]), p2reclub: pcol("2", ["reclub"]), p2photo: pcol("2", ["photo"]), p2jersey: pcol("2", ["jersey", "size"]),
+  };
+  if (C.cat < 0 || C.p1name < 0 || C.p2name < 0) return respond(400, { error: "Kolom tak dikenali (butuh CATEGORY, PLAYER 1/2 FULL NAME). Pastikan ini sheet respons form yang benar." });
+
+  // Existing pairs for this event's form -> dedupe (re-run safe).
+  const formId = regFormIdForEvent(eventId);
+  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }).catch(() => ({ data: { values: [] } }));
+  const pairKey = (a, b) => [normName(a), normName(b)].sort().join("|");
+  const existing = new Set();
+  (rRes.data.values || []).forEach((r) => { if (r[1] !== formId) return; let d = {}; try { d = JSON.parse(r[8] || "{}"); } catch (e) {} const a = (d.player1 || {}).name, b = (d.player2 || {}).name; if (a || b) existing.add(pairKey(a, b)); });
+
+  const cell = (row, i) => (i >= 0 && row[i] != null ? String(row[i]).trim() : "");
+  const genderFor = (code) => code === "MD" ? "M" : code === "WD" ? "F" : ""; // mixed = unknown per slot
+  const now = new Date().toISOString();
+  const seen = new Set();
+  const out = []; const res = { imported: 0, skippedBatal: 0, skippedNoCat: 0, skippedNoName: 0, skippedDup: 0, byCat: {} };
+  for (let i = 1; i < grid.length; i++) {
+    const row = grid[i] || [];
+    const n1 = cell(row, C.p1name), n2 = cell(row, C.p2name);
+    const catRaw = cell(row, C.cat);
+    if (!n1 && !n2 && !catRaw) continue; // blank line
+    if (/batal|refund|cancel/i.test(catRaw)) { res.skippedBatal++; continue; }
+    const code = regFormCatCode(catRaw);
+    if (!code || !catMap[code]) { res.skippedNoCat++; continue; }
+    if (!n1 || !n2) { res.skippedNoName++; continue; }
+    const key = pairKey(n1, n2);
+    if (existing.has(key) || seen.has(key)) { res.skippedDup++; continue; }
+    seen.add(key);
+    const t = catMap[code];
+    const mk = (nm, cols) => ({ name: nm, phone: cell(row, cols.phone), email: cell(row, cols.email), ig: cell(row, cols.ig),
+      reclub: cell(row, cols.reclub), nick: "", dob: "", gender: genderFor(code), region: "", jersey: cell(row, cols.jersey),
+      photoUrl: cell(row, cols.photo), ktpUrl: "", match: null, isNew: true });
+    const p1 = mk(n1, { phone: C.p1phone, email: C.p1email, ig: C.p1ig, reclub: C.p1reclub, jersey: C.p1jersey, photo: C.p1photo });
+    const p2 = mk(n2, { phone: C.p2phone, email: C.p2email, ig: C.p2ig, reclub: C.p2reclub, jersey: C.p2jersey, photo: C.p2photo });
+    const data = { category: t.tid, categoryLabel: code, level: t.level, teamName: `${n1} + ${n2}`,
+      player1: p1, player2: p2, answers: {}, waiver: true, infoTrue: true, source: "gsheet-import" };
+    const pay = cell(row, C.pay);
+    out.push([regGenId("reg"), formId, now, data.teamName, p1.gender || "M", p1.phone || "", p1.photoUrl || "", pay || "", JSON.stringify(data), t.tid, "received"]);
+    res.imported++; res.byCat[code] = (res.byCat[code] || 0) + 1;
+  }
+  if (out.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED", requestBody: { values: out } });
+  return respond(200, Object.assign({ success: true, totalRows: grid.length - 1 }, res));
+}
 async function regFinalizeCategory(eventId, body) {
   const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
   const tid = String((body && body.category) || "").trim();
