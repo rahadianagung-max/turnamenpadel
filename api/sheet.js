@@ -8134,7 +8134,7 @@ async function regImportFromSheet(eventId, body) {
   const tR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:J` }).catch(() => ({ data: { values: [] } }));
   const catMap = {};
   (tR.data.values || []).forEach((x) => { if (x[1] === eventId && x[0]) { const code = String(x[2] || "").toUpperCase().trim(); if (code && !catMap[code]) catMap[code] = { tid: x[0], level: x[3] || "" }; } });
-  if (!Object.keys(catMap).length) return respond(400, { error: "Event ini belum punya kategori. Buat kategori (MD/WD/MIXED) dulu di engine." });
+  if (!Object.keys(catMap).length) { console.error("[import-sheet] no categories for event", eventId); return respond(400, { error: "Event ini belum punya kategori. Buat kategori (MD/WD/MIXED) dulu di engine." }); }
 
   // Read the external responses sheet. Resolve the real tab name(s) via metadata
   // (an unqualified A1 range can miss the data), then read each tab and keep the
@@ -8143,20 +8143,23 @@ async function regImportFromSheet(eventId, body) {
   let meta;
   try { meta = await sheets.spreadsheets.get({ spreadsheetId: ssId, fields: "properties.title,sheets.properties.title" }); }
   catch (e) {
-    return respond(400, { error: "Tidak bisa membaca Google Sheet itu. Buka tombol Share di sheet, beri akses Viewer ke " + sa + ", lalu coba lagi.", needShareWith: sa });
+    const detail = (e && (e.message || String(e))) || "unknown";
+    console.error("[import-sheet] metadata read FAILED", "ssId=" + ssId, "detail=" + detail);
+    return respond(400, { error: "Tidak bisa membaca Google Sheet (ID: " + ssId + "). Detail: " + detail + ". Jika ini soal akses, buka Share di sheet dan beri akses Viewer ke " + sa + ", lalu coba lagi.", needShareWith: sa, detail });
   }
   const tabs = (meta.data.sheets || []).map((s) => s.properties && s.properties.title).filter(Boolean);
-  let grid = [], usedTab = "";
+  let grid = [], usedTab = "", lastErr = "";
   for (const title of tabs) {
     try {
       const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: `'${String(title).replace(/'/g, "''")}'!A1:AD` });
       const v = r.data.values || [];
       if (v.length > grid.length) { grid = v; usedTab = title; }
-    } catch (e) { /* skip unreadable tab */ }
+    } catch (e) { lastErr = (e && (e.message || String(e))) || ""; }
   }
   if (grid.length < 2) {
     const ssTitle = (meta.data.properties && meta.data.properties.title) || "(untitled)";
-    return respond(400, { error: `Sheet terbaca tapi tanpa baris data. ID terbaca: ${ssId}; spreadsheet: "${ssTitle}"; tab: ${tabs.join(", ") || "(tidak ada)"}. Pastikan URL yang ditempel adalah sheet RESPONS form (bukan form atau folder), dan datanya ada di tab tersebut.` });
+    console.error("[import-sheet] empty grid", "ssId=" + ssId, "title=" + ssTitle, "tabs=" + tabs.join("|"), "lastErr=" + lastErr);
+    return respond(400, { error: `Sheet terbaca tapi tanpa baris data. ID terbaca: ${ssId}; spreadsheet: "${ssTitle}"; tab: ${tabs.join(", ") || "(tidak ada)"}${lastErr ? "; error baca tab: " + lastErr : ""}. Pastikan URL yang ditempel adalah sheet RESPONS form (bukan form atau folder), dan datanya ada di tab tersebut.` });
   }
   const header = (grid[0] || []).map((h) => String(h || "").toLowerCase());
   const findCol = (pred) => header.findIndex(pred);
@@ -8169,7 +8172,7 @@ async function regImportFromSheet(eventId, body) {
     p2name: pcol("2", ["full name", "name"]), p2phone: pcol("2", ["phone", "whatsapp"]), p2email: pcol("2", ["email"]),
     p2ig: pcol("2", ["instagram"]), p2reclub: pcol("2", ["reclub"]), p2photo: pcol("2", ["photo"]), p2jersey: pcol("2", ["jersey", "size"]),
   };
-  if (C.cat < 0 || C.p1name < 0 || C.p2name < 0) return respond(400, { error: "Kolom tak dikenali (butuh CATEGORY, PLAYER 1/2 FULL NAME). Pastikan ini sheet respons form yang benar." });
+  if (C.cat < 0 || C.p1name < 0 || C.p2name < 0) { console.error("[import-sheet] columns not recognised", "tab=" + usedTab, "header=" + header.join("|")); return respond(400, { error: "Kolom tak dikenali (butuh CATEGORY, PLAYER 1/2 FULL NAME). Pastikan ini sheet respons form yang benar." }); }
 
   // Existing pairs for this event's form -> dedupe (re-run safe).
   const formId = regFormIdForEvent(eventId);
@@ -8208,7 +8211,8 @@ async function regImportFromSheet(eventId, body) {
     res.imported++; res.byCat[code] = (res.byCat[code] || 0) + 1;
   }
   if (out.length) await sheets.spreadsheets.values.append({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A:K`, valueInputOption: "USER_ENTERED", requestBody: { values: out } });
-  return respond(200, Object.assign({ success: true, totalRows: grid.length - 1 }, res));
+  console.error("[import-sheet] DONE", "ssId=" + ssId, "tab=" + usedTab, "rows=" + (grid.length - 1), JSON.stringify(res));
+  return respond(200, Object.assign({ success: true, totalRows: grid.length - 1, usedTab }, res));
 }
 async function regFinalizeCategory(eventId, body) {
   const sheets = getSheets(); await ensureRegTabs(sheets); await ensureTabs(sheets);
