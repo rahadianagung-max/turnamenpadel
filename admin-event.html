@@ -163,9 +163,20 @@
           <div><h3 style="font-size:16px">Pemain terdaftar</h3><div id="regStats" class="note"></div></div>
           <div class="row" style="gap:8px">
             <button class="btn ghost sm" onclick="toggleJersey()">👕 Rekap jersey</button>
+            <button class="btn ghost sm" onclick="toggleImport()">⬆ Import dari Google Sheet</button>
             <button class="btn ghost sm" onclick="toggleExport()">⬇ Export CSV</button>
             <button class="btn ghost sm" onclick="loadRegs()">↻ Refresh</button>
           </div>
+        </div>
+        <div id="importPanel" class="hidden" style="margin-top:12px;border:var(--bd);border-radius:var(--r-lg);padding:14px;background:var(--inset)">
+          <div style="font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:8px">Import pendaftaran dari Google Sheet (respons form)</div>
+          <div class="note" style="margin:0 0 8px;line-height:1.5">Tempel URL Google Sheet respons form. Tiap baris jadi 1 pendaftaran (Player 1 &amp; 2), kategori dicocokkan otomatis (Men's→MD, Women's→WD, Fixed Mixed→MIXED), baris <b>BATAL</b> &amp; duplikat dilewati. Aman diulang untuk menarik respons baru. Foto &amp; bukti transfer disimpan sebagai link Google Drive apa adanya.<br><b>Syarat:</b> Sheet harus di-<b>Share</b> (Viewer) ke service account kita — kalau belum, pesan error akan menampilkan email-nya.</div>
+          <input id="impUrl" placeholder="https://docs.google.com/spreadsheets/d/…" style="width:100%;box-sizing:border-box;padding:9px 11px;border:var(--bd);border-radius:var(--r-lg);font-family:var(--body);font-size:13px;background:#fff">
+          <div class="row" style="gap:8px;margin-top:12px">
+            <button class="btn primary sm" id="impBtn" onclick="doImportSheet()">⬆ Import sekarang</button>
+            <button class="btn ghost sm" onclick="toggleImport()">Tutup</button>
+          </div>
+          <div id="importMsg" class="note" style="margin-top:10px;line-height:1.5"></div>
         </div>
         <div id="exportPanel" class="hidden" style="margin-top:12px;border:var(--bd);border-radius:var(--r-lg);padding:14px;background:var(--inset)">
           <div style="font-weight:800;font-family:var(--display);font-size:14px;margin-bottom:8px">Export peserta ke CSV</div>
@@ -1057,6 +1068,31 @@ function copyJersey(btn){ if(!JERSEY_TXT){ return; }
   const done=()=>{ if(btn){ const o=btn.textContent; btn.textContent="✓ Tersalin"; setTimeout(()=>btn.textContent=o,1500); } };
   if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(JERSEY_TXT).then(done,()=>prompt("Salin:",JERSEY_TXT)); }
   else prompt("Salin:",JERSEY_TXT);
+}
+/* ===== Import pendaftaran dari Google Sheet ===== */
+function toggleImport(){
+  const p=document.getElementById("importPanel"); if(!p) return;
+  p.classList.toggle("hidden");
+  if(!p.classList.contains("hidden")){ document.getElementById("importMsg").innerHTML=""; }
+}
+async function doImportSheet(){
+  const msg=document.getElementById("importMsg"), btn=document.getElementById("impBtn");
+  const url=(document.getElementById("impUrl").value||"").trim();
+  if(!url){ msg.style.color="var(--danger)"; msg.textContent="Tempel URL Google Sheet dulu."; return; }
+  btn.disabled=true; msg.style.color=""; msg.textContent="Mengimpor… (membaca sheet & menulis pendaftaran)";
+  try{
+    const r=await api("reg/event/"+encodeURIComponent(EVENT.eventId)+"/import-sheet",{method:"POST",body:{token:TOKEN,sheetUrl:url}});
+    const by=Object.entries(r.byCat||{}).map(([k,v])=>k+": "+v).join(" · ")||"—";
+    msg.style.color="var(--ok)";
+    msg.innerHTML="✓ Selesai. <b>"+(r.imported||0)+"</b> pendaftaran masuk ("+by+")."
+      +"<br><span class='note'>Dilewati — BATAL: "+(r.skippedBatal||0)+" · duplikat: "+(r.skippedDup||0)
+      +" · kategori tak cocok: "+(r.skippedNoCat||0)+" · nama tak lengkap: "+(r.skippedNoName||0)+" · total baris: "+(r.totalRows||0)+".</span>";
+    await loadRegs(); if(typeof loadCategories==="function") loadCategories();
+  }catch(e){
+    msg.style.color="var(--danger)";
+    // The backend's access error already names the service-account email to share with.
+    msg.innerHTML="⚠ "+esc((e&&e.message)||"Gagal import.");
+  } finally { btn.disabled=false; }
 }
 /* ===== Export peserta ke CSV (pilih kategori) ===== */
 let REGS=[];
