@@ -8134,15 +8134,28 @@ async function regImportFromSheet(eventId, body) {
   (tR.data.values || []).forEach((x) => { if (x[1] === eventId && x[0]) { const code = String(x[2] || "").toUpperCase().trim(); if (code && !catMap[code]) catMap[code] = { tid: x[0], level: x[3] || "" }; } });
   if (!Object.keys(catMap).length) return respond(400, { error: "Event ini belum punya kategori. Buat kategori (MD/WD/MIXED) dulu di engine." });
 
-  // Read the external responses sheet (first tab). Needs service-account access.
-  let ext;
-  try { ext = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: "A1:AD" }); }
+  // Read the external responses sheet. Resolve the real tab name(s) via metadata
+  // (an unqualified A1 range can miss the data), then read each tab and keep the
+  // one with the most rows. Metadata access failing = not shared with us.
+  const sa = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "(service account email)";
+  let meta;
+  try { meta = await sheets.spreadsheets.get({ spreadsheetId: ssId, fields: "properties.title,sheets.properties.title" }); }
   catch (e) {
-    const sa = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "(service account email)";
     return respond(400, { error: "Tidak bisa membaca Google Sheet itu. Buka tombol Share di sheet, beri akses Viewer ke " + sa + ", lalu coba lagi.", needShareWith: sa });
   }
-  const grid = ext.data.values || [];
-  if (grid.length < 2) return respond(400, { error: "Sheet kosong / tanpa baris data." });
+  const tabs = (meta.data.sheets || []).map((s) => s.properties && s.properties.title).filter(Boolean);
+  let grid = [], usedTab = "";
+  for (const title of tabs) {
+    try {
+      const r = await sheets.spreadsheets.values.get({ spreadsheetId: ssId, range: `'${String(title).replace(/'/g, "''")}'!A1:AD` });
+      const v = r.data.values || [];
+      if (v.length > grid.length) { grid = v; usedTab = title; }
+    } catch (e) { /* skip unreadable tab */ }
+  }
+  if (grid.length < 2) {
+    const ssTitle = (meta.data.properties && meta.data.properties.title) || "(untitled)";
+    return respond(400, { error: `Sheet terbaca tapi tanpa baris data. Spreadsheet: "${ssTitle}"; tab: ${tabs.join(", ") || "(tidak ada)"}. Pastikan URL yang ditempel adalah sheet RESPONS form (bukan form atau folder), dan datanya ada di tab tersebut.` });
+  }
   const header = (grid[0] || []).map((h) => String(h || "").toLowerCase());
   const findCol = (pred) => header.findIndex(pred);
   const pcol = (n, kws) => findCol((h) => h.includes("player " + n) && kws.some((k) => h.includes(k)));
