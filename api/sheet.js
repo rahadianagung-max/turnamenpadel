@@ -990,6 +990,11 @@ const netlifyHandler = async (event) => {
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
       return await regEventAppeals(eid);
     }
+    if (path.startsWith("reg/event/") && path.endsWith("/appeal-history") && method === "GET") {
+      const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/appeal-history", ""));
+      if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // admin-only (superadmin ATAU event_admin)
+      return await regEventAppealHistory(eid);
+    }
     if (path.startsWith("reg/event/") && path.endsWith("/finalize") && method === "POST") {
       const eid = decodeURIComponent(path.replace("reg/event/", "").replace("/finalize", ""));
       if (!regEventScopeOk(body, params, eid)) return REG_UNAUTH; // superadmin ATAU event_admin (event terizin) ATAU kunci
@@ -8009,6 +8014,62 @@ async function regEventAppeals(eventId) {
       status: r[11] || "baru", decision: r[12] || "", decidedAt: r[13] || "", note: r[14] || "", proofUrl2: r[15] || "", players };
   });
   return respond(200, { appeals: list, count: list.length });
+}
+// Riwayat appeal pemain terdaftar (admin-only): untuk tiap pemain yang terdaftar
+// di event ini, cari appeal dari event LAIN di mana pemain itu yang di-appeal
+// (berikut bukti & keputusannya), supaya panitia bisa melihat rekam jejaknya.
+async function regEventAppealHistory(eventId) {
+  const sheets = getSheets(); await ensureRegTabs(sheets);
+  const [aRes, rRes, evRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.appeals}!A2:P` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:D` }).catch(() => ({ data: { values: [] } })),
+  ]);
+  const eventName = {}; (evRes.data.values || []).forEach((x) => { if (x[0]) eventName[x[0]] = x[1] || x[0]; });
+  const regRows = rRes.data.values || [];
+  const regById = {}; for (const r of regRows) regById[r[0]] = r;
+  // Pemain yang terdaftar di event ini → key nama (ejaan terdaftar & nama kanonik DB).
+  const formId = regFormIdForEvent(eventId);
+  const curKeys = {}; // normName(nama) -> nama tampil pemain saat ini
+  for (const r of regRows) {
+    if (r[1] !== formId) continue;
+    const d = regParseReg(r).data || {};
+    for (const p of [d.player1, d.player2]) {
+      if (!p || !p.name) continue;
+      for (const nm of [p.name, p.match && p.match.name].filter(Boolean)) {
+        const k = normName(nm); if (k && !curKeys[k]) curKeys[k] = p.name;
+      }
+    }
+  }
+  // Nama pemain yang di-appeal pada sebuah appeal: dari label "… — di-appeal: X & Y",
+  // atau (appeal lama tanpa penanda) dari pemain pada registrasi yang di-appeal.
+  const appealedNames = (a) => {
+    const parts = String(a[4] || "").split(/di-?appeal\s*:/i);
+    if (parts.length >= 2) {
+      const names = parts[1].split(/\s*&\s*|\s*,\s*|\s*\+\s*/).map((s) => s.trim()).filter(Boolean);
+      if (names.length) return names;
+    }
+    const rr = regById[a[3]];
+    if (rr) { const d = regParseReg(rr).data || {}; return [d.player1, d.player2].filter((p) => p && p.name).map((p) => p.name); }
+    return [];
+  };
+  const hist = {}; // nama pemain sekarang -> [appeal lama]
+  (aRes.data.values || []).forEach((a) => {
+    if (a[1] === eventId) return; // appeal event ini sudah tampil di daftar utama
+    const names = appealedNames(a);
+    const matched = new Set();
+    for (const nm of names) { const k = normName(nm); if (curKeys[k]) matched.add(curKeys[k]); }
+    if (!matched.size) return;
+    const rec = { eventId: a[1], eventName: eventName[a[1]] || a[1], category: a[2],
+      appealedNames: names, appellantName: a[5] || "", reason: a[8] || "",
+      proofUrls: [a[9], a[15]].filter(Boolean), createdAt: a[10] || "",
+      status: a[11] || "baru", decision: a[12] || "" };
+    for (const cur of matched) { (hist[cur] = hist[cur] || []).push(rec); }
+  });
+  const players = Object.keys(hist).sort((x, y) => x.localeCompare(y)).map((nm) => ({
+    name: nm, appeals: hist[nm].sort((p, q) => String(q.createdAt).localeCompare(String(p.createdAt))) }));
+  return respond(200, { players, playerCount: players.length,
+    appealCount: players.reduce((n, p) => n + p.appeals.length, 0) });
 }
 // Terapkan koreksi level (audit): naikkan ELO pemain pasangan yang appeal-nya
 // terbukti (decision=levelup) ke level target, lewat baris ELO_Log audit.
