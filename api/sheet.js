@@ -8125,6 +8125,8 @@ async function regImportFromSheet(eventId, body) {
   const sheets = getSheets(); await ensureRegTabs(sheets);
   const ssId = gsheetIdFrom(body && (body.sheetUrl || body.sheetId));
   if (!ssId) return respond(400, { error: "URL / ID Google Sheet tidak valid." });
+  // Guard: never read our own internal database as a "form sheet".
+  if (SHEET_ID && ssId === SHEET_ID) return respond(400, { error: "URL itu mengarah ke database internal turnamenpadel, bukan sheet respons Google Form. Buka Google Form responses sheet, salin URL-nya (https://docs.google.com/spreadsheets/d/<id>/edit), lalu tempel di sini." });
   // Event must exist (live or not yet archived).
   const evR = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:D` }).catch(() => ({ data: { values: [] } }));
   if (!(evR.data.values || []).some((x) => x[0] === eventId)) return respond(404, { error: "Event tidak ditemukan." });
@@ -8154,7 +8156,7 @@ async function regImportFromSheet(eventId, body) {
   }
   if (grid.length < 2) {
     const ssTitle = (meta.data.properties && meta.data.properties.title) || "(untitled)";
-    return respond(400, { error: `Sheet terbaca tapi tanpa baris data. Spreadsheet: "${ssTitle}"; tab: ${tabs.join(", ") || "(tidak ada)"}. Pastikan URL yang ditempel adalah sheet RESPONS form (bukan form atau folder), dan datanya ada di tab tersebut.` });
+    return respond(400, { error: `Sheet terbaca tapi tanpa baris data. ID terbaca: ${ssId}; spreadsheet: "${ssTitle}"; tab: ${tabs.join(", ") || "(tidak ada)"}. Pastikan URL yang ditempel adalah sheet RESPONS form (bukan form atau folder), dan datanya ada di tab tersebut.` });
   }
   const header = (grid[0] || []).map((h) => String(h || "").toLowerCase());
   const findCol = (pred) => header.findIndex(pred);
