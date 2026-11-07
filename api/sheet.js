@@ -136,6 +136,16 @@ async function driveUploadImage(dataUrl, filename, folderId) {
   try { await drive.permissions.create({ fileId: id, requestBody: { role: "reader", type: "anyone" }, supportsAllDrives: true }); } catch (e) {}
   return `https://drive.google.com/uc?export=view&id=${id}`;
 }
+// Normalise a Google Drive viewer link (open?id=… or /file/d/…/view) into a URL
+// that actually renders in an <img>. Form-upload photos arrive as viewer links,
+// which load an HTML page, not the image. Non-Drive URLs (Supabase/imgbb) pass
+// through unchanged. Rendering still needs the Drive file to be link-viewable.
+function driveThumb(u) {
+  const s = String(u || "").trim();
+  if (!s || !/drive\.google\.com|docs\.google\.com/.test(s)) return s;
+  const m = s.match(/\/d\/([-\w]{20,})/) || s.match(/[?&]id=([-\w]{20,})/);
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w1000` : s;
+}
 
 // Upload a base64 data URL to imgbb (same host the player passport uses for
 // profile photos). Needs process.env.IMGBB_API_KEY. Returns a hotlinkable URL.
@@ -7398,7 +7408,7 @@ async function regEventRegistrations(eventId) {
     const canon = (p.match && p.match.name) || p.name || "";
     const em = eMap[String(canon).trim().toLowerCase()];
     const elo = em ? em.elo : ((p.match && p.match.elo != null) ? p.match.elo : null);
-    if (!p.photoUrl) p.photoUrl = photoByName[normName(canon)] || "";
+    p.photoUrl = photoByName[normName(canon)] || driveThumb(p.photoUrl) || "";
     if (elo != null) { p.elo = elo; p.tier = getTierName(elo); }
     else if (p.match && p.match.tier) { p.tier = p.match.tier; }
   };
@@ -7575,12 +7585,21 @@ async function regRoster(eventId, params) {
   const token = (params && params.t) || "";
   if (!config.rosterToken || token !== config.rosterToken) return respond(403, { error: "Link roster tidak valid." });
   const cats = config.categories || {};
-  const rRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` });
+  const [rRes, pRes] = await Promise.all([
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!A2:K` }),
+    sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.players}!A2:M` }),
+  ]);
+  // Trekkr profile photos (Supabase Storage — render reliably), by normalized
+  // name. Preferred over the registrant's Google-Form upload, whose Drive viewer
+  // link does not render in an <img>; the form link falls back as a thumbnail.
+  const profilePhoto = {};
+  for (const pr of (pRes.data.values || [])) { const nm = normName(pr[0] || ""); if (nm && pr[6]) profilePhoto[nm] = pr[6]; }
   const regs = (rRes.data.values || []).filter((r) => r[1] === regFormIdForEvent(eventId)).map(regParseReg)
     .filter((r) => r.status !== "rejected" && r.status !== "cancelled" && r.status !== "waitlist");
   const byCat = {};
   for (const r of regs) {
-    const pub = (p) => ({ name: p.name || "", alias: p.nick || "", region: p.region || "", ig: p.ig || "", photoUrl: p.photoUrl || "" });
+    const pub = (p) => { p = p || {}; const canon = (p.match && p.match.name) || p.name || "";
+      return { name: p.name || "", alias: p.nick || "", region: p.region || "", ig: p.ig || "", photoUrl: profilePhoto[normName(canon)] || driveThumb(p.photoUrl) || "" }; };
     (byCat[r.category] = byCat[r.category] || []).push({ regId: r.regId, label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
   }
   const categories = Object.entries(cats).map(([tid, c]) => {
@@ -7624,7 +7643,8 @@ async function regRosterPublic(eventId) {
   for (const r of regs) {
     const pub = (p) => {
       p = p || {};
-      const photo = p.photoUrl || profilePhoto[normName((p.match && p.match.name) || p.name || "")] || "";
+      const canon = (p.match && p.match.name) || p.name || "";
+      const photo = profilePhoto[normName(canon)] || driveThumb(p.photoUrl) || "";
       return { name: p.name || "", photoUrl: photo };
     };
     (byCat[r.category] = byCat[r.category] || []).push({ label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
