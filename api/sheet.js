@@ -7922,6 +7922,20 @@ async function regEditPlayer(eventId, body, params) {
   // with their own email (via the approval email, or the claim link below).
   if (!np.passportToken) np.passportToken = require("crypto").randomBytes(12).toString("hex");
   data[key] = np;
+  // Keep the team title (col D "name" + data.teamName) in sync with the players
+  // when a name changes — unless the title was customised (differs from the auto
+  // "player1 + player2" label), in which case leave it as the custom name.
+  if (nameChanged) {
+    const p1n = (data.player1 || {}).name || "", p2n = (data.player2 || {}).name || "";
+    const otherName = slot === 1 ? p2n : p1n;
+    const oldAuto = (slot === 1 ? `${prev.name || ""} + ${otherName}` : `${otherName} + ${prev.name || ""}`).trim();
+    const newAuto = `${p1n} + ${p2n}`.trim();
+    if (!String(data.teamName || "").trim() || normName(data.teamName) === normName(oldAuto)) data.teamName = newAuto;
+    if (!String(row[3] || "").trim() || normName(row[3]) === normName(oldAuto)) {
+      row[3] = newAuto;
+      await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!D${ri + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[newAuto]] } });
+    }
+  }
   await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.registrations}!I${ri + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [[JSON.stringify(data)]] } });
   const claimLink = `${REG_PUBLIC_BASE}/api/reg/passport?reg=${encodeURIComponent(regId)}&p=${slot}&t=${encodeURIComponent(np.passportToken)}`;
   // Optionally email the claim link to the (new) player so they claim with their own email.
