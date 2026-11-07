@@ -133,7 +133,21 @@ function playerSquare(p){
     :(p.ig?'<div class="meta">Instagram: '+esc(String(p.ig))+'</div>':'');
   const reg=String(p.region||'').trim();
   const region=(reg&&reg!=='-')?'<div class="meta">📍 '+esc(reg)+'</div>':'';
-  return '<div class="pp">'+sq+'<div class="info"><div class="nm">'+esc(p.name||'—')+'</div>'+ig+region+'</div></div>';
+  return '<div class="pp">'+sq+'<div class="info"><div class="nm">'+esc(p.name||'—')+'</div>'+ig+reclubLink(p.reclub)+region+'</div></div>';
+}
+// Reclub bisa berupa URL penuh, teks + URL, atau sekadar handle ("@nama"/"nama").
+// Tampilkan sebagai link reclub.co yang bisa diklik; isian sampah → kosong.
+function reclubLink(v){
+  var raw=String(v||'').trim(); if(!raw||raw==='-') return '';
+  var url=(raw.match(/https?:\/\/[^\s<]+/i)||[])[0]||'';
+  var handle='';
+  if(url){ var hm=url.match(/reclub\.co\/players\/@?([A-Za-z0-9._-]+)/i); handle=hm?hm[1]:''; }
+  else { handle=raw.replace(/\s+/g,'').replace(/^@+/,'');
+    if(!/^[A-Za-z0-9._-]{1,40}$/.test(handle)) return '';
+    url='https://reclub.co/players/@'+encodeURIComponent(handle); }
+  if(!url) return '';
+  var label=handle?('@'+handle):(url.length>40?url.slice(0,40)+'…':url);
+  return '<div class="meta">🎾 Reclub: <a href="'+esc(url)+'" target="_blank" rel="noopener" style="color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px">'+esc(label)+'</a></div>';
 }
 // Escape text, then turn bare http(s) URLs into clickable links (trailing
 // sentence punctuation is kept outside the link).
