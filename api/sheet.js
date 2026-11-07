@@ -7599,7 +7599,7 @@ async function regRoster(eventId, params) {
   const byCat = {};
   for (const r of regs) {
     const pub = (p) => { p = p || {}; const canon = (p.match && p.match.name) || p.name || "";
-      return { name: p.name || "", alias: p.nick || "", region: p.region || "", ig: p.ig || "", photoUrl: profilePhoto[normName(canon)] || driveThumb(p.photoUrl) || "" }; };
+      return { name: p.name || "", alias: p.nick || "", region: p.region || "", ig: p.ig || "", reclub: p.reclub || "", photoUrl: profilePhoto[normName(canon)] || driveThumb(p.photoUrl) || "" }; };
     (byCat[r.category] = byCat[r.category] || []).push({ regId: r.regId, label: r.team, p1: pub(r.data.player1 || {}), p2: pub(r.data.player2 || {}) });
   }
   const categories = Object.entries(cats).map(([tid, c]) => {
