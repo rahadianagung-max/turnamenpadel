@@ -676,6 +676,7 @@
       <div class="f"><label>Playoff date</label><input id="poDate" type="date" /></div>
       <div class="f"><label>Start time <small class="ampm" id="poStart_ap" style="color:var(--accent2);font-family:'Space Mono',monospace;font-weight:400"></small></label><input id="poStart" type="time" value="09:00" oninput="ampmPrev('poStart')" /></div>
       <div class="f"><label>Courts</label><input id="poCourts" type="number" min="1" value="2" /></div>
+      <div class="f"><label>Court numbers <small style="color:var(--muted)">(opsional)</small></label><input id="poCourtNums" type="text" placeholder="mis. 1,2,3,4 · kosong = ikut court grup" /></div>
       <div class="f"><label>Minutes / match</label><input id="poMin" type="number" min="5" value="30" /></div>
       <div class="f"><label>Advance top N (overall ranking)</label><input id="poTopOverall" type="number" min="2" value="8" /></div>
       <div class="f"><label>Simulation mode</label>
@@ -2273,7 +2274,7 @@ async function setPlayoffAuto(){
   const auto = !!(el && el.checked);
   try{
     await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff-auto", { method:"PUT", body:{
-      auto, date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"),
+      auto, date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), courtNumbers: val("poCourtNums"), matchMinutes: val("poMin"),
       breaks: collectPoBreaks(), crossSeed: val("poCross") !== "0"
     }});
     toast(auto ? "Auto-generate playoff: AKTIF — bracket dibuat saat grup selesai." : "Auto-generate playoff: nonaktif.");
@@ -2287,7 +2288,7 @@ async function generatePlayoff(topOverall){
     : "Generate bracket akan menimpa bracket playoff kategori ini berdasarkan standing terkini. Lanjut?";
   if(!confirm(msg)) return;
   try{
-    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"), breaks: collectPoBreaks(), crossSeed: val("poCross") !== "0" };
+    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), courtNumbers: val("poCourtNums"), matchMinutes: val("poMin"), breaks: collectPoBreaks(), crossSeed: val("poCross") !== "0" };
     if(overall>=2) body.topOverall = overall;
     const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body });
     const methodLabel = m => m==="cross" ? "cross grup" : m==="overall" ? "peringkat keseluruhan" : m==="custom" ? "seeding manual" : "seeding";
@@ -2353,7 +2354,7 @@ async function generatePlayoffCustom(){
   if(order.length<2) return toast("Pilih minimal 2 tim untuk bracket.", true);
   if(!confirm(`Generate bracket seeding manual (${order.length} tim) akan menimpa bracket playoff kategori ini. Lanjut?`)) return;
   try{
-    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), matchMinutes: val("poMin"), breaks: collectPoBreaks(), seedOrder: order };
+    const body = { date: val("poDate"), startTime: val("poStart"), numCourts: val("poCourts"), courtNumbers: val("poCourtNums"), matchMinutes: val("poMin"), breaks: collectPoBreaks(), seedOrder: order };
     const r = await api("tournament/"+encodeURIComponent(state.tournament.tournamentId)+"/playoff", { method:"POST", body });
     const txt = (r.brackets||[]).map(b=>`${TIER_LABEL[b.tier]||b.tier}: ${b.entrants} tim (seeding manual)`).join(" · ");
     toast("Bracket dibuat · "+txt);
