@@ -4719,6 +4719,7 @@ async function tSetPlayoffAuto(id, body) {
       auto: true,
       startTime: normClock(b.startTime) || "",
       numCourts: parseInt(b.numCourts) || 0,
+      courtNumbers: String(b.courtNumbers || "").trim(),
       matchMinutes: parseInt(b.matchMinutes) || 0,
       date: String(b.date || "").trim(),
       crossSeed: b.crossSeed !== false,
@@ -4761,6 +4762,7 @@ async function maybeAutoGeneratePlayoff(sheets, id) {
   const planBody = {
     startTime: plan.startTime || evStart || "09:00",
     numCourts: plan.numCourts || 0,           // tGeneratePlayoff reuses the group-stage courts
+    courtNumbers: plan.courtNumbers || "",    // explicit playoff courts, blank = reuse group courts
     matchMinutes: plan.matchMinutes || evMin || 30,
     date: plan.date || evDate || "",
     breaks: Array.isArray(plan.breaks) ? plan.breaks : [],
@@ -4794,7 +4796,14 @@ async function tGeneratePlayoff(id, body) {
   const courtPool = [...new Set((mResP.data.values || [])
     .filter((x) => x[0] === id && x[2] === "GROUP" && x[6] !== "" && x[6] != null)
     .map((x) => parseInt(x[6])).filter((x) => !isNaN(x)))].sort((a, b) => a - b);
-  sched.courtNums = courtPool.length ? courtPool : parseCourtNumbers(b0.courtNumbers, sched.numCourts);
+  // Explicit per-category playoff courts (admin types e.g. "1,2,3,4" or "5") take
+  // precedence, so categories can be confined to different courts and run concurrently
+  // — e.g. MIXED playoff on courts 1-4 while WD playoff runs on court 5. Blank = reuse
+  // the category's group-stage courts (the previous behaviour).
+  const hasExplicitCourts = /\d/.test(String(b0.courtNumbers == null ? "" : b0.courtNumbers));
+  sched.courtNums = hasExplicitCourts
+    ? parseCourtNumbers(b0.courtNumbers, sched.numCourts)
+    : (courtPool.length ? courtPool : parseCourtNumbers(b0.courtNumbers, sched.numCourts));
   sched.numCourts = sched.courtNums.length;
 
   // Optional "top N overall" qualification (best teams by ranking across all
