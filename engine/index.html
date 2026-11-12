@@ -630,7 +630,7 @@
         <button type="button" data-v="efficient" onclick="pickSchedMode(this)">Efficient · fill every court, shortest duration</button>
       </div>
     </div>
-    <p id="schModeDesc" style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. <b>Efficient</b>: packs every court each round for the shortest total duration — with spare courts (e.g. 4 groups on 5 courts) one group runs two matches in parallel and the extra court rotates between groups. No team plays more than 3 in a row. (Overrides “batch by group order”.)</p>
+    <p id="schModeDesc" style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. <b>Efficient</b>: each group keeps its own home court (court 1 = Group A, court 2 = B, …) and any spare court becomes a shared extra court that rotates between the groups for a second, non-conflicting match each round — e.g. 4 groups on 5 courts: courts 1–4 are A/B/C/D, court 5 is shared by all four. Shortest total duration, no team plays more than 3 in a row, no schedule clash. (Overrides “batch by group order”.)</p>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Prefilled from the event settings — edit here and regenerate to update them. Custom court numbers and breaks are under <b>Advanced</b>.</p>
     <label id="schLockGroupsRow" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="schLockGroups" checked style="width:auto">
@@ -2103,7 +2103,7 @@ async function generateSchedule(){
       toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (mode paralel belum aktif).", true);
     } else {
       const modeLbl = (r.mode==="intense") ? "Intense (3× berturut-turut)" : (r.mode==="efficient") ? "Efficient (court penuh, tersingkat)" : "Normal (menyebar)";
-      const layoutLbl = (r.courtLayout==="locked") ? "1 grup = 1 court" : (r.courtLayout==="mixed") ? "campuran (per kategori)" : "paralel (grup dibagi antar-court)";
+      const layoutLbl = (r.courtLayout==="locked") ? "1 grup = 1 court" : (r.courtLayout==="mixed") ? "campuran (per kategori)" : (r.courtLayout==="overflow") ? "court rumah + court ekstra bersama" : "paralel (grup dibagi antar-court)";
       toast(`Jadwal dibuat · ${modeLbl} · ${layoutLbl} · ${r.scheduledMatches} match dalam ${r.slotsUsed} sesi`);
     }
     renderClashes(r.clashes||[]);
