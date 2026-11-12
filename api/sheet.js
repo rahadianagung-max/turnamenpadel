@@ -5765,14 +5765,21 @@ async function tPublicEvent(eventId, opts) {
         // Full bracket → real group-position labels (shows the crossing).
         ents.forEach((id) => { const p = posOf[id]; entrantLabelMap[id] = p ? playoffProjectionRankLabel(p.rank, p.group) : ""; });
       } else {
-        // Bracket has BYEs → neutral seed numbers, by seed order. Dedup first: a bye
-        // winner also sits pre-filled in the next round, so counting it twice inflated
-        // the seed count and mislabelled teams (e.g. "Unggulan 14/15/16" for a 10-team
-        // field, with byes landing on the wrong seeds).
-        const seen = new Set(), flat = [];
-        ents.forEach((id) => { if (id && !seen.has(id) && posOf[id]) { seen.add(id); flat.push({ id, s: posOf[id] }); } });
-        flat.sort((a, b) => seedSort(a.s, b.s));
-        flat.forEach((x, i) => { entrantLabelMap[x.id] = `Unggulan ${i + 1}`; });
+        // Bracket has BYEs → neutral seed numbers by BRACKET POSITION, not by re-sorting
+        // standings. Re-sorting placeholder 0-0 standings tied on every key, so the label
+        // order didn't match the bracket's real bye slots (byes showed on the wrong seeds,
+        // e.g. "Unggulan 2 vs 3"). Each round-1 slot's seed is fixed by seedOrder(size) —
+        // the exact function buildBracket used to place teams — so slot a of match idx holds
+        // seed order[2·idx] and slot b holds order[2·idx+1]. Labelling by that position means
+        // byes ALWAYS land on the top seeds (1..nByes) and matchups read coherently (a
+        // 10-team field: byes 1-6, matches "Unggulan 8 vs 9" & "7 vs 10"). A bye winner that
+        // sits pre-filled in round 2 keeps the same label, since it's the same entrantId.
+        const ord = seedOrder(nextPow2(nq));
+        (tr.rounds || []).forEach((r) => { if (parseInt(r.round) === 1) (r.matches || []).forEach((m) => {
+          const p = (parseInt(m.idx) || 0) * 2;
+          if (m.entrantA && ord[p]) entrantLabelMap[m.entrantA] = `Unggulan ${ord[p]}`;
+          if (m.entrantB && ord[p + 1]) entrantLabelMap[m.entrantB] = `Unggulan ${ord[p + 1]}`;
+        }); });
       }
     });
     const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, entrantLabelMap) : planProjection;
