@@ -847,6 +847,9 @@ const netlifyHandler = async (event) => {
     if (path.startsWith("tournament/event/") && path.endsWith("/schedule") && method === "GET") {
       return await tGetEventSchedule(decodeURIComponent(path.replace("tournament/event/", "").replace("/schedule", "")));
     }
+    if (path.startsWith("tournament/event/") && path.endsWith("/clash-check") && method === "GET") {
+      return await tEventClashCheck(decodeURIComponent(path.replace("tournament/event/", "").replace("/clash-check", "")));
+    }
     if (path === "tournament/list" && method === "GET") return await tListTournaments(params);
     if (path === "tournament" && method === "POST") return await tCreateTournament(body);
     if (path === "tournament/form-entry" && method === "POST") return await tAddFormEntry(body);
@@ -3946,6 +3949,115 @@ async function tGetEventSchedule(eventId) {
     ...mapMatchRow(x), category: catByTid[x[0]] || "", teamA: names[x[9]] || x[9], teamB: names[x[10]] || x[10],
   })).sort((a, b) => a.slot - b.slot || a.court - b.court);
   return respond(200, { matches });
+}
+
+// Whole-event clash & integrity check (all categories, group + playoff). Read-only:
+// it changes nothing, only reports. Covers (per the admin's checklist):
+//  1. every team in a group plays the same number of matches (= teams-1),
+//  2. every pair in a group meets exactly once (missing / duplicate pairings),
+//  3. no team (pair) is booked in two matches at the same time (two courts at once),
+//  4. which courts sit idle at each scheduled time,
+//  5. court clashes (one court, two matches) and player clashes (one person, two
+//     matches at once — including across categories).
+async function tEventClashCheck(eventId) {
+  const sheets = getSheets();
+  await ensureTabs(sheets);
+  const { tids, catByTid } = await eventCatsAndNames(sheets, eventId);
+  if (!tids.length) return respond(400, { error: "Belum ada kategori di event ini." });
+  // Group rosters + per-entrant player names (live entrant record preferred, group
+  // snapshot as fallback) so clashes read with real names and cross-category people match.
+  const grRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_groups}!A2:G` });
+  const dmap = await loadDisplayNames(sheets);
+  const nmMap = await loadEntrantNameMap(sheets, tids);
+  const groupRoster = new Map(); // "tid|group" -> [{eid, team}]
+  const teamLabel = {}; const playersOf = {}; // eid -> "p1 + p2" ; eid -> [normName,…]
+  for (const x of (grRes.data.values || [])) {
+    if (!tids.includes(x[0])) continue;
+    const tid = x[0], grp = x[2] || "", eid = x[3];
+    const live = nmMap.get(eid);
+    const p1 = (live && live.p1) || x[4] || "", p2 = (live && live.p2) || x[5] || "";
+    teamLabel[eid] = displayPair(dmap, p1, p2);
+    playersOf[eid] = [p1, p2].filter(Boolean).map(normName);
+    const key = tid + "|" + grp;
+    if (!groupRoster.has(key)) groupRoster.set(key, []);
+    groupRoster.get(key).push({ eid, team: teamLabel[eid] });
+  }
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const matches = (mRes.data.values || []).map(mapMatchRow).filter((m) => tids.includes(m.tournamentId));
+  const nm = (eid) => teamLabel[eid] || (nmMap.get(eid) ? `${nmMap.get(eid).p1} + ${nmMap.get(eid).p2}` : (eid || ""));
+  const catOf = (tid) => catByTid[tid] || tid;
+  const pushTo = (map, k, v) => { if (!map.has(k)) map.set(k, []); map.get(k).push(v); };
+
+  // ---- A) group round-robin integrity ----
+  const groupIntegrity = [];
+  for (const [key, teams] of groupRoster) {
+    const [tid, grp] = key.split("|");
+    const n = teams.length, expectedPerTeam = n - 1, expectedPairs = (n * (n - 1)) / 2;
+    const eids = teams.map((t) => t.eid);
+    const eidSet = new Set(eids);
+    const gm = matches.filter((m) => m.tournamentId === tid && m.stage === "GROUP" && (m.groupLabel || "") === grp);
+    const pairCount = new Map(); const teamCount = {}; eids.forEach((e) => { teamCount[e] = 0; });
+    for (const m of gm) {
+      const a = m.entrantA, b = m.entrantB; if (!a || !b) continue;
+      pairCount.set([a, b].sort().join("~"), (pairCount.get([a, b].sort().join("~")) || 0) + 1);
+      if (a in teamCount) teamCount[a]++; if (b in teamCount) teamCount[b]++;
+    }
+    const issues = [];
+    for (let i = 0; i < eids.length; i++) for (let j = i + 1; j < eids.length; j++) {
+      const c = pairCount.get([eids[i], eids[j]].sort().join("~")) || 0;
+      if (c === 0) issues.push({ type: "missing", a: nm(eids[i]), b: nm(eids[j]) });
+      else if (c > 1) issues.push({ type: "duplicate", a: nm(eids[i]), b: nm(eids[j]), count: c });
+    }
+    for (const [pk, c] of pairCount) { const [a, b] = pk.split("~"); if (!eidSet.has(a) || !eidSet.has(b)) issues.push({ type: "foreign", a: nm(a), b: nm(b), count: c }); }
+    for (const t of teams) { const played = teamCount[t.eid] || 0; if (played !== expectedPerTeam) issues.push({ type: "count", team: t.team, played, expected: expectedPerTeam }); }
+    groupIntegrity.push({ category: catOf(tid), group: grp, teams: n, expectedPerTeam, expectedPairs, scheduledMatches: gm.length, ok: issues.length === 0, issues });
+  }
+
+  // ---- scheduling clashes (group + playoff) ----
+  const scheduled = matches.filter((m) => m.court > 0 && String(m.time || "").trim() !== "" && m.status !== "BYE");
+  const tkey = (m) => (m.date || "") + " " + (normClock(m.time) || m.time);
+  const mlabel = (m) => ({ category: catOf(m.tournamentId), stage: m.stage, label: m.stage === "PLAYOFF" ? `${m.bracket || ""} R${m.round || ""}`.trim() : (m.groupLabel || ""), teamA: nm(m.entrantA), teamB: nm(m.entrantB), court: m.court, time: normClock(m.time) || m.time, date: m.date || "" });
+
+  const byCell = new Map(); // date+time+court -> matches  (court clash)
+  const byTime = new Map(); // date+time -> matches         (player clash / idle)
+  for (const m of scheduled) { pushTo(byCell, tkey(m) + "|C" + m.court, m); pushTo(byTime, tkey(m), m); }
+
+  const courtClashes = [];
+  for (const [k, arr] of byCell) if (arr.length > 1) { const t = k.split("|C")[0], c = +k.split("|C")[1]; courtClashes.push({ time: t, court: c, matches: arr.map(mlabel) }); }
+
+  const courtUniverse = [...new Set(scheduled.map((m) => m.court).filter((x) => x > 0))].sort((a, b) => a - b);
+  const playerClashes = [], teamClashes = [], idle = [];
+  for (const [t, arr] of byTime) {
+    const seen = {}; // normName -> matches
+    const teamSeen = {}; // eid -> matches
+    for (const m of arr) for (const eid of [m.entrantA, m.entrantB]) {
+      if (!eid) continue;
+      (teamSeen[eid] = teamSeen[eid] || []).push(m);
+      for (const pn of (playersOf[eid] || [])) (seen[pn] = seen[pn] || []).push(m);
+    }
+    for (const pn in seen) if (seen[pn].length > 1) playerClashes.push({ time: t, player: pn, matches: seen[pn].map(mlabel) });
+    for (const eid in teamSeen) if (teamSeen[eid].length > 1) teamClashes.push({ time: t, team: nm(eid), courts: [...new Set(teamSeen[eid].map((x) => x.court))], matches: teamSeen[eid].map(mlabel) });
+    const used = new Set(arr.map((m) => m.court));
+    const free = courtUniverse.filter((c) => !used.has(c));
+    if (free.length) idle.push({ time: t, idleCourts: free, usedCourts: [...used].sort((a, b) => a - b) });
+  }
+  const byT = (a, b) => String(a.time).localeCompare(String(b.time));
+  courtClashes.sort(byT); playerClashes.sort(byT); teamClashes.sort(byT); idle.sort(byT);
+  const unscheduled = matches.filter((m) => m.status !== "BYE" && (!(m.court > 0) || String(m.time || "").trim() === "")).length;
+
+  return respond(200, {
+    courts: courtUniverse,
+    summary: {
+      groupIssues: groupIntegrity.reduce((s, g) => s + g.issues.length, 0),
+      courtClashes: courtClashes.length,
+      playerClashes: playerClashes.length,
+      teamDoubleBooked: teamClashes.length,
+      idleTimes: idle.length,
+      unscheduled,
+      clean: groupIntegrity.every((g) => g.ok) && !courtClashes.length && !playerClashes.length && !teamClashes.length,
+    },
+    groupIntegrity, courtClashes, playerClashes, teamClashes, idle,
+  });
 }
 
 // ==============================================================
