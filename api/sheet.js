@@ -4660,10 +4660,12 @@ function buildOverallProjection(totalTeams, topN, groupLabels, adv) {
 function projectionFromBrackets(brackets, entrantLabel) {
   const lab = (eid) => (eid ? (entrantLabel[eid] || "") : "");
   return (brackets || []).filter((t) => (t.nQual || 0) >= 2).map((t) => {
+    // Preserve BYE status so the public/mobile board renders a bye slot as "BYE"
+    // (dimmed, no opponent) instead of a confusing "TBD" against a phantom seed number.
     const conv = (m) => ({
       matchId: "", round: m.round, idx: m.idx, court: "", time: "", date: "",
       teamA: lab(m.entrantA), teamB: lab(m.entrantB), entrantA: null, entrantB: null,
-      scoreA: "", scoreB: "", winner: "", status: "SCHEDULED", projected: true,
+      scoreA: "", scoreB: "", winner: "", status: m.status === "BYE" ? "BYE" : "SCHEDULED", projected: true,
     });
     const rounds = (t.rounds || []).map((r) => ({ round: r.round, matches: (r.matches || []).map(conv) }));
     return { tier: t.tier, numRounds: t.numRounds, nQual: t.nQual, rounds, bronze: t.bronze ? conv(t.bronze) : null, podium: { champion: "", runnerUp: "", third: "" }, projected: true };
