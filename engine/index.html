@@ -627,9 +627,10 @@
       <div class="seg" id="schMode">
         <button type="button" class="active" data-v="normal" onclick="pickSchedMode(this)">Normal · spread out (no gaps ≥1 hour)</button>
         <button type="button" data-v="intense" onclick="pickSchedMode(this)">Intense · play 3× in a row</button>
+        <button type="button" data-v="efficient" onclick="pickSchedMode(this)">Efficient · fill every court, shortest duration</button>
       </div>
     </div>
-    <p id="schModeDesc" style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. Courts fill automatically — with spare courts a group can split across several to finish sooner; otherwise it stays 1 group per court.</p>
+    <p id="schModeDesc" style="font-size:12px; color:var(--muted); margin:8px 0 0;"><b>Normal</b>: spreads each team's matches out, keeping rest gaps under an hour. <b>Intense</b>: each team plays 3 in a row, a short rest, then 3 more. <b>Efficient</b>: packs every court each round for the shortest total duration — with spare courts (e.g. 4 groups on 5 courts) one group runs two matches in parallel and the extra court rotates between groups. No team plays more than 3 in a row. (Overrides “batch by group order”.)</p>
     <p style="font-size:12px; color:var(--muted); margin:2px 0 0;">Prefilled from the event settings — edit here and regenerate to update them. Custom court numbers and breaks are under <b>Advanced</b>.</p>
     <label id="schLockGroupsRow" style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;cursor:pointer">
       <input type="checkbox" id="schLockGroups" checked style="width:auto">
@@ -1130,7 +1131,7 @@ function renderCatStarts(){
     + '<div class="grid">' + ts.map(t =>
         '<div class="f"><label>'+esc(t.category)+' — jam mulai'+(mode==="sequential"?' (auto/override)':'')+'</label><input type="time" data-tid="'+esc(t.tournamentId)+'" value="'+esc(t.startTime||"")+'" placeholder="'+(mode==="sequential"?"auto":esc(evStart))+'"></div>'
         + '<div class="f"><label>'+esc(t.category)+' — court'+(mode==="parallel"?' <span style="color:var(--orange);font-weight:600">(isi agar tak tercampur)</span>':'')+'</label><input type="text" data-court-tid="'+esc(t.tournamentId)+'" value="'+esc(savedCourts[t.tournamentId]||"")+'" placeholder="mis. 1,2,3,4" oninput="renderCatMixWarn()"></div>'
-        + '<div class="f"><label>'+esc(t.category)+' — play mode</label><select data-mode-tid="'+esc(t.tournamentId)+'" onchange="collectCatPlayMode()"><option value="normal" '+(playOf(t.tournamentId)==="intense"?"":"selected")+'>Normal (menyebar)</option><option value="intense" '+(playOf(t.tournamentId)==="intense"?"selected":"")+'>Intense (3× berturut)</option></select></div>'
+        + '<div class="f"><label>'+esc(t.category)+' — play mode</label><select data-mode-tid="'+esc(t.tournamentId)+'" onchange="collectCatPlayMode()"><option value="normal" '+(playOf(t.tournamentId)==="normal"?"selected":"")+'>Normal (menyebar)</option><option value="intense" '+(playOf(t.tournamentId)==="intense"?"selected":"")+'>Intense (3× berturut)</option><option value="efficient" '+(playOf(t.tournamentId)==="efficient"?"selected":"")+'>Efficient (court penuh, tersingkat)</option></select></div>'
         + '<div class="f" style="justify-content:flex-end"><label style="display:flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin:0;text-transform:none;letter-spacing:0"><input type="checkbox" data-lock-tid="'+esc(t.tournamentId)+'" '+(lockOf(t.tournamentId)?"checked":"")+' style="width:auto" onchange="collectCatLock()"><span>Batch by group order <span style="color:var(--muted)">('+esc(t.category)+')</span></span></label></div>'
       ).join("") + '</div>'
     + (mode==="parallel" ? '<div style="margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" onclick="autoSplitCourts()">⎟⎟ Bagi court otomatis per kategori</button></div>' : '')
@@ -1167,7 +1168,7 @@ function collectCatLock(){
 // Normal (spread) or Intense (3×), independently of the others.
 function collectCatPlayMode(){
   const out = {};
-  document.querySelectorAll('#catStartsWrap select[data-mode-tid]').forEach(i => { out[i.getAttribute('data-mode-tid')] = (i.value === "intense") ? "intense" : "normal"; });
+  document.querySelectorAll('#catStartsWrap select[data-mode-tid]').forEach(i => { out[i.getAttribute('data-mode-tid')] = (i.value === "intense") ? "intense" : (i.value === "efficient") ? "efficient" : "normal"; });
   saveCatPlayMode(out);
   return out;
 }
@@ -2101,7 +2102,7 @@ async function generateSchedule(){
     if(r.engine!=="grid-parallel-v1"){
       toast("Jadwal dibuat, TAPI backend masih versi LAMA — sheet.js belum ter-redeploy ke Production (mode paralel belum aktif).", true);
     } else {
-      const modeLbl = (r.mode==="intense") ? "Intense (3× berturut-turut)" : "Normal (menyebar)";
+      const modeLbl = (r.mode==="intense") ? "Intense (3× berturut-turut)" : (r.mode==="efficient") ? "Efficient (court penuh, tersingkat)" : "Normal (menyebar)";
       const layoutLbl = (r.courtLayout==="locked") ? "1 grup = 1 court" : (r.courtLayout==="mixed") ? "campuran (per kategori)" : "paralel (grup dibagi antar-court)";
       toast(`Jadwal dibuat · ${modeLbl} · ${layoutLbl} · ${r.scheduledMatches} match dalam ${r.slotsUsed} sesi`);
     }

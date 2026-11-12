@@ -3489,6 +3489,19 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
         s += rem * 0.5;
         return s;
       }
+      if (mmode === "efficient") {
+        // Pack every court each slot → shortest total duration. Drive selection by the
+        // group with the MOST matches left, so the long pole shrinks evenly; the slot
+        // loop below fills up to C courts, so two disjoint matches of one group run in
+        // parallel on a spare court and the "extra court" lead rotates to the next group
+        // as each group's remaining count drops. The hard 3-in-a-row cap (TARGET) still
+        // applies in the slot loop, so no team is overworked.
+        let s = 0;
+        s += rem * 100;                                   // balance groups → minimise makespan
+        s += (ga + gb) * 2;                               // tiny rest nudge when a court is otherwise free
+        s -= (ra >= 2 ? 40 : 0) + (rb >= 2 ? 40 : 0);     // don't force the 3-cap unless needed
+        return s;
+      }
       let s = 0; // normal: spread, most-overdue first
       s += ga * ga * 10 + gb * gb * 10;
       s -= (ra > 0 ? ra * 25 : 0) + (rb > 0 ? rb * 25 : 0);
@@ -3664,15 +3677,17 @@ async function tScheduleEvent(eventId, body) {
     g.isBase = (bStartMin === startMin);
   }
 
-  // Play-pattern mode: "intense" (blocks of 3) or "normal" (spread, default).
-  const mode = (String(b.mode || "").toLowerCase() === "intense") ? "intense" : "normal";
+  // Play-pattern mode: "intense" (blocks of 3), "efficient" (pack every court for the
+  // shortest total duration), or "normal" (spread, default).
+  const modeRaw = String(b.mode || "").toLowerCase();
+  const mode = modeRaw === "intense" ? "intense" : modeRaw === "efficient" ? "efficient" : "normal";
   // Per-category override of the play-pattern: { tid: "intense"|"normal" }. A category
   // present here uses its own value; absent categories fall back to the event-wide
   // `mode`. Lets one category (e.g. Men) run intense while another (Women) stays normal.
   const catModeIn = (b.categoryMode && typeof b.categoryMode === "object") ? b.categoryMode : null;
   const modeFor = (tid) => {
     const v = catModeIn && Object.prototype.hasOwnProperty.call(catModeIn, tid) ? String(catModeIn[tid] || "").toLowerCase() : "";
-    return v === "intense" ? "intense" : v === "normal" ? "normal" : mode;
+    return v === "intense" ? "intense" : v === "efficient" ? "efficient" : v === "normal" ? "normal" : mode;
   };
   const gapCap = Math.max(2, Math.round(60 / matchMinutes)); // ~1 hour, in slots
 
@@ -3730,7 +3745,16 @@ async function tScheduleEvent(eventId, body) {
       const catGroups = catGroupsRaw.slice().sort((a, c) => String(a.key).localeCompare(String(c.key), undefined, { numeric: true }));
       const sub = allMatches.filter((m) => catGroups.includes(groups[m.gi]));
       const setLock = (v) => sub.forEach((m) => { m.locked = v; });
-      if (lockFor(tid)) {
+      // "Efficient" play mode: always run this category parallel across every court
+      // (incl. the spare) so a group can take 2 courts at once and the pool finishes
+      // fastest. It overrides batch-by-group-order, whose 1-group-per-court waves would
+      // leave a spare court idle.
+      const catIsEff = sub.length > 0 && sub.every((m) => (m.mode || mode) === "efficient");
+      if (catIsEff) {
+        catGroups.forEach((g, i) => { g.home = pool.allowed[i % poolC]; });
+        for (const m of sub) m.home = groups[m.gi].home;
+        setLock(false); anyParallel = true;
+      } else if (lockFor(tid)) {
         // TRUE batches: groups A,B,C,D run in wave 1 on the pool's courts, then
         // E,F,G,H in wave 2, etc. Each wave only starts after the previous wave's
         // longest group finishes (hard barrier), offset from THIS CATEGORY's own
