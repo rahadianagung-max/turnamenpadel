@@ -3540,6 +3540,84 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
   return placed;
 }
 
+// Home-court + shared-overflow placement for the "Efficient" play mode. Each group stays
+// on its own home court (m.home); any spare courts (m.overflow) are shared and rotate
+// between groups for a second, non-conflicting match per slot — so the spare court is
+// filled and the category finishes sooner, while every home court keeps one group's
+// identity (court 1 = group A, court 2 = group B, …; court 5 = whoever holds it). Hard
+// rules kept: one match per court per slot, one match per player/team per slot (incl.
+// across categories via tokens), the 3-in-a-row fatigue cap, and category start offsets.
+function placeMatchesGridEfficient(matches, numCourts, opts) {
+  opts = opts || {};
+  const C = Math.max(1, numCourts);
+  const N = matches.length;
+  const placed = new Array(N).fill(null);
+  const TARGET = 3; // never more than 3 consecutive matches for a team
+  const byGroup = new Map();
+  matches.forEach((m, i) => { if (!byGroup.has(m.gi)) byGroup.set(m.gi, []); byGroup.get(m.gi).push(i); });
+  const remain = new Map(); for (const [g, arr] of byGroup) remain.set(g, arr.length);
+  const last = new Map(), runLen = new Map();
+  const contig = (tok, slot) => (last.get(tok) === slot - 1) ? (runLen.get(tok) || 0) : 0;
+  const groupIds = Array.from(byGroup.keys());
+  const G = groupIds.length || 1;
+  const gIndex = new Map(); groupIds.forEach((g, i) => gIndex.set(g, i));
+  // earliest-round unplaced match of group g that fits this slot (offset, tokens, fatigue)
+  const pick = (g, usedTokens, slot) => {
+    for (const i of byGroup.get(g)) {
+      if (placed[i]) continue;
+      const m = matches[i];
+      if ((m.offset || 0) > slot) continue;
+      let ok = true; for (const tk of m.tokens) if (usedTokens.has(tk)) { ok = false; break; }
+      if (!ok) continue;
+      if (contig("E:" + m.a, slot) >= TARGET || contig("E:" + m.b, slot) >= TARGET) continue;
+      return i;
+    }
+    return -1;
+  };
+  let done = 0, slot = 0;
+  const HARDCAP = N * 4 + 50;
+  while (done < N && slot < HARDCAP) {
+    const usedTokens = new Set(), usedCourts = new Set();
+    const put = (i, court) => {
+      const m = matches[i];
+      placed[i] = { slot, court }; usedCourts.add(court);
+      for (const tk of m.tokens) usedTokens.add(tk);
+      for (const t of ["E:" + m.a, "E:" + m.b]) { const r = contig(t, slot); runLen.set(t, r + 1); last.set(t, slot); }
+      remain.set(m.gi, (remain.get(m.gi) || 1) - 1); done++;
+    };
+    // PASS 1 — each group plays one match on its own home court.
+    for (const g of groupIds) {
+      const arr = byGroup.get(g); if (!arr.length) continue;
+      const home = matches[arr[0]].home || (gIndex.get(g) % C) + 1;
+      if (usedCourts.has(home)) continue;
+      const i = pick(g, usedTokens, slot);
+      if (i >= 0) put(i, home);
+    }
+    // PASS 2 — shared overflow courts: rotate groups (by slot), prefer the most-overdue.
+    const overflowCourts = [];
+    for (const g of groupIds) { const arr = byGroup.get(g); if (arr.length) { const ov = matches[arr[0]].overflow || []; for (const c of ov) if (!overflowCourts.includes(c)) overflowCourts.push(c); } }
+    overflowCourts.sort((a, b) => a - b);
+    for (const oc of overflowCourts) {
+      if (usedCourts.has(oc)) continue;
+      const order = groupIds.slice().sort((x, y) => {
+        const rr = (remain.get(y) || 0) - (remain.get(x) || 0); if (rr) return rr;
+        const rx = (((gIndex.get(x) - slot) % G) + G) % G, ry = (((gIndex.get(y) - slot) % G) + G) % G;
+        return rx - ry;
+      });
+      for (const g of order) {
+        const ov = matches[byGroup.get(g)[0]].overflow || [];
+        if (!ov.includes(oc)) continue;
+        const i = pick(g, usedTokens, slot);
+        if (i >= 0) { put(i, oc); break; }
+      }
+    }
+    slot++;
+  }
+  // Safety: never leave a match unplaced.
+  for (let i = 0; i < N; i++) if (!placed[i]) { const m = matches[i]; placed[i] = { slot, court: m.home || 1 }; slot++; }
+  return placed;
+}
+
 // Generate the full group-stage schedule for an event (all categories share the court pool).
 async function tScheduleEvent(eventId, body) {
   const sheets = getSheets();
@@ -3751,9 +3829,15 @@ async function tScheduleEvent(eventId, body) {
       // leave a spare court idle.
       const catIsEff = sub.length > 0 && sub.every((m) => (m.mode || mode) === "efficient");
       if (catIsEff) {
+        // Home-court + shared overflow: each group owns a court (A->1, B->2, …); any
+        // courts beyond the group count become shared "overflow" courts that rotate
+        // between groups for a second, non-conflicting match per slot. Keeps every home
+        // court to one group's identity while filling the spare court to cut duration.
+        const G = catGroups.length;
+        const overflow = (G < poolC) ? pool.allowed.slice(G) : [];
         catGroups.forEach((g, i) => { g.home = pool.allowed[i % poolC]; });
-        for (const m of sub) m.home = groups[m.gi].home;
-        setLock(false); anyParallel = true;
+        for (const m of sub) { m.home = groups[m.gi].home; m.overflow = overflow; m.locked = true; }
+        if (overflow.length) anyParallel = true; else anyLocked = true;
       } else if (lockFor(tid)) {
         // TRUE batches: groups A,B,C,D run in wave 1 on the pool's courts, then
         // E,F,G,H in wave 2, etc. Each wave only starts after the previous wave's
@@ -3780,8 +3864,14 @@ async function tScheduleEvent(eventId, body) {
       }
     }
   }
-  const placed = placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
-  const courtLayout = (anyLocked && anyParallel) ? "mixed" : anyParallel ? "parallel" : "locked";
+  // When every match is "Efficient", use the home-court + shared-overflow placer (fixed
+  // home courts, spare courts rotated). Mixed events (some non-efficient categories) keep
+  // the general grid placer, which is unchanged.
+  const allEfficient = allMatches.length > 0 && allMatches.every((m) => (m.mode || mode) === "efficient");
+  const placed = allEfficient
+    ? placeMatchesGridEfficient(allMatches, numCourts, { gapCap })
+    : placeMatchesGrid(allMatches, numCourts, mode, { gapCap });
+  const courtLayout = allEfficient ? "overflow" : (anyLocked && anyParallel) ? "mixed" : anyParallel ? "parallel" : "locked";
 
   const now = new Date().toISOString();
   const newRows = [];
