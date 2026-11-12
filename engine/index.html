@@ -381,6 +381,7 @@
     </div>
     <div class="who" id="whoBox">
       <a id="navCourts" class="btn btn-ghost btn-sm" style="text-decoration:none;" href="/scorerdesk" target="_blank" rel="noopener" title="Scorer Desk: enter & revise scores, edit names, manage schedule">🎾 Scorer Desk</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="clashCheckBtn" onclick="runClashCheck()" title="Scan seluruh jadwal event: bentrok court/pemain, kelengkapan grup, court kosong">🔎 Cek Bentrok</button>
       <button type="button" class="btn btn-ghost btn-sm" id="manageAdminsBtn" style="display:none;" onclick="openAdmins()">Manage admins</button>
       <button type="button" class="btn btn-ghost btn-sm" id="manageUpcomingBtn" style="display:none;" onclick="openUpcoming()">Upcoming (home)</button>
       <button type="button" class="btn btn-ghost btn-sm" onclick="logout()">Log out</button>
@@ -818,6 +819,75 @@ const val = id => document.getElementById(id).value.trim();
 const LEVEL_LABEL = {open:"Open",beginner:"Beginner",upper_beginner:"Upper Beginner",lower_bronze:"Lower Bronze",bronze:"Bronze",upper_bronze:"Upper Bronze",silver:"Silver",gold:"Gold",platinum:"Platinum"};
 // A tournament's level is either a known tier or, for the "Other" category, a raw ELO number.
 function levelLabel(l){ if(LEVEL_LABEL[l]) return LEVEL_LABEL[l]; return /^\d+$/.test(String(l||"")) ? "ELO "+l : (l||""); }
+
+// ---- Cek Bentrok: whole-event clash & integrity report (read-only) ----
+async function runClashCheck(){
+  if(!state.event){ toast("Pilih event dulu.", true); return; }
+  const btn=document.getElementById("clashCheckBtn"); const old=btn?btn.innerHTML:"";
+  if(btn){ btn.disabled=true; btn.innerHTML="⏳ Memeriksa…"; }
+  try{
+    const r = await api("tournament/event/"+encodeURIComponent(state.event.eventId)+"/clash-check");
+    renderClashReport(r);
+  }catch(e){ toast("Gagal cek bentrok: "+e.message, true); }
+  finally{ if(btn){ btn.disabled=false; btn.innerHTML=old||"🔎 Cek Bentrok"; } }
+}
+function closeClashReport(){ const o=document.getElementById("clashOverlay"); if(o) o.remove(); }
+function renderClashReport(r){
+  closeClashReport();
+  const s=r.summary||{};
+  const mline = m => `${esc(m.category||"")} ${esc(m.label||"")} · ${esc(m.teamA||"")} vs ${esc(m.teamB||"")} · <b>C${esc(String(m.court||"?"))}</b> ${esc(m.time||"")}`;
+  const chip=(label,n,bad)=> `<span style="display:inline-flex;align-items:center;gap:6px;border:1px solid ${n&&bad?'#dc2626':'#cbd5e1'};background:${n&&bad?'#fef2f2':'#f8fafc'};color:${n&&bad?'#991b1b':'#334155'};border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:700;margin:3px 6px 3px 0">${bad?(n?'⚠️':'✅'):'•'} ${esc(label)}: ${n}</span>`;
+  const sect=(title,body)=> `<div style="margin-top:16px"><div style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#64748b;margin-bottom:7px">${esc(title)}</div>${body}</div>`;
+
+  // group integrity
+  const gi=(r.groupIntegrity||[]);
+  const giBad=gi.filter(g=>!g.ok);
+  let giBody;
+  if(!gi.length){ giBody='<p style="color:#64748b;font-size:13px">Belum ada grup.</p>'; }
+  else if(!giBad.length){ giBody=`<p style="color:#15803d;font-size:13px">✅ Semua ${gi.length} grup lengkap — tiap pasangan bertemu 1×, tiap tim main ${gi[0]?gi[0].expectedPerTeam:''}×.</p>`; }
+  else giBody=giBad.map(g=>{
+    const rows=g.issues.map(it=>{
+      if(it.type==="missing") return `<li>Belum ada pertandingan: <b>${esc(it.a)}</b> vs <b>${esc(it.b)}</b></li>`;
+      if(it.type==="duplicate") return `<li>Pasangan bertemu <b>${it.count}×</b> (harusnya 1): ${esc(it.a)} vs ${esc(it.b)}</li>`;
+      if(it.type==="count") return `<li>Tim <b>${esc(it.team)}</b> main <b>${it.played}×</b> (harusnya ${it.expected}×)</li>`;
+      if(it.type==="foreign") return `<li>Pertandingan dgn tim luar grup: ${esc(it.a)} vs ${esc(it.b)}</li>`;
+      return "";
+    }).join("");
+    return `<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:9px 12px;margin-bottom:8px"><b>${esc(g.category)} · Grup ${esc(g.group)}</b> (${g.teams} tim)<ul style="margin:6px 0 0;padding-left:18px;font-size:13px;line-height:1.5">${rows}</ul></div>`;
+  }).join("");
+
+  const clashList=(arr,fmt)=> arr.length? arr.map(fmt).join("") : '<p style="color:#15803d;font-size:13px">✅ Tidak ada.</p>';
+  const courtBody=clashList(r.courtClashes||[], c=>`<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:9px 12px;margin-bottom:7px"><b>${esc(c.time)} · Court ${esc(String(c.court))}</b> dipakai ${c.matches.length} match:<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5">${c.matches.map(m=>`<li>${mline(m)}</li>`).join("")}</ul></div>`);
+  const playerBody=clashList(r.playerClashes||[], c=>`<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:9px 12px;margin-bottom:7px"><b>${esc(c.time)} · Pemain "${esc(c.player)}"</b> main ${c.matches.length} match sekaligus:<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5">${c.matches.map(m=>`<li>${mline(m)}</li>`).join("")}</ul></div>`);
+  const teamBody=clashList(r.teamClashes||[], c=>`<div style="border:1px solid #fecaca;background:#fef2f2;border-radius:8px;padding:9px 12px;margin-bottom:7px"><b>${esc(c.time)} · Tim ${esc(c.team)}</b> di court ${c.courts.map(x=>esc(String(x))).join(" & ")} bersamaan:<ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5">${c.matches.map(m=>`<li>${mline(m)}</li>`).join("")}</ul></div>`);
+  const idle=(r.idle||[]);
+  const idleBody= idle.length? `<div style="font-size:12.5px;line-height:1.7">${idle.map(i=>`<div><b>${esc(i.time)}</b> — kosong: ${i.idleCourts.map(x=>'C'+esc(String(x))).join(", ")} <span style="color:#94a3b8">(terpakai ${i.usedCourts.length}/${(r.courts||[]).length})</span></div>`).join("")}</div>` : '<p style="color:#64748b;font-size:13px">Semua court terpakai di tiap jam (atau belum ada jadwal).</p>';
+
+  const allClean = s.clean;
+  const html=`
+  <div id="clashOverlay" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,.55);display:flex;align-items:flex-start;justify-content:center;padding:24px;overflow:auto" onclick="if(event.target===this)closeClashReport()">
+    <div style="background:#fff;max-width:720px;width:100%;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3);padding:20px 22px;font-family:'Inter',system-ui,sans-serif;color:#0f172a">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:19px">🔎 Cek Bentrok — ${esc(state.event&&state.event.name||"")}</div>
+        <button type="button" onclick="closeClashReport()" style="border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:700">Tutup</button>
+      </div>
+      <div style="margin:8px 0 2px;padding:10px 12px;border-radius:10px;background:${allClean?'#f0fdf4':'#fff7ed'};border:1px solid ${allClean?'#bbf7d0':'#fed7aa'};font-weight:700;font-size:14px">${allClean?'✅ Jadwal bersih — tidak ada bentrok & semua grup lengkap.':'⚠️ Ada yang perlu dicek (lihat detail di bawah).'}</div>
+      <div style="margin-top:8px">
+        ${chip('Bentrok court', s.courtClashes||0, true)}
+        ${chip('Bentrok pemain', s.playerClashes||0, true)}
+        ${chip('Tim 2 lapangan', s.teamDoubleBooked||0, true)}
+        ${chip('Masalah grup', s.groupIssues||0, true)}
+        ${chip('Belum terjadwal', s.unscheduled||0, true)}
+      </div>
+      ${sect('Kelengkapan grup (round-robin)', giBody)}
+      ${sect('Lapangan bentrok', courtBody)}
+      ${sect('Pemain bentrok (termasuk lintas kategori)', playerBody)}
+      ${sect('Tim main di 2 lapangan sekaligus', teamBody)}
+      ${sect('Court kosong per jam', idleBody)}
+    </div>
+  </div>`;
+  const wrap=document.createElement("div"); wrap.innerHTML=html; document.body.appendChild(wrap.firstElementChild);
+}
 
 function shareSlug(){
   // Prefer the FROZEN slug (so a renamed event keeps its /tv & /mobile URL);
