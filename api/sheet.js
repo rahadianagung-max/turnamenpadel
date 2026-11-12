@@ -5765,8 +5765,12 @@ async function tPublicEvent(eventId, opts) {
         // Full bracket → real group-position labels (shows the crossing).
         ents.forEach((id) => { const p = posOf[id]; entrantLabelMap[id] = p ? playoffProjectionRankLabel(p.rank, p.group) : ""; });
       } else {
-        // Bracket has BYEs → neutral seed numbers, by seed order.
-        const flat = ents.map((id) => ({ id, s: posOf[id] })).filter((x) => x.s);
+        // Bracket has BYEs → neutral seed numbers, by seed order. Dedup first: a bye
+        // winner also sits pre-filled in the next round, so counting it twice inflated
+        // the seed count and mislabelled teams (e.g. "Unggulan 14/15/16" for a 10-team
+        // field, with byes landing on the wrong seeds).
+        const seen = new Set(), flat = [];
+        ents.forEach((id) => { if (id && !seen.has(id) && posOf[id]) { seen.add(id); flat.push({ id, s: posOf[id] }); } });
         flat.sort((a, b) => seedSort(a.s, b.s));
         flat.forEach((x, i) => { entrantLabelMap[x.id] = `Unggulan ${i + 1}`; });
       }
