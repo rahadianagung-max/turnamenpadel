@@ -3465,7 +3465,11 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
   // Each match may carry: m.courts (allowed court positions, default all), m.locked
   // (pin the group to m.home court, no hopping), m.home (that home court position).
   const courtsOf = (m) => (m.courts && m.courts.length) ? m.courts : ALL;
-  const TARGET = 3; // never more than 3 consecutive matches for a team (fatigue cap)
+  const TARGET = 3; // absolute ceiling on consecutive matches for a team (fatigue cap)
+  // Default play order ("normal") caps a team at 2 matches in a row; the opt-in
+  // "intense" (blocks of 3) and "efficient" (tight packing) modes still allow up to 3.
+  // Per-match so a mixed-mode event honours each category's own cap.
+  const capFor = (m) => ((m.mode || mode) === "normal" ? 2 : TARGET);
   const N = matches.length;
   const placed = new Array(N).fill(null);
   const last = new Map(), runLen = new Map(), lastCourt = new Map();
@@ -3518,7 +3522,8 @@ function placeMatchesGrid(matches, numCourts, mode, opts) {
       const m = matches[i];
       let ok = true; for (const tk of m.tokens) if (usedTokens.has(tk)) { ok = false; break; }
       if (!ok) continue;
-      if (contigRun("E:" + m.a, slot) >= TARGET || contigRun("E:" + m.b, slot) >= TARGET) continue; // force a rest
+      const cap = capFor(m); // normal: 2 in a row max; intense/efficient: 3
+      if (contigRun("E:" + m.a, slot) >= cap || contigRun("E:" + m.b, slot) >= cap) continue; // force a rest
       // Pick a court: locked -> its home court; else keep a continuing team's court, then any free allowed court.
       let court = 0;
       if (m.locked && m.home) { if (!slotCourtUsed.has(m.home)) court = m.home; }
