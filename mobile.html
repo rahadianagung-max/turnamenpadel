@@ -796,14 +796,17 @@ function projectGroupEndEpoch(){
   return maxEnd;
 }
 function playoffEstimate(cat){
-  if(!cat || !cat.playoff || !cat.playoff.length) return null;
+  // Use the real bracket once generated; before that, the projection (which now carries
+  // the scheduled times) so the estimate shows during the whole group stage.
+  const src = (cat && cat.playoff && cat.playoff.length) ? cat.playoff : ((cat && cat.playoffProjection) || []);
+  if(!src.length) return null;
   // Only useful BEFORE the knockout begins; once a playoff match is played the bracket's
   // own per-match times take over.
-  const started = cat.playoff.some(b=> (b.rounds||[]).some(r=>(r.matches||[]).some(m=>m.status==="DONE")) || (b.bronze && b.bronze.status==="DONE"));
+  const started = src.some(b=> (b.rounds||[]).some(r=>(r.matches||[]).some(m=>m.status==="DONE")) || (b.bronze && b.bronze.status==="DONE"));
   if(started) return null;
   const evDate = (state.data.event && state.data.event.date) || "";
   const rows=[]; let earliest=null, earliestDate=null;
-  cat.playoff.forEach(b=>{
+  src.forEach(b=>{
     (b.rounds||[]).forEach(r=>{
       const ts = (r.matches||[]).map(m=>m.time?timeToMin(m.time):null).filter(x=>x!=null);
       if(!ts.length) return;
@@ -852,7 +855,7 @@ function renderBracket(cat){
     // bracket (mis. "Winner Grup A × Runner-up Grup B" / seed labels). Proyeksi memakai
     // pasangan bracket yang sebenarnya dari backend (bukan tebakan), jadi tidak ambigu.
     const proj = (cat.playoffProjection && cat.playoffProjection.length) ? renderBracketProjection(cat.playoffProjection) : "";
-    const pre = rules + panel + proj;
+    const pre = renderPlayoffEstimate(cat) + rules + panel + proj;
     return pre.trim() ? pre : '<p class="empty">Playoff bracket not available yet.</p>';
   }
   return renderPlayoffEstimate(cat) + rules + panel + cat.playoff.map(b=>{
