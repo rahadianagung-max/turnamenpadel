@@ -268,6 +268,23 @@
   .bruleh{font-family:var(--display); font-weight:900; font-size:14px; letter-spacing:-.01em; color:var(--accent);}
   .brulebody{font-family:var(--sans); font-size:12px; color:var(--slate-700); line-height:1.5; margin-top:5px;}
   .brulebody b{color:var(--accent); font-weight:800;}
+  /* playoff start estimate (Bracket tab) */
+  .estcard{background:var(--orange-10); border:var(--bd); border-radius:var(--r-2xl); box-shadow:4px 4px 0 0 var(--accent); padding:13px 14px; margin:2px 0 16px;}
+  .estcard .lab{display:flex; align-items:center; gap:6px; font-family:var(--mono); font-size:9.5px; font-weight:800; letter-spacing:.06em; color:var(--accent); text-transform:uppercase;}
+  .estcard .big{display:flex; align-items:baseline; gap:10px; margin-top:6px; flex-wrap:wrap;}
+  .estcard .big .t{font-family:var(--mono); font-size:30px; font-weight:700; color:var(--dark); letter-spacing:-.01em;}
+  .estcard .big .u{font-family:var(--mono); font-size:12px; font-weight:700; color:var(--accent);}
+  .estcard .sub{font-family:var(--sans); font-size:12px; color:var(--slate-700); margin-top:4px; line-height:1.45;}
+  .estcard .sub b{color:var(--dark); font-weight:800;}
+  .estcard .tl{margin-top:12px; border-top:2px dashed rgba(255,87,34,.35); padding-top:11px;}
+  .estcard .tlrow{display:flex; align-items:center; gap:9px; padding:5px 0;}
+  .estcard .tlrow .dot{width:9px; height:9px; border:2px solid var(--dark); border-radius:50%; flex:0 0 auto; background:var(--card);}
+  .estcard .tlrow.up .dot{background:var(--accent);}
+  .estcard .tlrow.lo .dot{background:var(--accent2);}
+  .estcard .tlrow .tt{font-family:var(--mono); font-size:13px; font-weight:700; color:var(--dark); width:46px; flex:0 0 auto;}
+  .estcard .tlrow .tn{flex:1 1 auto; min-width:0; font-family:var(--display); font-weight:800; font-size:12.5px;}
+  .estcard .tlrow .tc{flex:0 0 auto; font-family:var(--mono); font-size:9px; font-weight:800; letter-spacing:.03em; color:#fff; background:var(--accent2); border:1.5px solid var(--dark); border-radius:var(--r-full); padding:2px 8px;}
+  .estcard .tlrow.up .tc{background:var(--accent);}
   @media(max-width:380px){ .qgrid{grid-template-columns:1fr;} }
 
   /* event picker */
@@ -746,6 +763,87 @@ function qualifyPanelHtml(cat){
     + (q.wildCount>0 ? sec(`Wildcard &middot; best ${q.wildCount} ${ordinal(q.adv+1)} place`, wildSlots) : "")
     + `</div>`;
 }
+// ---- Dynamic playoff start estimate (Bracket tab) ----
+// Projects when the GROUP stage actually finishes using the same per-court chaining as
+// the Order of Play live projection (after a DONE match, a court continues from its real
+// finish time + match duration; unplayed matches fall back to their scheduled time), then
+// shifts the whole playoff timeline by that delta vs its planned start. So the estimate
+// moves earlier/later with the real pace of the group stage.
+function projectGroupEndEpoch(){
+  const ev = state.data.event || {};
+  const est = parseInt(ev.matchMinutes)||15;
+  const evDate = ev.date || "";
+  const pred = predictTimes();
+  const tmin = m => { const s = m.date ? fmtTime(m.time) : (fmtTime(m.time) || pred[m.matchId]); if(!s) return 0; const p=String(s).split(":"); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); };
+  const dkey = m => String(m.date || evDate || "");
+  const cmp = (a,b)=> dkey(a).localeCompare(dkey(b)) || (tmin(a)-tmin(b)) || ((a.court||0)-(b.court||0));
+  const schedEpoch = m => wibEpoch(dkey(m), tmin(m));
+  const raw = (Array.isArray(ev.breaks) && ev.breaks.length) ? ev.breaks : ((ev.breakStart||ev.breakEnd) ? [{start:ev.breakStart,end:ev.breakEnd}] : []);
+  const bwins = raw.map(b=>({s:timeToMin(b.start), e:timeToMin(b.end)})).filter(b=>b.s!=null&&b.e!=null&&b.e>b.s).sort((a,b)=>a.s-b.s);
+  const wibMinOf = (ms)=>{ const d=new Date(ms); return (d.getUTCHours()*60 + d.getUTCMinutes() + 7*60) % 1440; };
+  const skipBreaks = (ms)=>{ if(ms==null || !bwins.length) return ms; let out=ms; for(const b of bwins){ const mn=wibMinOf(out); if(mn>=b.s && mn<b.e) out += (b.e-mn)*60000; } return out; };
+  const byCourt = {};
+  (state.data.categories||[]).forEach(mc=>(mc.schedule||[]).forEach(m=>{ const c=String(m.court||""); (byCourt[c]=byCourt[c]||[]).push(m); }));
+  let maxEnd = null;
+  Object.keys(byCourt).forEach(c=>{
+    const arr = byCourt[c].slice().sort(cmp); let cursor=null;
+    arr.forEach(m=>{
+      if(m.status==="DONE"){ const fin = m.updatedAt ? Date.parse(m.updatedAt) : NaN; if(!isNaN(fin)) cursor=(cursor==null)?fin:Math.max(cursor,fin); }
+      else { const s = skipBreaks((cursor!=null)?cursor:schedEpoch(m)); if(s!=null){ cursor = s + est*60000; } }
+    });
+    if(cursor!=null) maxEnd=(maxEnd==null)?cursor:Math.max(maxEnd,cursor);
+  });
+  return maxEnd;
+}
+function playoffEstimate(cat){
+  if(!cat || !cat.playoff || !cat.playoff.length) return null;
+  // Only useful BEFORE the knockout begins; once a playoff match is played the bracket's
+  // own per-match times take over.
+  const started = cat.playoff.some(b=> (b.rounds||[]).some(r=>(r.matches||[]).some(m=>m.status==="DONE")) || (b.bronze && b.bronze.status==="DONE"));
+  if(started) return null;
+  const evDate = (state.data.event && state.data.event.date) || "";
+  const rows=[]; let earliest=null, earliestDate=null;
+  cat.playoff.forEach(b=>{
+    (b.rounds||[]).forEach(r=>{
+      const ts = (r.matches||[]).map(m=>m.time?timeToMin(m.time):null).filter(x=>x!=null);
+      if(!ts.length) return;
+      const t=Math.min(...ts);
+      const courts=[...new Set((r.matches||[]).map(m=>parseInt(m.court)).filter(x=>!isNaN(x)))].sort((a,b)=>a-b);
+      const dt=(r.matches[0] && r.matches[0].date) || evDate;
+      rows.push({tier:b.tier, round:r.round, numRounds:b.numRounds, min:t, courts, date:dt});
+      if(earliest==null || t<earliest){ earliest=t; earliestDate=dt; }
+    });
+  });
+  if(earliest==null) return null;
+  const plannedStart = wibEpoch(earliestDate, earliest);
+  const groupEnd = projectGroupEndEpoch();
+  let delta = 0;
+  if(groupEnd!=null && plannedStart!=null) delta = groupEnd - plannedStart;
+  rows.sort((a,b)=> a.min-b.min || String(a.tier).localeCompare(String(b.tier)));
+  const withEst = rows.map(r=>{ const base=wibEpoch(r.date, r.min); const e=(base!=null)?base+delta:null; return Object.assign({}, r, {est:(e!=null)?epochToWibStr(e):fmtTime(minToTime(r.min))}); });
+  const startStr = (plannedStart!=null)? epochToWibStr(plannedStart+delta) : fmtTime(minToTime(earliest));
+  const anyGroupDone = (state.data.categories||[]).some(c=>(c.schedule||[]).some(m=>m.status==="DONE"));
+  return { start:startStr, deltaMin:Math.round(delta/60000), rows:withEst, live:anyGroupDone };
+}
+function renderPlayoffEstimate(cat){
+  const e = playoffEstimate(cat); if(!e) return "";
+  const courtStr = cs => !cs.length ? "" : "C"+(cs.length>1 ? (cs[0]+"–"+cs[cs.length-1]) : cs[0]);
+  const isUp = t => /CHAMP/i.test(String(t));
+  const note = !e.live ? `Mengikuti jadwal fase grup. Estimasi akan menyesuaikan saat grup mulai dimainkan.`
+    : e.deltaMin<=-1 ? `Fase grup berjalan <b>±${Math.abs(e.deltaMin)} menit lebih cepat</b> dari rencana.`
+    : e.deltaMin>=1 ? `Fase grup berjalan <b>±${e.deltaMin} menit lebih lambat</b> dari rencana.`
+    : `Fase grup berjalan <b>sesuai rencana</b>.`;
+  const tl = e.rows.map(r=>{
+    const up = isUp(r.tier)?"up":"lo"; const cl = courtStr(r.courts);
+    return `<div class="tlrow ${up}"><span class="dot"></span><span class="tt">${esc(r.est)}</span>`
+      + `<span class="tn">${esc(TIER[r.tier]||r.tier)} · ${esc(roundLabel(r.round,r.numRounds))}</span>`
+      + (cl?`<span class="tc">${esc(cl)}</span>`:"")+`</div>`;
+  }).join("");
+  return `<div class="estcard"><div class="lab">⏱ Estimasi Mulai Playoff</div>`
+    + `<div class="big"><span class="t">≈ ${esc(e.start)}</span><span class="u">WIB</span></div>`
+    + `<div class="sub">${note}</div>`
+    + `<div class="tl">${tl}</div></div>`;
+}
 function renderBracket(cat){
   const rules = bracketRulesBox(cat);
   const panel = qualifyPanelHtml(cat);
@@ -757,7 +855,7 @@ function renderBracket(cat){
     const pre = rules + panel + proj;
     return pre.trim() ? pre : '<p class="empty">Playoff bracket not available yet.</p>';
   }
-  return rules + panel + cat.playoff.map(b=>{
+  return renderPlayoffEstimate(cat) + rules + panel + cat.playoff.map(b=>{
     const pd = derivePodium(b);
     const pod = (pd.champion||pd.runnerUp||pd.third) ? `<div class="podium">
       <div class="pod g"><div class="rk">🏆 Champion</div><div class="who">${esc(dispPair(pd.champion))||"—"}</div></div>
