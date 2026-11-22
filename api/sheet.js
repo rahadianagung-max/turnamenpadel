@@ -5752,44 +5752,17 @@ async function tPublicEvent(eventId, opts) {
       groups.map((g) => ({ label: g.label, size: g.standings.length })),
       t[4] || "SINGLE", parseInt(t[6]) || 2, parseInt(t[10]) || 0,
     );
-    // Nameless projection of a real (already-generated) bracket. A FULL bracket (no BYE)
-    // is shown with real group-position labels so the crossing is visible and accurate
-    // ("Juara Grup A vs Runner-up Grup C"). A bracket WITH BYEs uses neutral seed numbers
-    // ("Unggulan N"), since naming the group that sits out can mislead. Real player names
-    // return once the group stage finishes (playoffPublic).
+    // While the group stage is still running, the board ALWAYS shows the structural
+    // projection (Juara/Runner-up cross-seed derived from the group plan), never a
+    // mirror of an already-generated real bracket. A bracket generated before every
+    // group match is scored is seeded from PROVISIONAL standings; mirroring it placed
+    // teams that have since slipped to rank 5/6 into the Upper bracket and relabelled
+    // each slot by live rank, so the "Simulasi" view drifted into nonsense as more
+    // group results came in. The structural projection stays correct regardless.
+    // Real player names + the real bracket return once the group stage finishes
+    // (groupComplete → playoffPublic), by which point seeds are final.
     const topOverall = parseInt(t[10]) || 0;
-    const posOf = {};
-    for (const g of groups) for (const s of g.standings) posOf[s.entrantId] = { rank: s.rank, group: g.label };
-    const entrantLabelMap = {};
-    (playoff || []).forEach((tr) => {
-      const ents = [];
-      (tr.rounds || []).forEach((r) => (r.matches || []).forEach((m) => {
-        if (m.entrantA) ents.push(m.entrantA);
-        if (m.entrantB) ents.push(m.entrantB);
-      }));
-      const nq = tr.nQual || ents.length;
-      if (nq >= nextPow2(nq)) {
-        // Full bracket → real group-position labels (shows the crossing).
-        ents.forEach((id) => { const p = posOf[id]; entrantLabelMap[id] = p ? playoffProjectionRankLabel(p.rank, p.group) : ""; });
-      } else {
-        // Bracket has BYEs → neutral seed numbers by BRACKET POSITION, not by re-sorting
-        // standings. Re-sorting placeholder 0-0 standings tied on every key, so the label
-        // order didn't match the bracket's real bye slots (byes showed on the wrong seeds,
-        // e.g. "Unggulan 2 vs 3"). Each round-1 slot's seed is fixed by seedOrder(size) —
-        // the exact function buildBracket used to place teams — so slot a of match idx holds
-        // seed order[2·idx] and slot b holds order[2·idx+1]. Labelling by that position means
-        // byes ALWAYS land on the top seeds (1..nByes) and matchups read coherently (a
-        // 10-team field: byes 1-6, matches "Unggulan 8 vs 9" & "7 vs 10"). A bye winner that
-        // sits pre-filled in round 2 keeps the same label, since it's the same entrantId.
-        const ord = seedOrder(nextPow2(nq));
-        (tr.rounds || []).forEach((r) => { if (parseInt(r.round) === 1) (r.matches || []).forEach((m) => {
-          const p = (parseInt(m.idx) || 0) * 2;
-          if (m.entrantA && ord[p]) entrantLabelMap[m.entrantA] = `Unggulan ${ord[p]}`;
-          if (m.entrantB && ord[p + 1]) entrantLabelMap[m.entrantB] = `Unggulan ${ord[p + 1]}`;
-        }); });
-      }
-    });
-    const playoffProjection = (!groupComplete && playoff.length) ? projectionFromBrackets(playoff, entrantLabelMap) : planProjection;
+    const playoffProjection = planProjection;
     const playoffPublic = groupComplete ? playoff : [];
     // Provisional qualification panel while groups run: "N besar" overall when a
     // top-N plan is set, otherwise per-group (top advancersPerGroup of each group).
