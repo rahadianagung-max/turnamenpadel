@@ -658,7 +658,7 @@ function renderStandings(cat){
     }
     const note = notes.join(" · ");
     const advText = split
-      ? `Rank 1${N>1?`–${N}`:''} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket`
+      ? `Rank 1${N>1?`–${N}`:''} → Upper Bracket · Rank ${N+1}+ → Lower Bracket`
       : (N?`Top ${N} advance`:'');
     const cap = `<span>${advText?advText+' · ':''}${rankNote}</span>`;
     const thPD = `<th class="${decCols.has('pd')?'decide-h':''}">PD</th>`;
@@ -705,7 +705,7 @@ function renderWildcardRace(cat){
     <tbody>${rows}</tbody></table></div></div>`;
 }
 
-const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
+const TIER = { MAIN:"Main Bracket", CHAMPION:"Upper Bracket", PROSPECT:"Lower Bracket" };
 function derivePodium(b){
   const lr=(b.rounds||[])[(b.rounds||[]).length-1];
   const fm=lr&&lr.matches&&lr.matches[0];
