@@ -346,12 +346,12 @@ const state = { data:null };
 let RIGHT_ALT = false;
 // Category rotation for the right panel when the event has 2+ categories.
 let CAT_ROT = 0;
-const ROT_MS = 10000;      // 10s per category
+const ROT_MS = 15000;      // 15s per rotating page (bracket Upper↔Lower, standings, qualification)
 let nextRotAt = 0;         // timestamp of the next category switch (for the countdown)
 let ROT_N = 0;             // categories in the currently shown rotating view (>1 => rotating)
 let STAND_PAGES = 1;       // group-standings pages (>1 => split per category & rotating)
 let ROT_LABELS = [];       // labels of the categories currently rotating (for the "Next:" line)
-const TIER = { MAIN:"Main Bracket", CHAMPION:"Champion", PROSPECT:"Prospect" };
+const TIER = { MAIN:"Main Bracket", CHAMPION:"Upper Bracket", PROSPECT:"Lower Bracket" };
 // Full category names (avoid codes like MD/WD/MIXED on the LED board).
 function catLabel(c){ const k=String(c||"").trim().toUpperCase(); return {MD:"Men's Doubles", WD:"Women's Doubles", MIXED:"Fixed Mixed"}[k] || c; }
 function levelLabel(l){ const k=String(l||"").toLowerCase().trim().replace(/\s+/g,"_"); return {beginner:"Beginner", upper_beginner:"Upper Beginner", lower_bronze:"Lower Bronze", bronze:"Bronze", upper_bronze:"Upper Bronze", silver:"Silver", gold:"Gold", platinum:"Platinum"}[k] || ""; }
@@ -492,7 +492,7 @@ function standHtml(){
     const rankNote = pts
       ? "Ranked by: points (win 3 · draw 1 · loss 0) → head-to-head → point difference → points for → points against"
       : "Ranked by: most wins → head-to-head → point difference → points for → points against";
-    const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
+    const advText = split ? `Rank 1${N>1?`–${N}`:""} → Upper Bracket · Rank ${N+1}+ → Lower Bracket` : (N?`Top ${N} advance`:"");
     const cap = `${advText ? advText + " · " : ""}${rankNote}`;
     const cols = colsFor(c.groups.length);
     const grps=c.groups.map(g=>{
@@ -547,6 +547,17 @@ function bcell(c,m){
   return `<div class="bmatch ${bye?'bye':''} ${done?'done':''}">${meta}
     ${bteam(c,m.entrantA, bye?'BYE':(done?m.scoreA:''), aw)}
     ${bteam(c,m.entrantB, bye?'':(done?m.scoreB:''), bw)}</div>`;
+}
+// Projection cell: placeholder slot labels ("Juara Grup A" / "Runner-up Grup C") with
+// the scheduled time/court, for the bracket shown during the group stage. No scores.
+function bcellProj(c, m){
+  const bye = m.status==="BYE";
+  const parts=[];
+  if(!bye){ if(m.time) parts.push(esc(fmtTime(m.time))); if(m.court) parts.push(courtLabel(m.court)); }
+  const meta = parts.length ? `<div class="bmeta">${parts.join(" · ")}</div>` : "";
+  const slot = (lbl)=> lbl ? `<div class="bteam proj"><span class="bnm">${esc(lbl)}</span></div>`
+                           : `<div class="bteam tbd"><span class="bnm">TBD</span></div>`;
+  return `<div class="bmatch proj ${bye?'bye':''}">${meta}${slot(m.teamA)}${bye?'':slot(m.teamB)}</div>`;
 }
 // Compute podium from bracket results (final + bronze). Backend podium field had a bug,
 // so we derive locally to stay correct regardless of backend version.
@@ -724,7 +735,7 @@ function capFor(c){
   const rankNote = String(c.rankMode||"wins")==="points"
     ? "Ranked by: points (win 3 · draw 1 · loss 0) → head-to-head → point difference → points for → points against"
     : "Ranked by: most wins → head-to-head → point difference → points for → points against";
-  const advText = split ? `Rank 1${N>1?`–${N}`:""} → Championship Bracket · Rank ${N+1}+ → Prospect Bracket` : (N?`Top ${N} advance`:"");
+  const advText = split ? `Rank 1${N>1?`–${N}`:""} → Upper Bracket · Rank ${N+1}+ → Lower Bracket` : (N?`Top ${N} advance`:"");
   return `${advText?advText+" · ":""}${rankNote}`;
 }
 // Court(s) a group plays on, derived from its scheduled group matches. Applies
@@ -829,13 +840,21 @@ function renderRight(){
   const catSuffix=(list)=> list.length>1 ? " · "+catLabel(list[CAT_ROT % list.length].category) : "";
   const legendEl=document.getElementById("tvLegend");
   if(hasPlayoff){
+    document.getElementById("leftCol").style.display="none";   // bracket is full-screen
     const bcats=(state.data.categories||[]).filter(c=>(c.playoff||[]).length);
-    ROT_N=bcats.length; ROT_LABELS=bcats.map(catFullLabel);
+    // One rotating page per (category × tier) so Upper/Lower each get a full screen;
+    // a category whose final is done becomes a Champions page instead.
+    const pages=[];
+    bcats.forEach(c=>{ const fin=catFinishedPodium(c);
+      if(fin){ pages.push({champions:c,fin}); }
+      else { (c.playoff||[]).forEach(b=>{ if((b.rounds||[]).some(r=>(r.matches||[]).length)) pages.push({bracket:{c,b}}); }); } });
+    ROT_N=pages.length||1;
+    ROT_LABELS=pages.map(p=> p.champions ? (catLabel(p.champions.category)+" · Champions") : (catLabel(p.bracket.c.category)+" · "+(TIER[p.bracket.b.tier]||p.bracket.b.tier)));
     if(legendEl) legendEl.hidden=true;
-    const cur=bcats.length?bcats[CAT_ROT % bcats.length]:null;
-    const fin=cur?catFinishedPodium(cur):null;
-    if(fin){ titleEl.textContent="Champions"+catSuffix(bcats); wrap.innerHTML=winnersHtml(fin); startConfetti(); }
-    else { titleEl.textContent="Playoff Bracket"+catSuffix(bcats); wrap.innerHTML=bracketHtml(); stopConfetti(); }
+    const cur=pages.length?pages[CAT_ROT % pages.length]:null;
+    if(cur && cur.champions){ titleEl.textContent="Champions"+(bcats.length>1?" · "+catLabel(cur.champions.category):""); wrap.innerHTML=winnersHtml(cur.fin); startConfetti(); }
+    else if(cur && cur.bracket){ titleEl.textContent="Playoff Bracket · "+(TIER[cur.bracket.b.tier]||cur.bracket.b.tier); wrap.innerHTML=oneBracket(cur.bracket.c, cur.bracket.b); stopConfetti(); }
+    else { titleEl.textContent="Playoff Bracket"; wrap.innerHTML='<div class="center">Playoff bracket not available yet.</div>'; stopConfetti(); }
     updateRotCountdown(); updateCenterCat(); return;
   }
   // Group stage: rotate Group Standings with a Provisional Qualification screen
@@ -867,16 +886,30 @@ function renderRight(){
     const bestAll=renderCats(cats);
     standPages = (cats.length>1 && bestAll<MIN_LEGIBLE) ? cats.map(c=>[c]) : [cats];
   }
-  // Full rotation = standings page(s) + one qualification screen per wildcard category.
-  const pages = standPages.map(cl=>({stand:cl})).concat(qualCats.map(c=>({qual:c})));
+  // Full rotation = standings page(s) + one qualification screen per wildcard category
+  // + the PROJECTED playoff bracket (one page per tier, Upper then Lower) so spectators
+  // see the knockout path while the groups are still running.
+  const projPages = [];
+  (state.data.categories||[]).forEach(c=>{ (c.playoffProjection||[]).forEach(b=>{ if((b.rounds||[]).some(r=>(r.matches||[]).length)) projPages.push({bracket:{c,b}}); }); });
+  const pages = standPages.map(cl=>({stand:cl})).concat(qualCats.map(c=>({qual:c}))).concat(projPages);
   STAND_PAGES = pages.length; ROT_N = pages.length;
-  ROT_LABELS = pages.map(p=> p.qual ? (catLabel(p.qual.category)+" · Qualification") : (p.stand.length===1 ? catFullLabel(p.stand[0]) : "Group Standings"));
+  ROT_LABELS = pages.map(p=> p.qual ? (catLabel(p.qual.category)+" · Qualification")
+    : p.bracket ? (catLabel(p.bracket.c.category)+" · "+(TIER[p.bracket.b.tier]||p.bracket.b.tier))
+    : (p.stand.length===1 ? catFullLabel(p.stand[0]) : "Group Standings"));
   const cur = pages[CAT_ROT % pages.length];
-  if(cur.qual){
+  const leftCol = document.getElementById("leftCol");
+  if(cur.bracket){
+    leftCol.style.display = "none";   // projected bracket full-screen, like the real one
+    titleEl.textContent = "Playoff Bracket (Proyeksi) · "+(TIER[cur.bracket.b.tier]||cur.bracket.b.tier);
+    if(legendEl) legendEl.hidden = true;
+    wrap.innerHTML = oneBracket(cur.bracket.c, cur.bracket.b, bcellProj);
+  } else if(cur.qual){
+    leftCol.style.display = "";
     titleEl.textContent = "Qualification · "+catLabel(cur.qual.category);
     if(legendEl) legendEl.hidden = true;
     wrap.innerHTML = tvQualView(cur.qual);
   } else {
+    leftCol.style.display = "";
     titleEl.textContent = "Group Standings" + (cur.stand.length===1 ? " · "+catLabel(cur.stand[0].category) : "");
     if(legendEl) legendEl.hidden = false;
     renderCats(cur.stand);
@@ -1146,21 +1179,14 @@ async function showPicker(){
   if(EVENT_ID){
     try{ if(PATH_SLUG) localStorage.setItem("tp_tv_last_slug", PATH_SLUG); }catch(e){}
     setupQR(); load(); setInterval(load,20000); startSponsorCycle();
-    // Group stage shows Group Standings only; the simulated playoff bracket is no
-    // longer rotated in. The real bracket appears once the playoff actually starts.
-    // Rotate the right panel (bracket / simulation / standings) between
-    // categories every 10s (ROT_MS) when the event has 2+ categories, so each gets
-    // full-screen airtime. A countdown under the title shows the time left.
+    // Rotate the right panel every ROT_MS (15s) whenever the current view has more than
+    // one page — e.g. Upper↔Lower bracket (playoff or projected), several categories, a
+    // per-category qualification screen, or standings split across pages. ROT_N is set by
+    // renderRight() to the page count of the view currently on screen.
     nextRotAt = Date.now() + ROT_MS;
     setInterval(()=>{
       if(!state.data) return;
-      const cats=state.data.categories||[];
-      const nBracket=cats.filter(c=>(c.playoff||[]).length).length;
-      const nProj=cats.filter(c=>(c.playoffProjection||[]).some(b=>(b.rounds||[]).some(r=>(r.matches||[]).length))).length;
-      // Rotate between categories when: a bracket/projection view spans several
-      // categories, OR group standings were split into per-category pages because
-      // they didn't all fit legibly on one screen (STAND_PAGES>1).
-      if(Math.max(nBracket,nProj)>1 || STAND_PAGES>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
+      if(ROT_N>1){ CAT_ROT++; nextRotAt=Date.now()+ROT_MS; renderRight(); }
     }, ROT_MS);
     setInterval(updateRotCountdown, 1000);
     let rzt; window.addEventListener("resize", ()=>{ clearTimeout(rzt); rzt=setTimeout(()=>{ if(state.data) renderRight(); }, 200); });
