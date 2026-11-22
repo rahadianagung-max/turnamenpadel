@@ -443,7 +443,7 @@ function renderTabs(){
   document.getElementById("subtabs").innerHTML = `<div class="subtabs">
     ${["schedule","standings","bracket"].map(v=>`<div class="subtab ${v===state.view?'on':''}" onclick="setView('${v}')">${labels[v]}</div>`).join("")}
   </div>
-  <p class="tap-hint">Tap a player's name to see their <b>track record</b> on Trekkr.</p>`;
+  <p class="tap-hint">Tap your name to <b>claim your profile</b> and complete your data on Trekkr.</p>`;
 }
 function setCat(i){ state.cat=parseInt(i)||0; renderTabs(); renderBody(); }
 function setView(v){ state.view=v; renderTabs(); renderBody(); }
