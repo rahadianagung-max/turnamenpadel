@@ -4668,7 +4668,9 @@ function projectionFromBrackets(brackets, entrantLabel) {
     // Preserve BYE status so the public/mobile board renders a bye slot as "BYE"
     // (dimmed, no opponent) instead of a confusing "TBD" against a phantom seed number.
     const conv = (m) => ({
-      matchId: "", round: m.round, idx: m.idx, court: "", time: "", date: "",
+      // Keep the scheduled time/court/date on the projection (names stay hidden) so the
+      // board can show WHEN each projected round plays and estimate the playoff start.
+      matchId: m.matchId || "", round: m.round, idx: m.idx, court: m.court || "", time: m.time || "", date: m.date || "",
       teamA: lab(m.entrantA), teamB: lab(m.entrantB), entrantA: null, entrantB: null,
       scoreA: "", scoreB: "", winner: "", status: m.status === "BYE" ? "BYE" : "SCHEDULED", projected: true,
     });
