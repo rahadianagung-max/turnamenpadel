@@ -4219,9 +4219,17 @@ async function tUpdateMatchScore(body) {
   // bracket is generated automatically the moment the group stage finishes.
   // Best-effort — never let it fail the score save. (`rows` already reflects this
   // save because `row` is a reference into it.)
+  //
+  // Two opt-in modes (col L auto-plan):
+  //   - generate: create a fresh bracket when none exists yet (maybeAutoGeneratePlayoff).
+  //   - reseed:   a bracket already exists with a hand-tuned schedule — only refresh its
+  //               entrants from the final standings, keeping every time/court
+  //               (maybeAutoReseedPlayoff). Used when the playoff rundown was laid out
+  //               by hand and must survive the (re)seed.
   let autoPlayoffGenerated = false;
   if (row[2] === "GROUP" && row[14] === "DONE") {
     try { autoPlayoffGenerated = await maybeAutoGeneratePlayoff(sheets, row[0]); } catch (e) { /* best-effort */ }
+    if (!autoPlayoffGenerated) { try { await maybeAutoReseedPlayoff(sheets, row[0]); } catch (e) { /* best-effort */ } }
   }
   return respond(200, { success: true, status: row[14], winner, autoPlayoffGenerated });
 }
@@ -4873,6 +4881,7 @@ async function maybeAutoGeneratePlayoff(sheets, id) {
   if (!tRow) return false;
   const plan = parseAutoPlan(tRow[11]);
   if (!plan) return false;
+  if (plan.mode === "reseed") return false; // reseed mode refreshes an existing hand-made bracket, never auto-creates one
   // Schedule from the stored plan, falling back to the event's settings.
   let evStart = "", evMin = 0, evDate = "";
   try {
@@ -4892,6 +4901,57 @@ async function maybeAutoGeneratePlayoff(sheets, id) {
   };
   const res = await tGeneratePlayoff(id, planBody);
   return !!(res && res.statusCode === 200);
+}
+// Best-effort: refresh an EXISTING playoff bracket's entrants from the FINAL group
+// standings the moment the group stage completes, WITHOUT rescheduling. Used for a
+// bracket whose timeline was laid out by hand (a fixed rundown): the saved
+// time/court/date/Match_ID of every slot are preserved, only the teams in each
+// slot are re-seeded (same cross-seed the generator uses). Opt-in via col L
+// {auto:true, mode:"reseed"}. Runs only when: a bracket already exists, every group
+// match is scored, and NO playoff match has a score yet (never disturb a bracket
+// that has already started). Because advancement is positional and the schedule is
+// team-independent, swapping the seeds leaves the rundown intact.
+async function maybeAutoReseedPlayoff(sheets, id) {
+  if (!id) return false;
+  const mRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_matches}!A2:Q` });
+  const allRows = mRes.data.values || [];
+  const play = allRows.filter((x) => x[0] === id && x[2] === "PLAYOFF");
+  if (!play.length) return false; // no bracket to reseed
+  const grp = allRows.filter((x) => x[0] === id && x[2] === "GROUP");
+  const done = (x) => x[14] === "DONE" || (x[11] !== "" && x[12] !== "" && !isNaN(Number(x[11])) && !isNaN(Number(x[12])));
+  if (!grp.length || !grp.every(done)) return false; // group stage not complete
+  const scored = (v) => v !== "" && v != null && !isNaN(Number(v));
+  if (play.some((x) => scored(x[11]) || scored(x[12]))) return false; // playoff already underway
+  const tRes = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` });
+  const tRow = (tRes.data.values || []).find((x) => x[0] === id);
+  if (!tRow) return false;
+  const plan = parseAutoPlan(tRow[11]);
+  if (!plan || plan.mode !== "reseed") return false; // opt-in, in-place mode only
+  const format = tRow[4] || "SINGLE", N = parseInt(tRow[6]) || 2;
+  const groups = await computeTournamentStandings(sheets, id);
+  if (!groups.length) return false;
+  const topOverall = parseInt(tRow[10]) || 0;
+  let built;
+  if (topOverall >= 2) built = buildOverallTiers(groups, topOverall, rankModeFor(await readRankModes(sheets), id), N).built;
+  else built = buildPlayoffTiers(groups, format, N, plan.crossSeed !== false).built;
+  if (!built.length) return false;
+  // Freshly-built matches keyed by bracket|round|slot — the SAME shape the existing
+  // bracket was generated with, so entrants map 1:1 onto the saved schedule.
+  const key = (br, rd, sl) => `${br}|${rd}|${sl}`;
+  const want = new Map();
+  built.forEach(({ b }) => b.matches.forEach((m) => want.set(key(m.bracket, String(m.round), String(m.idx)), m)));
+  // Never half-reseed: abort unless the saved slots and the rebuilt slots line up exactly.
+  if (want.size !== play.length) return false;
+  const newRows = play.map((x) => {
+    const m = want.get(key(x[4], String(x[5]), String(x[7])));
+    if (!m) return null;
+    const r = x.slice(0, 17); while (r.length < 17) r.push(""); // keep Match_ID, court, slot, time, date
+    r[9] = m.a || ""; r[10] = m.b || ""; r[11] = ""; r[12] = ""; r[13] = m.winner || ""; r[14] = m.status; r[15] = new Date().toISOString();
+    return r;
+  });
+  if (newRows.some((r) => r === null)) return false; // a saved slot had no rebuilt match → abort
+  await rewritePlayoffMatches(sheets, id, newRows);
+  return true;
 }
 async function tGeneratePlayoff(id, body) {
   const sheets = getSheets();
