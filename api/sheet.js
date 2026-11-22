@@ -4616,11 +4616,15 @@ function buildPlayoffProjection(groupsInfo, format, N) {
   }));
   const { built, summary } = buildPlayoffTiers(groups, format, N);
   const methodByTier = {}; summary.forEach((s) => { methodByTier[s.tier] = s.method; });
-  // Cross-seeded tiers (group count 2/4/8) are deterministic and always full — no BYE —
-  // so show the real crossing with group-position labels ("Juara Grup A vs Runner-up
-  // Grup C"). Plain-seeded tiers (any other group count) decide seats — and any BYE — by
-  // the final standings, so there we use neutral seed numbers ("Unggulan N") to avoid
-  // implying a specific group gets a slot or a BYE.
+  // Label policy per tier:
+  //  - Cross-seeded tiers (group count 2/4/8) are deterministic and always full — no BYE —
+  //    so show the real crossing with group-position labels ("Juara Grup A vs Runner-up Grup C").
+  //  - Plain-seeded tiers that are FULL (no BYE, e.g. a 16-team lower bracket) also show
+  //    group-position labels ("Peringkat 3 Grup A"), so spectators see WHICH teams are in
+  //    play rather than opaque seed numbers. The exact seat still firms up on final standings,
+  //    but every slot is a real qualifier and the view sits under a "Simulasi" header.
+  //  - Plain-seeded tiers WITH a BYE keep neutral seed numbers ("Unggulan N"): there the bye
+  //    slots (and the top seats) are decided by the final standings, so naming a group would mislead.
   const seedLab = (tier) => {
     const pred = tier === "PROSPECT" ? (s) => s.rank > N : (s) => s.rank <= N;
     const flat = [];
@@ -4630,7 +4634,12 @@ function buildPlayoffProjection(groupsInfo, format, N) {
     return (id) => (id ? (gmap[id] || "") : "");
   };
   const baseLab = (id) => (id ? (labelOf[id] || "") : "");
-  return built.map(({ tier, b }) => projectionTierView(tier, b, methodByTier[tier] === "cross" ? baseLab : seedLab(tier)));
+  const labFor = (tier, b) => {
+    if (methodByTier[tier] === "cross") return baseLab;        // deterministic group cross
+    const nq = b.nQual || 0;
+    return nq === nextPow2(nq) ? baseLab : seedLab(tier);      // full → group labels; has BYE → neutral seeds
+  };
+  return built.map(({ tier, b }) => projectionTierView(tier, b, labFor(tier, b)));
 }
 // "Top N overall" projection: a single seeded MAIN bracket with placeholder
 // seed labels ("Unggulan 1" vs "Unggulan N"), matching the buildOverallTiers
