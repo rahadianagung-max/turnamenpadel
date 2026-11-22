@@ -5032,10 +5032,25 @@ async function tGeneratePlayoff(id, body) {
   built.forEach(({ b }) => b.matches.forEach((m) => newRows.push(toRow(m))));
 
   await rewritePlayoffMatches(sheets, id, newRows);
-  await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:K` }).then(async (r) => {
+  // Mark the fresh bracket's reseed-eligibility (col L) so it self-corrects from the
+  // FINAL group standings the moment the group stage completes — the safety net that
+  // keeps an early-generated bracket from freezing provisional seeds. Standard
+  // group/overall seeding → mode "reseed" (schedule preserved, entrants refreshed on
+  // completion). A hand-built custom seed order → mode "manual": it must stay exactly as
+  // the admin arranged it, never auto-reseeded. Merges into any existing auto-plan so
+  // stored auto-generate schedule fields survive.
+  const isCustom = summary.some((s) => s.method === "custom");
+  await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A2:L` }).then(async (r) => {
     const rows = r.data.values || [], i = rows.findIndex((x) => x[0] === id);
-    if (i !== -1) { while (rows[i].length < 11) rows[i].push(""); rows[i][7] = "PLAYOFF"; rows[i][10] = topOverall >= 2 ? String(topOverall) : "";
-      await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:K${i + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] } }); }
+    if (i === -1) return;
+    while (rows[i].length < 12) rows[i].push("");
+    rows[i][7] = "PLAYOFF";
+    rows[i][10] = topOverall >= 2 ? String(topOverall) : "";
+    const prev = parseAutoPlan(rows[i][11]) || {};
+    rows[i][11] = JSON.stringify(isCustom
+      ? { ...prev, auto: true, mode: "manual" }
+      : { ...prev, auto: true, mode: "reseed", crossSeed: b0.crossSeed !== false });
+    await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.t_tournaments}!A${i + 2}:L${i + 2}`, valueInputOption: "USER_ENTERED", requestBody: { values: [rows[i]] } });
   });
   return respond(200, { success: true, format, brackets: summary, schedule: sched });
 }
