@@ -4,7 +4,21 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Event · TurnamenPadel</title>
-<meta name="description" content="Padel tournament event page — TurnamenPadel."/>
+<meta name="description" content="Info turnamen padel: jadwal, peserta, bracket, dan hasil di TurnamenPadel."/>
+<link id="mCanon" rel="canonical" href="https://turnamenpadel.com/"/>
+<meta property="og:type" content="website"/>
+<meta property="og:site_name" content="TurnamenPadel"/>
+<meta property="og:locale" content="id_ID"/>
+<meta id="mOgTitle" property="og:title" content="Turnamen Padel — TurnamenPadel"/>
+<meta id="mOgDesc" property="og:description" content="Info turnamen padel: jadwal, peserta, bracket, dan hasil di TurnamenPadel."/>
+<meta id="mOgUrl" property="og:url" content="https://turnamenpadel.com/"/>
+<meta property="og:image" content="https://turnamenpadel.com/og-image.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta id="mTwTitle" name="twitter:title" content="Turnamen Padel — TurnamenPadel"/>
+<meta id="mTwDesc" name="twitter:description" content="Info turnamen padel: jadwal, peserta, bracket, dan hasil di TurnamenPadel."/>
+<meta name="twitter:image" content="https://turnamenpadel.com/og-image.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -219,6 +233,21 @@
     document.getElementById("brand").setAttribute("href","/");
     document.getElementById("homeBtn").setAttribute("href","/");
     document.title=name+" · TurnamenPadel";
+    // Per-event SEO: update meta/OG + inject SportsEvent JSON-LD so each event ranks
+    // and shares with its own title, description and schema.
+    try{
+      var _u=location.origin+location.pathname;
+      var _d="Turnamen padel "+name+(venue?" di "+venue:"")+(date?", "+date:"")+". Lihat jadwal, peserta, bracket, dan hasil di TurnamenPadel.";
+      var _t=name+" · TurnamenPadel";
+      var sm=function(id,at,v){var el=document.getElementById(id);if(el)el.setAttribute(at,v);};
+      var md=document.querySelector('meta[name="description"]'); if(md) md.setAttribute("content",_d);
+      sm("mCanon","href",_u); sm("mOgTitle","content",_t); sm("mOgDesc","content",_d); sm("mOgUrl","content",_u);
+      sm("mTwTitle","content",_t); sm("mTwDesc","content",_d);
+      var ld={"@context":"https://schema.org","@type":"SportsEvent","name":name,"sport":"Padel","url":_u,"organizer":{"@type":"Organization","name":"TurnamenPadel","url":location.origin}};
+      if(date) ld.startDate=date;
+      if(venue) ld.location={"@type":"Place","name":venue};
+      var sc=document.getElementById("evtLd"); if(!sc){sc=document.createElement("script");sc.id="evtLd";sc.type="application/ld+json";document.head.appendChild(sc);} sc.textContent=JSON.stringify(ld);
+    }catch(_e){}
 
     paint();
 

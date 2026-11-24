@@ -1,0 +1,11 @@
+# turnamenpadel.com
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /kelola
+Disallow: /scorerdesk
+Disallow: /courts
+Disallow: /score
+Disallow: /api/
+
+Sitemap: https://turnamenpadel.com/sitemap.xml
