@@ -732,6 +732,7 @@ const netlifyHandler = async (event) => {
     if (path === "upcoming" && method === "GET") return await getUpcoming();
     if (path === "upcoming/save" && method === "POST") { if (!isSuperadmin(body, params)) return NEED_SUPER; return await saveUpcoming(body); }
     if (path === "public/feed" && method === "GET") return await getPublicFeed();
+    if (path === "sitemap.xml" && method === "GET") return await getSitemap();
     if (path === "leads" && method === "POST") return await submitLead(body);
     if (path === "contact" && method === "POST") return await submitContact(body);
     if (path === "calc/gate" && method === "POST") return await calcGate(body);
@@ -1270,6 +1271,32 @@ async function saveUpcoming(body) {
       (e.enabled === false || String(e.enabled).toUpperCase() === "FALSE") ? "FALSE" : "TRUE"]);
   if (rows.length) await sheets.spreadsheets.values.update({ spreadsheetId: SHEET_ID, range: `${TABS.upcoming}!A2:G${rows.length + 1}`, valueInputOption: "USER_ENTERED", requestBody: { values: rows } });
   return respond(200, { success: true, count: rows.length });
+}
+// Dynamic XML sitemap: static public pages + one URL per tournament event
+// (/event/<slug>), so new turnamen get discovered and indexed by Google. Served at
+// /sitemap.xml via a vercel.json rewrite. Best-effort — always returns the static
+// pages even if the events read fails.
+async function getSitemap() {
+  const base = "https://turnamenpadel.com";
+  const xmlEsc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;" }[c]));
+  const slug = (s) => String(s || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+  const staticPaths = ["/", "/simulasi", "/mexicano"];
+  const eventPaths = [];
+  try {
+    const sheets = getSheets();
+    const r = await sheets.spreadsheets.values.get({ spreadsheetId: SHEET_ID, range: `${TABS.t_events}!A2:M` });
+    const seen = {};
+    for (const x of (r.data.values || [])) {
+      const name = x && x[1]; if (!name) continue;
+      const s = slug(name); if (!s || seen[s]) continue; seen[s] = 1;
+      eventPaths.push("/event/" + s);
+    }
+  } catch (e) { /* keep static pages */ }
+  const now = new Date().toISOString().slice(0, 10);
+  const urls = staticPaths.concat(eventPaths)
+    .map((p) => `  <url><loc>${xmlEsc(base + p)}</loc><lastmod>${now}</lastmod></url>`).join("\n");
+  const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>`;
+  return { statusCode: 200, headers: { ...headers, "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" }, body };
 }
 async function getPlayers(params) {
   const sheets = getSheets();

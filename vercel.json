@@ -12,6 +12,7 @@
   ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/sheet.js" },
+    { "source": "/sitemap.xml", "destination": "/api/sheet.js" },
     { "source": "/score", "destination": "/score.html" },
     { "source": "/scorerdesk", "destination": "/court-admin.html" },
     { "source": "/courts", "destination": "/court-admin.html" },
