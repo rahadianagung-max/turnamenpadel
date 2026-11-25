@@ -460,6 +460,8 @@ h1,h2,h3{margin:0}
   "use strict";
   var BASE=(location.hostname.indexOf("turnamenpadel")>=0||location.protocol==="https:")?"/api":"https://www.turnamenpadel.com/api";
   var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
+  // GA4 event helper (no-op kalau gtag belum/ tidak ada).
+  function track(name, params){ try{ if(window.gtag) window.gtag("event", name, params||{}); }catch(e){} }
 
   /* ---- stats: tournaments run · matches played · players (live from DB) ---- */
   /* Fallback seeds so the section never renders empty if the API is slow/down.
@@ -516,6 +518,7 @@ h1,h2,h3{margin:0}
     lastTrigger=trigger||document.activeElement;
     if(service){ for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===service||sel.options[i].text===service){ sel.selectedIndex=i; break; } } }
     syncChecklist();
+    track("open_lead_form",{ service: sel.value });
     ov.classList.add("open"); document.body.style.overflow="hidden";
     setTimeout(function(){ document.getElementById("f-name").focus(); },30);
     document.addEventListener("keydown",onKey);
@@ -571,6 +574,7 @@ h1,h2,h3{margin:0}
     fetch(BASE+"/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
       .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error((d&&d.error)||("HTTP "+r.status)); return d; }); })
       .then(function(){
+        track("generate_lead",{ service: service, method: "submit_modal" });
         document.getElementById("mBody").innerHTML=
           '<div style="display:flex;flex-direction:column;gap:14px;text-align:center;padding:12px 0">'+
           '<div style="font-size:40px">✅</div>'+
@@ -637,7 +641,9 @@ h1,h2,h3{margin:0}
         warn.innerHTML="⚠️ Potensi BYE: "+adv+" tim masuk playoff (idealnya 4 / 8 / 16). "+byes+" tim lolos tanpa main di babak awal — sesuaikan jumlah group biar bracket penuh.";
       } else { warn.hidden=true; warn.textContent=""; }
     }
-    [cats,grps,pg,crt].forEach(function(el){ if(el){ el.addEventListener("input",estimate); el.addEventListener("change",estimate); } });
+    var calcTracked=false;
+    function onCalcInput(){ if(!calcTracked){ calcTracked=true; track("use_duration_calculator"); } estimate(); }
+    [cats,grps,pg,crt].forEach(function(el){ if(el){ el.addEventListener("input",onCalcInput); el.addEventListener("change",onCalcInput); } });
     estimate();
   })();
 })();
