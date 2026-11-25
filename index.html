@@ -95,6 +95,7 @@ h1,h2,h3{margin:0}
 .tv-next .lbl{font-size:11px;font-weight:700;letter-spacing:.1em;color:#94A3B8}
 .tv-next span{font-size:14px;color:#E2E8F0}
 .cap{font-size:12px;color:#64748B;text-align:center}
+.hero-shot{width:100%;height:auto;display:block;border:2px solid var(--line);border-radius:18px;box-shadow:8px 8px 0 var(--accent);background:var(--ink)}
 
 /* sections generic */
 .sec{max-width:1240px;margin:0 auto;padding:80px 32px}
@@ -123,6 +124,7 @@ h1,h2,h3{margin:0}
 .step .shot{height:132px;background:var(--ink);border-bottom:2px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:0 22px;color:#F8FAFC}
 .step .shot-n{font-size:46px;font-weight:800;line-height:1;color:var(--accent)}
 .step .shot-cap{font-size:13px;font-weight:700;letter-spacing:.04em;color:#CBD5E1}
+.step .shot-img{width:100%;height:172px;object-fit:cover;object-position:top center;border-bottom:2px solid var(--line);display:block;background:var(--panel)}
 .step .body{padding:22px;display:flex;flex-direction:column;gap:10px}
 .step h3{font-size:20px;font-weight:800}
 .step ul{margin:0;padding-left:18px;font-size:15px;line-height:1.7;color:var(--muted2)}
@@ -249,23 +251,8 @@ h1,h2,h3{margin:0}
     </div>
   </div>
   <div class="hero-visual">
-    <!-- TODO: ganti mock ini dengan screenshot/GIF Live TV Display asli dari event -->
-    <div class="tv">
-      <div class="tv-top">
-        <span class="tv-live"><span class="dot"></span>LIVE · [NAMA TURNAMEN]</span>
-        <span class="tv-sub">Grup B · Wave 3</span>
-      </div>
-      <div class="tv-rows">
-        <div class="tv-row"><span class="ct">COURT 1</span><span class="pair">Pair 03 <span class="vs">vs</span> Pair 11</span><span class="sc">5 – 3</span></div>
-        <div class="tv-row"><span class="ct">COURT 2</span><span class="pair">Pair 07 <span class="vs">vs</span> Pair 14</span><span class="sc">2 – 4</span></div>
-        <div class="tv-row"><span class="ct">COURT 3</span><span class="pair">Pair 01 <span class="vs">vs</span> Pair 09</span><span class="sc">6 – 6</span></div>
-      </div>
-      <div class="tv-next">
-        <span class="lbl">UP NEXT</span>
-        <span>Court 1 → Pair 05 vs Pair 12</span>
-        <span>Court 2 → Pair 02 vs Pair 16</span>
-      </div>
-    </div>
+    <img class="hero-shot" src="/img/tv-display.png" width="1280" height="720" loading="eager"
+         alt="Live TV display turnamen padel TurnamenPadel — skor tiap court, grup standings, dan up next secara real-time">
     <span class="cap">Live TV display · court-by-court score, real-time</span>
   </div>
 </section>
@@ -287,21 +274,22 @@ h1,h2,h3{margin:0}
       <h2 class="h2">One engine, every service</h2>
       <p class="lead17">Apa pun service-nya, match day jalan di engine TurnamenPadel. Bedanya cuma seberapa banyak yang kami handle.</p>
     </div>
-    <!-- TODO (opsional): .shot cover tiap step bisa diganti screenshot/GIF asli
-         (template player list · Spin-the-Wheel · scorer page + TV). -->
     <div class="cards">
       <div class="step">
-        <div class="shot"><span class="shot-n">01</span><span class="shot-cap">Player list → format</span></div>
+        <img class="shot-img" src="/img/mobile-player.png" width="640" height="844" loading="lazy"
+             alt="Peserta lihat jadwal dan pair di HP lewat browser, tanpa install app">
         <div class="body"><span class="kicker">1 · PRE-EVENT</span><h3>Final player list masuk</h3>
           <ul><li>List pair per kategori</li><li>Jumlah court &amp; jam booking</li><li>Kami hitung durasi &amp; set up format</li></ul></div>
       </div>
       <div class="step">
-        <div class="shot"><span class="shot-n">02</span><span class="shot-cap">Spin-the-Wheel draw</span></div>
+        <img class="shot-img" src="/img/draw-wheel.png" width="1200" height="806" loading="lazy"
+             alt="Spin-the-Wheel draw: pair diundah ke grup secara acak dan transparan">
         <div class="body"><span class="kicker">2 · DRAW DAY</span><h3>Draw yang transparan</h3>
           <ul><li>Spin-the-Wheel, bisa di-livestream</li><li>Schedule &amp; court auto-generated</li><li>Order of play dikirim ke peserta</li></ul></div>
       </div>
       <div class="step">
-        <div class="shot"><span class="shot-n">03</span><span class="shot-cap">Live score everywhere</span></div>
+        <img class="shot-img" src="/img/scorer-desk.png" width="900" height="1241" loading="lazy"
+             alt="Scorer desk: input skor per court, status match done dan to play">
         <div class="body"><span class="kicker">3 · MATCH DAY</span><h3>Live score everywhere</h3>
           <ul><li>Scorer input score dari HP</li><li>Scorer desk dashboard</li><li>Live display di TV / LED venue</li></ul></div>
       </div>
