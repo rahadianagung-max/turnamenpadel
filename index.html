@@ -325,7 +325,7 @@ h1,h2,h3{margin:0}
     <div class="calc-col">
       <span class="kicker">FREE · NO SIGN-UP</span>
       <h2>Turnamenmu butuh berapa jam?</h2>
-      <p class="lead17">Input jumlah kategori, pair, dan court. Dapatkan duration estimate langsung — buffer sudah termasuk.</p>
+      <p class="lead17">Input jumlah kategori, pair, dan court. Dapatkan estimasi durasi match day langsung.</p>
       <a href="/simulasi" style="font-size:14px;font-weight:700;color:var(--accent-ink)">Butuh breakdown detail (anti-BYE, release court)? Buka kalkulator lengkap →</a>
     </div>
     <form class="calc-card" id="calcForm" novalidate>
@@ -342,7 +342,7 @@ h1,h2,h3{margin:0}
       </div>
       <div class="calc-est">
         <span class="lbl">ESTIMATE</span>
-        <span class="val"><span id="calcHours">± 6 jam</span> <span class="unit">incl. buffer</span></span>
+        <span class="val"><span id="calcHours">± 4 jam</span></span>
         <span class="calc-meta" id="calcMeta"></span>
       </div>
       <label class="fld" for="c-email">Kirim full breakdown ke email
@@ -613,7 +613,7 @@ h1,h2,h3{margin:0}
 
   /* ---- duration calculator: live estimate + email capture (calc/gate) ---- */
   (function(){
-    var CFG={ matchMin:25, groupSize:4, buffer:1.15 }; // grup ~4 pair · ~25 mnt/match · buffer 15%
+    var CFG={ matchMin:20, groupSize:4, buffer:1 }; // grup ~4 pair · ~20 mnt/match · tanpa buffer
     var cats=document.getElementById("c-cats"), prs=document.getElementById("c-pairs"), crt=document.getElementById("c-courts");
     var out=document.getElementById("calcHours"), meta=document.getElementById("calcMeta");
     var cForm=document.getElementById("calcForm"), cEmail=document.getElementById("c-email"),
