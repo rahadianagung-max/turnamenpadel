@@ -143,6 +143,8 @@ h1,h2,h3{margin:0}
 .calc-est .val{font-size:28px;font-weight:800}
 .calc-est .unit{font-size:15px;font-weight:600;color:#CBD5E1}
 .calc-meta{font-size:12px;color:#94A3B8;margin-top:2px}
+.calc-parts{font-size:14px;font-weight:700;color:#F8FAFC;margin-top:6px}
+.calc-warn{border:2px solid var(--line);border-radius:10px;background:var(--amber-bg);padding:10px 12px;font-size:13px;line-height:1.45;font-weight:600;color:var(--ink)}
 .calc-card input[type=email]{min-height:44px;padding:0 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;width:100%;color:var(--ink);background:var(--white)}
 
 /* services */
@@ -268,18 +270,6 @@ h1,h2,h3{margin:0}
   </div>
 </section>
 
-<!-- PAIN -->
-<section class="band band--white">
-  <div class="sec-inner" style="display:flex;flex-direction:column;gap:36px">
-    <h2 class="h2">Sound familiar?</h2>
-    <div class="cards">
-      <div class="pain"><p class="q">"Jadwal molor sampai malam."</p><p class="a">Schedule &amp; court assignment auto-generated. Durasi bisa dihitung sebelum match day, jadi sewa court nggak overtime.</p></div>
-      <div class="pain"><p class="q">"Bracket di Excel, peserta bingung kapan main."</p><p class="a">Order of play dan live score langsung tampil di HP peserta dan TV venue. No more teriak-teriak manggil pair.</p></div>
-      <div class="pain"><p class="q">"Pembagian grup dibilang nggak fair."</p><p class="a">Spin-the-Wheel draw: random di dalam tier dan bisa di-livestream. Semua orang lihat prosesnya sendiri.</p></div>
-    </div>
-  </div>
-</section>
-
 <!-- STATS -->
 <section class="sec" style="display:flex;flex-direction:column;gap:32px">
   <div class="head-stack" style="gap:10px">
@@ -326,7 +316,6 @@ h1,h2,h3{margin:0}
       <span class="kicker">FREE · NO SIGN-UP</span>
       <h2>Turnamenmu butuh berapa jam?</h2>
       <p class="lead17">Input kategori, group per kategori, pair per group, dan court. Estimasi sudah termasuk babak grup + playoff sampai perebutan juara 3.</p>
-      <a href="/simulasi" style="font-size:14px;font-weight:700;color:var(--accent-ink)">Butuh breakdown detail (anti-BYE, release court)? Buka kalkulator lengkap →</a>
     </div>
     <form class="calc-card" id="calcForm" novalidate>
       <div class="calc-inputs">
@@ -347,7 +336,9 @@ h1,h2,h3{margin:0}
         <span class="lbl">ESTIMATE</span>
         <span class="val"><span id="calcHours">± 4.5 jam</span></span>
         <span class="calc-meta" id="calcMeta"></span>
+        <span class="calc-parts" id="calcParts"></span>
       </div>
+      <div class="calc-warn" id="calcWarn" hidden></div>
       <label class="fld" for="c-email">Kirim full breakdown ke email
         <input type="email" id="c-email" placeholder="nama@email.com" autocomplete="email">
       </label>
@@ -619,7 +610,8 @@ h1,h2,h3{margin:0}
     var CFG={ matchMin:20, buffer:1 }; // ~20 mnt/match · tanpa buffer
     var cats=document.getElementById("c-cats"), grps=document.getElementById("c-groups"),
         pg=document.getElementById("c-pergroup"), crt=document.getElementById("c-courts");
-    var out=document.getElementById("calcHours"), meta=document.getElementById("calcMeta");
+    var out=document.getElementById("calcHours"), meta=document.getElementById("calcMeta"),
+        parts=document.getElementById("calcParts"), warn=document.getElementById("calcWarn");
     var cForm=document.getElementById("calcForm"), cEmail=document.getElementById("c-email"),
         cMsg=document.getElementById("calcMsg"), cBtn=document.getElementById("calcSubmit");
     if(!cForm) return;
@@ -654,12 +646,20 @@ h1,h2,h3{margin:0}
       var groupSlots=Math.ceil(plan.group*C / K);
       var playoffSlots=0;
       for(var i=0;i<plan.ko.length;i++) playoffSlots += Math.ceil(plan.ko[i]*C / K);
-      var matches=(plan.group+plan.playoff)*C, totalPairs=C*G*Pg;
+      var matches=(plan.group+plan.playoff)*C, totalPairs=C*G*Pg, totalPlayers=totalPairs*2;
       var hours=((groupSlots+playoffSlots)*CFG.matchMin)/60*CFG.buffer;
       var rounded=Math.max(1, Math.round(hours*2)/2);
-      lastEst={C:C,G:G,Pg:Pg,K:K,totalPairs:totalPairs,matches:matches,groupMatches:plan.group*C,playoffMatches:plan.playoff*C,hours:rounded};
+      lastEst={C:C,G:G,Pg:Pg,K:K,totalPairs:totalPairs,totalPlayers:totalPlayers,matches:matches,hours:rounded};
       out.textContent="± "+(Number.isInteger(rounded)?rounded:rounded.toFixed(1))+" jam";
-      meta.textContent="~"+matches+" match (grup + playoff + juara 3) · "+totalPairs+" pair · "+K+" court";
+      meta.textContent="~"+matches+" match (grup + playoff + juara 3) · "+K+" court";
+      parts.textContent="Total peserta: "+totalPairs+" pair · "+totalPlayers+" player";
+      // Potensi BYE di playoff: advancer (2 × group) idealnya pangkat 2 (2/4/8/16).
+      var adv=2*G, pow=1; while(pow<adv) pow*=2;
+      var byes=(adv>=2 && pow!==adv) ? (pow-adv) : 0;
+      if(byes>0){
+        warn.hidden=false;
+        warn.innerHTML="⚠️ Potensi BYE: "+adv+" tim masuk playoff (idealnya 4 / 8 / 16). "+byes+" tim lolos tanpa main di babak awal — sesuaikan jumlah group biar bracket penuh.";
+      } else { warn.hidden=true; warn.textContent=""; }
     }
     [cats,grps,pg,crt].forEach(function(el){ if(el){ el.addEventListener("input",estimate); el.addEventListener("change",estimate); } });
     estimate();
@@ -677,8 +677,7 @@ h1,h2,h3{margin:0}
           cForm.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;text-align:center;padding:8px 0">'+
             '<div style="font-size:34px">📩</div>'+
             '<strong style="font-size:18px">Estimasi tersimpan — '+esc(out.textContent)+'</strong>'+
-            '<span style="font-size:14px;color:var(--muted)">Tim kami kirim breakdown lengkap ke email-mu di hari kerja.</span>'+
-            '<a href="/simulasi" class="btn btn--outline" style="min-height:44px;margin-top:4px">Buka kalkulator lengkap →</a></div>';
+            '<span style="font-size:14px;color:var(--muted)">Tim kami kirim breakdown lengkap ke email-mu di hari kerja.</span></div>';
         })
         .catch(function(err){ cbusy=false; cBtn.disabled=false; cBtn.textContent="Send breakdown";
           cMsg.innerHTML='<span style="color:var(--warn)">Gagal mengirim: '+esc(err.message)+'. Coba lagi.</span>'; });
