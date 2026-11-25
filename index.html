@@ -3,544 +3,646 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Turnamen Padel Indonesia · Daftar &amp; Ranking ELO — TurnamenPadel</title>
-<meta name="description" content="Platform turnamen padel Indonesia: temukan dan daftar turnamen terverifikasi, kelola bracket otomatis, live scoring, dan ranking ELO Trekkr."/>
+<title>TurnamenPadel — Organizer &amp; Sistem Turnamen Padel Indonesia</title>
+<meta name="description" content="Penyelenggara &amp; sistem turnamen padel di Indonesia. Full organizer, tim on-site, atau sistem remote dari Rp500rb/turnamen: undian Spin-the-Wheel, jadwal otomatis, live scoring, dan TV display. Submit turnamenmu."/>
 <link rel="canonical" href="https://turnamenpadel.com/"/>
 <meta property="og:type" content="website"/>
 <meta property="og:site_name" content="TurnamenPadel"/>
 <meta property="og:locale" content="id_ID"/>
-<meta property="og:title" content="Turnamen Padel Indonesia — TurnamenPadel"/>
-<meta property="og:description" content="Platform turnamen padel Indonesia: temukan dan daftar turnamen, bracket otomatis, live scoring, dan ranking ELO Trekkr."/>
+<meta property="og:title" content="TurnamenPadel — Organizer &amp; Sistem Turnamen Padel Indonesia"/>
+<meta property="og:description" content="Full organizer, tim on-site, atau sistem remote: undian otomatis, jadwal, live scoring &amp; TV display untuk turnamen padel. Submit turnamenmu."/>
 <meta property="og:url" content="https://turnamenpadel.com/"/>
 <meta property="og:image" content="https://turnamenpadel.com/og-image.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="Turnamen Padel Indonesia — TurnamenPadel"/>
-<meta name="twitter:description" content="Platform turnamen padel Indonesia: temukan dan daftar turnamen, bracket otomatis, live scoring, dan ranking ELO Trekkr."/>
+<meta name="twitter:title" content="TurnamenPadel — Organizer &amp; Sistem Turnamen Padel Indonesia"/>
+<meta name="twitter:description" content="Full organizer, tim on-site, atau sistem remote: undian otomatis, jadwal, live scoring &amp; TV display untuk turnamen padel."/>
 <meta name="twitter:image" content="https://turnamenpadel.com/og-image.png"/>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"TurnamenPadel","url":"https://turnamenpadel.com/","logo":"https://turnamenpadel.com/og-image.png","description":"Platform turnamen padel Indonesia: temukan dan daftar turnamen, bracket otomatis, live scoring, dan ranking ELO Trekkr."}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"TurnamenPadel","url":"https://turnamenpadel.com/","logo":"https://turnamenpadel.com/og-image.png","description":"Penyelenggara dan sistem turnamen padel di Indonesia — undian otomatis, jadwal, live scoring, dan TV display."}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"TurnamenPadel","url":"https://turnamenpadel.com/","inLanguage":"id-ID"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet"/>
-<link rel="stylesheet" href="/tp-theme.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
-/* ===== index-specific layout ===== */
+:root{
+  --ink:#0F172A; --bg:#FAFAF7; --white:#FFFFFF; --accent:#FF6A00; --accent-ink:#C2410C;
+  --muted:#475569; --muted2:#334155; --panel:#F1F5F9; --line:#0F172A;
+  --blue-100:#DBEAFE; --amber-bg:#FEF3C7; --dark2:#1E293B; --warn:#DC2626;
+  --sh:4px 4px 0 var(--ink); --sh-sm:3px 3px 0 var(--ink); --sh-lg:6px 6px 0 var(--ink);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Plus Jakarta Sans',system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--ink)} a:hover{color:var(--accent-ink)}
+img{max-width:100%}
+h1,h2,h3{margin:0}
+.wrap{max-width:1240px;margin:0 auto;padding:0 32px}
+@media(max-width:640px){.wrap{padding:0 18px}}
+.band{border-top:2px solid var(--line);border-bottom:2px solid var(--line)}
+.band--white{background:var(--white)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;
+  border:2px solid var(--line);border-radius:10px;font:inherit;font-weight:700;font-size:15px;color:var(--ink);
+  text-decoration:none;cursor:pointer;background:var(--white);transition:transform .1s,box-shadow .1s}
+.btn--primary{background:var(--accent);color:var(--ink);box-shadow:var(--sh-sm)}
+.btn--primary:hover,.btn--lg:hover{transform:translate(-1px,-1px);box-shadow:var(--sh);color:var(--ink)}
+.btn--lg{min-height:56px;padding:0 26px;font-size:17px;font-weight:800;box-shadow:var(--sh)}
+.btn--outline{background:var(--white)}
+.btn--ondark{background:var(--accent);color:var(--ink);border-color:#F8FAFC}
+.btn--block{width:100%}
+
+/* header */
+.hdr{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;padding:16px 32px;background:var(--white);border-bottom:2px solid var(--line)}
+@media(max-width:640px){.hdr{padding:14px 18px}}
+.logo{display:flex;align-items:center;gap:12px;text-decoration:none}
+.logo .mark{width:44px;height:44px;border-radius:10px;background:var(--accent);border:2px solid var(--line);box-shadow:var(--sh-sm);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:var(--ink)}
+.logo .nm{font-weight:800;font-size:18px;letter-spacing:.02em}
+.logo .tg{display:block;font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--muted)}
+.nav{display:flex;flex-wrap:wrap;gap:24px;font-size:15px;font-weight:600}
+.nav a{text-decoration:none}
+.hdr-cta{display:flex;flex-wrap:wrap;align-items:center;gap:16px}
+.playerlink{font-size:14px;font-weight:600;color:var(--muted)}
+@media(max-width:900px){.nav{display:none}}
 
 /* hero */
-.hero{position:relative;overflow:hidden;border-bottom:var(--bd);
-  background:linear-gradient(180deg,#fff 0%,var(--canvas) 55%,rgba(255,251,235,.5) 100%);
-  padding:48px 0}
-@media(min-width:1024px){.hero{padding:64px 0}}
-.hero .dots{position:absolute;inset:0;opacity:.15;pointer-events:none}
-.hero .inner{position:relative;z-index:1;display:flex;flex-direction:column;gap:40px}
-.hero .lead{max-width:900px;margin-inline:auto;text-align:center;display:flex;flex-direction:column;gap:20px;align-items:center}
-.hero h1{font-family:var(--display);font-weight:900;letter-spacing:-.02em;line-height:1.05;
-  font-size:clamp(34px,7vw,72px);margin:0}
-.hero h1 .u{color:var(--orange);text-decoration:underline;text-decoration-style:wavy;
-  text-decoration-color:rgba(37,99,235,.5);text-decoration-thickness:4px;text-underline-offset:6px}
-.hero p.sub{font-size:clamp(16px,2vw,20px);color:var(--slate-700);font-weight:500;max-width:760px;
-  margin:0;line-height:1.6}
+.hero{max-width:1240px;margin:0 auto;padding:72px 32px 80px;display:flex;flex-wrap:wrap;align-items:center;gap:56px}
+@media(max-width:640px){.hero{padding:44px 18px 56px;gap:36px}}
+.hero-col{flex:1 1 480px;min-width:0;display:flex;flex-direction:column;gap:24px}
+.eyebrow-pill{align-self:flex-start;padding:6px 14px;border-radius:999px;background:var(--blue-100);border:2px solid var(--line);font-size:12px;font-weight:700;letter-spacing:.08em}
+.hero h1{font-size:60px;line-height:1.05;font-weight:800;letter-spacing:-.02em}
+.hero h1 .hl{color:var(--accent-ink)}
+@media(max-width:640px){.hero h1{font-size:40px}}
+.hero .lede{font-size:19px;line-height:1.6;color:var(--muted2);max-width:560px}
+.hero-ctas{display:flex;flex-wrap:wrap;gap:14px}
+.trustline{display:flex;flex-wrap:wrap;gap:10px 20px;font-size:14px;font-weight:600;color:var(--muted2)}
+.trustline strong{color:var(--ink)}
+.hero-visual{flex:1 1 440px;min-width:0;display:flex;flex-direction:column;gap:10px}
+/* TODO: ganti mock Live TV ini dengan screenshot/GIF TV Display asli */
+.tv{background:var(--ink);border:2px solid var(--line);border-radius:18px;box-shadow:8px 8px 0 var(--accent);padding:22px;color:#F8FAFC;display:flex;flex-direction:column;gap:14px}
+.tv-top{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.tv-live{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.1em}
+.tv-live .dot{width:9px;height:9px;border-radius:50%;background:#22C55E}
+.tv-sub{font-size:12px;color:#CBD5E1}
+.tv-rows{display:flex;flex-direction:column;gap:8px}
+.tv-row{display:flex;align-items:center;gap:12px;background:var(--dark2);border-radius:10px;padding:12px 14px}
+.tv-row .ct{font-size:11px;font-weight:700;color:#94A3B8;width:58px}
+.tv-row .pair{flex:1;font-size:15px;font-weight:600}
+.tv-row .pair .vs{color:#94A3B8}
+.tv-row .sc{font-size:18px;font-weight:800;color:#FDBA74}
+.tv-next{border-top:1px solid #334155;padding-top:12px;display:flex;flex-direction:column;gap:6px}
+.tv-next .lbl{font-size:11px;font-weight:700;letter-spacing:.1em;color:#94A3B8}
+.tv-next span{font-size:14px;color:#E2E8F0}
+.cap{font-size:12px;color:#64748B;text-align:center}
+.hero-shot{width:100%;height:auto;display:block;border:2px solid var(--line);border-radius:18px;box-shadow:8px 8px 0 var(--accent);background:var(--ink)}
 
-/* dual hero cards */
-.duo{display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:1040px;margin-inline:auto;width:100%}
-@media(max-width:820px){.duo{grid-template-columns:1fr}}
-.duo .card{display:flex;flex-direction:column;justify-content:space-between;gap:24px;
-  position:relative;overflow:hidden;padding:26px}
-.ribbon{position:absolute;top:0;right:0;font-family:var(--mono);font-weight:800;font-size:11px;
-  letter-spacing:.05em;text-transform:uppercase;padding:5px 14px;border-left:var(--bd);
-  border-bottom:var(--bd);border-bottom-left-radius:var(--r-xl)}
-.ribbon--blue{background:var(--blue-100);color:var(--blue)}
-.ribbon--mint{background:#D1FAE5;color:#065F46}
-.ribbon--orange{background:var(--orange);color:#fff}
-.duo h3{font-family:var(--display);font-weight:900;font-size:clamp(22px,3vw,30px);margin:0;letter-spacing:-.01em}
-.duo p{color:var(--slate-600);font-size:14px;font-weight:500;line-height:1.6;margin:0}
-.tagset{display:flex;flex-wrap:wrap;gap:8px}
-.tag{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--slate-700);
-  background:var(--slate-100);border:1px solid var(--slate-300);border-radius:6px;padding:3px 8px}
-.duo .foot{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding-top:16px;border-top:var(--bd-soft)}
+/* sections generic */
+.sec{max-width:1240px;margin:0 auto;padding:80px 32px}
+@media(max-width:640px){.sec{padding:56px 18px}}
+.sec-inner{max-width:1240px;margin:0 auto;padding:80px 32px}
+@media(max-width:640px){.sec-inner{padding:56px 18px}}
+.kicker{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--accent-ink)}
+.h2{font-size:38px;font-weight:800;letter-spacing:-.01em}
+@media(max-width:640px){.h2{font-size:30px}}
+.head-stack{display:flex;flex-direction:column;gap:10px;max-width:760px}
+.lead17{font-size:17px;line-height:1.6;color:var(--muted2)}
+.cards{display:flex;flex-wrap:wrap;gap:20px}
 
-/* trust chips */
-.trust{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-.trust .t{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;
-  font-weight:700;color:var(--slate-700);background:#fff;border:var(--bd-soft);border-radius:var(--r-lg);
-  padding:6px 12px;box-shadow:var(--sh-soft)}
-.trust .t b{font-weight:900}
+/* pain cards */
+.pain{flex:1 1 300px;min-width:0;border:2px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:14px;background:var(--bg)}
+.pain .q{font-size:20px;font-weight:700}
+.pain .a{font-size:16px;line-height:1.6;color:var(--muted2)}
 
-/* section head */
-.sechead{display:flex;flex-direction:column;gap:10px}
-.sechead h2{font-family:var(--display);font-weight:900;letter-spacing:-.02em;
-  font-size:clamp(26px,4vw,48px);margin:0}
-.sechead p{color:var(--slate-600);font-weight:500;font-size:clamp(14px,1.6vw,16px);margin:0;max-width:640px}
-.sechead--center{align-items:center;text-align:center}
-.sechead--center p{margin-inline:auto}
-.sechead-row{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:24px}
+/* stats */
+.stat{flex:1 1 260px;border:2px solid var(--line);border-radius:14px;padding:26px;background:var(--white);box-shadow:var(--sh);display:flex;flex-direction:column;gap:6px}
+.stat .n{font-size:44px;font-weight:800}
+.stat .l{font-size:15px;color:var(--muted);font-weight:600}
 
-/* filter bar */
-.filterbar{display:flex;flex-wrap:wrap;gap:8px;font-family:var(--mono);font-size:12px;font-weight:700}
-.segset{display:inline-flex;gap:2px;padding:4px;border-radius:var(--r-xl);background:var(--slate-100);
-  border:1px solid var(--slate-300);flex-wrap:wrap}
-.segset button{font:inherit;cursor:pointer;border:0;background:transparent;color:var(--slate-600);
-  padding:7px 12px;border-radius:var(--r-lg)}
-.segset button:hover{color:var(--dark)}
-.segset button.on{background:#fff;border:var(--bd);box-shadow:var(--sh-sm);color:var(--dark)}
-.segset button.on.on--orange{background:var(--orange);color:#fff}
+/* how it works */
+.step{flex:1 1 300px;min-width:0;border:2px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
+.step .shot{height:132px;background:var(--ink);border-bottom:2px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:0 22px;color:#F8FAFC}
+.step .shot-n{font-size:46px;font-weight:800;line-height:1;color:var(--accent)}
+.step .shot-cap{font-size:13px;font-weight:700;letter-spacing:.04em;color:#CBD5E1}
+.step .shot-img{width:100%;height:172px;object-fit:cover;object-position:top center;border-bottom:2px solid var(--line);display:block;background:var(--panel)}
+.step .body{padding:22px;display:flex;flex-direction:column;gap:10px}
+.step h3{font-size:20px;font-weight:800}
+.step ul{margin:0;padding-left:18px;font-size:15px;line-height:1.7;color:var(--muted2)}
 
-/* tournament cards */
-.tgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-@media(max-width:1024px){.tgrid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:720px){.tgrid{grid-template-columns:1fr}}
-.tcard{display:flex;flex-direction:column;gap:16px;background:var(--canvas)}
-.tcard:hover{background:#fff}
-.tcard .top{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.tcard .loc{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:12px;
-  font-weight:700;color:var(--slate-500)}
-.tcard .loc .material-symbols-outlined{font-size:15px}
-.tcard .tlogo{width:40px;height:40px;border-radius:var(--r-lg);object-fit:contain;background:#fff;
-  border:var(--bd);padding:3px}
-.tcard h3{font-family:var(--display);font-weight:900;font-size:22px;margin:0;letter-spacing:-.01em;
-  transition:color .15s}
-.tcard:hover h3{color:var(--orange)}
-.tcard .kicker{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--blue);
-  text-transform:uppercase;letter-spacing:.06em}
-.tcard .desc{font-size:12px;color:var(--slate-600);font-weight:500}
-.tcard .specs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:12px;border-top:var(--bd-soft)}
-.tcard .spec{padding:8px;background:#fff;border:var(--bd-soft);border-radius:var(--r-lg);font-family:var(--mono)}
-.tcard .spec .l{display:block;font-size:10px;font-weight:700;color:var(--slate-400);text-transform:uppercase}
-.tcard .spec .v{font-size:12px;font-weight:700;color:var(--dark)}
-.tcard .impact{display:flex;align-items:center;justify-content:space-between;padding:10px;
-  background:var(--slate-100);border:var(--bd-soft);border-radius:var(--r-xl);font-family:var(--mono);font-size:12px}
-.tcard .impact .v{font-weight:900;color:var(--dark)}
+/* calculator */
+.calc{background:#FFF1E6;border:2px solid var(--line);border-radius:20px;padding:44px;display:flex;flex-wrap:wrap;gap:40px;align-items:center}
+@media(max-width:640px){.calc{padding:28px}}
+.calc-col{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.calc h2{font-size:36px;font-weight:800;letter-spacing:-.01em}
+@media(max-width:640px){.calc h2{font-size:28px}}
+.calc-card{flex:1 1 420px;min-width:0;background:var(--white);border:2px solid var(--line);border-radius:16px;box-shadow:var(--sh-lg);padding:28px;display:flex;flex-direction:column;gap:16px}
+.calc-inputs{display:flex;flex-wrap:wrap;gap:14px}
+.calc-inputs .fld{flex:1 1 calc(50% - 7px);min-width:0}
+.calc-inputs input{min-height:44px;padding:0 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;font-weight:600;width:100%;color:var(--ink);background:var(--white)}
+.calc-inputs input:focus,.calc-card input:focus{outline:none;box-shadow:0 0 0 3px rgba(255,106,0,.35)}
+.calc-est{background:var(--ink);color:#F8FAFC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px}
+.calc-est .lbl{font-size:12px;font-weight:700;letter-spacing:.1em;color:#CBD5E1}
+.calc-est .val{font-size:28px;font-weight:800}
+.calc-est .unit{font-size:15px;font-weight:600;color:#CBD5E1}
+.calc-meta{font-size:12px;color:#94A3B8;margin-top:2px}
+.calc-parts{font-size:14px;font-weight:700;color:#F8FAFC;margin-top:6px}
+.calc-warn{border:2px solid var(--line);border-radius:10px;background:var(--amber-bg);padding:10px 12px;font-size:13px;line-height:1.45;font-weight:600;color:var(--ink)}
+.calc-card input[type=email]{min-height:44px;padding:0 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;width:100%;color:var(--ink);background:var(--white)}
 
-/* 3-step explainer */
-.explain{background:var(--slate-50);border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh-sm);
-  padding:24px}
-@media(min-width:640px){.explain{padding:32px}}
-.explain .head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
-  padding-bottom:16px;border-bottom:var(--bd-soft);margin-bottom:24px}
-.explain h4{font-family:var(--display);font-weight:900;font-size:20px;margin:4px 0 0}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
-@media(max-width:820px){.steps{grid-template-columns:1fr}}
-.step{display:flex;gap:16px;align-items:flex-start}
-.step .num{flex:none;width:36px;height:36px;border-radius:var(--r-xl);border:var(--bd);box-shadow:var(--sh-sm);
-  color:#fff;font-family:var(--mono);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center}
-.step .num--o{background:var(--orange)} .step .num--b{background:var(--blue)} .step .num--m{background:var(--mint)}
-.step h5{font-family:var(--display);font-weight:700;font-size:16px;margin:0 0 4px}
-.step p{font-size:12px;color:var(--slate-600);line-height:1.6;margin:0}
+/* services */
+.svc{flex:1 1 320px;min-width:0;border:2px solid var(--line);border-radius:20px;box-shadow:var(--sh-lg);padding:28px;display:flex;flex-direction:column;gap:18px;background:var(--bg)}
+.svc--dark{background:var(--ink);color:#F8FAFC}
+.svc--accent{box-shadow:6px 6px 0 var(--accent)}
+.svc .tag{font-size:12px;font-weight:700;letter-spacing:.1em;color:var(--accent-ink)}
+.svc--dark .tag{color:#FDBA74}
+.svc h3{font-size:24px;font-weight:800}
+.svc .desc{font-size:15px;line-height:1.55;color:var(--muted2)}
+.svc--dark .desc{color:#CBD5E1}
+.svc .price{display:flex;flex-direction:column;gap:2px;border-top:1px solid #CBD5E1;border-bottom:1px solid #CBD5E1;padding:14px 0}
+.svc--dark .price{border-color:#334155}
+.svc .price .big{font-size:26px;font-weight:800}
+.svc .price .big--rp{font-size:30px}
+.svc .price .sub{font-size:13px;color:var(--muted)}
+.svc--dark .price .sub{color:#CBD5E1}
+.svc ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;font-size:15px;font-weight:600;flex-grow:1}
+.req{border:2px solid var(--line);border-radius:10px;background:var(--amber-bg);padding:10px 12px;font-size:13px;line-height:1.45;font-weight:600;color:var(--ink)}
 
-/* feature grid */
-.feat h3{font-family:var(--display);font-weight:800;font-size:20px;margin:12px 0 0}
-.feat p{font-size:12px;color:var(--slate-600);line-height:1.6;margin:10px 0 0}
-.feat .note{font-family:var(--mono);font-size:11px;font-weight:700;margin-top:10px}
+/* faq */
+.faq{flex:1 1 460px;min-width:0;border:2px solid var(--line);border-radius:14px;padding:24px;background:var(--white);display:flex;flex-direction:column;gap:8px}
+.faq h3{font-size:18px;font-weight:800}
+.faq p{font-size:15px;line-height:1.6;color:var(--muted2);margin:0}
 
-/* platform workflow (end-to-end) */
-.phase{display:flex;flex-direction:column;gap:16px}
-.phase-label{display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-weight:800;
-  font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--slate-700)}
-.phase-label .n{width:26px;height:26px;flex:none;border-radius:var(--r-lg);border:var(--bd);box-shadow:var(--sh-sm);
-  display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900}
-.flow-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.flow-grid.two{grid-template-columns:repeat(2,1fr)}
-@media(max-width:900px){.flow-grid,.flow-grid.two{grid-template-columns:1fr}}
-.fstep{position:relative;display:flex;flex-direction:column;gap:12px;padding:22px}
-.fstep .fnum{position:absolute;top:14px;right:18px;font-family:var(--mono);font-weight:900;font-size:26px;
-  color:var(--slate-200);line-height:1}
-.fstep h3{font-family:var(--display);font-weight:900;font-size:18px;margin:2px 0 0;letter-spacing:-.01em}
-.fstep p{font-size:13px;color:var(--slate-600);line-height:1.65;margin:0}
-.fstep--wide{background:linear-gradient(120deg,rgba(126,34,206,.06),rgba(37,99,235,.06))}
-.fstep--wide h3{font-size:22px}
-.fstep--wide p{font-size:14px;max-width:760px}
+/* final cta */
+.final{background:var(--ink);color:#F8FAFC}
+.final-inner{max-width:1040px;margin:0 auto;padding:88px 32px;display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center}
+@media(max-width:640px){.final-inner{padding:64px 18px}}
+.final h2{font-size:44px;font-weight:800;letter-spacing:-.01em}
+@media(max-width:640px){.final h2{font-size:32px}}
+.final p{font-size:18px;line-height:1.6;color:#CBD5E1;max-width:640px}
+.final .fine{font-size:14px;color:#CBD5E1}
 
-/* burger removed → keep the primary CTA reachable on small screens */
-@media(max-width:900px){ .tp-header-actions .btn--primary{display:inline-flex} }
-/* phones: Contact Us becomes an icon button so the header fits without sideways scroll */
-@media(max-width:480px){ .tp-header-actions .btn--primary>span:not(.material-symbols-outlined){display:none}
-  .tp-header-actions .btn--primary{padding-left:12px;padding-right:12px} .tp-logo{min-width:0} }
+/* footer */
+.ftr{background:var(--white);border-top:2px solid var(--line)}
+.ftr-inner{max-width:1240px;margin:0 auto;padding:36px 32px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:20px}
+@media(max-width:640px){.ftr-inner{padding:28px 18px}}
+.ftr-links{display:flex;flex-wrap:wrap;gap:20px;font-size:14px;color:var(--muted)}
 
-/* contact CTA band */
-.contact-cta{background:var(--dark);color:#fff;border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh);
-  padding:36px 24px;text-align:center;display:flex;flex-direction:column;gap:14px;align-items:center}
-.contact-cta h3{font-family:var(--display);font-weight:900;letter-spacing:-.01em;font-size:clamp(22px,3vw,32px);margin:0;color:#fff}
-.contact-cta p{color:var(--slate-300);font-size:14px;max-width:520px;margin:0;line-height:1.6}
-.contact-cta .reg-btn,.contact-cta .btn{margin-top:6px}
-
-/* contact modal */
-.modal-ov{position:fixed;inset:0;background:rgba(15,23,42,.55);display:none;place-items:center;z-index:100;padding:18px}
-.modal-ov.open{display:grid}
-.modal-box{background:#fff;border:var(--bd);border-radius:var(--r-2xl);box-shadow:var(--sh-lg);max-width:440px;width:100%;padding:24px}
-.modal-box h3{font-family:var(--display);font-weight:900;font-size:22px;margin:0 0 4px}
-.modal-box .sub{color:var(--slate-600);font-size:14px;margin:0 0 18px;line-height:1.5}
-.modal-box label{display:block;font-family:var(--mono);font-size:12px;font-weight:700;text-transform:uppercase;color:var(--slate-600);margin:0 0 6px}
-.modal-box .f{margin-bottom:14px}
-.modal-box input{width:100%;background:#fff;border:var(--bd);color:var(--dark);border-radius:var(--r-lg);padding:11px 12px;font-family:var(--sans);font-size:14px;box-shadow:var(--sh-sm)}
-.modal-box input:focus{outline:none;box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.35)}
-.modal-box .row{display:flex;gap:10px;margin-top:8px}
-.modal-msg{font-size:13px;min-height:2px}
-
-/* comparison */
-.compare{display:grid;grid-template-columns:1fr 1fr;gap:32px}
-@media(max-width:820px){.compare{grid-template-columns:1fr}}
-.compare .card{display:flex;flex-direction:column;justify-content:space-between;gap:24px;position:relative;overflow:hidden;padding:28px}
-.compare h4{font-family:var(--display);font-weight:900;font-size:24px;margin:0}
-.compare p{color:var(--slate-600);font-size:14px;font-weight:500;line-height:1.6;margin:0}
-.checks{display:flex;flex-direction:column;gap:10px;margin-top:6px}
-.checks .c{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--slate-700);font-weight:500}
-.checks .tick{flex:none;width:20px;height:20px;border-radius:6px;color:#fff;font-family:var(--mono);
-  font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
-.checks .tick--b{background:var(--blue)} .checks .tick--m{background:var(--mint)}
-.compare .foot{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:16px;border-top:2px solid var(--slate-100)}
-.compare .foot .k{font-family:var(--mono);font-size:10px;text-transform:uppercase;font-weight:700;color:var(--slate-500)}
-.compare .foot .big{font-family:var(--display);font-weight:800;font-size:18px}
-
-/* estimator */
-.estimator{background:rgba(254,243,199,.5);border:var(--bd);border-radius:var(--r-3xl);box-shadow:var(--sh-sm);
-  padding:24px}
-@media(min-width:640px){.estimator{padding:40px}}
-.estimator .panel{background:#fff;border:var(--bd);border-radius:var(--r-2xl);box-shadow:var(--sh);
-  padding:24px;display:grid;grid-template-columns:1.4fr 1fr;gap:32px;align-items:center;margin-top:28px}
-@media(max-width:820px){.estimator .panel{grid-template-columns:1fr;padding:24px}}
-.estimator label{display:block;font-family:var(--mono);font-weight:700;font-size:12px;
-  text-transform:uppercase;color:var(--slate-700);margin-bottom:6px}
-.estimator select{width:100%;font-family:var(--sans);font-weight:700;font-size:14px;color:var(--dark);
-  background:var(--slate-50);border:var(--bd);border-radius:var(--r-xl);padding:12px;box-shadow:var(--sh-sm);
-  cursor:pointer;appearance:none;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230F172A' stroke-width='3'><path d='M6 9l6 6 6-6'/></svg>");
-  background-repeat:no-repeat;background-position:right 14px center}
-.estimator select:focus{outline:none;box-shadow:var(--sh-sm),0 0 0 3px rgba(255,87,34,.35)}
-.estimator .fields{display:flex;flex-direction:column;gap:20px}
-.estimator .hint{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;
-  color:var(--slate-600);background:var(--slate-50);border:1px solid var(--slate-300);border-radius:var(--r-xl);padding:12px}
-.estimator .hint .material-symbols-outlined{color:var(--mint);font-size:18px}
-.estimator .out{background:var(--canvas);border:var(--bd);border-radius:var(--r-2xl);padding:24px;
-  text-align:center;display:flex;flex-direction:column;gap:18px}
-.estimator .runtime{font-family:var(--mono);font-weight:800;font-size:clamp(36px,6vw,52px);color:var(--orange);line-height:1}
-.estimator .mini2{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:16px;border-top:var(--bd-soft)}
-.estimator .m{padding:8px;background:#fff;border:var(--bd-soft);border-radius:var(--r-lg);font-family:var(--mono)}
-.estimator .m .l{display:block;font-size:10px;text-transform:uppercase;font-weight:700;color:var(--slate-500)}
-.estimator .m .v{font-size:18px;font-weight:800}
-
-/* closing dark section */
-.closing{position:relative;overflow:hidden;background:var(--dark);color:#fff;padding:64px 0}
-@media(min-width:640px){.closing{padding:80px 0}}
-.closing .blob{position:absolute;width:420px;height:420px;border-radius:50%;filter:blur(80px);opacity:.2;pointer-events:none}
-.closing .blob-o{top:-120px;right:-120px;background:var(--orange)}
-.closing .blob-b{bottom:-120px;left:-120px;background:var(--blue)}
-.closing .inner{position:relative;z-index:1;display:flex;flex-direction:column;gap:48px}
-.closing h2{font-family:var(--display);font-weight:900;letter-spacing:-.02em;font-size:clamp(28px,5vw,48px);margin:0}
-.closing .lead p{color:var(--slate-300);font-size:clamp(14px,1.8vw,16px);max-width:600px;margin:0 auto}
-.glass{padding:32px;border-radius:var(--r-3xl);border:2px solid rgba(255,255,255,.2);
-  background:rgba(255,255,255,.05);backdrop-filter:blur(8px);display:flex;flex-direction:column;
-  justify-content:space-between;gap:24px;transition:border-color .15s}
-.glass--mint:hover{border-color:var(--mint)} .glass--orange:hover{border-color:var(--orange)}
-.glass h3{font-family:var(--display);font-weight:900;font-size:24px;margin:0;color:#fff}
-.glass p{color:var(--slate-300);font-size:14px;font-weight:500;line-height:1.6;margin:0}
-.closing .btn--onwhite{border-color:#fff}
-.closing .trust-line{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:24px;
-  font-family:var(--mono);font-size:12px;color:var(--slate-400)}
+/* modal */
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.6);display:none;align-items:flex-start;justify-content:center;padding:24px;overflow:auto;z-index:100}
+.ov.open{display:flex}
+.modal{width:100%;max-width:520px;background:var(--white);border:2px solid var(--line);border-radius:18px;box-shadow:var(--sh-lg);padding:28px;display:flex;flex-direction:column;gap:18px;margin:auto}
+.modal h2{font-size:26px;font-weight:800}
+.modal .msub{font-size:15px;line-height:1.5;color:var(--muted);margin:0}
+.mform{display:flex;flex-direction:column;gap:14px}
+.fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+.frow{display:flex;gap:12px}
+.frow .fld{flex:1 1 0;min-width:0}
+.fld input,.fld select,.fld textarea{min-height:44px;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;font-weight:500;background:var(--white);color:var(--ink);width:100%}
+.fld input{padding:0 12px}
+.fld select{padding:0 10px;font-size:15px}
+.fld textarea{resize:vertical;line-height:1.5;min-height:92px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(255,106,0,.35)}
+.chk{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--amber-bg);font-size:14px;line-height:1.45;font-weight:600;cursor:pointer}
+.chk input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--ink)}
+.chk .note{font-weight:500;color:var(--muted)}
+.mmsg{font-size:13px;min-height:2px}
+.mfine{font-size:12px;color:var(--muted);text-align:center}
+.mclose{position:absolute;top:16px;right:18px;background:transparent;border:0;font-size:24px;line-height:1;cursor:pointer;color:var(--muted)}
+.spin{width:16px;height:16px;border:2px solid rgba(15,23,42,.3);border-top-color:var(--ink);border-radius:50%;display:inline-block;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
 
-<!-- ANNOUNCEMENT BAR -->
-<div class="tp-annc"><div class="inner">
-  <div class="live">
-    <span class="pulse"></span>
-    <span class="k-lime">TREKKR ELO ENGINE RUNNING</span>
-    <span class="hide-sm k-slate">|</span>
-    <span class="hide-sm k-dim">Anti-sandbagging integrity active across every tracked cup</span>
-  </div>
-  <a href="#features"><span>Explore the full platform</span><span class="material-symbols-outlined" style="font-size:14px">arrow_forward</span></a>
-</div></div>
-
 <!-- HEADER -->
-<header class="tp-header"><div class="inner">
-  <a class="tp-logo" href="/">
-    <span class="glyph">P</span>
-    <span>
-      <span class="name">TURNAMEN<b>PADEL</b></span>
-      <span class="sub">Powered by Trekkr.online</span>
-    </span>
+<header class="hdr">
+  <a class="logo" href="#top">
+    <span class="mark">P</span>
+    <span><span class="nm">TURNAMENPADEL</span><span class="tg">PADEL TOURNAMENT ENGINE</span></span>
   </a>
-  <nav class="tp-nav">
-    <a href="#features"><span class="dot" style="background:var(--blue)"></span>Platform Features</a>
-    <a href="#upcoming-tournaments"><span class="dot" style="background:var(--mint)"></span>Find Tournaments</a>
+  <nav class="nav">
+    <a href="#cara-kerja">How it works</a>
+    <a href="#layanan">Services &amp; pricing</a>
+    <a href="#kalkulator">Duration calculator</a>
+    <a href="#faq">FAQ</a>
   </nav>
-  <div class="tp-header-actions">
-    <a class="btn btn--white btn--sm mono" href="#upcoming-tournaments">Register to Play</a>
-    <button class="btn btn--primary btn--sm btn--pop btn--upper" type="button" onclick="openContact()" aria-label="Contact Us"><span class="material-symbols-outlined">mail</span><span>Contact Us</span></button>
+  <div class="hdr-cta">
+    <a class="playerlink" href="https://trekkr.online" target="_blank" rel="noopener">Player? Cari turnamen →</a>
+    <button type="button" class="btn btn--primary" data-open="Belum yakin, butuh konsultasi">Submit your tournament</button>
   </div>
-</div>
 </header>
 
 <main>
 <!-- HERO -->
-<section class="hero">
-  <div class="dots dotgrid"></div>
-  <div class="container inner">
-    <div class="lead">
-      <span class="chip chip--brutal chip--lime chip--pill">
-        <span class="dot" style="background:var(--lime);border:1px solid var(--dark)"></span>
-        INDONESIA'S UNIFIED PADEL HUB
-        <span class="k-slate" style="color:var(--slate-400)">|</span>
-        <span style="color:var(--orange);font-weight:800">2026 SEASON OPEN</span>
-      </span>
-      <h1>Run Pro Padel Events.<br/><span class="u">Or Play in the Next One.</span></h1>
-      <p class="sub">The complete platform for tournament directors to organize and automate brackets, and for padel players to discover verified tournaments, register instantly, and track Trekkr ELO rankings.</p>
+<section id="top" class="hero">
+  <div class="hero-col">
+    <span class="eyebrow-pill">FOR ORGANIZERS, VENUES &amp; PADEL CLUBS</span>
+    <h1>Your tournament. <span class="hl">We run the show.</span></h1>
+    <p class="lede">Pick your level of service — a tournament system run remotely, a full on-site crew, or a full organizer that takes you from planning to the final point.</p>
+    <div class="hero-ctas">
+      <button type="button" class="btn btn--primary btn--lg" data-open="Belum yakin, butuh konsultasi">Submit your tournament</button>
+      <a href="#layanan" class="btn btn--lg btn--outline">Compare 3 services</a>
     </div>
-
-    <!-- dual cards -->
-    <div class="duo">
-      <div class="card card--lg card--hover">
-        <div class="ribbon ribbon--blue">For Clubs &amp; Directors</div>
-        <div class="stack" style="gap:12px;padding-top:6px">
-          <div class="ico-tile ico-tile--blue"><span class="material-symbols-outlined">terminal</span></div>
-          <h3>Host &amp; Automate with SaaS</h3>
-          <p>Eliminate paper brackets and delayed schedules. Generate balanced draws, connect courtside TV live boards, and dispatch WhatsApp alerts automatically.</p>
-          <div class="tagset">
-            <span class="tag">✓ Auto-draw algorithms</span>
-            <span class="tag">✓ TV scoreboard ready</span>
-          </div>
-        </div>
-        <div class="foot">
-          <a class="btn btn--primary btn--block btn--upper" href="#features"><span class="material-symbols-outlined">bolt</span>Explore the Platform<span class="material-symbols-outlined">arrow_forward</span></a>
-        </div>
-      </div>
-
-      <div class="card card--lg card--hover">
-        <div class="ribbon ribbon--mint">For Players &amp; Pairs</div>
-        <div class="stack" style="gap:12px;padding-top:6px">
-          <div class="ico-tile ico-tile--mint"><span class="material-symbols-outlined">sports_tennis</span></div>
-          <h3>Find &amp; Join Upcoming Tournaments</h3>
-          <p>Browse sanctioned and local open tournaments across Indonesia. Register with your partner in seconds and earn verified Trekkr ELO.</p>
-          <div class="tagset">
-            <span class="tag">✓ Zero sandbagging</span>
-            <span class="tag">✓ Instant mobile feed</span>
-          </div>
-        </div>
-        <div class="foot">
-          <a class="btn btn--dark btn--block btn--upper" href="#upcoming-tournaments"><span class="material-symbols-outlined" style="color:var(--lime)">search</span>Explore Open Tournaments &amp; Register</a>
-        </div>
-      </div>
+    <div class="trustline">
+      <span>✓ Full organizer · On-site crew · Remote system</span>
+      <span>✓ System from <strong>Rp500K</strong> per tournament</span>
+      <span>✓ No app install</span>
     </div>
+  </div>
+  <div class="hero-visual">
+    <img class="hero-shot" src="/img/tv-display.png" width="1280" height="720" loading="eager"
+         alt="Live TV display turnamen padel TurnamenPadel — skor tiap court, grup standings, dan up next secara real-time">
+    <span class="cap">Live TV display · court-by-court score, real-time</span>
+  </div>
+</section>
 
-    <!-- trust chips -->
-    <div class="trust">
-      <span class="t"><span style="color:var(--orange)">★</span> Verified Trekkr ELO</span>
-      <span class="t"><span style="color:var(--mint)">✓</span> Zero Sandbagging</span>
-      <span class="t"><span style="color:var(--blue)">⚡</span> Direct WhatsApp Registration</span>
-      <span class="t"><span>📺</span> Real-time Arena TV</span>
-      <span class="t" id="trustPlayers" hidden><b id="statPlayers">—</b> Players registered</span>
+<!-- STATS -->
+<section class="sec" style="display:flex;flex-direction:column;gap:32px">
+  <div class="head-stack" style="gap:10px">
+    <span class="kicker">PROVEN ON COURT</span>
+    <h2 class="h2">The numbers so far</h2>
+  </div>
+  <div class="cards" id="statCards"></div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="cara-kerja" class="band band--white">
+  <div class="sec-inner" style="display:flex;flex-direction:column;gap:40px">
+    <div class="head-stack">
+      <span class="kicker">HOW IT WORKS</span>
+      <h2 class="h2">One engine, every service</h2>
+      <p class="lead17">Apa pun service-nya, match day jalan di engine TurnamenPadel. Bedanya cuma seberapa banyak yang kami handle.</p>
+    </div>
+    <div class="cards">
+      <div class="step">
+        <img class="shot-img" src="/img/mobile-player.png" width="640" height="844" loading="lazy"
+             alt="Peserta lihat jadwal dan pair di HP lewat browser, tanpa install app">
+        <div class="body"><span class="kicker">1 · PRE-EVENT</span><h3>Final player list masuk</h3>
+          <ul><li>List pair per kategori</li><li>Jumlah court &amp; jam booking</li><li>Kami hitung durasi &amp; set up format</li></ul></div>
+      </div>
+      <div class="step">
+        <img class="shot-img" src="/img/draw-wheel.png" width="1200" height="806" loading="lazy"
+             alt="Spin-the-Wheel draw: pair diundah ke grup secara acak dan transparan">
+        <div class="body"><span class="kicker">2 · DRAW DAY</span><h3>Draw yang transparan</h3>
+          <ul><li>Spin-the-Wheel, bisa di-livestream</li><li>Schedule &amp; court auto-generated</li><li>Order of play dikirim ke peserta</li></ul></div>
+      </div>
+      <div class="step">
+        <img class="shot-img" src="/img/scorer-desk.png" width="900" height="1241" loading="lazy"
+             alt="Scorer desk: input skor per court, status match done dan to play">
+        <div class="body"><span class="kicker">3 · MATCH DAY</span><h3>Live score everywhere</h3>
+          <ul><li>Scorer input score dari HP</li><li>Scorer desk dashboard</li><li>Live display di TV / LED venue</li></ul></div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- UPCOMING TOURNAMENTS -->
-<section class="section section--white" id="upcoming-tournaments"><div class="container stack" style="gap:48px">
-  <div class="sechead-row">
-    <div class="sechead" style="max-width:640px">
-      <span class="eyebrow" style="color:var(--mint)"><span class="dot"></span>Player Hub · Compete &amp; Earn ELO</span>
-      <h2>Upcoming Tournaments · Find &amp; Register</h2>
-      <p>Browse verified club and sanctioned tournaments across Indonesia. Every result flows into the Trekkr ELO engine for guaranteed seed fairness.</p>
+<!-- CALCULATOR -->
+<section id="kalkulator" class="sec">
+  <div class="calc">
+    <div class="calc-col">
+      <span class="kicker">FREE · NO SIGN-UP</span>
+      <h2>Turnamenmu butuh berapa jam?</h2>
+      <p class="lead17">Input kategori, group per kategori, pair per group, dan court. Estimasi sudah termasuk babak grup + playoff sampai perebutan juara 3.</p>
     </div>
-    <div class="filterbar" id="regionFilter" hidden>
-      <div class="segset" id="regionSet"></div>
-    </div>
-  </div>
-
-  <div class="tgrid" id="tlist"><p class="muted mono" style="font-size:13px">Loading tournaments…</p></div>
-
-</div></section>
-
-<!-- PLATFORM FEATURES — end-to-end workflow -->
-<section class="section section--canvas" id="features"><div class="container stack" style="gap:44px">
-  <div class="sechead sechead--center">
-    <span class="eyebrow" style="color:var(--blue)"><span class="dot"></span>The Complete Tournament Engine</span>
-    <h2>From sign-up to trophy — one engine runs it all</h2>
-    <p>Everything TurnamenPadel does, end to end. Nine connected steps take your event from the very first registration to a fully recorded result inside the Trekkr ranking engine — no spreadsheets, no chaos.</p>
-  </div>
-
-  <!-- PHASE 1 · Before the event -->
-  <div class="phase">
-    <span class="phase-label"><span class="n" style="background:var(--blue)">1</span>Before the event</span>
-    <div class="flow-grid">
-      <div class="card card--flat card--hover fstep"><span class="fnum">01</span><div class="ico-tile ico-tile--blue"><span class="material-symbols-outlined">how_to_reg</span></div><h3>Registration Form</h3><p>Players sign up with their partner in minutes — pick a category, fill in details, upload payment proof. Mobile-first, no app to install.</p></div>
-      <div class="card card--flat card--hover fstep"><span class="fnum">02</span><div class="ico-tile ico-tile--blue"><span class="material-symbols-outlined">filter_alt</span></div><h3>Automatic Filtering</h3><p>Every entry is auto-checked against Trekkr ELO. Pairs above a category's level cap are flagged instantly — anti-sandbagging built right in.</p></div>
-      <div class="card card--flat card--hover fstep"><span class="fnum">03</span><div class="ico-tile ico-tile--blue"><span class="material-symbols-outlined">gavel</span></div><h3>Appeal Process</h3><p>Disagree with a level call? Participants appeal with evidence, the committee reviews and decides — every step logged and transparent.</p></div>
+    <div class="calc-card" id="calcForm">
+      <div class="calc-inputs">
+        <label class="fld" for="c-cats">Kategori
+          <input type="number" id="c-cats" min="1" max="40" value="3">
+        </label>
+        <label class="fld" for="c-groups">Group / kategori
+          <input type="number" id="c-groups" min="1" max="16" value="2">
+        </label>
+        <label class="fld" for="c-pergroup">Pair / group
+          <input type="number" id="c-pergroup" min="2" max="12" value="4">
+        </label>
+        <label class="fld" for="c-courts">Court
+          <input type="number" id="c-courts" min="1" max="20" value="4">
+        </label>
+      </div>
+      <div class="calc-est">
+        <span class="lbl">ESTIMATE</span>
+        <span class="val"><span id="calcHours">± 4.5 jam</span></span>
+        <span class="calc-meta" id="calcMeta"></span>
+        <span class="calc-parts" id="calcParts"></span>
+      </div>
+      <div class="calc-warn" id="calcWarn" hidden></div>
     </div>
   </div>
+</section>
 
-  <!-- PHASE 2 · Draw day -->
-  <div class="phase">
-    <span class="phase-label"><span class="n" style="background:var(--orange)">2</span>Draw day</span>
-    <div class="flow-grid two">
-      <div class="card card--flat card--hover fstep"><span class="fnum">04</span><div class="ico-tile ico-tile--orange"><span class="material-symbols-outlined">casino</span></div><h3>Spin-the-Wheel Group Draw</h3><p>A transparent, animated random draw distributes pairs into balanced groups — fair, verifiable, and genuinely fun to watch live.</p></div>
-      <div class="card card--flat card--hover fstep"><span class="fnum">05</span><div class="ico-tile ico-tile--orange"><span class="material-symbols-outlined">event_note</span></div><h3>Players' Order of Play</h3><p>The engine builds the full match schedule and court assignments automatically, so every pair knows exactly when and where they play.</p></div>
+<!-- SERVICES -->
+<section id="layanan" class="band band--white">
+  <div class="sec-inner" style="display:flex;flex-direction:column;gap:40px">
+    <div class="head-stack">
+      <span class="kicker">SERVICES &amp; PRICING</span>
+      <h2 class="h2">Pilih seberapa banyak yang kami handle</h2>
+      <p class="lead17">Tiga level service, satu engine yang sama di match day.</p>
+    </div>
+    <div class="cards" style="align-items:stretch;gap:24px">
+
+      <div class="svc svc--dark">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span class="tag">SERVICE 1</span><h3>Full Tournament Organizer</h3>
+          <p class="desc">End-to-end, A sampai Z — Anda tinggal datang di match day.</p>
+        </div>
+        <div class="price"><span class="big">Based on brief &amp; scale</span><span class="sub">Custom quotation setelah konsultasi</span></div>
+        <ul>
+          <li>✓ Planning &amp; tournament format</li><li>✓ Budgeting</li><li>✓ Pengurusan sanction ke PBPI</li>
+          <li>✓ Court booking</li><li>✓ Player registration</li><li>✓ Referee, scorer desk &amp; tournament director</li>
+          <li>✓ Full TurnamenPadel system</li><li>✓ Execution sampai match day selesai</li>
+        </ul>
+        <button type="button" class="btn btn--lg btn--ondark" data-open="Full Tournament Organizer">Book a consultation</button>
+      </div>
+
+      <div class="svc svc--accent">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span class="tag">SERVICE 2</span><h3>System + On-site Crew</h3>
+          <p class="desc">Anda handle peserta &amp; venue, kami run match day langsung di lokasi.</p>
+        </div>
+        <div class="price"><span class="big">Based on brief &amp; scale</span><span class="sub">Custom quotation setelah konsultasi</span></div>
+        <ul><li>✓ Referee</li><li>✓ Scorer desk</li><li>✓ Tournament director</li><li>✓ Spin-the-Wheel draw</li><li>✓ Auto schedule &amp; order of play</li><li>✓ Scorer page + Live TV display</li></ul>
+        <div class="req">Requirement: player list sudah final &amp; ready to draw.</div>
+        <button type="button" class="btn btn--primary btn--lg" data-open="System + On-site Crew">Submit your tournament</button>
+      </div>
+
+      <div class="svc">
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <span class="tag">SERVICE 3</span><h3>Remote System</h3>
+          <p class="desc">We run the system remotely, tim Anda pegang lapangan.</p>
+        </div>
+        <div class="price"><span class="big big--rp">Rp500.000 <span style="font-size:15px;font-weight:600;color:var(--muted)">/ turnamen</span></span><span class="sub">Excl. operator &amp; referee</span></div>
+        <ul><li>✓ Duration estimate &amp; format setup</li><li>✓ Spin-the-Wheel draw</li><li>✓ Auto schedule &amp; order of play</li><li>✓ Scorer page + organizer dashboard</li><li>✓ Live TV display</li></ul>
+        <div class="req">Requirement: player list sudah final &amp; ready to draw.</div>
+        <button type="button" class="btn btn--lg btn--outline" data-open="Remote System">Submit your tournament</button>
+      </div>
+
     </div>
   </div>
+</section>
 
-  <!-- PHASE 3 · Match day -->
-  <div class="phase">
-    <span class="phase-label"><span class="n" style="background:var(--mint)">3</span>Match day</span>
-    <div class="flow-grid">
-      <div class="card card--flat card--hover fstep"><span class="fnum">06</span><div class="ico-tile ico-tile--mint"><span class="material-symbols-outlined">dashboard</span></div><h3>Scorer Desk Dashboard</h3><p>The control center: monitor every court, manage waves and breaks, and push live updates across the whole event from one screen.</p></div>
-      <div class="card card--flat card--hover fstep"><span class="fnum">07</span><div class="ico-tile ico-tile--mint"><span class="material-symbols-outlined">scoreboard</span></div><h3>Scorer Page</h3><p>Courtside scorers enter results on their phone. Scores sync instantly to the desk, the TV, and the live standings.</p></div>
-      <div class="card card--flat card--hover fstep"><span class="fnum">08</span><div class="ico-tile ico-tile--mint"><span class="material-symbols-outlined">tv</span></div><h3>Live TV Display</h3><p>Plug in any TV or LED board for a real-time show — current matches, the up-next queue, and live scores for the whole venue.</p></div>
-    </div>
+<!-- FAQ -->
+<section id="faq" class="sec" style="display:flex;flex-direction:column;gap:32px">
+  <h2 class="h2">FAQ</h2>
+  <div class="cards" id="faqList"></div>
+</section>
+
+<!-- FINAL CTA -->
+<section id="kontak" class="final band">
+  <div class="final-inner">
+    <h2>Punya rencana turnamen? Let's talk.</h2>
+    <p>Isi form singkat — service yang diminati, tanggal, dan estimasi skala. Tim kami akan reach out untuk bahas next steps.</p>
+    <button type="button" class="btn btn--primary btn--lg" data-open="Belum yakin, butuh konsultasi">Submit your tournament</button>
+    <span class="fine">Kami reach out dalam 1×24 jam di hari kerja.</span>
   </div>
-
-  <!-- PHASE 4 · Always on -->
-  <div class="phase">
-    <span class="phase-label"><span class="n" style="background:var(--purple)">4</span>Always on</span>
-    <div class="card card--lg fstep fstep--wide">
-      <span class="fnum">09</span>
-      <div class="ico-tile ico-tile--purple"><span class="material-symbols-outlined">hub</span></div>
-      <h3>Every Match Recorded in the Trekkr Engine</h3>
-      <p>The moment a score is final it flows into the Trekkr ELO engine — updating national rankings and each player's Trekkr passport automatically. Your tournament doesn't just run; every result becomes part of every player's verified record on <b>trekkr.online</b>.</p>
-    </div>
-  </div>
-
-  <!-- CONTACT CTA -->
-  <div class="contact-cta">
-    <span class="eyebrow" style="color:var(--lime)"><span class="dot" style="background:var(--lime)"></span>Ready to run your event?</span>
-    <h3>Let's bring the full engine to your tournament</h3>
-    <p>Leave your details and our team will reach out to set up registration, draws, live scoring, and Trekkr recording for your event.</p>
-    <button class="btn btn--primary btn--pop btn--upper" type="button" onclick="openContact()"><span class="material-symbols-outlined">mail</span>Contact Us</button>
-  </div>
-
-</div></section>
-
-
+</section>
 </main>
 
-<!-- CONTACT MODAL -->
-<div class="modal-ov" id="contactModal" role="dialog" aria-modal="true" aria-label="Contact us">
-  <div class="modal-box">
-    <h3>Contact Us</h3>
-    <p class="sub">Leave your details — our team will get in touch to help run your tournament.</p>
-    <div id="contactForm">
-      <div class="f"><label>Name <span style="color:var(--orange)">*</span></label><input id="cName" placeholder="Your full name" autocomplete="name"></div>
-      <div class="f"><label>Email <span style="color:var(--orange)">*</span></label><input id="cEmail" type="email" placeholder="you@email.com" autocomplete="email"></div>
-      <div class="f"><label>Phone / WhatsApp <span style="color:var(--orange)">*</span></label><input id="cPhone" type="tel" placeholder="08…" autocomplete="tel"></div>
-      <div id="cMsg" class="modal-msg"></div>
-      <div class="row">
-        <button class="btn btn--ghost" type="button" onclick="closeContact()" style="flex:0 0 auto">Cancel</button>
-        <button class="btn btn--primary btn--block" type="button" id="cSubmit" onclick="sendContact()">Send</button>
+<!-- FOOTER -->
+<footer id="pemain" class="ftr">
+  <div class="ftr-inner">
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <span style="font-weight:800">Player?</span>
+      <a href="https://trekkr.online" style="font-size:15px;font-weight:600">Cari turnamen di trekkr.online →</a>
+    </div>
+    <div class="ftr-links">
+      <span>© 2026 TurnamenPadel · SportsActvd</span>
+      <a href="https://trekkr.online">Trekkr</a>
+      <a href="https://academy.trekkr.online/">Trekkr Academy</a>
+      <a href="https://trekkr.online/privacy">Privacy Policy</a>
+    </div>
+  </div>
+</footer>
+
+<!-- MODAL -->
+<div class="ov" id="ov" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="modal" id="modal" style="position:relative">
+    <button type="button" class="mclose" id="mClose" aria-label="Tutup">×</button>
+    <div id="mBody">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h2 id="mTitle">Submit your tournament</h2>
+        <p class="msub">Tim kami akan reach out dalam 1×24 jam di hari kerja.</p>
       </div>
+      <form class="mform" id="mForm" novalidate>
+        <label class="fld" for="f-service">Service yang diminati *
+          <select id="f-service">
+            <option>Full Tournament Organizer</option>
+            <option>System + On-site Crew</option>
+            <option>Remote System</option>
+            <option>Belum yakin, butuh konsultasi</option>
+          </select>
+        </label>
+        <label class="fld" for="f-name">Nama *
+          <input type="text" id="f-name" placeholder="Nama lengkap" autocomplete="name">
+        </label>
+        <div class="frow">
+          <label class="fld" for="f-email">Email *
+            <input type="email" id="f-email" placeholder="nama@email.com" autocomplete="email">
+          </label>
+          <label class="fld" for="f-phone">No. HP / WhatsApp *
+            <input type="tel" id="f-phone" placeholder="08…" autocomplete="tel">
+          </label>
+        </div>
+        <label class="fld" for="f-desc">Ceritakan sedikit soal turnamenmu
+          <textarea id="f-desc" rows="4" placeholder="mis. Open Cup di [venue], target ~24 pair · 3 kategori · 4 court, rencana pertengahan Januari. Apa yang paling kamu butuhkan?"></textarea>
+        </label>
+        <label class="chk" id="chkWrap" for="f-final" hidden>
+          <input type="checkbox" id="f-final">
+          <span>Player list per kategori sudah final &amp; ready to draw.<br><span class="note">Wajib untuk System + On-site Crew &amp; Remote System.</span></span>
+        </label>
+        <div class="mmsg" id="mMsg"></div>
+        <button type="submit" class="btn btn--primary btn--block" style="min-height:52px;font-size:16px" id="mSubmit">Submit</button>
+        <span class="mfine">Data hanya dipakai untuk follow up turnamen ini.</span>
+      </form>
     </div>
   </div>
 </div>
 
-<!-- FOOTER -->
-<footer class="tp-footer"><div class="container">
-  <div class="row">
-    <div class="brand">
-      <span class="glyph">P</span>
-      <span class="name">TURNAMEN<b>PADEL</b></span>
-      <span class="eco">| SportsActvd Ecosystem</span>
-    </div>
-    <nav class="links">
-      <a href="#features">Platform Features</a>
-      <a href="#upcoming-tournaments">Upcoming Tournaments</a>
-      <a href="https://trekkr.online" target="_blank" rel="noopener">Trekkr Rankings</a>
-    </nav>
-  </div>
-  <div class="legal">
-    <div>© 2026 TurnamenPadel · Powered by the Trekkr ELO engine.</div>
-    <div class="set">
-      <a href="https://www.sportsactvd.com" target="_blank" rel="noopener">SportsActvd</a>
-      <a href="https://trekkr.online" target="_blank" rel="noopener">Trekkr</a>
-      <a href="https://academy.trekkr.online/" target="_blank" rel="noopener">Trekkr Academy</a>
-      <a href="https://trekkr.online/privacy" target="_blank" rel="noopener">Kebijakan Privasi</a>
-    </div>
-  </div>
-</div></footer>
-
 <script>
 (function(){
-  /* ---- live data ---- */
+  "use strict";
   var BASE=(location.hostname.indexOf("turnamenpadel")>=0||location.protocol==="https:")?"/api":"https://www.turnamenpadel.com/api";
-  var TRK="https://trekkr.online/api";
   var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
 
-  /* ---- Contact modal (name/email/phone → /api/contact → Telegram notify) ---- */
-  window.openContact=function(){ var m=document.getElementById("contactModal"); if(m){ m.classList.add("open"); var n=document.getElementById("cName"); if(n) n.focus(); } };
-  window.closeContact=function(){ var m=document.getElementById("contactModal"); if(m) m.classList.remove("open"); };
-  window.sendContact=function(){
-    var name=(document.getElementById("cName").value||"").trim();
-    var email=(document.getElementById("cEmail").value||"").trim();
-    var phone=(document.getElementById("cPhone").value||"").trim();
-    var msg=document.getElementById("cMsg"), btn=document.getElementById("cSubmit");
-    if(!name||!email||!phone){ msg.innerHTML='<span style="color:var(--danger)">Please fill in name, email, and phone.</span>'; return; }
-    if(!/.+@.+\..+/.test(email)){ msg.innerHTML='<span style="color:var(--danger)">Please enter a valid email.</span>'; return; }
-    btn.disabled=true; btn.textContent="Sending…"; msg.innerHTML="";
-    fetch(BASE+"/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,email:email,phone:phone})})
-      .then(function(r){return r.json().then(function(d){ if(!r.ok) throw new Error(d.error||("HTTP "+r.status)); return d; });})
-      .then(function(){ document.getElementById("contactForm").innerHTML='<p style="font-size:15px;line-height:1.6">✅ Thank you! We\'ve received your details and will contact you soon.</p><div class="row"><button class="btn btn--primary btn--block" type="button" onclick="closeContact()">Close</button></div>'; })
-      .catch(function(e){ btn.disabled=false; btn.textContent="Send"; msg.innerHTML='<span style="color:var(--danger)">Failed: '+esc(e.message)+'</span>'; });
-  };
-  var _cm=document.getElementById("contactModal");
-  if(_cm) _cm.addEventListener("click",function(e){ if(e.target===_cm) window.closeContact(); });
-
-  /* player count → trust chip */
+  /* ---- stats: tournaments run · matches played · players (live from DB) ---- */
+  /* Fallback seeds so the section never renders empty if the API is slow/down.
+     Real values come from /api/landing-stats (match ledger + players). */
+  var HOME_STATS={ tournaments:23, matches:3429, players:2478 };
+  function renderStats(){
+    var el=document.getElementById("statCards"); if(!el) return;
+    var items=[["tournaments","tournaments run"],["matches","matches played"],["players","players"]];
+    var html="";
+    items.forEach(function(it){
+      var v=HOME_STATS[it[0]];
+      if(v==null) return;
+      html+='<div class="stat"><span class="n">'+Number(v).toLocaleString("id-ID")+'</span><span class="l">'+it[1]+'</span></div>';
+    });
+    el.innerHTML=html;
+  }
+  renderStats();
   fetch(BASE+"/landing-stats").then(function(r){return r.json();}).then(function(d){
-    if(d&&d.playerCount!=null){
-      var s=document.getElementById("statPlayers"), w=document.getElementById("trustPlayers");
-      if(s){s.textContent=Number(d.playerCount).toLocaleString("en-US");}
-      if(w){w.hidden=false;}
-    }
+    if(!d) return;
+    if(d.eventCount!=null) HOME_STATS.tournaments=Number(d.eventCount)||HOME_STATS.tournaments;
+    if(d.matchCount!=null) HOME_STATS.matches=Number(d.matchCount)||HOME_STATS.matches;
+    if(d.playerCount!=null) HOME_STATS.players=Number(d.playerCount)||HOME_STATS.players;
+    renderStats();
   }).catch(function(){});
 
-  /* tracked events (shared with trekkr.online/tournament) */
-  var ALL=[], listEl=document.getElementById("tlist");
-  var empty='<p class="muted mono" style="font-size:13px">Tournaments coming soon — check back for the 2026 season.</p>';
-
-  function cardHTML(t){
-    var logo=t.logoUrl?'<img class="tlogo" src="'+esc(t.logoUrl)+'" alt="" onerror="this.style.display=\'none\'"/>':'';
-    var loc=t.location?'<span class="loc"><span class="material-symbols-outlined">location_on</span>'+esc(t.location)+'</span>':'<span></span>';
-    var date=t.monthYear?'<span class="chip chip--amber mono"><span class="material-symbols-outlined" style="font-size:14px">calendar_month</span>'+esc(t.monthYear)+'</span>':'<span class="chip chip--mint mono"><span class="dot" style="background:var(--mint)"></span>TRACKED</span>';
-    var cta=t.url
-      ? '<a class="btn btn--primary btn--block btn--sm" href="'+esc(t.url)+'" target="_blank" rel="noopener"><span class="material-symbols-outlined" style="font-size:16px">how_to_reg</span>Register now</a>'
-      : '<span class="btn btn--ghost btn--block btn--sm" style="cursor:default;opacity:.7">Details coming soon</span>';
-    return '<div class="card tcard card--pressable">'+
-      '<div class="stack" style="gap:16px">'+
-        '<div class="top">'+date+loc+'</div>'+
-        (logo?'<div>'+logo+'</div>':'')+
-        '<div class="stack" style="gap:4px"><h3>'+esc(t.name)+'</h3>'+(t.subtitle?'<p class="desc">'+esc(t.subtitle)+'</p>':'')+'</div>'+
-        '<div class="impact"><span class="muted">Rating impact</span><span class="v">Trekkr ELO</span></div>'+
-      '</div>'+cta+'</div>';
-  }
-
-  function render(region){
-    if(!listEl) return;
-    var rows=(!region||region==='__all')?ALL:ALL.filter(function(t){return (t.location||'').toLowerCase().indexOf(region.toLowerCase())>=0;});
-    listEl.innerHTML=rows.length?rows.map(cardHTML).join(""):empty;
-  }
-
-  function buildRegions(){
-    var locs=[], seen={};
-    ALL.forEach(function(t){ var l=(t.location||'').trim(); if(l&&!seen[l.toLowerCase()]){seen[l.toLowerCase()]=1;locs.push(l);} });
-    if(locs.length<2) return; /* not worth a filter */
-    var wrap=document.getElementById("regionFilter"), set=document.getElementById("regionSet");
-    if(!wrap||!set) return;
-    var opts=['__all'].concat(locs.slice(0,5));
-    set.innerHTML=opts.map(function(o,i){
-      return '<button class="'+(i===0?'on on--orange':'')+'" data-region="'+esc(o)+'">'+(o==='__all'?'All Regions':esc(o))+'</button>';
+  /* ---- FAQ (render only answered) ---- */
+  var FAQ=[
+    {q:"Termasuk player registration?", a:"Untuk System + On-site Crew dan Remote System: tidak, kami mulai dari player list yang sudah final. Untuk Full Tournament Organizer: yes, A sampai Z termasuk registration."},
+    {q:"Peserta perlu install app?", a:"Nope. Peserta, scorer, dan TV cukup buka browser."},
+    {q:"Paling lambat submit kapan?", a:"Idealnya H-7 sebelum event supaya format & jadwal matang. Untuk System + On-site Crew dan Remote System, player list final paling lambat H-2 sebelum draw day."},
+    {q:"Bisa untuk internal club tournament?", a:"Bisa. Dari fun tournament internal klub sampai open tournament antar-venue — format & skala kami sesuaikan dengan jumlah pair dan court yang ada."}
+  ];
+  (function(){
+    var el=document.getElementById("faqList"); if(!el) return;
+    el.innerHTML=FAQ.filter(function(f){return f.a&&f.a.trim();}).map(function(f){
+      return '<div class="faq"><h3>'+esc(f.q)+'</h3><p>'+esc(f.a)+'</p></div>';
     }).join("");
-    wrap.hidden=false;
-    set.addEventListener('click',function(e){
-      var b=e.target.closest('button'); if(!b) return;
-      set.querySelectorAll('button').forEach(function(x){x.classList.remove('on','on--orange');});
-      b.classList.add('on','on--orange');
-      render(b.getAttribute('data-region'));
-    });
-  }
+  })();
 
-  fetch(BASE+"/upcoming").then(function(r){return r.json();}).then(function(d){
-    ALL=(d&&d.events)||[];
-    render('__all'); buildRegions();
-  }).catch(function(){ if(listEl) listEl.innerHTML=empty; });
+  /* ---- modal ---- */
+  var ov=document.getElementById("ov"), modal=document.getElementById("modal");
+  var form=document.getElementById("mForm"), sel=document.getElementById("f-service");
+  var chkWrap=document.getElementById("chkWrap"), chk=document.getElementById("f-final");
+  var msg=document.getElementById("mMsg"), submitBtn=document.getElementById("mSubmit");
+  var lastTrigger=null, busy=false;
+  var NEEDS_FINAL={"System + On-site Crew":1,"Remote System":1};
+
+  function syncChecklist(){
+    var need=!!NEEDS_FINAL[sel.value];
+    chkWrap.hidden=!need;
+    if(!need) chk.checked=false;
+  }
+  function openModal(service, trigger){
+    lastTrigger=trigger||document.activeElement;
+    if(service){ for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===service||sel.options[i].text===service){ sel.selectedIndex=i; break; } } }
+    syncChecklist();
+    ov.classList.add("open"); document.body.style.overflow="hidden";
+    setTimeout(function(){ document.getElementById("f-name").focus(); },30);
+    document.addEventListener("keydown",onKey);
+  }
+  function closeModal(){
+    ov.classList.remove("open"); document.body.style.overflow="";
+    document.removeEventListener("keydown",onKey);
+    if(lastTrigger&&lastTrigger.focus) try{ lastTrigger.focus(); }catch(e){}
+  }
+  function onKey(e){
+    if(e.key==="Escape"){ closeModal(); return; }
+    if(e.key==="Tab"){
+      var f=modal.querySelectorAll('button,select,input,a[href],[tabindex]:not([tabindex="-1"])');
+      f=Array.prototype.filter.call(f,function(x){return !x.disabled&&x.offsetParent!==null;});
+      if(!f.length) return;
+      var first=f[0], last=f[f.length-1];
+      if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+    }
+  }
+  sel.addEventListener("change",syncChecklist);
+  document.getElementById("mClose").addEventListener("click",closeModal);
+  ov.addEventListener("click",function(e){ if(e.target===ov) closeModal(); });
+  document.querySelectorAll("[data-open]").forEach(function(b){
+    b.addEventListener("click",function(){ openModal(b.getAttribute("data-open"),b); });
+  });
+
+  form.addEventListener("submit",function(e){
+    e.preventDefault();
+    if(busy) return;
+    var name=document.getElementById("f-name").value.trim();
+    var email=document.getElementById("f-email").value.trim();
+    var phone=document.getElementById("f-phone").value.trim();
+    var digits=(phone.match(/\d/g)||[]).length;
+    if(!name||!email||!phone){ msg.innerHTML='<span style="color:var(--warn)">Nama, email, dan No. HP wajib diisi.</span>'; return; }
+    if(!/.+@.+\..+/.test(email)){ msg.innerHTML='<span style="color:var(--warn)">Email tidak valid.</span>'; return; }
+    if(digits<9){ msg.innerHTML='<span style="color:var(--warn)">Nomor HP minimal 9 digit.</span>'; return; }
+    if(!chkWrap.hidden && !chk.checked){ msg.innerHTML='<span style="color:var(--warn)">Untuk service ini, player list harus sudah final & ready to draw.</span>'; return; }
+    msg.innerHTML="";
+    busy=true; submitBtn.disabled=true; submitBtn.innerHTML='<span class="spin"></span> Mengirim…';
+
+    var service=sel.value;
+    var desc=document.getElementById("f-desc").value.trim();
+    var notesParts=[];
+    if(desc) notesParts.push(desc);
+    if(!chkWrap.hidden) notesParts.push("[Player list final: "+(chk.checked?"Ya":"Tidak")+"]");
+    // Map ke endpoint lead yang sudah ada (/api/leads) — tanpa perubahan backend.
+    var body={
+      name:name, email:email, whatsapp:phone,
+      package:service,
+      notes:notesParts.join(" — ")
+    };
+    fetch(BASE+"/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
+      .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error((d&&d.error)||("HTTP "+r.status)); return d; }); })
+      .then(function(){
+        document.getElementById("mBody").innerHTML=
+          '<div style="display:flex;flex-direction:column;gap:14px;text-align:center;padding:12px 0">'+
+          '<div style="font-size:40px">✅</div>'+
+          '<h2 style="font-size:24px;font-weight:800">Thanks!</h2>'+
+          '<p style="font-size:15px;line-height:1.6;color:var(--muted)">Tim kami akan reach out dalam 1×24 jam di hari kerja.</p>'+
+          '<button type="button" class="btn btn--primary btn--block" style="min-height:48px" id="mDone">Tutup</button></div>';
+        var d=document.getElementById("mDone"); if(d) d.addEventListener("click",closeModal);
+      })
+      .catch(function(err){
+        busy=false; submitBtn.disabled=false; submitBtn.textContent="Submit";
+        msg.innerHTML='<span style="color:var(--warn)">Gagal mengirim: '+esc(err.message)+'. Coba lagi.</span>';
+      });
+  });
+
+  /* ---- duration calculator: live estimate only (view-only, tanpa email) ---- */
+  (function(){
+    var CFG={ matchMin:20, buffer:1 }; // ~20 mnt/match · tanpa buffer
+    var cats=document.getElementById("c-cats"), grps=document.getElementById("c-groups"),
+        pg=document.getElementById("c-pergroup"), crt=document.getElementById("c-courts");
+    var out=document.getElementById("calcHours"), meta=document.getElementById("calcMeta"),
+        parts=document.getElementById("calcParts"), warn=document.getElementById("calcWarn");
+    if(!cats||!out) return;
+    function clampInt(el,min,max,def){ var v=parseInt(el.value,10); if(isNaN(v))v=def; if(v<min)v=min; if(v>max)v=max; return v; }
+    var rr=function(n){ return n*(n-1)/2; };                 // round-robin: match dalam grup size n
+    // Jumlah match per ronde knockout (single-elim) untuk N tim.
+    function koRounds(N){
+      var rounds=[], n=N, p=1;
+      while(p*2<=n) p*=2;                                    // pangkat 2 terbesar <= N
+      if(p<n){ rounds.push(n-p); n=p; }                      // ronde prelim -> sisakan pangkat 2
+      while(n>1){ rounds.push(n/2); n=n/2; }                 // 1/8, 1/4, semi, final
+      return rounds;                                         // entri terakhir = final (1 match)
+    }
+    // Rencana 1 kategori: G group (round-robin Pg pair tiap group) + playoff
+    // single-elim dari pemenang/runner-up grup sampai perebutan juara 3.
+    function catPlan(G,Pg){
+      var group=G*rr(Pg);                                    // round-robin tiap group
+      var adv=2*G;                                           // top 2 tiap group lolos
+      var ko = adv>=2 ? koRounds(adv) : [];
+      if(adv>=4) ko[ko.length-1]+=1;                         // +1 perebutan juara 3 (ada semifinal)
+      var playoff = ko.reduce(function(a,b){ return a+b; },0);
+      return { group:group, ko:ko, playoff:playoff };
+    }
+    function estimate(){
+      var C=clampInt(cats,1,40,3), G=clampInt(grps,1,16,2), Pg=clampInt(pg,2,12,4), K=clampInt(crt,1,20,4);
+      var plan=catPlan(G,Pg);
+      // Durasi = jumlah "slot" 20 menit yang harus berjalan berurutan.
+      // Babak grup bisa dipadatkan penuh ke semua court; tiap ronde playoff
+      // dijadwalkan terpisah (semifinal, lalu final + perebutan juara 3), jadi
+      // court tidak pernah terisi penuh di babak akhir.
+      var groupSlots=Math.ceil(plan.group*C / K);
+      var playoffSlots=0;
+      for(var i=0;i<plan.ko.length;i++) playoffSlots += Math.ceil(plan.ko[i]*C / K);
+      var matches=(plan.group+plan.playoff)*C, totalPairs=C*G*Pg, totalPlayers=totalPairs*2;
+      var hours=((groupSlots+playoffSlots)*CFG.matchMin)/60*CFG.buffer;
+      var rounded=Math.max(1, Math.round(hours*2)/2);
+      out.textContent="± "+(Number.isInteger(rounded)?rounded:rounded.toFixed(1))+" jam";
+      meta.textContent="~"+matches+" match (grup + playoff + juara 3) · "+K+" court";
+      parts.textContent="Total peserta: "+totalPairs+" pair · "+totalPlayers+" player";
+      // Potensi BYE di playoff: advancer (2 × group) idealnya pangkat 2 (2/4/8/16).
+      var adv=2*G, pow=1; while(pow<adv) pow*=2;
+      var byes=(adv>=2 && pow!==adv) ? (pow-adv) : 0;
+      if(byes>0){
+        warn.hidden=false;
+        warn.innerHTML="⚠️ Potensi BYE: "+adv+" tim masuk playoff (idealnya 4 / 8 / 16). "+byes+" tim lolos tanpa main di babak awal — sesuaikan jumlah group biar bracket penuh.";
+      } else { warn.hidden=true; warn.textContent=""; }
+    }
+    [cats,grps,pg,crt].forEach(function(el){ if(el){ el.addEventListener("input",estimate); el.addEventListener("change",estimate); } });
+    estimate();
+  })();
 })();
 </script>
 </body>
