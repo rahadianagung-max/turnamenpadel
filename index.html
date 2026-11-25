@@ -342,7 +342,7 @@ h1,h2,h3{margin:0}
       </div>
       <div class="calc-est">
         <span class="lbl">ESTIMATE</span>
-        <span class="val"><span id="calcHours">± 4 jam</span></span>
+        <span class="val"><span id="calcHours">± 4.5 jam</span></span>
         <span class="calc-meta" id="calcMeta"></span>
       </div>
       <label class="fld" for="c-email">Kirim full breakdown ke email
@@ -621,25 +621,40 @@ h1,h2,h3{margin:0}
     if(!cForm) return;
     var cbusy=false, lastEst=null;
     function clampInt(el,min,max,def){ var v=parseInt(el.value,10); if(isNaN(v))v=def; if(v<min)v=min; if(v>max)v=max; return v; }
-    // Match per kategori: round-robin grup + playoff single-elim sampai perebutan juara 3.
-    function catMatches(P){
-      var groups=Math.max(1, Math.ceil(P/CFG.groupSize));   // grup ~groupSize pair
-      var base=Math.floor(P/groups), rem=P%groups;          // pair dibagi rata ke grup
-      var rr=function(n){ return n*(n-1)/2; };               // round-robin dalam grup
+    var rr=function(n){ return n*(n-1)/2; };                 // round-robin: match dalam grup size n
+    // Jumlah match per ronde knockout (single-elim) untuk N tim.
+    function koRounds(N){
+      var rounds=[], n=N, p=1;
+      while(p*2<=n) p*=2;                                    // pangkat 2 terbesar <= N
+      if(p<n){ rounds.push(n-p); n=p; }                      // ronde prelim -> sisakan pangkat 2
+      while(n>1){ rounds.push(n/2); n=n/2; }                 // 1/8, 1/4, semi, final
+      return rounds;                                         // entri terakhir = final (1 match)
+    }
+    // Rencana 1 kategori: round-robin grup + playoff sampai perebutan juara 3.
+    function catPlan(P){
+      var groups=Math.max(1, Math.ceil(P/CFG.groupSize));    // grup ~groupSize pair
+      var base=Math.floor(P/groups), rem=P%groups;           // pair dibagi rata ke grup
       var group=rem*rr(base+1)+(groups-rem)*rr(base);
       var adv=Math.min(P, 2*groups);                         // top 2 tiap grup lolos
-      // Single-elimination butuh (adv-1) match untuk juara; +1 untuk perebutan juara 3
-      // (hanya jika ada semifinal, yaitu advancers >= 4).
-      var playoff = adv>=4 ? (adv-1)+1 : (adv>=2 ? adv-1 : 0);
-      return { group:group, playoff:playoff, total:group+playoff };
+      var ko = adv>=2 ? koRounds(adv) : [];
+      if(adv>=4) ko[ko.length-1]+=1;                         // +1 perebutan juara 3 (ada semifinal)
+      var playoff = ko.reduce(function(a,b){ return a+b; },0);
+      return { group:group, ko:ko, playoff:playoff };
     }
     function estimate(){
       var C=clampInt(cats,1,40,3), P=clampInt(prs,2,64,8), K=clampInt(crt,1,20,4);
-      var per=catMatches(P);
-      var matches=per.total*C, totalPairs=C*P;
-      var hours=(matches*CFG.matchMin/K)/60*CFG.buffer;
+      var plan=catPlan(P);
+      // Durasi = jumlah "slot" 20 menit yang harus berjalan berurutan.
+      // Babak grup bisa dipadatkan penuh ke semua court; tiap ronde playoff
+      // dijadwalkan terpisah (semifinal, lalu final + perebutan juara 3), jadi
+      // court tidak pernah terisi penuh di babak akhir.
+      var groupSlots=Math.ceil(plan.group*C / K);
+      var playoffSlots=0;
+      for(var i=0;i<plan.ko.length;i++) playoffSlots += Math.ceil(plan.ko[i]*C / K);
+      var matches=(plan.group+plan.playoff)*C, totalPairs=C*P;
+      var hours=((groupSlots+playoffSlots)*CFG.matchMin)/60*CFG.buffer;
       var rounded=Math.max(1, Math.round(hours*2)/2);
-      lastEst={C:C,P:P,K:K,totalPairs:totalPairs,matches:matches,groupMatches:per.group*C,playoffMatches:per.playoff*C,hours:rounded};
+      lastEst={C:C,P:P,K:K,totalPairs:totalPairs,matches:matches,groupMatches:plan.group*C,playoffMatches:plan.playoff*C,hours:rounded};
       out.textContent="± "+(Number.isInteger(rounded)?rounded:rounded.toFixed(1))+" jam";
       meta.textContent="~"+matches+" match (grup + playoff + juara 3) · "+totalPairs+" pair · "+K+" court";
     }
