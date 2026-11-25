@@ -120,7 +120,9 @@ h1,h2,h3{margin:0}
 
 /* how it works */
 .step{flex:1 1 300px;min-width:0;border:2px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
-.step .shot{height:160px;background:var(--panel);border-bottom:2px solid var(--line);display:flex;align-items:center;justify-content:center;padding:12px;text-align:center;font-size:12px;font-weight:600;color:#64748B}
+.step .shot{height:132px;background:var(--ink);border-bottom:2px solid var(--line);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:4px;padding:0 22px;color:#F8FAFC}
+.step .shot-n{font-size:46px;font-weight:800;line-height:1;color:var(--accent)}
+.step .shot-cap{font-size:13px;font-weight:700;letter-spacing:.04em;color:#CBD5E1}
 .step .body{padding:22px;display:flex;flex-direction:column;gap:10px}
 .step h3{font-size:20px;font-weight:800}
 .step ul{margin:0;padding-left:18px;font-size:15px;line-height:1.7;color:var(--muted2)}
@@ -131,6 +133,17 @@ h1,h2,h3{margin:0}
 .calc-col{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:14px}
 .calc h2{font-size:36px;font-weight:800;letter-spacing:-.01em}
 @media(max-width:640px){.calc h2{font-size:28px}}
+.calc-card{flex:1 1 420px;min-width:0;background:var(--white);border:2px solid var(--line);border-radius:16px;box-shadow:var(--sh-lg);padding:28px;display:flex;flex-direction:column;gap:16px}
+.calc-inputs{display:flex;flex-wrap:wrap;gap:14px}
+.calc-inputs .fld{flex:1 1 120px}
+.calc-inputs input{min-height:44px;padding:0 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;font-weight:600;width:100%;color:var(--ink);background:var(--white)}
+.calc-inputs input:focus,.calc-card input:focus{outline:none;box-shadow:0 0 0 3px rgba(255,106,0,.35)}
+.calc-est{background:var(--ink);color:#F8FAFC;border-radius:12px;padding:18px;display:flex;flex-direction:column;gap:4px}
+.calc-est .lbl{font-size:12px;font-weight:700;letter-spacing:.1em;color:#CBD5E1}
+.calc-est .val{font-size:28px;font-weight:800}
+.calc-est .unit{font-size:15px;font-weight:600;color:#CBD5E1}
+.calc-meta{font-size:12px;color:#94A3B8;margin-top:2px}
+.calc-card input[type=email]{min-height:44px;padding:0 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;width:100%;color:var(--ink);background:var(--white)}
 
 /* services */
 .svc{flex:1 1 320px;min-width:0;border:2px solid var(--line);border-radius:20px;box-shadow:var(--sh-lg);padding:28px;display:flex;flex-direction:column;gap:18px;background:var(--bg)}
@@ -180,9 +193,11 @@ h1,h2,h3{margin:0}
 .fld{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
 .frow{display:flex;gap:12px}
 .frow .fld{flex:1 1 0;min-width:0}
-.fld input,.fld select{min-height:44px;padding:0 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;font-weight:500;background:var(--white);color:var(--ink);width:100%}
+.fld input,.fld select,.fld textarea{min-height:44px;padding:10px 12px;border:2px solid var(--line);border-radius:10px;font:inherit;font-size:16px;font-weight:500;background:var(--white);color:var(--ink);width:100%}
+.fld input{padding:0 12px}
 .fld select{padding:0 10px;font-size:15px}
-.fld input:focus,.fld select:focus{outline:none;box-shadow:0 0 0 3px rgba(255,106,0,.35)}
+.fld textarea{resize:vertical;line-height:1.5;min-height:92px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(255,106,0,.35)}
 .chk{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--amber-bg);font-size:14px;line-height:1.45;font-weight:600;cursor:pointer}
 .chk input{width:20px;height:20px;margin:1px 0 0;flex:none;accent-color:var(--ink)}
 .chk .note{font-weight:500;color:var(--muted)}
@@ -249,7 +264,7 @@ h1,h2,h3{margin:0}
         <span>Court 2 → Pair 02 vs Pair 16</span>
       </div>
     </div>
-    <span class="cap">[Ganti dengan screenshot/GIF Live TV Display asli dari event]</span>
+    <span class="cap">Live TV display · court-by-court score, real-time</span>
   </div>
 </section>
 
@@ -282,19 +297,21 @@ h1,h2,h3{margin:0}
       <h2 class="h2">One engine, every service</h2>
       <p class="lead17">Apa pun service-nya, match day jalan di engine TurnamenPadel. Bedanya cuma seberapa banyak yang kami handle.</p>
     </div>
+    <!-- TODO (opsional): .shot cover tiap step bisa diganti screenshot/GIF asli
+         (template player list · Spin-the-Wheel · scorer page + TV). -->
     <div class="cards">
       <div class="step">
-        <div class="shot">[Contoh template player list per kategori]</div>
+        <div class="shot"><span class="shot-n">01</span><span class="shot-cap">Player list → format</span></div>
         <div class="body"><span class="kicker">1 · PRE-EVENT</span><h3>Final player list masuk</h3>
           <ul><li>List pair per kategori</li><li>Jumlah court &amp; jam booking</li><li>Kami hitung durasi &amp; set up format</li></ul></div>
       </div>
       <div class="step">
-        <div class="shot">[GIF Spin-the-Wheel drawing]</div>
+        <div class="shot"><span class="shot-n">02</span><span class="shot-cap">Spin-the-Wheel draw</span></div>
         <div class="body"><span class="kicker">2 · DRAW DAY</span><h3>Draw yang transparan</h3>
           <ul><li>Spin-the-Wheel, bisa di-livestream</li><li>Schedule &amp; court auto-generated</li><li>Order of play dikirim ke peserta</li></ul></div>
       </div>
       <div class="step">
-        <div class="shot">[Screenshot scorer page + TV]</div>
+        <div class="shot"><span class="shot-n">03</span><span class="shot-cap">Live score everywhere</span></div>
         <div class="body"><span class="kicker">3 · MATCH DAY</span><h3>Live score everywhere</h3>
           <ul><li>Scorer input score dari HP</li><li>Scorer desk dashboard</li><li>Live display di TV / LED venue</li></ul></div>
       </div>
@@ -302,18 +319,38 @@ h1,h2,h3{margin:0}
   </div>
 </section>
 
-<!-- CALCULATOR (teaser → /simulasi) -->
+<!-- CALCULATOR -->
 <section id="kalkulator" class="sec">
   <div class="calc">
     <div class="calc-col">
       <span class="kicker">FREE · NO SIGN-UP</span>
       <h2>Turnamenmu butuh berapa jam?</h2>
-      <p class="lead17">Input jumlah kategori, pair, dan court. Dapatkan duration estimate, tips anti-BYE, dan court mana yang bisa di-release saat playoff.</p>
+      <p class="lead17">Input jumlah kategori, pair, dan court. Dapatkan duration estimate langsung — buffer sudah termasuk.</p>
+      <a href="/simulasi" style="font-size:14px;font-weight:700;color:var(--accent-ink)">Butuh breakdown detail (anti-BYE, release court)? Buka kalkulator lengkap →</a>
     </div>
-    <div class="calc-col" style="flex:1 1 320px;align-items:flex-start;gap:16px">
-      <a href="/simulasi" class="btn btn--primary btn--lg">Buka Duration Calculator →</a>
-      <span style="font-size:13px;color:var(--muted)">Kalkulator gratis — tanpa daftar.</span>
-    </div>
+    <form class="calc-card" id="calcForm" novalidate>
+      <div class="calc-inputs">
+        <label class="fld" for="c-cats">Kategori
+          <input type="number" id="c-cats" min="1" max="40" value="3">
+        </label>
+        <label class="fld" for="c-pairs">Pair per kategori
+          <input type="number" id="c-pairs" min="2" max="64" value="8">
+        </label>
+        <label class="fld" for="c-courts">Court
+          <input type="number" id="c-courts" min="1" max="20" value="4">
+        </label>
+      </div>
+      <div class="calc-est">
+        <span class="lbl">ESTIMATE</span>
+        <span class="val"><span id="calcHours">± 6 jam</span> <span class="unit">incl. buffer</span></span>
+        <span class="calc-meta" id="calcMeta"></span>
+      </div>
+      <label class="fld" for="c-email">Kirim full breakdown ke email
+        <input type="email" id="c-email" placeholder="nama@email.com" autocomplete="email">
+      </label>
+      <div class="mmsg" id="calcMsg"></div>
+      <button type="submit" class="btn btn--primary btn--block" style="min-height:48px;font-size:16px" id="calcSubmit">Send breakdown</button>
+    </form>
   </div>
 </section>
 
@@ -429,25 +466,9 @@ h1,h2,h3{margin:0}
             <input type="tel" id="f-phone" placeholder="08…" autocomplete="tel">
           </label>
         </div>
-        <label class="fld" for="f-tourney">Nama turnamen &amp; venue
-          <input type="text" id="f-tourney" placeholder="mis. Open Cup — [nama venue]">
+        <label class="fld" for="f-desc">Ceritakan sedikit soal turnamenmu
+          <textarea id="f-desc" rows="4" placeholder="mis. Open Cup di [venue], target ~24 pair · 3 kategori · 4 court, rencana pertengahan Januari. Apa yang paling kamu butuhkan?"></textarea>
         </label>
-        <div class="frow">
-          <label class="fld" for="f-date">Event date
-            <input type="date" id="f-date">
-          </label>
-          <label class="fld" for="f-courts">Jumlah court
-            <input type="number" id="f-courts" min="1" placeholder="4">
-          </label>
-        </div>
-        <div class="frow">
-          <label class="fld" for="f-cats">Jumlah kategori
-            <input type="number" id="f-cats" min="1" placeholder="3">
-          </label>
-          <label class="fld" for="f-pairs">Estimasi total pair
-            <input type="number" id="f-pairs" min="1" placeholder="24">
-          </label>
-        </div>
         <label class="chk" id="chkWrap" for="f-final" hidden>
           <input type="checkbox" id="f-final">
           <span>Player list per kategori sudah final &amp; ready to draw.<br><span class="note">Wajib untuk System + On-site Crew &amp; Remote System.</span></span>
@@ -466,8 +487,10 @@ h1,h2,h3{margin:0}
   var BASE=(location.hostname.indexOf("turnamenpadel")>=0||location.protocol==="https:")?"/api":"https://www.turnamenpadel.com/api";
   var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});};
 
-  /* ---- stats (hide null; players pulled live) ---- */
-  var HOME_STATS={ tournaments:null, matches:null, players:2478 };
+  /* ---- stats: tournaments run · matches played · players (live from DB) ---- */
+  /* Fallback seeds so the section never renders empty if the API is slow/down.
+     Real values come from /api/landing-stats (match ledger + players). */
+  var HOME_STATS={ tournaments:23, matches:3429, players:2478 };
   function renderStats(){
     var el=document.getElementById("statCards"); if(!el) return;
     var items=[["tournaments","tournaments run"],["matches","matches played"],["players","players"]];
@@ -481,15 +504,19 @@ h1,h2,h3{margin:0}
   }
   renderStats();
   fetch(BASE+"/landing-stats").then(function(r){return r.json();}).then(function(d){
-    if(d&&d.playerCount!=null){ HOME_STATS.players=Number(d.playerCount)||HOME_STATS.players; renderStats(); }
+    if(!d) return;
+    if(d.eventCount!=null) HOME_STATS.tournaments=Number(d.eventCount)||HOME_STATS.tournaments;
+    if(d.matchCount!=null) HOME_STATS.matches=Number(d.matchCount)||HOME_STATS.matches;
+    if(d.playerCount!=null) HOME_STATS.players=Number(d.playerCount)||HOME_STATS.players;
+    renderStats();
   }).catch(function(){});
 
   /* ---- FAQ (render only answered) ---- */
   var FAQ=[
     {q:"Termasuk player registration?", a:"Untuk System + On-site Crew dan Remote System: tidak, kami mulai dari player list yang sudah final. Untuk Full Tournament Organizer: yes, A sampai Z termasuk registration."},
     {q:"Peserta perlu install app?", a:"Nope. Peserta, scorer, dan TV cukup buka browser."},
-    {q:"Paling lambat submit kapan?", a:""},               /* TODO: minimal H-berapa sebelum draw day */
-    {q:"Bisa untuk internal club tournament?", a:""}        /* TODO: skala minimum / format yang didukung */
+    {q:"Paling lambat submit kapan?", a:"Idealnya H-7 sebelum event supaya format & jadwal matang. Untuk System + On-site Crew dan Remote System, player list final paling lambat H-2 sebelum draw day."},
+    {q:"Bisa untuk internal club tournament?", a:"Bisa. Dari fun tournament internal klub sampai open tournament antar-venue — format & skala kami sesuaikan dengan jumlah pair dan court yang ada."}
   ];
   (function(){
     var el=document.getElementById("faqList"); if(!el) return;
@@ -557,18 +584,15 @@ h1,h2,h3{margin:0}
     busy=true; submitBtn.disabled=true; submitBtn.innerHTML='<span class="spin"></span> Mengirim…';
 
     var service=sel.value;
+    var desc=document.getElementById("f-desc").value.trim();
     var notesParts=[];
-    if(!chkWrap.hidden) notesParts.push("Player list final: "+(chk.checked?"Ya":"Tidak"));
+    if(desc) notesParts.push(desc);
+    if(!chkWrap.hidden) notesParts.push("[Player list final: "+(chk.checked?"Ya":"Tidak")+"]");
     // Map ke endpoint lead yang sudah ada (/api/leads) — tanpa perubahan backend.
     var body={
       name:name, email:email, whatsapp:phone,
-      venue:document.getElementById("f-tourney").value.trim(),
-      date:document.getElementById("f-date").value,
-      courts:document.getElementById("f-courts").value,
-      category:document.getElementById("f-cats").value,
-      participants:document.getElementById("f-pairs").value,
       package:service,
-      notes:notesParts.join(" · ")
+      notes:notesParts.join(" — ")
     };
     fetch(BASE+"/leads",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)})
       .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error((d&&d.error)||("HTTP "+r.status)); return d; }); })
@@ -586,6 +610,50 @@ h1,h2,h3{margin:0}
         msg.innerHTML='<span style="color:var(--warn)">Gagal mengirim: '+esc(err.message)+'. Coba lagi.</span>';
       });
   });
+
+  /* ---- duration calculator: live estimate + email capture (calc/gate) ---- */
+  (function(){
+    var CFG={ matchMin:25, groupSize:4, buffer:1.15 }; // grup ~4 pair · ~25 mnt/match · buffer 15%
+    var cats=document.getElementById("c-cats"), prs=document.getElementById("c-pairs"), crt=document.getElementById("c-courts");
+    var out=document.getElementById("calcHours"), meta=document.getElementById("calcMeta");
+    var cForm=document.getElementById("calcForm"), cEmail=document.getElementById("c-email"),
+        cMsg=document.getElementById("calcMsg"), cBtn=document.getElementById("calcSubmit");
+    if(!cForm) return;
+    var cbusy=false, lastEst=null;
+    function clampInt(el,min,max,def){ var v=parseInt(el.value,10); if(isNaN(v))v=def; if(v<min)v=min; if(v>max)v=max; return v; }
+    function estimate(){
+      var C=clampInt(cats,1,40,3), P=clampInt(prs,2,64,8), K=clampInt(crt,1,20,4);
+      var totalPairs=C*P;
+      var matches=Math.round(totalPairs*CFG.groupSize/2); // round-robin grup + playoff singkat
+      var hours=(matches*CFG.matchMin/K)/60*CFG.buffer;
+      var rounded=Math.max(1, Math.round(hours*2)/2);
+      lastEst={C:C,P:P,K:K,totalPairs:totalPairs,matches:matches,hours:rounded};
+      out.textContent="± "+(Number.isInteger(rounded)?rounded:rounded.toFixed(1))+" jam";
+      meta.textContent="~"+matches+" match · "+totalPairs+" pair · "+K+" court";
+    }
+    [cats,prs,crt].forEach(function(el){ if(el){ el.addEventListener("input",estimate); el.addEventListener("change",estimate); } });
+    estimate();
+    cForm.addEventListener("submit",function(e){
+      e.preventDefault(); if(cbusy) return;
+      var email=(cEmail.value||"").trim();
+      if(!/.+@.+\..+/.test(email)){ cMsg.innerHTML='<span style="color:var(--warn)">Masukkan email yang valid.</span>'; return; }
+      cMsg.innerHTML=""; cbusy=true; cBtn.disabled=true; cBtn.innerHTML='<span class="spin"></span> Mengirim…';
+      fetch(BASE+"/calc/gate",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ name:email.split("@")[0], email:email, source:"turnamenpadel.com (home calc)",
+          user_agent:(navigator.userAgent||"").slice(0,300),
+          lead_id:(lastEst?(lastEst.C+"kat/"+lastEst.P+"pair/"+lastEst.K+"court=±"+lastEst.hours+"j"):"") })})
+        .then(function(r){ return r.json().then(function(d){ if(!r.ok) throw new Error((d&&d.error)||("HTTP "+r.status)); return d; }); })
+        .then(function(){
+          cForm.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;text-align:center;padding:8px 0">'+
+            '<div style="font-size:34px">📩</div>'+
+            '<strong style="font-size:18px">Estimasi tersimpan — '+esc(out.textContent)+'</strong>'+
+            '<span style="font-size:14px;color:var(--muted)">Tim kami kirim breakdown lengkap ke email-mu di hari kerja.</span>'+
+            '<a href="/simulasi" class="btn btn--outline" style="min-height:44px;margin-top:4px">Buka kalkulator lengkap →</a></div>';
+        })
+        .catch(function(err){ cbusy=false; cBtn.disabled=false; cBtn.textContent="Send breakdown";
+          cMsg.innerHTML='<span style="color:var(--warn)">Gagal mengirim: '+esc(err.message)+'. Coba lagi.</span>'; });
+    });
+  })();
 })();
 </script>
 </body>

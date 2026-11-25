@@ -1247,8 +1247,37 @@ async function getLandingStats() {
   const tournaments = (tRes.data.values || [])
     .filter((x) => str(x[1]))
     .map((x) => ({ name: str(x[1]), url: str(x[4]), date: str(x[0]), venue: str(x[2]), logoUrl: str(x[3]) }));
-  return respond(200, { playerCount, tournaments },
-    { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" });
+
+  // Live engine totals from the shared Trekkr match ledger (ADDITIVE read-only
+  // fields; nothing else depends on them). matchCount = total matches played,
+  // eventCount = distinct tournaments/events in the ledger. Non-fatal: if the
+  // ledger can't be read the fields come back null and the homepage hides them.
+  let matchCount = null, eventCount = null;
+  try {
+    const sbUrl = process.env.SUPABASE_URL, sbKey = process.env.SUPABASE_SERVICE_KEY;
+    if (sbUrl && sbKey) {
+      const root = String(sbUrl).replace(/\/+$/, "") + "/rest/v1";
+      const H = { apikey: sbKey, Authorization: `Bearer ${sbKey}` };
+      // Exact match count via the Content-Range header (asks for a single row).
+      const cRes = await fetch(`${root}/match_ledger?select=id&limit=1`, { headers: { ...H, Prefer: "count=exact" } });
+      const cr = cRes.headers.get("content-range");
+      if (cr && cr.indexOf("/") >= 0) { const n = parseInt(cr.split("/")[1], 10); if (!isNaN(n)) matchCount = n; }
+      // Distinct events (event_ref), paginated and de-duplicated in memory.
+      const seen = new Set(); let offset = 0; const page = 1000;
+      for (let i = 0; i < 20; i++) {
+        const rRes = await fetch(`${root}/match_ledger?select=event_ref&order=id.asc&limit=${page}&offset=${offset}`, { headers: H });
+        if (!rRes.ok) break;
+        const rows = await rRes.json();
+        for (const r of (rows || [])) { const e = str(r.event_ref); if (e) seen.add(e); }
+        if (!rows || rows.length < page) break;
+        offset += page;
+      }
+      if (seen.size) eventCount = seen.size;
+    }
+  } catch (e) { /* non-fatal; homepage falls back to hiding these cards */ }
+
+  return respond(200, { playerCount, tournaments, matchCount, eventCount },
+    { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800" });
 }
 // Upcoming tournaments untuk homepage (dikelola superadmin di /engine).
 // Tab Upcoming: Name | Subtitle | Location | MonthYear | LogoUrl | Url | Enabled
